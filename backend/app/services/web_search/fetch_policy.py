@@ -1,20 +1,4 @@
-"""The one source check before any ``web_fetch``: chat, MCP and every other caller (C-MCP-3).
-
-A fetch is checked against the same governed source registry as web search (``registry.py``)
-before any byte is requested:
-
-- a blocked source (the platform blocklist or a Workspace ``blocked`` entry) is ``denied`` /
-  ``source_blocked``;
-- a Workspace in ``trusted_only`` search mode fetches only from a trusted source; anything else is
-  ``denied`` / ``source_not_trusted``;
-- a URL that is not an absolute ``http(s)`` URL within bounds is ``invalid_request`` /
-  ``invalid_url``.
-
-Without a Workspace (a worker outside a project), only the platform blocklist and the default mode
-apply; without a database session, only the platform blocklist does. The egress rule
-(``public_web_client``) still guards the request itself and every redirect target: this check is
-about *which sources* a Workspace reads, not about network reach.
-"""
+"""The one source check before any ``web_fetch``: chat, MCP and every other caller (C-MCP-3)."""
 
 from __future__ import annotations
 
@@ -49,7 +33,6 @@ def normalized_fetch_url(raw: object) -> str | None:
 async def web_fetch_refusal(
     db: AsyncSession | None, *, project_id: str | None, url: object
 ) -> dict[str, Any] | None:
-    """The closed refusal of fetching ``url`` in this Workspace, or ``None`` when it may be fetched."""
     normalized = normalized_fetch_url(url)
     if normalized is None:
         return dict(INVALID_URL)

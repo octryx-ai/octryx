@@ -1,11 +1,5 @@
-"""What the pet shows: icon badge, tooltip, menu header and items, and which notifications to send (pure).
-
-Notification rule (concept "Octryx-Begleiter"): only an action or a result notifies, that is a new item while the
-state is ``needs_you``, ``done`` or ``problem``. Working runs, a state that goes back to resting and items the pet
-already saw stay silent. The first answer after the start only remembers what is there (no burst at login).
-Nothing notifies while notifications are off or paused, during the person's quiet hours, or while the platform
-reports the companion's quiet hours.
-"""
+"""What the pet shows and which notifications to send (pure).
+Only a new item in ``needs_you``, ``done`` or ``problem`` notifies; never in quiet hours or on the first answer."""
 
 from __future__ import annotations
 
@@ -44,7 +38,6 @@ class Notification:
 
 
 def present(pet: PetState | None, connection: str) -> Display:
-    """``connection`` is ``ok``, ``offline`` or ``signed_out``; offline keeps the last known items visible."""
     if connection == SIGNED_OUT:
         return Display(SIGNED_OUT, 0, f"{TITLE}: {LABELS[SIGNED_OUT]}", LABELS[SIGNED_OUT])
     if pet is None:
@@ -63,7 +56,6 @@ def present(pet: PetState | None, connection: str) -> Display:
 
 @dataclass
 class Notifier:
-    """Remembers the item ids it saw; :meth:`after` answers the notifications for a new answer."""
 
     seen: set[str] = field(default_factory=set)
     started: bool = False

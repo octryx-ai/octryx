@@ -235,7 +235,6 @@ async def _expand_neighbors(
     direction: str,
     relation: str,
 ) -> tuple[set[str], dict[str, CodeGraphEdge], bool]:
-    """Breadth-first expansion from the start node, capped by depth and node count."""
     visited = {start_id}
     frontier = {start_id}
     edge_rows: dict[str, CodeGraphEdge] = {}

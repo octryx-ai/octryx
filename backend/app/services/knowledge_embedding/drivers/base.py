@@ -1,18 +1,4 @@
-"""Embedding driver contract and provider-family resolution.
-
-A driver turns text into a real embedding vector. The knowledge base supports
-three families:
-
-- ``local_hash`` — deterministic SHA256 token-hash vectors. Explicit, non-semantic,
-  offline/dev only. Selected only when configured as ``local_hash`` — never as a
-  silent fallback.
-- ``in_process`` — a real embedding model loaded in-process (fastembed /
-  sentence-transformers). The on-prem option.
-- ``bedrock`` — AWS Bedrock embedding models (Titan / Cohere).
-
-When a real provider is configured but cannot produce embeddings, drivers raise
-``EmbeddingConfigurationError`` loudly instead of degrading to hash vectors.
-"""
+"""Embedding driver contract and provider-family resolution."""
 
 from __future__ import annotations
 
@@ -20,11 +6,7 @@ from abc import ABC, abstractmethod
 
 
 class EmbeddingConfigurationError(RuntimeError):
-    """A configured embedding provider cannot produce embeddings.
-
-    Deliberately loud: the platform never silently substitutes a non-semantic
-    hash embedding when a real provider was requested.
-    """
+    """A configured embedding provider cannot produce embeddings."""
 
 
 FAMILY_LOCAL_HASH = "local_hash"
@@ -95,7 +77,4 @@ class BaseEmbeddingDriver(ABC):
 
     @abstractmethod
     def embed(self, texts: list[str], *, is_query: bool = False) -> list[list[float]]:
-        """Return one vector per input text. ``is_query`` marks retrieval-time
-        queries — models with asymmetric encodings (e.g. E5's query:/passage:
-        prefixes) encode them differently from indexed passages. Raises
-        EmbeddingConfigurationError if the backend is unavailable or fails."""
+        """Return one vector per input text."""

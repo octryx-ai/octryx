@@ -1,10 +1,4 @@
-"""Knowledge-graph store: alias-based entity resolution, edges, and claims.
-
-``upsert_node`` resolves an entity by any of its aliases first, so the same real
-entity referred to differently across sources (e.g. "Alice Example" vs the
-connector user "alice") collapses into one node. Node/edge descriptions are
-embedded with the governed provider for dual-level retrieval.
-"""
+"""Knowledge-graph store: alias-based entity resolution, edges, and claims."""
 
 from __future__ import annotations
 

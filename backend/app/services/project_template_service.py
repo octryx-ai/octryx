@@ -28,8 +28,6 @@ ALLOWED_PROJECT_SOURCE_TYPES = {
 
 @dataclass(frozen=True)
 class ProjectTemplateSpec:
-    """Validated, data-only project template definition."""
-
     template_key: str
     display_name: str
     version: str
@@ -70,8 +68,6 @@ async def import_project_template(
     admin_user: User,
     overwrite_config: bool = False,
 ) -> Project:
-    """Create or update a project from a template without hiding its source."""
-
     template.validate()
     project_name = template.resolved_project_name
     existing = (await db.execute(select(Project).where(Project.name == project_name))).scalar_one_or_none()
@@ -126,8 +122,6 @@ async def import_project_template(
 
 
 async def ensure_default_project(db: AsyncSession, *, admin_user: User) -> Project:
-    """Ensure the generic protected project that every fresh deployment needs."""
-
     template = ProjectTemplateSpec(
         template_key="system-default-project",
         display_name="Default Project",

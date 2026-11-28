@@ -17,10 +17,6 @@ import {
 import { emergencyStop, loadNewStartsHeld, loadStopHistory, loadStopPreview, resumeNewStarts } from "./operationsApi";
 import { previewSentence, stopCountText, type StopPreview, type StopPreviewJob, type StopPreviewRun, type StopRecord } from "./operationsEmergencyStop";
 
-// Emergency stop: an explicit admin action with a required reason. The panel lists
-// exactly what the stop touches (the server's preview), says that runs pause and can be continued, and shows the
-// server's refusal verbatim. Nothing triggers it automatically.
-
 const RUN_COLUMNS: DataTableColumn<StopPreviewRun>[] = [
   { key: "title", header: "Run", grow: true, render: (run) => run.title },
   { key: "workspace", header: "Workspace", nowrap: true, render: (run) => run.workspace },
@@ -40,7 +36,7 @@ export function EmergencyStopPanel({ label, workspaceId, onClose, onStopped }: {
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  // A platform stop holds every Workspace: it needs its own, explicit confirmation beyond the reason.
+  // A platform stop holds every Workspace, so it needs its own explicit confirmation.
   const platform = !workspaceId;
   const [platformConfirmed, setPlatformConfirmed] = useState(false);
   const reasonId = useId();
@@ -106,13 +102,12 @@ function StopPanelFooter({ busy, disabled, platform, onClose, onStop }: {
   );
 }
 
-// A platform stop holds every Workspace: its own, explicit confirmation beyond the reason.
 function PlatformStopWarning({ busy, confirmed, onConfirmed }: { busy: boolean; confirmed: boolean; onConfirmed: (next: boolean) => void }) {
   return (
     <div className="ops-notice ops-notice--problem" data-testid="ops-stop-platform-warning">
       <p>
-        <strong>This stops every Workspace on the platform</strong>, not just one: their running runs pause and
-        no Workspace starts anything new until an admin resumes.
+        <strong>This stops the whole platform</strong>, not just one Workspace: the runs you can see pause, every
+        device job stops, also in private Workspaces you cannot see, and nothing new starts until an admin resumes.
       </p>
       <label className="admin-panel__checkbox">
         <input type="checkbox" data-testid="ops-stop-platform-confirm" checked={confirmed}
@@ -123,7 +118,6 @@ function PlatformStopWarning({ busy, confirmed, onConfirmed }: { busy: boolean; 
   );
 }
 
-// What the stop touches as the server previews it: the sum, the runs that pause and the device jobs that stop.
 function StopPreviewParts({ preview, loadError }: { preview: StopPreview | null; loadError: string }) {
   return (
     <>
@@ -148,7 +142,6 @@ function StopPreviewParts({ preview, loadError }: { preview: StopPreview | null;
   );
 }
 
-/** The last emergency stops of this scope, folded under the page; read when it is opened. */
 export function StopHistory({ workspaceId, reloadKey }: { workspaceId: string; reloadKey: number }) {
   const [open, setOpen] = useState(false);
   const [rows, setRows] = useState<StopRecord[] | null>(null);
@@ -185,13 +178,7 @@ export function StopHistory({ workspaceId, reloadKey }: { workspaceId: string; r
   );
 }
 
-/**
- * While a stop holds new starts in this scope: says so and offers Resume to whoever may stop it (the caller
- * renders this only for them). It names who stopped, when and why. Resume lifts exactly this scope after an
- * in-page confirmation with a required reason; its result or refusal is shown in words. Under a platform stop a
- * Workspace view offers no Workspace resume (it would answer 409): platform admins switch to the platform view.
- * Paused runs are not continued by it.
- */
+// A Workspace view under a platform stop offers no resume: the server would answer 409.
 export function HeldStarts({ workspaceId, workspaceName, reloadKey, isPlatformAdmin, onShowPlatform, onResumed }: {
   workspaceId: string; workspaceName: string; reloadKey: number; isPlatformAdmin: boolean;
   onShowPlatform: () => void; onResumed: (result: string) => void;
@@ -230,7 +217,6 @@ export function HeldStarts({ workspaceId, workspaceName, reloadKey, isPlatformAd
   );
 }
 
-// Who stopped new starts in this scope, when and why, and the platform note under a platform stop.
 function HoldFacts({ hold, workspaceId, workspaceName }: { hold: Hold | null; workspaceId: string; workspaceName: string }) {
   return (
     <div className="ops-held__body">
@@ -249,7 +235,6 @@ function HoldFacts({ hold, workspaceId, workspaceName }: { hold: Hold | null; wo
   );
 }
 
-// The in-page confirmation of Resume: a required reason, then the resume; a refusal is said in words.
 function resumeConfirmation(where: string, workspaceId: string, workspaceName: string, onResumed: (result: string) => void,
   onDone: () => void): ConfirmRequest {
   return {

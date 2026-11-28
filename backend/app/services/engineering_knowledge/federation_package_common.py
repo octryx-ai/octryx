@@ -31,7 +31,7 @@ BLOCKED_EXPORT_KEY_PARTS = {
 
 
 class KnowledgePackageValidationError(ValueError):
-    """Raised when an Engineering Knowledge package fails validation."""
+    pass
 
 
 def _without_signature(package: dict[str, Any]) -> dict[str, Any]:

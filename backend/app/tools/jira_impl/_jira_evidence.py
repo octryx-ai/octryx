@@ -1,11 +1,4 @@
-"""Jira read results as evidence: every issue and version names its openable source.
-
-URLs come only from the Workspace's configured Jira base URL plus the item key
-(``tools/evidence_fields.item_url``): an issue is ``{jira_url}/browse/{KEY}``, a version is
-``{jira_url}/projects/{PROJECT}/versions/{ID}`` (the form the release sync links,
-``services/knowledge/sources/sync/jira_releases.version_url``), a project is ``{jira_url}/browse/{KEY}``, a
-board is ``{jira_url}/secure/RapidBoard.jspa?rapidView={ID}``. No configured base, no key: no source.
-"""
+"""Jira read results as evidence: every issue and version names its openable source."""
 
 from __future__ import annotations
 
@@ -43,10 +36,6 @@ def with_board_source(item: dict[str, Any], jira_url: str) -> dict[str, Any]:
 
 
 def with_release_status_sources(result: dict[str, Any]) -> dict[str, Any]:
-    """The release (its version page) and each open blocker (its issue page) as sources.
-
-    Both URLs were built by the release-status service from the connection's base URL.
-    """
     project_key = str(result.get("jira_project") or "")
     title = f"{project_key} {result.get('jira_version') or result.get('version') or ''}".strip()
     sourced = with_source(result, title=title, url=http_url(result.get("version_url")))

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+from collections.abc import Mapping
 from typing import Any
 
 from ..devices.device_runs_keys import DEVICE_RUNS_KEY
@@ -129,9 +131,18 @@ BASELINE_POLICY: dict[str, Any] = {
 }
 
 
-class AgentGatewayPolicyError(ValueError):
-    """A policy that does not validate; ``reason`` is a fixed code, ``path`` names the field."""
+# The keys that make the policy the Workspace's own rules (the rest are settings beside the baseline's rules).
+RULE_KEYS = frozenset({"verification", "tool_rules", "client_permissions", "session_budget", "sandbox"})
 
+
+# Key by key: a key the Workspace does not set is the baseline's, so a setting saved alone (engines, device runs, a
+# seat switch) never drops the baseline's rules.
+def over_baseline(stored: Any) -> dict[str, Any]:
+    own = dict(stored) if isinstance(stored, Mapping) else {}
+    return {**copy.deepcopy(BASELINE_POLICY), **copy.deepcopy(own)}
+
+
+class AgentGatewayPolicyError(ValueError):
     def __init__(self, reason: str, path: str) -> None:
         super().__init__(f"{path}: {reason}")
         self.reason = reason

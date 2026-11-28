@@ -1,8 +1,4 @@
-"""A workflow run's main chat thread is listed under the run's work item ("<key> <title>"), not its first prompt.
-
-Contract: binding the main thread names it after the work item (or the run title without one); a title the user
-gave is never replaced, and the device's continuation prompt does not rename the thread afterwards.
-"""
+"""A workflow run's main chat thread is listed under the run's work item ("<key> <title>"), not its first prompt."""
 
 from __future__ import annotations
 
@@ -12,7 +8,10 @@ from app.models import WorkItem
 from app.services.devices.hub import device_hub
 from app.services.session.session_title import apply_prompt_title, apply_user_title
 from app.services.workflow_runs.records import bind_session, new_chat_session
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import _device_run
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.fixture(autouse=True)
@@ -37,7 +36,7 @@ async def test_the_main_thread_is_named_after_the_work_item_and_a_user_title_sta
     assert named.metadata_["title"] == "BRD-14 Add capitalize_words"
     metadata = dict(named.metadata_)
     apply_prompt_title(metadata, "Continue workflow run feature-delivery-tdd: phase 'Clarify'")
-    assert metadata["title"] == "BRD-14 Add capitalize_words"  # the continuation prompt does not rename it
+    assert metadata["title"] == "BRD-14 Add capitalize_words"
 
     renamed = await new_chat_session(db, admin, run.project_id)
     metadata = dict(renamed.metadata_ or {})

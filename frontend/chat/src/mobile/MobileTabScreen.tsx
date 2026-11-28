@@ -52,6 +52,7 @@ export type MobileTabScreenProps = {
   setPhase: Dispatch<SetStateAction<"loading" | "signedOut" | "ready">>;
   openPage: (page: Detail) => void;
   openItem: (item: AttentionItem) => void;
+  takeOver: (item: AttentionItem) => Promise<void>;
   openThread: (thread: DeviceThread) => void;
   openLocal: (local: LocalSession) => void;
 };
@@ -74,6 +75,7 @@ function HomeAndChatsTabs({ props, tiles, newChat }: { props: MobileTabScreenPro
           loading={loading}
           error={props.error}
           onOpenItem={props.openItem}
+          onTakeOver={props.takeOver}
           onOpenApproval={(approval) => openPage({ kind: "approval", approval })}
           onOpenCase={(item) => openPage({ kind: "case", item })}
           onOpenThread={openThread}

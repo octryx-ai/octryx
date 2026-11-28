@@ -1,23 +1,4 @@
-"""RFC 8707 resource indicators accepted by the platform OAuth server.
-
-The JWT audience of an access token is derived from the requested
-``resource``. Only resources that a platform resource server actually
-verifies are accepted; anything else is refused with ``invalid_target``
-instead of minting a token for an audience nobody checks.
-
-Closed set:
-- absent or blank: no explicit resource (the minted audience defaults to
-  ``octryx-mcp``);
-- ``octryx-mcp``, ``octryx-model-gateway`` and ``octryx-device`` (the device channel,
-  minted for device grants only): minted as-is;
-- the MCP resource URLs accepted by the MCP verifier
-  (``acceptable_mcp_audiences``): minted as-is;
-- the MCP resource URL advertised by ``/.well-known/oauth-protected-resource``
-  (``{issuer}{mount}{streamable}``, what VS Code Copilot sends): minted as the
-  canonical MCP audience ``octryx-mcp`` when the verifier does not
-  list that URL itself (public hostnames), so the token stays usable without
-  widening the verifier's accepted audiences.
-"""
+"""RFC 8707 resource indicators accepted by the platform OAuth server."""
 
 from __future__ import annotations
 
@@ -38,11 +19,6 @@ def _mcp_resource_paths() -> tuple[str, str]:
 
 
 def resolve_resource_indicator(raw: str | None, *, issuer: str) -> str | None:
-    """Return the audience to mint for ``raw``; None when no resource was requested.
-
-    Raises ``OAuthFlowError("invalid_target", ...)`` for any other value. The
-    raw value is never echoed in the error.
-    """
     value = (raw or "").strip()
     if not value:
         return None

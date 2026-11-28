@@ -1,14 +1,5 @@
-"""An author's own edits to a knowledge package catalog (Knowledge, research packages).
-
-Research proposes; the author owns the catalog. An author can add a source the research missed,
-correct a proposed title, version, role or URL, and remove a document. Every value goes through the
-same validation as a researched one, so a hand-added source is indistinguishable from a researched
-one downstream, except that its rationale says who added it. An ingested document is fixed; to
-change it, add a corrected document and remove the old one's source.
-
-A hand-added document is accepted only when its source is trusted; otherwise it waits as a proposal
-until an admin trusts the source (``services/web_search/registry.py``).
-"""
+"""An author's own edits to a knowledge package catalog. A hand-added source goes through the same validation as a
+researched one."""
 
 from __future__ import annotations
 

@@ -23,7 +23,6 @@ async def _wait(stop: asyncio.Event, seconds: float) -> None:
 async def update_watch(manager: Any, stop: asyncio.Event, *, check: Callable[[], self_update.Updated | None],
                        interval: float = UPDATE_INTERVAL_SECONDS,
                        idle_poll: float = IDLE_POLL_SECONDS) -> self_update.Updated | None:
-    """Activates a served update while no job runs, then stops the service once it is idle again."""
     logger = logging.getLogger("octryx_claude.device")
     while not stop.is_set():
         await _wait(stop, interval)
@@ -42,7 +41,6 @@ async def update_watch(manager: Any, stop: asyncio.Event, *, check: Callable[[],
 
 
 async def local_model_watch(manager: Any, stop: asyncio.Event, *, interval: float = 60.0) -> None:
-    """Stops the local decision model after it was idle a while (``local_model.IDLE_SECONDS``)."""
     while not stop.is_set():
         with contextlib.suppress(Exception):
             await manager.stop_local_model(only_idle=True)
@@ -51,7 +49,6 @@ async def local_model_watch(manager: Any, stop: asyncio.Event, *, interval: floa
 
 async def health_watch(client: Any, stop: asyncio.Event, confirm: Callable[[], None], *,
                        grace: float = self_update.HEALTHY_AFTER_SECONDS, poll: float = 1.0) -> None:
-    """Confirms this start healthy once the channel is connected, or after ``grace`` seconds without a crash."""
     loop = asyncio.get_running_loop()
     started = loop.time()
     while not stop.is_set() and not client.connected and loop.time() - started < grace:

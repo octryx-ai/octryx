@@ -7,10 +7,6 @@ import { threadTimeLabel } from "./threadTime";
 
 type ArchivedPage = { total: number; threads: ThreadSummary[]; nextOffset: number; hasMore: boolean };
 
-/**
- * Archived chats inside the chat: newest activity first, one Restore per row. Replaces the
- * "restore in Settings" detour; archive itself is unchanged (archive_session_tree).
- */
 export function ThreadArchivedView({
   onBack,
   onRestore,

@@ -1,8 +1,4 @@
-"""Synchronous checks against a computed grant, and refusals that name the setting and who can change it.
-
-"Every refusal names the setting and who can change it." No role means no permission, and an admin can assign one —
-no role means no tools, with a clear reason instead of a silent empty surface.
-"""
+"""Synchronous checks against a computed grant, and refusals that name the setting and who can change it."""
 from __future__ import annotations
 
 from typing import Any
@@ -41,7 +37,6 @@ def tool_allowed(grant: WorkRoleGrant | None, tool_name: str) -> bool:
 
 
 def tool_refusal(grant: WorkRoleGrant | None, tool_name: str) -> dict[str, Any] | None:
-    """``None`` when the grant admits the tool, else the refusal payload (chat dispatch and MCP calls)."""
     if tool_allowed(grant, tool_name):
         return None
     assert grant is not None
@@ -60,7 +55,6 @@ def tool_refusal(grant: WorkRoleGrant | None, tool_name: str) -> dict[str, Any] 
 
 def connection_refusal(grant: WorkRoleGrant | None, tool_name: str, connection_id: str | None,
                        connection_label: str = "") -> dict[str, Any] | None:
-    """A write through a connection none of the person's delivery roles is granted (delivery per connection)."""
     if grant is None or grant.allows_connection(connection_id):
         return None
     label = connection_label or connection_id or "the default connection"
@@ -80,10 +74,6 @@ def filter_tool_names(grant: WorkRoleGrant | None, names: list[str]) -> list[str
 def grant_view(grant: WorkRoleGrant, tool_names: list[str] | None = None, *,
                function_names: dict[str, str] | None = None,
                connection_names: dict[str, str]) -> dict[str, Any]:
-    """The API shape of ``EffectivePermission``, with display names for functions and connections.
-
-    ``connection_names`` holds the connections available in the grant's Workspace (``catalog_scope``); a role's stored
-    connection outside it is not serialized, neither as id nor as name."""
     tools = sorted(name for name in (tool_names or []) if grant.unrestricted or tool_allowed(grant, name))
     selected = grant.write_connections
     write = None if selected is None else sorted(cid for cid in selected if cid in connection_names)

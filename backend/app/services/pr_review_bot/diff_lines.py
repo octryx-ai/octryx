@@ -1,13 +1,4 @@
-"""Which lines of a pull request a review comment may anchor on, read from its unified diff. Pure.
-
-GitHub accepts a review comment only on a line of the diff (an added or a context line of a hunk, on the new side)
-and refuses the whole review with 422 otherwise; Bitbucket Server/Data Center anchors a comment on a line with its
-``lineType`` (``ADDED`` or ``CONTEXT``); GitLab anchors an unchanged line on both sides, so a context line also
-keeps its old-side number. A finding outside the diff is therefore never posted inline: it goes into
-the summary comment with its file and line (``render``).
-
-Also the walkthrough's facts: per file, the lines added and removed, and whether the file is new, deleted or renamed.
-"""
+"""Which lines of a pull request a review comment may anchor on, read from its unified diff."""
 
 from __future__ import annotations
 
@@ -38,7 +29,6 @@ def _path(header: str) -> str:
 
 
 def _start(line: str, files: dict[str, FileChange]) -> FileChange | None:
-    """``diff --git a/x b/y`` opens a file; its path is settled by the ``+++`` line or the rename lines."""
     parts = line[len("diff --git "):].split(" b/", 1)
     path = parts[1] if len(parts) == 2 else parts[0]
     change = FileChange(path)
@@ -47,7 +37,6 @@ def _start(line: str, files: dict[str, FileChange]) -> FileChange | None:
 
 
 def parse_diff(diff: str) -> dict[str, FileChange]:
-    """Every file of ``diff`` by its new path (a deleted file by its old one)."""
     files: dict[str, FileChange] = {}
     current: FileChange | None = None
     new_line = old_line = 0
@@ -84,7 +73,6 @@ def parse_diff(diff: str) -> dict[str, FileChange]:
 
 
 def _header_line(line: str, current: FileChange, files: dict[str, FileChange]) -> bool:
-    """Reads one line of a file header; ``True`` when it opens the first hunk."""
     if line.startswith("new file mode"):
         current.status = "added"
     elif line.startswith("deleted file mode"):
@@ -103,25 +91,21 @@ def _header_line(line: str, current: FileChange, files: dict[str, FileChange]) -
 
 
 def line_kind(files: dict[str, FileChange], path: str, line: int) -> str:
-    """``ADDED`` / ``CONTEXT`` when ``path:line`` is on the new side of the diff, else ``''``."""
     change = files.get(path.strip().lstrip("./"))
     return change.lines.get(line, "") if change is not None else ""
 
 
 def old_line_of(files: dict[str, FileChange], path: str, line: int) -> int:
-    """The old-side number of a context line ``path:line`` (``0`` for an added line or one off the diff)."""
     change = files.get(path.strip().lstrip("./"))
     return change.old_lines.get(line, 0) if change is not None else 0
 
 
 def line_text(files: dict[str, FileChange], path: str, line: int) -> str | None:
-    """The new-side text of ``path:line``, ``None`` off the diff."""
     change = files.get(path.strip().lstrip("./"))
     return change.text.get(line) if change is not None else None
 
 
 def range_in_diff(files: dict[str, FileChange], path: str, start: int, end: int) -> bool:
-    """A multi-line comment (``start_line``..``line``) must lie in one hunk: every line of it on the new side."""
     return start <= end and all(line_kind(files, path, number) for number in range(start, end + 1))
 
 

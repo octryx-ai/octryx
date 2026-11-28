@@ -13,13 +13,10 @@ from ...models import (
     ContextCheckpoint,
     Message,
     MessageFeedback,
-    PrefetchCacheEntry,
     Session,
     SessionEntity,
-    SessionToolCacheEntry,
     ThreadContext,
     ToolCall,
-    ToolResultCompressionLog,
 )
 from ...time_utils import utc_now
 from ..artifact_store import delete_tool_artifacts_for_tool_call_ids
@@ -32,6 +29,7 @@ class ChatRewind:
     target_message: Message
     ordered_messages: list[Message]
     prompt: str
+    text_changed: bool = False
 
 
 async def _ordered_messages(db: AsyncSession, session: Session) -> list[Message]:
@@ -51,7 +49,6 @@ async def _ordered_messages(db: AsyncSession, session: Session) -> list[Message]
 async def _drop_later_history(
     db: AsyncSession, *, session: Session, cutoff: datetime, later_message_ids: list[str]
 ) -> None:
-    """Delete what the replaced run produced; append-only history is superseded instead."""
     tool_call_filters = [ToolCall.session_id == session.id, ToolCall.created_at > cutoff]
     if later_message_ids:
         tool_call_filters[-1] = or_(ToolCall.created_at > cutoff, ToolCall.message_id.in_(later_message_ids))
@@ -82,11 +79,8 @@ async def _drop_later_history(
     if tool_call_ids:
         await db.execute(delete(ToolCall).where(ToolCall.id.in_(tool_call_ids)))
     await db.execute(delete(ThreadContext).where(ThreadContext.session_id == session.id))
-    await db.execute(delete(SessionToolCacheEntry).where(SessionToolCacheEntry.session_id == session.id))
-    await db.execute(delete(PrefetchCacheEntry).where(PrefetchCacheEntry.session_id == session.id))
     await db.execute(delete(ContextCheckpoint).where(ContextCheckpoint.session_id == session.id))
     await db.execute(delete(SessionEntity).where(SessionEntity.session_id == session.id))
-    await db.execute(delete(ToolResultCompressionLog).where(ToolResultCompressionLog.session_id == session.id))
 
     if later_message_ids:
         await db.execute(delete(Message).where(Message.id.in_(later_message_ids)))
@@ -119,11 +113,7 @@ async def rewind_chat_history(
     target_message: Message,
     prompt: str,
 ) -> ChatRewind:
-    """Drop the thread after the target user message and put ``prompt`` in it; nothing is committed.
-
-    Shared by the server rerun (:func:`prepare_chat_rerun`) and the device rerun
-    (``devices/chat_turn.start_device_turn``), which marks its own turn.
-    """
+    """Drop the thread after the target user message and put ``prompt`` in it; nothing is committed."""
     clean_prompt = str(prompt or "").strip()
     if not clean_prompt:
         raise ValueError("Prompt is required")
@@ -143,5 +133,7 @@ async def rewind_chat_history(
     cutoff = target_message.created_at
 
     await _drop_later_history(db, session=session, cutoff=cutoff, later_message_ids=later_message_ids)
+    text_changed = (target_message.content or "").strip() != clean_prompt
     _reset_target(session, target_message, ordered_messages, clean_prompt)
-    return ChatRewind(target_message=target_message, ordered_messages=list(ordered_messages), prompt=clean_prompt)
+    return ChatRewind(target_message=target_message, ordered_messages=list(ordered_messages), prompt=clean_prompt,
+                      text_changed=text_changed)

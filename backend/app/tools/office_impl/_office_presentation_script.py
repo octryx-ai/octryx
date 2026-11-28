@@ -8,7 +8,7 @@ from app.tools.context import ToolContext
 
 from ._office_core_helpers import _resolve_path, _resolve_presentation_template_with_fallback
 from ._office_generated_base import office_validation
-from ._office_presentation_script_build import build_presentation_visual_ops_code, generate_presentation_script
+from ._office_presentation_script_build import generate_presentation_script
 from ._office_presentation_script_run import DeckTarget, build_deck, deck_result, parse_slides_param, source_potx_for
 from ._office_presentation_script_text import (
     PRESENTATION_SOURCE_INDEX,
@@ -38,9 +38,6 @@ class BuildPresentationScriptTool:
             clone_order=clone_order,
             slides=slides,
         )
-
-    def _build_visual_ops_code(self, slide_specs: list[dict[str, Any]]) -> str:
-        return build_presentation_visual_ops_code(slide_specs)
 
     name = "build_presentation_script"
     description = (
@@ -113,5 +110,3 @@ def _presentation_template_unconfigured() -> dict[str, Any]:
     return needs_configuration(
         PRESENTATION_TEMPLATE_UNCONFIGURED, render_prompt("office.presentation.template_unconfigured")
     )
-
-

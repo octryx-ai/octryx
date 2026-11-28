@@ -1,7 +1,7 @@
 """Test configuration and fixtures."""
 
-import tests.network_guard  # noqa: F401, I001 - first: no test reaches the real network (tests/network_guard.py)
-from tests.isolated_environment import (  # noqa: I001 - before any app import: databases, bcrypt cost
+import tests.support.network_guard  # noqa: F401, I001 - first: no test reaches the real network (tests/support/network_guard.py)
+from tests.support.isolated_environment import (  # noqa: I001 - before any app import: databases, bcrypt cost
     APP_DATABASE_PATH,
     AUDIT_FALLBACK_PATH,
     TEST_DATABASE_PATH,
@@ -20,13 +20,13 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import event, select, text
+from sqlalchemy import event, select, text, update
 from sqlalchemy.exc import ResourceClosedError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
 import app.main as main_module
-import tests.scratch_sqlite_migrations  # noqa: F401 - alembic upgrades/downgrades skip fsync on scratch SQLite
+import tests.support.scratch_sqlite_migrations  # noqa: F401 - alembic upgrades/downgrades skip fsync on scratch SQLite
 from app.bootstrap import seed_database
 from app.config import get_settings
 from app.db import Base, get_db
@@ -43,25 +43,31 @@ from app.models import (
 )
 from app.services.auth_rate_limit import clear_all_auth_rate_limits
 from app.services.chat_turn_background import cancel_chat_turn_background_tasks
+from app.services.data_access import PlatformMaintenance, set_viewer
 from app.services.project_template_service import PROJECT_SOURCE_SAMPLE
-from app.services.sample_workspace_bootstrap import ensure_sample_workspace_bootstrap
 from app.services.session.turn_tasks import CHAT_RUN_TASKS
 from tests.import_preload import preload as preload_workflow_run_modules
-from tests.model_call_scope_plugin import (  # noqa: F401 - registers the driver-test scope and report evidence
+from tests.support.loop_teardown import (  # noqa: F401 - registers the bounded loop close for every async test
+    _bounded_loop_close,
+    _no_task_outlives_its_test,
+    cancel_leftover_tasks,
+)
+from tests.support.model_call_scope_plugin import (  # noqa: F401 - registers the driver-test scope and report evidence
     fresh_report_evidence,
     platform_model_call,
 )
-from tests.policy_engine_shadow_plugin import (  # noqa: F401 - registers the Cedar shadow-equality fixture
+from tests.support.policy_engine_shadow_plugin import (  # noqa: F401 - registers the Cedar shadow-equality fixture
     policy_engine_shadow_equality,
     pytest_runtest_logreport,
     pytest_terminal_summary,
 )
+from tests.sample_workspace_support import ensure_sample_workspace_bootstrap
 
 # The in-process HTTP harness (httpx ASGITransport) speaks plain HTTP from a
 # loopback peer, i.e. exactly the explicit local-debug case of the auth-cookie
 # policy. Pin that configuration here so shared cookie round-trips keep working
 # even when the CI environment declares a production-like forced-secure policy;
-# forced-secure/HTTPS/proxy behavior is proven by tests/test_auth_cookie_policy.py
+# forced-secure/HTTPS/proxy behavior is proven by tests/platform/test_auth_cookie_policy.py
 # against explicit Settings instances instead of the shared harness.
 os.environ["FORCE_SECURE_AUTH_COOKIES"] = "false"
 os.environ["DEBUG"] = "true"
@@ -80,7 +86,6 @@ get_settings.cache_clear()
 # the harness sends, so harness requests are same-origin by construction.
 HARNESS_ORIGIN = "http://test"
 
-# Admin password used by test fixtures — read from settings at import time
 ADMIN_PASSWORD = get_settings().admin_default_password
 
 
@@ -117,10 +122,14 @@ os.environ.setdefault("OCTRYX_KNOWLEDGE_EMBEDDING_MODEL", "hash-embedding-v1")
 # that need one set it explicitly.
 os.environ["OCTRYX_KNOWLEDGE_FEDERATION_SIGNING_KEY"] = ""
 
+# Test code reads every Workspace like the platform jobs it stands in for; each request through the harness starts
+# without a viewer and reads as its gate's principal (middleware/context/data_viewer.py).
+set_viewer(PlatformMaintenance(reason="test harness", caller=__name__))
+
 # Before any test can monkeypatch a workflow-run module: no lazy first import may capture a test's fake.
 preload_workflow_run_modules()
 
-# File-based SQLite per process (tests/isolated_environment.py).
+# File-based SQLite per process (tests/support/isolated_environment.py).
 # WAL journal mode + shared cache allow concurrent connections within the same process
 _test_engine = create_async_engine(
     TEST_DATABASE_URL,
@@ -135,12 +144,15 @@ _test_engine = create_async_engine(
 _test_session_factory = async_sessionmaker(_test_engine, class_=AsyncSession, expire_on_commit=False)
 
 
-
 def _remove_test_database() -> None:
-    """Drop this process's database files and their SQLite side files (one set per pytest process, never reused)."""
     _test_engine.sync_engine.dispose()
     for path in (*sqlite_files(TEST_DATABASE_PATH), *sqlite_files(APP_DATABASE_PATH), AUDIT_FALLBACK_PATH):
         path.unlink(missing_ok=True)
+
+
+def pytest_configure(config) -> None:
+    config.addinivalue_line(
+        "markers", "without_baseline_runtime: run with the baseline gateway provider switched off (no level narrowing)")
 
 
 def pytest_sessionfinish(session, exitstatus) -> None:  # noqa: ARG001 - pytest hook signature
@@ -150,13 +162,11 @@ def pytest_sessionfinish(session, exitstatus) -> None:  # noqa: ARG001 - pytest 
 # A process that dies before sessionfinish (crash, Ctrl-C mid-collection) still removes its file.
 atexit.register(_remove_test_database)
 
-# Expose at module level for tests that need to inspect the engine directly
 test_engine = _test_engine
 shared_test_session_factory = _test_session_factory
 
 
 async def _seed_fallback_runtime_target(db: AsyncSession) -> ControlPlaneRuntimeTarget:
-    """Create a minimal runtime target + provider when seed_database skips it (no llm_provider configured)."""
     existing = (
         (await db.execute(select(ControlPlaneRuntimeTarget).where(ControlPlaneRuntimeTarget.is_active.is_(True))))
         .scalars()
@@ -164,18 +174,9 @@ async def _seed_fallback_runtime_target(db: AsyncSession) -> ControlPlaneRuntime
     )
     if existing:
         return existing
-    provider = LLMProvider(
-        id=str(uuid.uuid4()),
-        name="copilot",
-        provider_family="github",
-        driver="copilot_api",
-        runtime_kind="api",
-        display_name="Copilot (Default)",
-        auth_mode="auth_session",
-        default_model_id="claude-sonnet-4-20250514",
-        is_global=True,
-        is_active=True,
-    )
+    from tests.model_gateway.conftest import baseline_gateway_provider
+
+    provider = baseline_gateway_provider()
     db.add(provider)
     await db.flush()
     config_result = await db.execute(select(ControlPlaneConfig).where(ControlPlaneConfig.name == "default"))
@@ -202,15 +203,11 @@ async def _seed_fallback_runtime_target(db: AsyncSession) -> ControlPlaneRuntime
     return target
 
 
-# ---------------------------------------------------------------------------
-# One-time schema initialisation at module import time
-# ---------------------------------------------------------------------------
 _test_loop = asyncio.new_event_loop()
 asyncio.set_event_loop(_test_loop)
 
 
 async def _init_schema():
-    """Run once: create all tables."""
     clear_all_auth_rate_limits()
     clear_rate_limit_buckets()
     CHAT_RUN_TASKS.clear()
@@ -234,13 +231,6 @@ _test_loop.close()
 
 
 async def _clear_all_tables(db: AsyncSession) -> None:
-    """Clear all rows so the pre-existing schema stays intact across test runs.
-
-    The temp SQLite DB is created once per test process. Using DELETE (not DROP)
-    preserves the schema that was set up when the first db fixture ran init_db.
-    This prevents "index already exists" errors on re-runs and "no such column"
-    errors when Base.metadata includes columns the existing tables don't have.
-    """
     await db.execute(text("PRAGMA foreign_keys=OFF"))
     for table in reversed(Base.metadata.sorted_tables):
         await db.execute(table.delete())
@@ -248,8 +238,6 @@ async def _clear_all_tables(db: AsyncSession) -> None:
 
 
 async def _switch_optional_workflows_on(db: AsyncSession) -> None:
-    """The suite runs every shipped workflow, the optional ones too; ``test_shipped_workflows`` checks what a fresh
-    installation really has active."""
     from app.models import FlowDefinition
     from app.services.workflow_runs.seeding import AVAILABILITY_OPTIONAL, phased_seeds
 
@@ -261,8 +249,6 @@ async def _switch_optional_workflows_on(db: AsyncSession) -> None:
 
 
 async def _publish_engineering_base(db: AsyncSession) -> None:
-    """B (``feature-delivery-tdd``), the base the accepted-spec engineering graph is derived from, published as an
-    admin would: not a shipped workflow, but the richest test-first graph, which many engine tests run."""
     from app.models import FlowDefinition
     from app.services.flow_definitions import create_flow_definition, publish_flow_definition_version
     from app.services.workflow_runs.seeding import SEED_MARKER, definition_digest
@@ -287,11 +273,6 @@ async def _seed_test_baseline(db: AsyncSession, *, include_legacy_projects: bool
     await seed_database(db)
     await _switch_optional_workflows_on(db)
     await _publish_engineering_base(db)
-    # The built-in agents the engine tests need, as a test fixture (never product boot).
-    from app.services.agent_builtins import ensure_builtin_agents
-
-    baseline_admin = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
-    await ensure_builtin_agents(db, admin_user=baseline_admin)
     await _seed_fallback_runtime_target(db)
     # The product refuses an unpriced platform-billed model under a cost cap. Many engine
     # tests run fake, unpriced Bedrock models that have nothing to do with budgets, so the test baseline warns;
@@ -325,21 +306,16 @@ async def _seed_test_baseline(db: AsyncSession, *, include_legacy_projects: bool
 
 
 async def _seed_committed_baseline(*, include_legacy_projects: bool = True) -> None:
-    """Build the committed baseline once for transaction-backed tests."""
     async with _test_session_factory() as session:
         await _seed_test_baseline(session, include_legacy_projects=include_legacy_projects)
 
 
 async def _init_app_database() -> None:
-    """The app's own default database (a per-process scratch file) gets the schema once, as it always had one."""
     await db_core.async_engine.dispose()
     await db_init_db()
     await db_core.async_engine.dispose()
 
 
-# ---------------------------------------------------------------------------
-# Committed baselines: seeded once per process, restored by copy
-# ---------------------------------------------------------------------------
 # A committed-DB test starts from a seeded database without reseeding it (seeding costs seconds: ~800 prompt keys,
 # bootstrap, fixtures). The seeded state is kept as an in-memory SQLite copy per baseline (with and without the
 # project templates) and copied back with the SQLite backup API.
@@ -347,7 +323,6 @@ _BASELINE_SNAPSHOTS: dict[bool, sqlite3.Connection] = {}
 
 
 def _copy_database(source: sqlite3.Connection | Path, target: sqlite3.Connection | Path) -> None:
-    """Copy every page of one SQLite database into another (the backup API retries while a reader holds a lock)."""
     src = source if isinstance(source, sqlite3.Connection) else sqlite3.connect(source)
     dst = target if isinstance(target, sqlite3.Connection) else sqlite3.connect(target, timeout=120)
     try:
@@ -367,20 +342,11 @@ def _snapshot_baseline(include_legacy_projects: bool) -> None:
 
 
 async def _settle_background_work() -> None:
-    """Stop what a test left running on this loop (a triggered task's agent turn, a chat turn) before the database is
-    replaced underneath it: a live connection would hold the SQLite lock, and the backup API retries a busy target
-    forever (a full gate would hang)."""
     await cancel_chat_turn_background_tasks()
-    current = asyncio.current_task()
-    others = [task for task in asyncio.all_tasks() if task is not current and not task.done()]
-    for task in others:
-        task.cancel()
-    if others:
-        await asyncio.wait(others, timeout=10)
+    await cancel_leftover_tasks()
 
 
 def _assert_target_unlocked(target: Path, timeout_s: float = 30.0) -> None:
-    """Fail loudly instead of hanging when something still holds the test database (the backup API never times out)."""
     probe = sqlite3.connect(target, timeout=timeout_s)
     try:
         probe.execute("BEGIN IMMEDIATE")
@@ -392,7 +358,6 @@ def _assert_target_unlocked(target: Path, timeout_s: float = 30.0) -> None:
 
 
 async def _restore_committed_baseline(*, include_legacy_projects: bool = True) -> None:
-    """Bring the test database back to a seeded baseline; the first request for a baseline seeds and keeps it."""
     snapshot = _BASELINE_SNAPSHOTS.get(include_legacy_projects)
     if snapshot is None:
         await _seed_committed_baseline(include_legacy_projects=include_legacy_projects)
@@ -414,7 +379,6 @@ _snapshot_baseline(include_legacy_projects=True)
 
 @event.listens_for(_test_engine.sync_engine, "begin")
 def _begin_test_transaction(conn):
-    """Force a real SQLite transaction so SAVEPOINT rollback isolates commits."""
     try:
         force_begin = conn.info.get("force_test_transaction_begin")
     except ResourceClosedError:
@@ -423,18 +387,8 @@ def _begin_test_transaction(conn):
         conn.exec_driver_sql("BEGIN")
 
 
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
-
-
 @pytest.fixture(autouse=True)
 def _workflow_proposals_off_unless_marked(request, monkeypatch):
-    """Workflow proposals add one governed pre-turn model call to turns without a
-    ``workflow_key``. The product default is on; in the suite they are off so suites that
-    script provider calls are unaffected. Tests that pin proposal behaviour opt in with
-    ``@pytest.mark.workflow_proposals``.
-    """
     if request.node.get_closest_marker("workflow_proposals"):
         return
     from app.services.workflow_routing import proposal as workflow_proposal_module
@@ -446,10 +400,18 @@ def _workflow_proposals_off_unless_marked(request, monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _evidence_runtime_restored():
+    # set_evidence_runtime installs a process-wide Knowledge runtime; without this, the next test in the same
+    # worker inherits it and answers as if Knowledge were configured, depending on test order.
+    from app.services.knowledge import runtime as evidence_runtime
+
+    saved = (evidence_runtime._RUNTIME, evidence_runtime._UNCONFIGURED)
+    yield
+    evidence_runtime._RUNTIME, evidence_runtime._UNCONFIGURED = saved
+
+
+@pytest.fixture(autouse=True)
 def _repository_steps_inline_unless_marked(request, monkeypatch):
-    """``scm.create_branch`` / ``scm.checkout`` run after the request in the product (``deferred_action``); the suite
-    runs them inline so flow tests read the step's result at once. Tests of the deferral opt in with
-    ``@pytest.mark.deferred_actions``."""
     if request.node.get_closest_marker("deferred_actions"):
         return
     from app.services.workflow_runs import deferred_action
@@ -459,10 +421,6 @@ def _repository_steps_inline_unless_marked(request, monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _health_checks_stored_before_the_answer(monkeypatch):
-    """The service stores health checks in a background task; in the suite that task would use the one shared
-    test connection while the test does ("session in prepared state"). Tests store them before the answer;
-    ``test_a_busy_connection_pool_never_holds_the_probe`` pins the background store.
-    """
     from app.services.observability import health_checks
 
     monkeypatch.setattr(health_checks, "PERSIST_INLINE", True)
@@ -470,7 +428,6 @@ def _health_checks_stored_before_the_answer(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _seed_policy_lists_per_test():
-    """The live policy lists are a process snapshot; every test starts and ends on the seed."""
     from app.services.policy_lists.live import reset_live_policy_lists
 
     reset_live_policy_lists()
@@ -480,7 +437,6 @@ def _seed_policy_lists_per_test():
 
 @pytest.fixture(autouse=True)
 def _jira_api_versions_unlearned():
-    """Each test starts with no remembered Jira REST API version (process memory, ``_jira_api_versions``)."""
     from app.tools.jira_impl._jira_api_versions import forget_api_versions
 
     forget_api_versions()
@@ -489,30 +445,7 @@ def _jira_api_versions_unlearned():
 
 
 @pytest.fixture(autouse=True)
-def _bedrock_model_catalog_offline(monkeypatch):
-    """The Bedrock client reads the model catalog before a bare model id; never in the suite.
-
-    An empty catalog keeps the existing inference-profile behaviour; tests of the catalog rule
-    patch ``_list_foundation_model_summaries`` themselves.
-    """
-    from app.agent.providers import bedrock_model_ids
-    from app.agent.providers.bedrock import BedrockClient
-
-    bedrock_model_ids.clear_catalog_cache()
-    monkeypatch.setattr(BedrockClient, "_list_foundation_model_summaries", lambda self: [])
-    yield
-    bedrock_model_ids.clear_catalog_cache()
-
-
-
-@pytest.fixture(autouse=True)
 def _seed_prompt_set_for_code_outside_a_turn():
-    """Bind the seed prompt set for code that unit tests call outside a turn.
-
-    Production binds each turn's resolved set in run preparation and refuses to render
-    unbound (``prompt_set_unbound``); ``tests/test_prompt_catalog_contract.py`` pins both,
-    unbinding explicitly with ``prompt_set_scope(None)``.
-    """
     from app.services.prompt_catalog import prompt_set_scope, seed_prompt_set
 
     with prompt_set_scope(seed_prompt_set()):
@@ -521,7 +454,6 @@ def _seed_prompt_set_for_code_outside_a_turn():
 
 @pytest_asyncio.fixture
 async def db(request):
-    """Per-test session isolated by an outer transaction and SAVEPOINT rollback."""
     clear_all_auth_rate_limits()
     clear_rate_limit_buckets()
     pending = [task for task in CHAT_RUN_TASKS.values() if not task.done()]
@@ -545,6 +477,11 @@ async def db(request):
     async with _test_engine.connect() as connection:
         connection.sync_connection.info["force_test_transaction_begin"] = True
         transaction = await connection.begin()
+        if request.node.get_closest_marker("without_baseline_runtime") is not None:
+            from tests.model_gateway.conftest import BASELINE_PROVIDER
+
+            await connection.execute(
+                update(LLMProvider).where(LLMProvider.name == BASELINE_PROVIDER).values(is_active=False))
         session = AsyncSession(
             bind=connection,
             expire_on_commit=False,
@@ -560,7 +497,6 @@ async def db(request):
 
 @pytest_asyncio.fixture
 async def reset_db(request):
-    """For tests that need the committed database restored to its seeded baseline."""
     include_legacy_projects = request.node.get_closest_marker("without_legacy_project_templates") is None
     await _restore_committed_baseline(include_legacy_projects=include_legacy_projects)
     async with _test_session_factory() as session:
@@ -571,8 +507,6 @@ async def reset_db(request):
 
 @pytest_asyncio.fixture
 async def client(request, db: AsyncSession):
-    """Per-test HTTP client. db dependency ensures rate-limit buckets are cleared."""
-
     class SharedSessionContext:
         async def __aenter__(self) -> AsyncSession:
             return db
@@ -631,13 +565,6 @@ async def client(request, db: AsyncSession):
 
 
 async def send_without_origin(client: AsyncClient, method: str, url: str, **kwargs):
-    """Send one request with no ``Origin`` header at all.
-
-    The shared client sends ``Origin`` like a browser. A test that needs
-    the origin-less case — a non-browser client, or a browser that strips the
-    header — has to take it back off for that one request, which is what this
-    does; httpx offers no per-request header removal.
-    """
     request = client.build_request(method, url, **kwargs)
     request.headers.pop("origin", None)
     return await client.send(request)
@@ -645,7 +572,6 @@ async def send_without_origin(client: AsyncClient, method: str, url: str, **kwar
 
 @pytest_asyncio.fixture
 async def auth_headers(client: AsyncClient) -> dict:
-    """Login as admin and return auth headers."""
     resp = await client.post(
         "/api/v1/auth/login",
         data={"username": "admin", "password": ADMIN_PASSWORD},
@@ -656,8 +582,14 @@ async def auth_headers(client: AsyncClient) -> dict:
 
 
 @pytest_asyncio.fixture
+async def admin_client(client: AsyncClient) -> AsyncClient:
+    response = await client.post("/admin/login", data={"username": "admin", "password": ADMIN_PASSWORD})
+    assert response.status_code == 303
+    return client
+
+
+@pytest_asyncio.fixture
 async def auth_user(db: AsyncSession) -> User:
-    """Return the seeded admin User object from the current test db session."""
     result = await db.execute(select(User).where(User.username == "admin"))
     user = result.scalar_one_or_none()
     assert user is not None, "admin user not found in test db"

@@ -7,14 +7,15 @@ from types import SimpleNamespace
 import pytest
 
 from app.services.workflow_runs.hands_on import step
-from app.services.workflow_runs.hands_on.scenarios import validate
+from app.services.workflow_runs.hands_on.scenarios import COVERS, validate
 from tests.hands_on_support import _answer, _at_hands_on, _Model
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.mark.asyncio
 async def test_scenarios_use_only_the_apps_own_texts_and_are_asked_again_otherwise(tmp_path):
-    """Scenarios that fill German labels in an English app are red for the scenario, not the app; they are
-    refused."""
     import json
 
     from app.services.workflow_runs.hands_on.generate import ui_texts, unknown_texts, write_scenarios
@@ -44,28 +45,26 @@ async def test_scenarios_use_only_the_apps_own_texts_and_are_asked_again_otherwi
 
 @pytest.mark.asyncio
 async def test_the_scenarios_get_three_answers_each_told_every_refusal():
-    """A retry that fixes the labels but loses regression covers leaves the pass red."""
     from app.services.workflow_runs.hands_on.generate import write_scenarios
 
     wrong_label = _answer()
     wrong_label["scenarios"][0]["steps"] = [{"do": "fill", "label": "Totraum (g)", "value": "1"}]
     no_cover = {"scenarios": _answer()["scenarios"][:2]}
     model = _Model(wrong_label, no_cover, _answer())
-    scenarios, problem, _usage = await write_scenarios(None, SimpleNamespace(id="r"), model, "task", ["Skip"])
+    scenarios, problem, _usage = await write_scenarios(None, SimpleNamespace(id="r"), model, "task", ["Skip"], required=COVERS)
     assert problem == "" and len(scenarios) == 4
     assert "Totraum (g)" in model.asked[2] and "do not cover" in model.asked[2]
 
 
 @pytest.mark.asyncio
 async def test_when_no_answer_holds_the_reason_names_each_attempt_in_order():
-    """Every refusal is kept, not only the last, so one can tell what the earlier answers did."""
     from app.services.workflow_runs.hands_on.generate import write_scenarios
 
     wrong_label = _answer()
     wrong_label["scenarios"][0]["steps"] = [{"do": "fill", "label": "Totraum (g)", "value": "1"}]
     no_cover = {"scenarios": _answer()["scenarios"][:2]}
     model = _Model(wrong_label, no_cover, no_cover)
-    scenarios, problem, _usage = await write_scenarios(None, SimpleNamespace(id="r"), model, "task", ["Skip"])
+    scenarios, problem, _usage = await write_scenarios(None, SimpleNamespace(id="r"), model, "task", ["Skip"], required=COVERS)
     assert scenarios == [] and problem.startswith("the scenarios could not be written: attempt 1: ")
     first, second, third = problem.removeprefix("the scenarios could not be written: ").split("; attempt ")
     assert "Totraum (g)" in first and second.startswith("2: ") and "do not cover" in second
@@ -74,8 +73,6 @@ async def test_when_no_answer_holds_the_reason_names_each_attempt_in_order():
 
 @pytest.mark.asyncio
 async def test_an_admin_waives_scenarios_for_every_further_pass_with_the_reason_kept(db, monkeypatch):
-    """The fix's scenario is green while one scenario expects a text the page never shows and another fails on a
-    different open bug; a one-off routing past the step holds only one pass."""
     from app.services.workflow_runs.actions import perform_action
     from app.services.workflow_runs.records import WorkflowRunError
     from tests.phased_workflow_fixtures import admin_user
@@ -92,7 +89,7 @@ async def test_an_admin_waives_scenarios_for_every_further_pass_with_the_reason_
         await perform_action(db, run, user=other, body=body)
     await perform_action(db, run, user=admin, body=body)
     view = step.contract_view(run)
-    assert [item["id"] for item in view["scenarios"]] == ["S1", "S3", "S4"]  # the device no longer runs S2
+    assert [item["id"] for item in view["scenarios"]] == ["S1", "S3", "S4"]
     report = {"node_id": view["node_id"], "entry": view["entry"], "state": "ran", "scenarios": [
         {"id": "S1", "passed": True}, {"id": "S3", "passed": True}, {"id": "S4", "passed": True},
         {"id": "repo:tests/hands_on/bugs/X.json#1", "passed": False, "failed_step": 1}]}
@@ -104,7 +101,6 @@ async def test_an_admin_waives_scenarios_for_every_further_pass_with_the_reason_
 
 @pytest.mark.asyncio
 async def test_an_admin_has_the_scenarios_written_again_and_the_waiting_pass_regenerates(db, monkeypatch):
-    """Scenarios written from the German catalog must not stay for the whole run."""
     from app.services.workflow_runs.actions import perform_action
     from app.services.workflow_runs.records import WorkflowRunError
     from tests.phased_workflow_fixtures import admin_user
@@ -140,8 +136,6 @@ async def test_an_admin_has_the_scenarios_written_again_and_the_waiting_pass_reg
 
 @pytest.mark.asyncio
 async def test_a_feature_scenario_never_clicks_a_generic_save_the_changed_screens_do_not_show(tmp_path):
-    """The onboarding saves with "Next"; feature scenarios must not click the app's generic "Save" (from another
-    form) and go red on it."""
     import json
 
     from app.services.workflow_runs.hands_on.generate import foreign_clicks, screen_actions, write_scenarios
@@ -161,7 +155,7 @@ async def test_a_feature_scenario_never_clicks_a_generic_save_the_changed_screen
     assert actions == ["Next", "Later"]
     feature = [{"part": "feature", "steps": [{"do": "click", "text": "Next"}, {"do": "click", "text": "Save"},
                                              {"do": "click", "text": "Equipment"}]}]
-    generic = ["save", "submit"]  # the hands-on node's generic_actions (workflow data)
+    generic = ["save", "submit"]
     assert foreign_clicks(feature, actions, generic) == ["Save"]  # navigation to another screen stays allowed
     wrong = _answer()
     wrong["scenarios"][0]["steps"] = [{"do": "goto", "path": "/"}, {"do": "click", "text": "Save"}]
@@ -169,11 +163,10 @@ async def test_a_feature_scenario_never_clicks_a_generic_save_the_changed_screen
     scenarios, problem, _usage = await write_scenarios(None, SimpleNamespace(id="r"), model, "task", [], actions,
                                                        generic)
     assert problem == "" and "never assume a generic form button" in model.asked[1]
-    assert foreign_clicks(feature, actions, []) == []  # a workflow without generic_actions: no such check
+    assert foreign_clicks(feature, actions, []) == []
 
 
 def test_the_generic_actions_are_workflow_data_not_engine_code():
-    """The button words live in the hands-on nodes of the seed workflows; generate.py names none."""
     import json
     from pathlib import Path
 

@@ -1,11 +1,4 @@
-"""Explicit work-item redeclaration after a rejected delivery.
-
-When a delivered PR is declined, the work item must be plannable again
-without losing the audit trail: every open or approved plan is superseded
-(with a decision record), every active change unit is superseded, and the
-redeclaration itself is audited with the operator's reason. Re-planning then
-uses the normal plan/unit endpoints and the acceptance-coverage gate.
-"""
+"""Explicit work-item redeclaration after a rejected delivery."""
 
 from __future__ import annotations
 
@@ -97,6 +90,7 @@ async def redeclare_work_item(
             action="secure_work.work_item_redeclared",
             resource_type="work_item",
             resource_id=item.id,
+            project_id=item.project_id,
             details={
                 "source_key": item.source_key,
                 "reason": reason,

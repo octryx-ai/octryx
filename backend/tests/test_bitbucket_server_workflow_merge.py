@@ -1,9 +1,4 @@
-"""A Bitbucket Server pull request a run opens is watched to its merge or decline.
-
-The Server create tool answers the pull request's web URL as the string ``links`` (``_pr_summary``), with no
-``url``. The run stores the identity derived from it on the run and on the Work Item's pull request record, so a
-signed merge webhook or the poll's decline read resumes the run and marks the record for the refresh worker.
-"""
+"""A Bitbucket Server pull request a run opens is watched to its merge or decline."""
 
 from __future__ import annotations
 
@@ -21,8 +16,11 @@ from app.services.workflow_runs import watch_events as events
 from app.services.workflow_runs.watch import deliver_event, poll_watching_runs
 from app.tools.context import ToolContext
 from tests.agent_definition_revision_fixtures import make_project
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_platform_actions import FakeTools, _repository, _run
 from tests.test_workflow_run_watch import _watching
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 HOST = "bitbucket.example.test"
 PR_URL = f"https://{HOST}/projects/PAY/repos/payments/pull-requests/7"
@@ -30,7 +28,6 @@ BRANCH = "feature/PAY-1-totals"
 
 
 def _server_pr(state: str = "OPEN", href: str = PR_URL) -> dict:
-    """A pull request as the Bitbucket Server REST API answers it."""
     repository = {"slug": "payments", "project": {"key": "PAY"}}
     return {"id": 7, "version": 0, "title": "PAY-1: Totals", "state": state, "description": "PAY-1",
             "author": {"user": {"displayName": "Platform Bot"}},
@@ -41,7 +38,6 @@ def _server_pr(state: str = "OPEN", href: str = PR_URL) -> dict:
 
 
 async def _created_by_the_server_tool(monkeypatch) -> dict:
-    """The create tool's own answer for a newly opened Server pull request."""
     async def post(context, path, *, payload):
         return _server_pr(), 201
 

@@ -31,8 +31,6 @@ def resolve_initial_runtime_selection(
     runtime_label_by_id: Mapping[str, str],
     runtime_target_id_explicit: bool,
 ) -> RuntimeSelection:
-    """Resolve the caller's initial runtime choice before policy enforcement."""
-
     automatic_label = runtime_label_by_id.get("", "Automatic fallback chain")
     requested_runtime_target_id = str(runtime_target_id or "").strip()
     if not requested_runtime_target_id:
@@ -102,8 +100,6 @@ def preserve_waiting_session_contract(
     expected_workflow_id: str,
     effective_agent_type: str,
 ) -> tuple[str, str, str, str, str, str]:
-    """Keep the active workflow stable while a parent waits for sub-agent results."""
-
     current = (
         routing_intent,
         routing_reason,

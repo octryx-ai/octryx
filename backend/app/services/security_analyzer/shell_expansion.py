@@ -1,33 +1,4 @@
-"""Shell expansion in a read-only command string: refused unless the text is provably literal.
-
-The read-only rules judge the words of a command. bash, however, expands the ORIGINAL text before it
-runs anything: ``uniq glob-*`` can become ``uniq in out``, ``sort $FLAGS in`` can become ``sort -o
-out in``, and ``$'\\x2ddelete'`` is ``-delete``. A check on tokenized (``shlex``) or re-quoted words
-cannot see that. So the original string is scanned once with bash's quoting rules, before any
-tokenization, normalization or re-quoting, and any expansion that is not inside single quotes fails
-closed:
-
-- ``$`` in any form (parameter ``$X``/``${X}``, command ``$(…)``, arithmetic ``$((…))``, ANSI-C
-  ``$'…'``, localized ``$"…"``) and backticks, also inside double quotes;
-- unquoted pathname expansion characters ``*``, ``?``, ``[`` and brace expansion ``{``;
-- unquoted ``~`` (tilde expansion) and ``!`` (history expansion, also inside double quotes);
-- an unquoted ``#`` at the start of a word (a comment drops the rest of the line);
-- unquoted process substitution ``<(…)`` and ``>(…)`` (it runs a command); zsh's ``=(…)`` falls under
-  the next rule;
-- zsh forms: an unquoted ``=`` at the start of a word (``=cmd``, ``=(…)``) and any unquoted ``^``;
-- a backslash inside double quotes (bash and the tokenizer disagree on what it escapes);
-- an unterminated quote.
-
-Single-quoted text is literal (``find . -name '*.py'``, ``sed -n '$p'``); an unquoted backslash makes
-the next character literal (``\\*.py``). Field splitting only happens on expansion results, so it is
-covered by the ``$`` rule. This is a check that the judged words are the words bash runs. It is not a
-shell sandbox.
-
-Shells: the rules are bash's (verified against GNU bash 3.2.57, macOS ``/bin/bash`` and ``/bin/sh``), a
-superset of POSIX ``sh``/dash (the platform runs commands with ``/bin/sh -c`` on the host and ``/bin/sh -lc``
-in the default ``python:3.11-slim`` runtime, i.e. dash); for zsh (an external client's shell) its extra
-``=cmd`` and ``^`` forms are refused too. Other shells (fish, csh, PowerShell) are not covered.
-"""
+"""Shell expansion in a read-only command string: refused unless the text is provably literal."""
 
 from __future__ import annotations
 
@@ -51,7 +22,6 @@ _WORD_BREAKS = frozenset(" \t\n;&|()<>")
 
 
 def shell_expansion_refusal(command: str) -> str | None:
-    """Why bash would expand ``command`` into other words than the literal ones (``None``: it would not)."""
     text = str(command or "")
     index = 0
     word_start = True

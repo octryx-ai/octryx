@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import RedirectResponse
@@ -13,30 +13,40 @@ from app.exceptions.api import AuthenticationError, AuthorizationError, Conflict
 from app.exceptions.api import ValidationError as DomainValidationError
 from app.exceptions.base import NotFoundError, OctryxError
 
-from .api.routes import (
-    admin_notifications,
-    agent_chains,
-    agent_definition_revisions,
-    analytics,
-    api_keys,
-    approvals,
-    audit,
-    auth,
-    auth_users,
-    call_agent,
-    canvas,
-    channels,
-    check_proposals,
-    clarifications,
-    coding_governance,
-    connector_watchers,
-    data_transfer,
-    effective_setup,
-    entity_versions,
-    feature_flags,
-    flow_definitions,
-    instructions,
-    invitations,
+from .api.routes import observability as observability_routes
+from .api.routes.agent_board import agent_board as agent_board_routes
+from .api.routes.agent_gateway import agent_engines as agent_engines_routes
+from .api.routes.agent_gateway import agent_gateway as agent_gateway_routes
+from .api.routes.agent_gateway import agent_gateway_git as agent_gateway_git_routes
+from .api.routes.agent_gateway import agent_gateway_handoff_policy as agent_gateway_handoff_policy_routes
+from .api.routes.agent_gateway import agent_gateway_hook_key as agent_gateway_hook_key_routes
+from .api.routes.agent_gateway import agent_gateway_repository as agent_gateway_repository_routes
+from .api.routes.agent_gateway import agent_gateway_runs as agent_gateway_runs_routes
+from .api.routes.agent_gateway import agent_gateway_sandbox as agent_gateway_sandbox_routes
+from .api.routes.agent_gateway import agent_gateway_workspace as agent_gateway_workspace_routes
+from .api.routes.channels import channels, connector_watchers, speakers, stt, teams, teams_calling, webhooks
+from .api.routes.devices import device_archives as device_archives_routes
+from .api.routes.devices import device_channel as device_channel_routes
+from .api.routes.devices import device_jobs as device_job_routes
+from .api.routes.devices import device_policy as device_policy_routes
+from .api.routes.devices import device_runners as device_runner_routes
+from .api.routes.devices import devices as device_routes
+from .api.routes.devices import octryx_client_install as octryx_client_install_routes
+from .api.routes.devices import terminal as terminal_api
+from .api.routes.error_contracts import (
+    authentication_handler,
+    authorization_handler,
+    conflict_handler,
+    domain_error_handler,
+    domain_validation_handler,
+    http_exception_handler,
+    not_found_handler,
+    validation_exception_handler,
+)
+from .api.routes.identity import api_keys, auth, auth_users, invitations, privacy
+from .api.routes.identity import linked_accounts as linked_account_routes
+from .api.routes.identity import oauth_provider as oauth_provider_routes
+from .api.routes.knowledge import (
     knowledge_bindings,
     knowledge_connection_repositories,
     knowledge_episodes,
@@ -56,17 +66,41 @@ from .api.routes import (
     knowledge_source_settings,
     knowledge_structured_graph,
     mcp_knowledge,
-    model_gateway_inbound,
-    model_gateway_openai,
-    model_policies,
-    notifications,
-    orchestrator,
+)
+from .api.routes.mobile import mobile as mobile_routes
+from .api.routes.mobile import mobile_live as mobile_live_routes
+from .api.routes.models import model_catalog as model_catalog_routes
+from .api.routes.models import model_gateway_inbound, model_gateway_openai, model_policies, providers
+from .api.routes.models import model_selection as model_selection_routes
+from .api.routes.models import unpriced_model_policy as unpriced_model_policy_routes
+from .api.routes.platform import (
+    admin_notifications,
+    analytics,
+    audit,
+    data_transfer,
+    entity_versions,
+    feature_flags,
+    instructions,
     packages,
     personalities,
-    privacy,
-    projects,
     prompt_catalog,
-    providers,
+)
+from .api.routes.platform import operations_live as operations_live_routes
+from .api.routes.platform import plugins as plugins_routes
+from .api.routes.platform import problems as problems_routes
+from .api.routes.policy import classification_policy as classification_policy_routes
+from .api.routes.policy import coding_governance
+from .api.routes.policy import command_safety as command_safety_routes
+from .api.routes.policy import compliance_audit as compliance_audit_routes
+from .api.routes.policy import content_security as content_security_routes
+from .api.routes.policy import data_classification as data_classification_routes
+from .api.routes.policy import governance_approval_rule as governance_approval_rule_routes
+from .api.routes.policy import policy_engine as policy_engine_routes
+from .api.routes.policy import policy_engine_bench as policy_engine_bench_routes
+from .api.routes.policy import policy_engine_builder as policy_engine_builder_routes
+from .api.routes.policy import policy_engine_catalog as policy_engine_catalog_routes
+from .api.routes.policy import policy_engine_detectors as policy_engine_detectors_routes
+from .api.routes.secure_work import (
     secure_work,
     secure_work_change_plans,
     secure_work_close,
@@ -75,90 +109,44 @@ from .api.routes import (
     secure_work_platform_items,
     secure_work_servicenow,
     secure_work_workflows,
-    sessions,
-    speakers,
-    stt,
+)
+from .api.routes.sessions import approvals, call_agent, canvas, clarifications, notifications, sessions
+from .api.routes.sessions import attention as attention_routes
+from .api.routes.sessions import inbox as inbox_routes
+from .api.routes.sessions import session_handovers as session_handover_routes
+from .api.routes.sessions import session_transcripts as session_transcripts_routes
+from .api.routes.sessions import tool_approvals as tool_approvals_routes
+from .api.routes.skills import skill_catalog_router as skill_catalog_routes
+from .api.routes.workers import workers
+from .api.routes.workflows import (
+    agent_chains,
+    agent_definition_revisions,
+    check_proposals,
+    flow_definitions,
     tasks,
-    teams,
-    teams_calling,
-    web_search_sources,
-    webhooks,
-    workers,
     workflow_checks,
-    workspace_repositories,
 )
-from .api.routes import agent_board as agent_board_routes
-from .api.routes import agent_engines as agent_engines_routes
-from .api.routes import agent_gateway as agent_gateway_routes
-from .api.routes import agent_gateway_handoff_policy as agent_gateway_handoff_policy_routes
-from .api.routes import agent_gateway_hook_key as agent_gateway_hook_key_routes
-from .api.routes import agent_gateway_repository as agent_gateway_repository_routes
-from .api.routes import agent_gateway_runs as agent_gateway_runs_routes
-from .api.routes import agent_gateway_sandbox as agent_gateway_sandbox_routes
-from .api.routes import agent_gateway_workspace as agent_gateway_workspace_routes
-from .api.routes import attention as attention_routes
-from .api.routes import classification_policy as classification_policy_routes
-from .api.routes import code_graph_admin as code_graph_admin_routes
-from .api.routes import code_style as code_style_routes
-from .api.routes import command_safety as command_safety_routes
-from .api.routes import connections_admin as connections_admin_routes
-from .api.routes import content_security as content_security_routes
-from .api.routes import data_classification as data_classification_routes
-from .api.routes import device_archives as device_archives_routes
-from .api.routes import device_channel as device_channel_routes
-from .api.routes import device_jobs as device_job_routes
-from .api.routes import device_policy as device_policy_routes
-from .api.routes import devices as device_routes
-from .api.routes import governance_approval_rule as governance_approval_rule_routes
-from .api.routes import inbox as inbox_routes
-from .api.routes import limits_overview as limits_overview_routes
-from .api.routes import linked_accounts as linked_account_routes
-from .api.routes import mcp_workspace_allow as mcp_workspace_allow_routes
-from .api.routes import mobile as mobile_routes
-from .api.routes import mobile_live as mobile_live_routes
-from .api.routes import model_catalog as model_catalog_routes
-from .api.routes import model_selection as model_selection_routes
-from .api.routes import oauth_provider as oauth_provider_routes
-from .api.routes import observability as observability_routes
-from .api.routes import octryx_client_install as octryx_client_install_routes
-from .api.routes import operations_live as operations_live_routes
-from .api.routes import phased_workflows as phased_workflow_routes
-from .api.routes import plugins as plugins_routes
-from .api.routes import policy_engine as policy_engine_routes
-from .api.routes import policy_engine_bench as policy_engine_bench_routes
-from .api.routes import policy_engine_builder as policy_engine_builder_routes
-from .api.routes import policy_engine_catalog as policy_engine_catalog_routes
-from .api.routes import policy_engine_detectors as policy_engine_detectors_routes
-from .api.routes import pr_review_bot as pr_review_bot_routes
-from .api.routes import problems as problems_routes
-from .api.routes import review_defaults as review_defaults_routes
-from .api.routes import session_transcripts as session_transcripts_routes
-from .api.routes import setup_onboarding as setup_onboarding_routes
-from .api.routes import skill_catalog_router as skill_catalog_routes
-from .api.routes import terminal as terminal_api
-from .api.routes import tool_approvals as tool_approvals_routes
-from .api.routes import unpriced_model_policy as unpriced_model_policy_routes
-from .api.routes import work_item_analysis as work_item_analysis_routes
-from .api.routes import work_roles_admin as work_roles_admin_routes
-from .api.routes import workflow_handoffs as workflow_handoff_routes
-from .api.routes import workflow_run_handover as workflow_run_handover_routes
-from .api.routes import workflow_runs as workflow_run_routes
-from .api.routes import workspace_connections as workspace_connections_routes
-from .api.routes import workspace_content_handling as workspace_content_handling_routes
-from .api.routes import workspace_members as workspace_members_routes
-from .api.routes import workspace_models as workspace_models_routes
-from .api.routes import workspace_settings as workspace_settings_routes
-from .api.routes import workspace_work_me as workspace_work_me_routes
-from .api.routes.error_contracts import (
-    authentication_handler,
-    authorization_handler,
-    conflict_handler,
-    domain_error_handler,
-    domain_validation_handler,
-    http_exception_handler,
-    not_found_handler,
-    validation_exception_handler,
-)
+from .api.routes.workflows import phased_workflows as phased_workflow_routes
+from .api.routes.workflows import pr_review_bot as pr_review_bot_routes
+from .api.routes.workflows import review_defaults as review_defaults_routes
+from .api.routes.workflows import work_item_analysis as work_item_analysis_routes
+from .api.routes.workflows import workflow_handoffs as workflow_handoff_routes
+from .api.routes.workflows import workflow_run_emergency_stop as workflow_run_emergency_stop_routes
+from .api.routes.workflows import workflow_runs as workflow_run_routes
+from .api.routes.workspaces import code_graph_admin as code_graph_admin_routes
+from .api.routes.workspaces import code_style as code_style_routes
+from .api.routes.workspaces import connections_admin as connections_admin_routes
+from .api.routes.workspaces import effective_setup, projects, web_search_sources, workspace_repositories
+from .api.routes.workspaces import limits_overview as limits_overview_routes
+from .api.routes.workspaces import mcp_workspace_allow as mcp_workspace_allow_routes
+from .api.routes.workspaces import setup_onboarding as setup_onboarding_routes
+from .api.routes.workspaces import work_roles_admin as work_roles_admin_routes
+from .api.routes.workspaces import workspace_connections as workspace_connections_routes
+from .api.routes.workspaces import workspace_content_handling as workspace_content_handling_routes
+from .api.routes.workspaces import workspace_members as workspace_members_routes
+from .api.routes.workspaces import workspace_models as workspace_models_routes
+from .api.routes.workspaces import workspace_settings as workspace_settings_routes
+from .api.routes.workspaces import workspace_work_me as workspace_work_me_routes
 from .config import get_settings
 from .http_security import parse_cors_allowed_origins
 from .mash.master.routers.auth import router as mash_auth_router
@@ -166,7 +154,7 @@ from .mash.master.routers.platforms import router as mash_platforms_router
 from .mash.master.routers.policies import router as mash_policies_router
 from .mash.master.routers.sync import router as mash_sync_router
 from .middleware.audit import audit_middleware
-from .middleware.context import request_context_middleware
+from .middleware.context import DataViewerScopeMiddleware, request_context_middleware
 from .middleware.security import (
     MultipartAdmissionMiddleware,
     PanelCsrfBoundaryMiddleware,
@@ -174,7 +162,6 @@ from .middleware.security import (
     log_admission_configuration,
     log_rate_limit_retention_configuration,
     rate_limit_middleware,
-    rls_middleware,
 )
 from .middleware.telemetry import observability_middleware
 from .middleware.transport.compression import ResponseCompressionMiddleware
@@ -182,20 +169,12 @@ from .runtime_toggles import host_terminal_enabled
 from .services.mcp_knowledge_protocol import KNOWLEDGE_MCP_MOUNT_PATH, create_knowledge_mcp_protocol_app
 from .trusted_proxy_policy import log_boundary_configuration
 from .web import router as web_router
-from .web._helpers.admin_surface_gate import admin_surface_gate
-from .web._helpers.private_workspace_gate import private_workspace_gate
+from .web._helpers.admin_surface_gate import with_admin_surface_gate
+from .web._helpers.private_workspace_gate import with_private_workspace_gate
 from .web.static_files import SpaStaticFiles
-
-#: Applied to every included router: a state-changing admin-surface route refuses a non-admin
-#: before it runs (``web/_helpers/admin_surface_gate.py``).
-#: … and somebody else's private Workspace answers 404 to everybody, admins included
-#: (``web/_helpers/private_workspace_gate.py``).
-ADMIN_SURFACE_DEPENDENCIES = [Depends(admin_surface_gate), Depends(private_workspace_gate)]
 
 
 def configure_http(app: FastAPI, *, static_dir: Path) -> None:
-    """Attach middleware, routes, static assets, and exception handlers."""
-
     _configure_middleware(app)
     _configure_routes(app, static_dir=static_dir)
     _configure_exception_handlers(app)
@@ -247,10 +226,10 @@ def _configure_middleware(app: FastAPI) -> None:
     from .middleware.telemetry.slow_requests import SlowRequestLogMiddleware
 
     app.add_middleware(SlowRequestLogMiddleware)
+    app.add_middleware(DataViewerScopeMiddleware)
     app.middleware("http")(_validate_origin)
     app.middleware("http")(request_context_middleware)
     app.middleware("http")(observability_middleware)
-    app.middleware("http")(rls_middleware)
     app.middleware("http")(audit_middleware)
     app.middleware("http")(rate_limit_middleware)
     # Added last, therefore outermost. Every middleware and route below
@@ -304,7 +283,6 @@ def _configure_routes(app: FastAPI, *, static_dir: Path) -> None:
         channels.router,
         clarifications.router,
         connector_watchers.router,
-        orchestrator.router,
         teams.router,
         notifications.router,
         invitations.router,
@@ -346,8 +324,7 @@ def _configure_routes(app: FastAPI, *, static_dir: Path) -> None:
         workspace_members_routes.router,
         workspace_work_me_routes.router,
         workflow_run_routes.router,
-        workflow_run_handover_routes.router,
-        workflow_handoff_routes.router,
+        workflow_run_emergency_stop_routes.router, session_handover_routes.router, workflow_handoff_routes.router,
         work_roles_admin_routes.router,
         phased_workflow_routes.router,
         speakers.router,
@@ -363,11 +340,13 @@ def _configure_routes(app: FastAPI, *, static_dir: Path) -> None:
         work_item_analysis_routes.items_router,
         agent_gateway_repository_routes.router,
         agent_gateway_hook_key_routes.router,
+        agent_gateway_git_routes.router,
         agent_gateway_runs_routes.router,
         agent_gateway_sandbox_routes.router,
         agent_gateway_workspace_routes.router,
         data_classification_routes.router,
         device_routes.router,
+        device_runner_routes.router,
         linked_account_routes.router,
         device_channel_routes.router,
         device_job_routes.router,
@@ -406,16 +385,18 @@ def _configure_routes(app: FastAPI, *, static_dir: Path) -> None:
         plugins_routes.ui_router,
         setup_onboarding_routes.router,
         mcp_workspace_allow_routes.router,
+        compliance_audit_routes.router,
         mash_auth_router,
         mash_platforms_router,
         mash_sync_router,
         mash_policies_router,
         web_router,
     ):
-        app.include_router(router, dependencies=ADMIN_SURFACE_DEPENDENCIES)
+        app.include_router(with_private_workspace_gate(with_admin_surface_gate(router)))
     if host_terminal_enabled():
         # The host terminal is off by default: nothing uses it, and it is a shell on the host.
-        app.include_router(terminal_api.router, dependencies=ADMIN_SURFACE_DEPENDENCIES)
+        # Its session_id names a PTY, not a chat session, and it names no Workspace.
+        app.include_router(with_admin_surface_gate(terminal_api.router))
     knowledge_mcp_protocol_app = create_knowledge_mcp_protocol_app()
     app.state.knowledge_mcp_protocol_app = knowledge_mcp_protocol_app
     app.mount(KNOWLEDGE_MCP_MOUNT_PATH, knowledge_mcp_protocol_app, name="knowledge-mcp-protocol")

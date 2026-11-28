@@ -115,7 +115,6 @@ class ChannelSession:
                 await self.on_message(message_type, body)
 
     async def _report_local_sessions(self, connection: Connection, last: str) -> str:
-        """The connected Claude Code profiles' recent sessions, sent when they changed; never raises."""
         try:
             local = await asyncio.to_thread(local_profiles.report, self.state)
         except Exception:  # noqa: BLE001 - a scan problem never ends the channel
@@ -128,7 +127,6 @@ class ChannelSession:
         return last
 
     async def _housekeeping(self, connection: Connection) -> None:
-        """Hand over a fresh token before expiry and report local changes (folders, pause, limits)."""
         last_report = json.dumps(self.report(), sort_keys=True)
         last_local = ""
         rounds = 0

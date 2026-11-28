@@ -1,11 +1,4 @@
-"""The server-owned scope and the fixed answers shared by the Knowledge tools.
-
-Scope is server-owned. The Workspace is read from ``ToolContext.project_config`` and must be inside
-the run's ``project_ids``; no tool schema has a ``project_id`` parameter and none is read, so the
-counter-precedent in ``tools/knowledge_impl/_knowledge_common.py`` (a model-supplied ``project_id``
-overriding the context) cannot repeat. Every failure is a fixed state string; no object key,
-database name, statement, endpoint or dependency message reaches the model.
-"""
+"""The server-owned scope and the fixed answers shared by the Knowledge tools."""
 
 from __future__ import annotations
 
@@ -41,7 +34,6 @@ def failure(state: str) -> dict[str, Any]:
 
 
 async def authorized_workspace(params: object, context: ToolContext) -> AuthorizedWorkspace | dict[str, Any]:
-    """The run's authorized Workspace, or the fixed failure answer to return as is."""
     if not context.db:
         return {"error": "No active database session", "state": "unavailable"}
     if type(params) is not dict:
@@ -61,10 +53,6 @@ async def authorized_workspace(params: object, context: ToolContext) -> Authoriz
 
 
 async def knowledge_scope(params: object, context: ToolContext) -> KnowledgeScope | dict[str, Any]:
-    """The run's Workspace plus the Workspaces it is bound to read, or the fixed failure answer.
-
-    The bindings come from the ledger; no tool argument can add a Workspace to the scope.
-    """
     authorized = await authorized_workspace(params, context)
     if type(authorized) is dict:
         return authorized

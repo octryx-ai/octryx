@@ -18,15 +18,14 @@ from tests.review_own_session_support import (  # noqa: F401
     _codex_policy,
     workspace_runtimes,
 )
+from tests.scripted_pool_support import RUNNER_ID, scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_review_support import PASS
 
-# --- seat route ------------------------------------------------------------------------------------------------
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.fixture
 def device_side(monkeypatch):
-    """The person's device: reachable, starting turns without the dispatch policy, and answering a review turn as
-    the launcher does (fetch the request through its review session, post the answer, finish the turn)."""
     import app.services.devices.chat_turn as chat_turn
     import app.services.workflow_runs.review.seat as seat
     import app.services.workflow_runs.review.seat_control as seat_control
@@ -56,7 +55,8 @@ def device_side(monkeypatch):
         from app.services.agent_gateway.analysis_tools import review_tool_decision
 
         db, job = state.db, None
-        job = (await db.execute(select(DeviceJob).where(DeviceJob.turn_state == "pending"))).scalars().first()
+        job = (await db.execute(select(DeviceJob).where(  # the seat's review turn, not the runners' phase turn
+            DeviceJob.turn_state == "pending", DeviceJob.device_id != RUNNER_ID))).scalars().first()
         if job is None:
             return
         state.offers.append(offer_body(job, limits={}, **await _thread_run(db, job), engine=await job_engine(db, job)))
@@ -180,8 +180,6 @@ async def test_no_fallback_review_once_the_run_budget_is_used_up(db, tmp_path, d
 
 @pytest.mark.asyncio
 async def test_a_seat_attempt_that_still_waits_keeps_itself_alive_for_the_sweep(db, tmp_path, device_side):
-    """An attempt of several seat calls can outlive STALE_ATTEMPT_MINUTES; the sweep must not start it again next to
-    itself. While it waits on the device its started_at moves on."""
     from datetime import timedelta
 
     from app.services.workflow_runs.review.seat import SeatReviewModel

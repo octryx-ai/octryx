@@ -1,17 +1,4 @@
-"""Deep wiring edges for the AWS topology snapshot.
-
-Derives the DNS chain and the event wiring that plain inventory listing
-leaves invisible, from a small bounded set of extra read-only calls:
-
-- ``triggers``     - SQS/DynamoDB stream -> Lambda (event source mappings)
-- ``delivers_to``  - SNS topic -> SQS queue / Lambda (subscriptions)
-- ``resolves_to``  - Route 53 zone -> CloudFront / load balancer (alias records)
-- ``routes_to``    - CloudFront -> origin load balancer / S3 bucket
-
-Targets are matched against already-discovered nodes by ARN, label, or DNS
-name; anything without a matching node is silently skipped (evidence-first:
-no invented endpoints).
-"""
+"""Deep wiring edges for the AWS topology snapshot."""
 
 from __future__ import annotations
 
@@ -68,8 +55,6 @@ def _index_by_type_label(builder: TopologyBuilder, node_type: str) -> dict[str, 
 
 
 def _index_by_domain(builder: TopologyBuilder) -> dict[str, str]:
-    """DNS name -> node id for load balancers (attributes.dns_name) and
-    CloudFront distributions (attributes.domain)."""
     index: dict[str, str] = {}
     for node in _nodes(builder):
         attributes = node.get("attributes") if isinstance(node.get("attributes"), dict) else {}
@@ -88,8 +73,6 @@ def _resolve_domain(index: dict[str, str], domain: str) -> str:
 
 
 def _source_node_for_arn(builder: TopologyBuilder, arn: str) -> str:
-    """Match an event-source ARN to a discovered node: exact ARN first, then
-    by service-specific label (SQS queue name, DynamoDB table name)."""
     by_arn = _index_by_arn(builder)
     if arn in by_arn:
         return by_arn[arn]
@@ -195,8 +178,6 @@ async def _wire_route53_records(
 
 
 def _wire_cloudfront_origins(builder: TopologyBuilder) -> None:
-    """CloudFront origins were captured at discovery time (same API response);
-    match them to load balancers by DNS name and to S3 buckets by name."""
     domain_index = _index_by_domain(builder)
     buckets = _index_by_type_label(builder, "s3_bucket")
     for node in _nodes(builder):

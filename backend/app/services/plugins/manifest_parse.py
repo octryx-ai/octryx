@@ -134,7 +134,6 @@ def _names(raw: Any, path: str, allowed: tuple[str, ...] | None, issues: list[di
 
 
 def parse_manifest(text: str) -> Manifest:
-    """The checked manifest, or :class:`ManifestError` with every issue found."""
     try:
         raw = yaml.safe_load(text)
     except yaml.YAMLError as error:
@@ -184,7 +183,6 @@ def parse_manifest(text: str) -> Manifest:
 
 
 def _cross_check(manifest: Manifest, issues: list[dict[str, str]]) -> None:
-    """The checks across sections: egress for MCP hosts, UI methods, writes, and that something is contributed."""
     for server in manifest.mcp_servers:
         if server.host and not _egress_allows(manifest.egress, server.host):
             issues.append(issue("manifest_egress_missing",

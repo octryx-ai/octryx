@@ -1,13 +1,4 @@
-"""The reviewer's verdict: a closed schema, parsed strictly. Pure.
-
-``{"verdict": "pass" | "changes", "summary": str, "findings": [{"severity", "file", "line", "fix"}]}``
-
-- ``severity`` is ``high`` | ``medium`` | ``low``; ``file`` a path, ``line`` a line number ≥ 1, ``fix`` the concrete
-  change the author has to make;
-- ``pass`` carries no ``high`` or ``medium`` finding (low ones are notes); ``changes`` names at least one finding.
-
-Anything else is no verdict (``None``): never coerced into a pass or a change.
-"""
+"""The reviewer's verdict: a closed schema, parsed strictly."""
 
 from __future__ import annotations
 
@@ -25,10 +16,8 @@ ANSWER_CONTRACT = (
     'answered and closed on its own.'
 )
 
-# In benchmark runs (Haiku), of ~205 findings at least 20 were unfair (a contrast ratio the model
-# computed itself as 9.5, 9.2 and 9.1 in three rounds; cosmetic points as medium or high), and one medium blocked
-# the automatic accept. So the severities say what blocks: high breaks the work, medium is a visible defect the
-# spec asks to avoid, low is polish. A code review gets this scale; a spec review keeps its own (SPEC_REVIEW_RULE).
+# The severities say what blocks: high breaks the work, medium is a visible defect the spec asks to avoid, low is
+# polish; a spec review keeps its own scale.
 SEVERITY_RULE = (
     'Severity: "high" only when the change breaks an acceptance criterion or a confirmed decision (a product owner '
     'answer, a decision of the specification), opens a security or data risk, or leaves a user unable to complete a '
@@ -38,8 +27,7 @@ SEVERITY_RULE = (
     'percentages): a numeric disagreement is "low" unless a test proves it wrong.'
 )
 
-# In a comparison run, every gap a product owner found in review was a point the spec did not
-# state and the agent decided silently. A review node with ``assumptions: true`` lists them for the person.
+# A gap the spec did not state is decided silently by the agent; ``assumptions: true`` lists them for the person.
 ASSUMPTIONS_RULE = (
     'Also add "assumptions": a list of short sentences, one for every behaviour the change decides that the work '
     'item and the specification do not state (a default value, a threshold, an edge case, a missing input, a '
@@ -48,8 +36,7 @@ ASSUMPTIONS_RULE = (
     'when the change decides nothing the spec leaves open.'
 )
 
-# Example: the agent left out one of the product owner's answers and the review passed. Every
-# review of a run with answers checks them point by point (the task carries them, ``evidence.review_task``).
+# Every review of a run with product owner answers checks them point by point.
 PO_ANSWERS_RULE = (
     "The product owner's answers in the task are decisions the change must carry out; a later answer overrides an "
     "earlier one where they differ. Check every numbered or lettered point of every answer against the change: a "
@@ -82,8 +69,7 @@ SPEC_IDENTIFIER_RULE = (
     '"medium" whose fix names the identifier or package to add.'
 )
 
-# Example: a repository with two apps; the agent built one app's feature inside the other app, the
-# tests were green and the review passed. Every code review checks where the change lives.
+# Every code review checks where the change lives: a repository may hold several apps.
 SCOPE_RULE = (
     "First check where the change lives: it must be in the part of the repository the work item and its "
     "specification are about (the app, package or module they name, for example the folder of the spec the work "
@@ -91,10 +77,7 @@ SCOPE_RULE = (
     'a finding of severity "high" on its first such file whose fix names the right place.'
 )
 
-# Spec writing (a spec review before anything is built): a review node with
-# ``checklist: "spec"`` judges a specification, not code, with the checks product owners need answered.
-# Check 6 also asks for a look a weak model can build: flat color placeholders alone do not
-# describe the intended visual.
+# A spec review (``checklist: "spec"``) judges a specification, not code, with the checks product owners need.
 SPEC_REVIEW_RULE = (
     "The change under review is a specification, not code. Review it with this checklist and report every hit as a "
     "finding on the spec file and line: (1) a behaviour a developer needs that it leaves open: a default value, a "
@@ -117,8 +100,7 @@ SPEC_REVIEW_RULE = (
     "with the lines shown around it."
 )
 
-# Two stages for a spec review: in one pass Gemma passed a draft with five open points and
-# reported a correct table as missing. Stage 1 walks the checklist without judging; stage 2 judges every candidate.
+# Two stages for a spec review: stage 1 walks the checklist without judging, stage 2 judges every candidate.
 SPEC_AUDIT_RULE = (
     "Do not judge the change yet: this is the first pass of a two-step review. Walk through the specification in "
     "the change section by section and apply each of the five checks to every section; then go through every "
@@ -146,8 +128,6 @@ SUGGESTION_RULE = (
     'one line). The range is exact: every line it rewrites lies in it, so applying it leaves no old line behind. '
     'Leave both out when the fix is not a small local replacement.'
 )
-# The bot's summary walks through the change file by file: a review node with
-# ``walkthrough: true`` asks for one short line per changed file.
 WALKTHROUGH_RULE = (
     'Also add "walkthrough": a list with one entry {"file": "<path>", "change": "<what this change does in the file, '
     'at most one sentence>"} for every changed file, in the order of the diff.'
@@ -210,9 +190,7 @@ class Verdict:
     summary: str
     findings: tuple[Finding, ...]
     assumptions: tuple[str, ...] = ()
-    #: ``(file, change)`` per changed file (``WALKTHROUGH_RULE``); empty without one.
     walkthrough: tuple[tuple[str, str], ...] = ()
-    #: ``(criterion, status, evidence)`` per acceptance criterion (``ACCEPTANCE_RULE``); empty without one.
     acceptance: tuple[tuple[str, str, str], ...] = ()
 
     @property
@@ -238,9 +216,7 @@ def _finding(raw: Any) -> Finding | None:
                                  str(raw.get("fix") or "").strip(), raw.get("line"))
     if severity not in SEVERITIES or not fix:
         return None
-    # a missing product owner point has no line ("SVG icons are missing"); Gemma wrote line 0 and
-    # the whole verdict was dropped, eight reviews in a row. Such a finding concerns the file (or the work item) as a
-    # whole: line 1, file "(work item)". Severity and fix stay required.
+    # A finding without a line concerns the file or the work item as a whole: line 1, file "(work item)".
     if type(line) is not int or line < 1:
         line = 1
     suggestion, start = _suggestion(raw, line)
@@ -252,7 +228,6 @@ MAX_REPLIES, MAX_REPLY_CHARS = 3, 500
 
 
 def _replies(raw: Any) -> tuple[str, ...]:
-    """The last :data:`MAX_REPLIES` replies, each cut to :data:`MAX_REPLY_CHARS` (a thread is no essay)."""
     if not isinstance(raw, list):
         return ()
     texts = [str(item).strip()[:MAX_REPLY_CHARS] for item in raw if isinstance(item, str) and item.strip()]
@@ -260,7 +235,6 @@ def _replies(raw: Any) -> tuple[str, ...]:
 
 
 def _suggestion(raw: dict, line: int) -> tuple[str, int]:
-    """``(suggestion, start_line)``; a malformed one is dropped, never the finding (it is an optional extra)."""
     text = raw.get("suggestion")
     if not isinstance(text, str) or not text.strip():
         return "", 0
@@ -270,12 +244,10 @@ def _suggestion(raw: dict, line: int) -> tuple[str, int]:
 
 
 def finding_from(raw: Any) -> Finding | None:
-    """One finding of an answer or a stored record, ``None`` when it breaks the schema."""
     return _finding(raw)
 
 
 def parse_verdict(answer: Any) -> Verdict | None:
-    """The verdict of a JSON answer, or ``None`` when it breaks the schema."""
     if not isinstance(answer, dict):
         return None
     verdict = str(answer.get("verdict") or "").strip().lower()
@@ -294,8 +266,6 @@ def parse_verdict(answer: Any) -> Verdict | None:
 
 
 def _acceptance(raw: Any) -> tuple[tuple[str, str, str], ...]:
-    """The listed criteria (at most ``MAX_ACCEPTANCE``, texts cut); an entry with an unknown status is dropped,
-    anything else is no table, never a reason to drop the verdict."""
     if not isinstance(raw, list):
         return ()
     rows = []
@@ -310,7 +280,6 @@ def _acceptance(raw: Any) -> tuple[tuple[str, str, str], ...]:
 
 
 def _walkthrough(raw: Any) -> tuple[tuple[str, str], ...]:
-    """The listed ``{file, change}`` entries; anything else is no walkthrough, never a reason to drop the verdict."""
     if not isinstance(raw, list):
         return ()
     entries = [(str(item.get("file") or "").strip(), str(item.get("change") or "").strip())
@@ -319,7 +288,6 @@ def _walkthrough(raw: Any) -> tuple[tuple[str, str], ...]:
 
 
 def _assumptions(raw: Any) -> tuple[str, ...]:
-    """The listed assumptions (texts only); anything else is no list, never a reason to drop the verdict."""
     if not isinstance(raw, list):
         return ()
     texts = [str(item).strip() for item in raw if isinstance(item, (str, int, float)) and str(item).strip()]
@@ -327,7 +295,6 @@ def _assumptions(raw: Any) -> tuple[str, ...]:
 
 
 def verdict_from_record(record: Any) -> Verdict | None:
-    """A verdict stored on the run (``context.review.verdict``), re-validated."""
     return parse_verdict(record) if isinstance(record, dict) else None
 
 

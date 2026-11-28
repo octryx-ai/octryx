@@ -16,7 +16,6 @@ async def evaluate_workspace_mutation_policy(
     target_paths: list[Path | str],
     proposed: dict[Path | str, str] | None = None,
 ) -> dict[str, Any]:
-    """``proposed``: the content each target is left with, when the tool knows it before writing."""
     relative_paths = [_relative_workspace_path(context, path) for path in target_paths]
     # No file tool writes git's internals: a planted hook, ``.git/config`` (fsmonitor, aliases,
     # filters) or ``info/attributes`` would make a later git run a program. Before any configurable policy.

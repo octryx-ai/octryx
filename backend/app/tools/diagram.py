@@ -1,11 +1,4 @@
-"""Diagram generation tools for creating and editing draw.io diagrams.
-
-Key design (ported from next-ai-draw-io approach):
-- LLM generates ONLY <mxCell> elements — no wrapper tags needed
-- Backend wraps cells into complete mxGraphModel XML automatically
-- Multi-step auto-repair handles all common LLM mistakes
-- Truncation detection for large diagrams
-"""
+"""Diagram generation tools for creating and editing draw.io diagrams."""
 
 import re
 import uuid
@@ -29,7 +22,6 @@ def _strip_code_fences(xml: str) -> str:
 
 
 def _auto_fix_xml(xml: str) -> tuple[str, list[str]]:
-    """Port of next-ai-draw-io autoFixXml — 24-step repair pipeline."""
     fixed = xml
     fixes: list[str] = []
 
@@ -218,12 +210,10 @@ def _repair_missing_required_mxcell_attrs(xml: str) -> tuple[str, list[str]]:
 
 
 def _wrap_cells(cells_xml: str) -> str:
-    """Wrap bare mxCell elements into a complete mxGraphModel document."""
     return f"<mxGraphModel><root>{_ROOT_CELLS}{cells_xml}</root></mxGraphModel>"
 
 
 def _is_complete(xml: str) -> bool:
-    """Detect truncated output — last valid mxCell should be followed only by closing tags."""
     trimmed = xml.strip()
     if not trimmed:
         return False
@@ -238,7 +228,6 @@ def _is_complete(xml: str) -> bool:
 
 
 def _validate_wrapped_xml(full_xml: str) -> str | None:
-    """Parse the full wrapped XML. Returns error string or None if valid."""
     try:
         ElementTree.fromstring(full_xml)
         return None

@@ -1,5 +1,3 @@
-"""Folder allowlist, access probe, pause, parallel and status of the device CLI."""
-
 from __future__ import annotations
 
 import argparse
@@ -119,8 +117,6 @@ def test_detect_os_and_macos_protected_folder_warning(tmp_path):
 
 
 def test_status_names_revoked_idle_reasons_errors_and_a_stale_connected(state, capsys):
-    """``device status`` does not say "offline" for a revoked device, says why it is offline
-    and never trusts a ``connected`` the service stopped confirming."""
     import time
 
     _registered(state, [])

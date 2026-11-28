@@ -13,7 +13,6 @@ log = logging.getLogger(__name__)
 
 
 async def _oauth_register_client(oauth: OAuthConfig, server_url: str) -> bool:
-    """Perform Dynamic Client Registration (RFC 7591) if registration_url is set."""
     if not oauth.registration_url:
         return bool(oauth.client_id)
 
@@ -38,7 +37,6 @@ async def _oauth_register_client(oauth: OAuthConfig, server_url: str) -> bool:
 
 
 async def _oauth_fetch_token(oauth: OAuthConfig) -> bool:
-    """Fetch or refresh an OAuth 2.0 access token."""
     if not oauth.token_url:
         return False
 
@@ -79,7 +77,6 @@ async def _oauth_fetch_token(oauth: OAuthConfig) -> bool:
 
 
 async def _ensure_token(oauth: OAuthConfig) -> str | None:
-    """Return a valid access token, refreshing if needed."""
     if not oauth.access_token or time.time() >= oauth.token_expires_at:
         ok = await _oauth_fetch_token(oauth)
         if not ok:
@@ -88,7 +85,6 @@ async def _ensure_token(oauth: OAuthConfig) -> str | None:
 
 
 def _auth_headers(oauth: OAuthConfig | None) -> dict[str, str]:
-    """Build auth headers for authenticated MCP HTTP requests."""
     if oauth and oauth.access_token:
         return {"Authorization": f"Bearer {oauth.access_token}"}
     return {}

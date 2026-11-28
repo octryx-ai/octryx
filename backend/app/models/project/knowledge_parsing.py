@@ -1,22 +1,11 @@
-"""Where a parsed span sits in its document, and the parse the sandbox owes.
-
-A PDF or Office revision is registered without spans; the sandboxed parser (Docling, no network)
-derives them later through the ``parse_revision`` obligation. Two tables carry what that adds,
-both new so the adopted evidence rows keep their shape:
-
-- ``KnowledgeSpanLocator``: the structural locator of one span (contract §3): its kind, the pages
-  it covers, and the section path of headings above it. A code span has kind ``code``,
-  its 1-based inclusive line range and its symbol path. Plain text-native spans have no locator row.
-- ``KnowledgeParseTask``: the one sandbox task a revision's parse is waiting for. The parse is
-  asynchronous in the sandbox, so a bounded run submits it once and later runs poll it; the task
-  reference is the sandbox's own opaque id and is never rendered.
-"""
+"""Where a parsed span sits in its document, and the parse the sandbox owes."""
 
 from __future__ import annotations
 
 from sqlalchemy import JSON, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, String
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 SPAN_KIND_TEXT = "text"
@@ -27,7 +16,7 @@ SPAN_KIND_LIST = "list"
 ALL_SPAN_KINDS = frozenset({SPAN_KIND_TEXT, SPAN_KIND_HEADING, SPAN_KIND_TABLE, SPAN_KIND_CODE, SPAN_KIND_LIST})
 
 
-class KnowledgeSpanLocator(Base):
+class KnowledgeSpanLocator(WorkspaceBound, Base):
     """The structural locator of one parsed span."""
 
     __tablename__ = "knowledge_span_locators"
@@ -58,7 +47,7 @@ class KnowledgeSpanLocator(Base):
     section_path = Column(JSON, nullable=False, default=list)
 
 
-class KnowledgeParseTask(Base):
+class KnowledgeParseTask(WorkspaceBound, Base):
     """The sandbox task one revision's ``parse_revision`` obligation is waiting for."""
 
     __tablename__ = "knowledge_parse_tasks"

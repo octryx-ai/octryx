@@ -1,36 +1,16 @@
-"""Bitbucket, GitHub and GitLab: named connections per instance or technical user, bound to repositories.
-
-- **Bitbucket** binds repositories (``PROJECT/repo``, its allowlist holds repositories only); a call names
-  ``project_key`` and ``repo_slug``.
-- **GitHub** binds an owner (``acme``: every repository of it) or a repository (``acme/payments``); a call
-  names ``repository`` (``owner/repo``) and/or ``owner``. The most specific binding wins.
-- **GitLab** binds a group (``risk``, nested groups included) or a project path (``risk/payments``); a call
-  names ``project`` (a path; a numeric id names no key).
-
-Each connection is a URL and a token (Bitbucket: see below). A Bitbucket connection
-names where Bitbucket runs (``bitbucket_deployment``): ``datacenter`` (Server/Data Center, the default of a
-connection that names none) or ``cloud`` (bitbucket.org: the Atlassian account email as username and a scoped
-Atlassian API token; ``tools/bitbucket_impl/_bitbucket_cloud.py``). A Server/Data Center connection signs in like
-Jira (``bitbucket_auth_mode``, ``services/atlassian_auth.py``): ``basic`` (username and password),
-``bearer_pat`` (an HTTP access token as Bearer) or ``oidc_client_credentials`` (an OpenID Connect client
-credentials grant at the admin-entered token endpoint; its access token as Bearer); without a mode it has no
-credential. A Cloud connection takes no mode or ``cloud_api_token``. A named connection without its credential
-is refused at call time instead of calling the API anonymously. A connection bound to whole owners or groups reads
-with its token only; bound repositories narrow its allowlist to them. The shared CI tools (job and pipeline logs,
-artifacts, test results, ...) are GitHub's or GitLab's by their ``provider``.
-"""
+"""Bitbucket, GitHub and GitLab: named connections per instance or technical user, bound to repositories."""
 
 from __future__ import annotations
 
 from typing import Any
 from urllib.parse import urlsplit
 
-from app.services.atlassian_auth_modes import BITBUCKET as BITBUCKET_CONNECTOR
-from app.services.atlassian_auth_modes import BITBUCKET_AUTH_MODES, AtlassianAuthConfigError, declared_mode
-from app.services.atlassian_auth_validation import validate_auth_config
+from app.services.connector_auth.atlassian_modes import BITBUCKET as BITBUCKET_CONNECTOR
+from app.services.connector_auth.atlassian_modes import BITBUCKET_AUTH_MODES, AtlassianAuthConfigError, declared_mode
+from app.services.connector_auth.atlassian_validation import validate_auth_config
 
-from ...atlassian_auth import resolve_credential
-from ...oidc_client_credentials import CLIENT_AUTH_METHODS
+from ...connector_auth.atlassian import resolve_credential
+from ...connector_auth.oidc_client_credentials import CLIENT_AUTH_METHODS
 from ..descriptor import (
     CASE_LOWER,
     UNSCOPED_SINGLE,
@@ -169,7 +149,6 @@ BITBUCKET = ConnectorDescriptor(
 
 
 def _repositories_only(rules: list[Any], keys: frozenset[str]) -> list[Any]:
-    """Bound repositories narrow the list; a bound owner or group leaves it open (the token decides)."""
     return [] if any("/" not in key for key in keys) else rules
 
 

@@ -1,9 +1,23 @@
 import uuid
 
-from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+    event,
+    select,
+)
 from sqlalchemy.orm import relationship, validates
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -32,7 +46,7 @@ SESSION_ORIGINS = frozenset(
 CHAT_SIDEBAR_ORIGINS = ("chat", "device_chat")
 
 
-class Session(Base):
+class Session(WorkspaceBound, Base):
     __tablename__ = "sessions"
     __table_args__ = (
         Index("ix_sessions_user_project_last_activity", "user_id", "project_id", "last_activity_at"),
@@ -50,8 +64,6 @@ class Session(Base):
     parent_session_id = Column(String(36), ForeignKey("sessions.id"), nullable=True, index=True)
     sub_agent_depth = Column(Integer, default=0, nullable=False)
     recovery_policy = Column(String(20), default="manual_resume", nullable=False)  # auto_retry | manual_resume | fail
-    flow_definition_version_id = Column(String(36), nullable=True, index=True)
-    flow_node_id = Column(String(128), nullable=True)
     # The platform process (``runtime_process_leases.id``) that last started a turn here.
     # A ``running`` session whose owner has no live lease is settled (runtime robustness).
     turn_owner_process_id = Column(String(36), nullable=True)
@@ -70,15 +82,11 @@ class Session(Base):
 
     messages = relationship("Message", back_populates="session", order_by="Message.created_at")
     access_grants = relationship("SessionAccess", back_populates="session", cascade="all, delete-orphan")
-    # Top-level orchestrator runs that this session is the root of (e.g. supervisor pattern)
-    orchestrator_runs = relationship(
-        "OrchestratorAgentRun",
-        foreign_keys="OrchestratorAgentRun.session_id",
-        back_populates="session",
-    )
 
 
-class Message(Base):
+class Message(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"session_id": "sessions"}
     __tablename__ = "messages"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -92,6 +100,8 @@ class Message(Base):
     tokens_out = Column(Integer, default=0)
     cost = Column(Numeric(10, 6), default=0)
     idempotency_key = Column(String(100), nullable=True, index=True)
+    # Who wrote a user message; the session's owner can change by a hand-over, the author never does.
+    author_user_id = Column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime, default=utc_now, index=True)
 
     session = relationship("Session", back_populates="messages")
@@ -99,12 +109,8 @@ class Message(Base):
 
     @validates("role", "content")
     def _assistant_text_unfenced(self, key, value):
-        """An assistant message is stored and shown without fence markers, however it was written.
-
-        Fence only at a model's input, never at an exit: an answer that quotes a fenced
-        Knowledge passage or live read would show ``<<<text …>>>`` to the person and in every export and channel
-        that reads the stored message. Every writer of an assistant row (chat loop, salvage, device jobs, phased
-        runs) passes here; tool rows keep their fences, they are what the model reads next turn."""
+        # Fence only at a model's input, never at an exit: a quoted fenced passage would show the markers to the person
+        # and in every export.
         from ...services.content_security.knowledge_fence import unfence_text
 
         if key == "content":
@@ -112,6 +118,17 @@ class Message(Base):
         if value == "assistant" and isinstance(self.content, str):
             self.content = unfence_text(self.content)
         return value
+
+
+# A user message written without an explicit author is its session owner's at that moment (the platform's own
+# continuation of a run, a held device prompt); the paths where another person writes name the author themselves.
+def _default_author(_mapper, connection, target: Message) -> None:
+    if target.role == "user" and target.author_user_id is None and target.session_id:
+        target.author_user_id = connection.execute(
+            select(Session.user_id).where(Session.id == target.session_id)).scalar_one_or_none()
+
+
+event.listen(Message, "before_insert", _default_author)
 
 
 class MessageFeedback(Base):
@@ -129,7 +146,9 @@ class MessageFeedback(Base):
     user = relationship("User")
 
 
-class SessionAccess(Base):
+class SessionAccess(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"session_id": "sessions"}
     __tablename__ = "session_access"
     __table_args__ = (
         UniqueConstraint("session_id", "user_id", name="uq_session_access_session_user"),

@@ -63,7 +63,7 @@ select[multiple].admin-panel__input,
   color: var(--muted-strong);
   font: inherit;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-transform: none;
   letter-spacing: normal;
   cursor: pointer;
@@ -78,7 +78,7 @@ select[multiple].admin-panel__input,
   background: var(--brand-cream);
   border-color: var(--brand-cream);
   color: var(--brand-taupe-deep);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 [data-theme="light"] .admin-panel__button--primary {

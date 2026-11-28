@@ -1,15 +1,4 @@
-"""``bug.intake_check``: does the bug report say what is needed to reproduce it?
-
-A bug report needs **steps** to reproduce, the **expected** and the **actual** behaviour and the **environment**
-(device, browser, version); a screenshot is optional. They are read from the Work item's text as headings or
-labelled lines (``Steps:``, ``Expected``, ``Actual``, ``Environment``/``Device``) and kept on the run
-(``context.bug_report``).
-
-In a repository with several apps the report also needs the **app** (``workspace.app_choice``); its options go with
-the question. Complete: route ``succeeded`` (no question, no person). Missing fields: route ``incomplete`` to the one
-question round (the ``intake`` phase asks only for what is missing, with a proposed answer each; the reporter answers
-once with buttons) - never a back and forth.
-"""
+"""``bug.intake_check``: does the bug report say what is needed to reproduce it?"""
 
 from __future__ import annotations
 
@@ -41,7 +30,6 @@ def _label(names: str) -> str:
 
 
 def fields_of(text: str) -> dict[str, str]:
-    """The report's fields: the text under a heading or after a label, up to the next field's."""
     lines = text.splitlines()
     found: dict[str, str] = {}
     current = ""
@@ -64,7 +52,6 @@ def report_state(text: str) -> dict[str, Any]:
 
 
 async def intake_check(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) -> tuple[ToolOutcome, str]:
-    """``(outcome, route)``: ``succeeded`` when the report is complete, else ``incomplete``."""
     del params
     item = await db.get(WorkItem, run.work_item_id) if run.work_item_id else None
     text = f"{item.title}\n{item.description or ''}" if item is not None else str(run.title or "")
@@ -84,7 +71,7 @@ async def intake_check(db: AsyncSession, run: WorkflowRun, params: dict[str, Any
     run.context = {**dict(run.context or {}), "bug_report": state}
     from .escaped import record_escape
 
-    await record_escape(db, run, item)  # a bug in work the platform delivered (maintenance metrics)
+    await record_escape(db, run, item)
     if state["missing"]:
         return ToolOutcome("succeeded", {"missing": state["missing"]},
                            "the bug report misses: " + ", ".join(state["missing"])), ROUTE_INCOMPLETE

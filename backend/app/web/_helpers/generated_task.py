@@ -1,7 +1,4 @@
-"""The task a chat's task extraction produced: its prompt, the parsed definition and the stored task.
-
-The extraction dispatch itself is owned by ``chat_turn_start`` (the registered dispatch owner).
-"""
+"""The task a chat's task extraction produced: its prompt, the parsed definition and the stored task."""
 
 import json
 import re
@@ -40,10 +37,7 @@ TASK_EXTRACTION_SYSTEM_PROMPT = (
 
 
 def _parse_generated_task(content: str) -> dict:
-    """The task definition in the model's answer; a truncated JSON object is closed before giving up."""
-    # Strip markdown code fences if present
     content = re.sub(r"```(?:json)?\s*", "", content).strip()
-    # Extract the outermost JSON object
     json_match = re.search(r"\{.*\}", content, re.DOTALL)
     if not json_match:
         raise HTTPException(status_code=422, detail="AI could not generate a valid task structure")
@@ -53,9 +47,7 @@ def _parse_generated_task(content: str) -> dict:
     try:
         task_data = json.loads(raw_json)
     except json.JSONDecodeError:
-        # Try to salvage truncated JSON by closing open structures
         try:
-            # Count unclosed braces/brackets and close them
             open_braces = raw_json.count("{") - raw_json.count("}")
             open_brackets = raw_json.count("[") - raw_json.count("]")
             patched = raw_json.rstrip(",\n ") + "]" * max(0, open_brackets) + "}" * max(0, open_braces)
@@ -69,7 +61,6 @@ def _parse_generated_task(content: str) -> dict:
 
 
 async def _persist_generated_task(db: AsyncSession, *, session: AgentSession, user: User, task_data: dict) -> Task:
-    """Store the generated task (inactive) and its steps in the session's project, or the first project."""
     from ...models import TaskStep as _TaskStep
     from ...time_utils import utc_now as _utc_now
 

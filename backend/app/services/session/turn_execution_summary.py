@@ -1,47 +1,13 @@
-"""Pure builder for the ``turn_execution_summary.v1`` read model of one agent turn.
-
-The summary explains one ``TurnTrace`` from immutable per-turn evidence only:
-
-- the execution snapshot persisted on the trace (``turn_execution_snapshot``),
-- the trace's own provider/model/usage columns,
-- the turn's Product Run stamp, resolved owner-scoped against the stored Run/Attempt
-  (``turn_run_identity``); the run's state never feeds the summary state,
-- the explicit runtime outcome: the loop's ``runtime_outcome`` finished or stopped marker
-  (a stop carries a closed stop reason) or the trace's ``raw_output.error`` failure
-  marker; absence of all is ``unknown``; a
-  failure whose runtime attempts are all typed model-admission refusals reads as the
-  governance state it is (``model_alias_not_admitted`` / ``model_data_policy_denied``),
-- tool-call, approval and artifact rows of the whole user turn when the trace is the
-  turn's final trace, otherwise of the trace's own assistant message,
-- the turn's workflow proposal record (closed fields of ``workflow_routing/proposal.py``),
-- the final trace's structured workflow decision request
-  (``raw_output.workflow_decision_request``); its options are re-derived from the closed
-  decision catalog (``workflow_contracts/decisions.py``), never from stored text,
-- the trace's closed answer evidence record (``services/answer_evidence/record.py``),
-- the trace's workflow check record (``services/workflow_checks/results.py``),
-- the trace's closed reply-contract check result (``turn_execution_snapshot.read_agent_reply_contract``).
-
-Only the final trace of a turn can carry a terminal state. An earlier (intermediate)
-trace of the same turn reads ``unknown`` with the fixed ``intermediate_trace`` reason.
-A ``cancelled`` outcome is part of the closed contract but has no runtime producer
-yet, so the loader never yields it.
-
-It never reads the session's current ``execution_profile`` metadata and never inspects
-assistant message text. A finished turn is ``finished_unverified``: no verification
-contract claims more.
-Every output value is a closed enum, a validated token, a bounded integer, a timestamp,
-or a fixed server string; prompts, input messages, context contents, policies, tool arguments/results, raw errors and
-credentials are structurally unreachable from this module's output.
-"""
+"""Pure builder of the ``turn_execution_summary.v1`` read model of one agent turn."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.agent.runtime.runtime_errors import RUNTIME_ERROR_ALIAS_DENIED, RUNTIME_ERROR_DATA_POLICY_DENIED
 from app.services.execution_profile_status import EXECUTION_PROFILE_STATUS_ALLOWED
 
-from ...agent.core.runtime.runtime_errors import RUNTIME_ERROR_ALIAS_DENIED, RUNTIME_ERROR_DATA_POLICY_DENIED
 from ..answer_evidence.record import read_answer_evidence
 from ..execution_profile_service import EXECUTION_PROFILE_VERSION
 from ..prompt_catalog import render_prompt
@@ -257,8 +223,6 @@ class TurnArtifactEvidence:
 
 @dataclass(frozen=True, slots=True)
 class TurnExecutionEvidence:
-    """Immutable per-turn inputs; loaded by ``turn_execution_summary_service``."""
-
     trace_id: str
     session_id: str
     message_id: str | None
@@ -287,12 +251,7 @@ class TurnExecutionEvidence:
 
 
 def runtime_outcome_from_trace(context_snapshot: Any, raw_output: Any) -> str:
-    """Classify a trace's runtime outcome from explicit markers only.
-
-    ``raw_output.error`` is the runtime's failure marker; ``finished`` and ``stopped``
-    require the loop's explicit marker in the stamped snapshot. Anything else,
-    including a trace without error and without marker, is ``unknown``.
-    """
+    # Explicit markers only: a trace without error and without marker is ``unknown``.
     if isinstance(raw_output, dict) and raw_output.get("error"):
         return "failed"
     if (device := _device_outcome(context_snapshot, raw_output)) is not None:
@@ -317,7 +276,6 @@ def _is_device_trace(context_snapshot: Any) -> bool:
 
 
 def _device_outcome(context_snapshot: Any, raw_output: Any) -> str | None:
-    """``finished`` | ``stopped`` | ``failed`` of a Mac turn, or None (not a Mac turn, or nothing reported)."""
     if not _is_device_trace(context_snapshot) or not isinstance(raw_output, dict):
         return None
     if raw_output.get("status") in ("failed", "blocked"):
@@ -508,7 +466,7 @@ def _reason_code(
         proposal = snapshot.get("workflow_proposal") or {}
         if profile["status"] != EXECUTION_PROFILE_STATUS_ALLOWED or proposal.get("status") != "needs_confirmation":
             return "inconsistent_snapshot"
-        # after Allow the held turn still read "needs confirmation" although its run had started.
+        # A held turn whose run has started no longer waits for confirmation.
         if evidence.workflow_run_started:
             return "workflow_run_started"
         return "gate_needs_start_confirmation" if proposal.get("phased") else "gate_needs_confirmation"
@@ -516,7 +474,6 @@ def _reason_code(
 
 
 def build_turn_execution_summary(evidence: TurnExecutionEvidence) -> dict[str, Any]:
-    """Build the closed, redacted ``turn_execution_summary.v1`` payload."""
     snapshot_status, snapshot = read_turn_execution_snapshot(evidence.context_snapshot)
     approvals = _approvals(evidence.approvals)
     reason_code = _reason_code(evidence, snapshot_status, snapshot, approvals)

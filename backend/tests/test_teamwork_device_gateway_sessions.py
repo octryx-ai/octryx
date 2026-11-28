@@ -97,8 +97,6 @@ async def test_an_items_stop_reports_to_its_item(db, scheduler, monkeypatch):  #
 
 @pytest.mark.asyncio
 async def test_the_coordinators_board_wake_is_no_phase_pass(db, scheduler, monkeypatch):  # noqa: F811
-    """The engine wakes the coordinator on the main thread while the items run: its session works under the plan
-    phase and its Stop never reports a pass of the ``parallel_work`` node."""
     from app.services.workflow_runs import binding
     from app.services.workflow_runs.octryx.attach import ROLE_OCTRYX, bind_device_session
     from app.services.workflow_runs.octryx.stop import REASON_COORDINATOR_WAKE, run_stop

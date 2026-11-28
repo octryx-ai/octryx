@@ -1,19 +1,4 @@
-"""Per-test results from octryx-claude's hooks.
-
-At ``Stop`` / ``SubagentStop`` the gateway already knows the session's Bash calls and which of them are test
-commands: the same prefixes the run's phase evidence uses (``octryx.hooks.test_prefixes``: the Workspace's
-``test_command_prefixes``, else the platform defaults), so a test run the phase counts is always recorded — a
-Workspace without a verification policy also records a device's red run. When the session is bound
-to an active workflow run, the newest test call's recorded result excerpt is read into a test run (``source:
-octryx``) on that run by the chat's own ``record_turn_test_runs``, so the run's TDD gates judge the same evidence
-chat produces (the first red also fixes the confirmed tests' content). The JUnit report the declared test command
-wrote, when the launcher attached it to the call (``agent_gateway/tool_execution.test_report``), is the preferred
-source of the per-test results; the output excerpt is the fallback (:func:`bash_test_results`). Results are keyed by
-the canonical test id (``workflow_checks.test_ids``); the files the launcher found for the report's classnames travel
-with the run so the server resolves them without the device's tree (``test_resolution``). A test command
-whose runner executed no test (``test_command_outcome``: not installed, nothing collected) is no test run and is not
-recorded. A session that follows no run is untouched.
-"""
+"""Per-test results from octryx-claude's hooks."""
 
 from __future__ import annotations
 
@@ -30,8 +15,6 @@ from .test_runs import record_turn_test_runs
 
 
 def bash_test_results(parameters: Any, excerpt: str) -> tuple[ParsedTests, list[str]]:
-    """A device test call's per-test results — its attached JUnit report first, else what its output printed — and
-    the test files the launcher found for the report (resolution hints)."""
     from ..agent_gateway.tool_execution import TEST_REPORT_KEY
 
     report = parameters.get(TEST_REPORT_KEY) if isinstance(parameters, dict) else None
@@ -52,7 +35,6 @@ _NAME_FILTERS = ("--plain-name", "--name", "-n", "--tags", "-t", "--exclude-tags
 
 
 def _selects_part(command: str) -> bool:
-    """Whether a Dart test command runs only part of the suite (a test file or folder, a name or tag filter)."""
     words = command.replace("|", " | ").split()
     if "|" in words:
         words = words[:words.index("|")]

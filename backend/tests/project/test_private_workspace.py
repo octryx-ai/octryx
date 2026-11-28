@@ -1,11 +1,5 @@
-"""A person's private Workspace.
-
-- everybody gets exactly one, created on first use; it is their default Workspace, shown as "Private";
-- only its owner has a role in it: a platform admin gets none, not even after adding themselves as a member, through
-  a group or through a global-role rule;
-- every route that names somebody else's private Workspace answers 404 (admin panel config, members, ...);
-- admin lists, run observability and session reads leave it out; no Work (items, runs) can exist in it.
-"""
+"""A person's private Workspace: exactly one each, only its owner has a role in it, and every other path to it
+answers 404 or leaves it out."""
 
 from __future__ import annotations
 
@@ -17,7 +11,6 @@ from sqlalchemy import select
 
 from app.models import Project, Session, User, UserProject, WorkItem
 from app.services.access_control import get_project_role_for_user
-from app.services.auth import create_access_token
 from app.services.project.private_workspace import (
     OWNER_ROLE,
     ensure_private_workspace,
@@ -27,6 +20,7 @@ from app.services.project.private_workspace import (
 from app.services.project.service import get_project_access_details
 from app.services.session.resource_access import require_session_resource_access
 from tests.devices.device_support import user_named
+from tests.policy_engine_support import bearer
 
 
 async def _owner_and_admin(db) -> tuple[User, User, Project]:
@@ -37,19 +31,14 @@ async def _owner_and_admin(db) -> tuple[User, User, Project]:
     return owner, admin, private
 
 
-def _web(user: User) -> dict[str, str]:
-    return {"Authorization": f"Bearer {create_access_token(user.id)}"}
-
-
 @pytest.mark.asyncio
 async def test_everybody_gets_one_private_workspace_and_only_the_owner_has_a_role(db):
     owner, admin, private = await _owner_and_admin(db)
-    assert await ensure_private_workspace(db, owner) is private  # idempotent
+    assert await ensure_private_workspace(db, owner) is private
     assert private.access_mode == "private" and private.owner_user_id == owner.id
     assert await get_project_role_for_user(db, owner.id, private.id) == OWNER_ROLE
     assert await get_project_role_for_user(db, admin.id, private.id) is None
 
-    # an admin adding themselves as a member, or a global-role rule, changes nothing
     db.add(UserProject(user_id=admin.id, project_id=private.id, role="admin"))
     private.config = {"role_access_assignments": [{"role_id": "any", "project_roles": ["admin"]}]}
     await db.commit()
@@ -69,7 +58,6 @@ async def test_admin_routes_naming_a_private_workspace_answer_404(client, db, au
     for path in (f"/admin/chat/api/panel/projects/{private.id}/config", f"/admin/chat/api/panel/projects/{private.id}/access",
                  f"/admin/chat/api/panel/projects/{private.id}/connectors"):
         refused = await client.get(path, headers=auth_headers)
-        # the one answer of a Workspace the caller may not see (``access_control.workspace_not_found``)
         assert (refused.status_code, refused.json()["detail"]["code"]) == (404, "project_not_found"), path
     assert (await client.get(f"/admin/chat/api/panel/projects/{shared.id}/config", headers=auth_headers)).status_code == 200
     changed = await client.put(f"/admin/chat/api/panel/projects/{private.id}/access", headers=auth_headers,
@@ -108,21 +96,18 @@ async def test_no_work_can_exist_in_a_private_workspace(db):
 async def test_the_private_workspace_is_the_default_in_the_chat(client, db):
     owner = await user_named(db, f"fresh-{uuid.uuid4().hex[:6]}")
     await db.commit()
-    state = await client.get("/chat/api/bootstrap", headers=_web(owner))
+    state = await client.get("/chat/api/bootstrap", headers=bearer(owner.id))
     assert state.status_code == 200, state.text
     projects = state.json()["projects"]
     [own] = [item for item in projects if item.get("private")]
     assert own["name"] == "Private" and own["isDefault"] is True
-    again = await client.get("/chat/api/bootstrap", headers=_web(owner))
+    again = await client.get("/chat/api/bootstrap", headers=bearer(owner.id))
     assert [item["id"] for item in again.json()["projects"] if item.get("private")] == [own["id"]]
 
 
 @pytest.mark.asyncio
 async def test_the_batch_connector_limits_match_the_per_workspace_route_and_leave_private_ones_out(
         client, db, auth_headers):
-    """A connection page that read up to 12 Workspaces' connector lists in parallel would, with the page's other
-    reads, exhaust the API's pool. One request answers the same limits; another person's private Workspace is left
-    out like the per-Workspace route's 404."""
     from app.models import BuiltInToolConfig
 
     _owner, _admin, private = await _owner_and_admin(db)
@@ -144,3 +129,16 @@ async def test_the_batch_connector_limits_match_the_per_workspace_route_and_leav
     assert body["inherited_limits"] == row["inherited_limits"] and body["workspaces"][1]["project_limits"] == {}
     assert (await client.get("/admin/chat/api/panel/connectors/nope/workspace-limits",
                              headers=auth_headers)).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_without_a_default_workspace_a_new_private_workspace_still_grants_the_cleared_models(db):
+    from app.services.model_gateway.litellm.policy import model_alias_access_decision
+    from app.services.project.default_workspace import default_workspace_id
+
+    assert await default_workspace_id(db) is None
+    owner = await user_named(db, f"private-owner-{uuid.uuid4().hex[:6]}")
+    private = await ensure_private_workspace(db, owner)
+    await db.commit()
+
+    assert model_alias_access_decision("demo-gateway-model", private.config).allowed is True

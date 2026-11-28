@@ -1,8 +1,5 @@
-"""A phase result that arrives twice is ignored once the run moved on.
-
-The second copy of a Stop hook's result (a replay after reconnect, a retried HTTP call) must not resolve the
-decision card the run has moved to with no value, or the run fails ("Node 'decisions' has no exit for 'None'").
-"""
+"""A phase result that arrives twice is ignored once the run moved on, or the replay resolves the next
+decision card with no value and fails the run."""
 
 from __future__ import annotations
 
@@ -20,7 +17,10 @@ from app.services.workflow_runs.binding import record_phase_turn
 from app.services.workflow_runs.graph import PASSED
 from app.services.workflow_runs.states import EVENT_DUPLICATE_RESULT_IGNORED, RUN_RESOLUTION_KEY
 from tests.phased_workflow_fixtures import PHASE
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import _confirm, _device_run, _jobs
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 STORY = {
     "execution_kind": "phased",

@@ -1,19 +1,4 @@
-"""The hard core of a run's shell: what no default and no team setting lets a command change.
-
-Guiding principle: inside the agent's loop only destructive or exfiltrating commands, the platform's own
-credentials and the integrity of the evidence stay blocked. The default shell runs normal developer work, so the
-paths it writes are checked here instead of the command's form:
-
-- **git's own files** (``.git/``, ``.gitattributes``): ``.git/hooks`` and ``.git/config`` run code on the
-  platform's git or bend its remote and credentials; ``git config`` and ``git remote`` changes write that file too;
-- **environments** (``.venv/``, ``node_modules/``, ...): their binaries are what the phase's commands run;
-- **anything outside the repository**, except the system's temporary folders and ``/dev/null``.
-
-A confirmed test or the run's environment file is not here: changing those is caught by the evidence
-(``confirmed_test_drift``) and the contract pin. Paths are those a command names: redirections, ``tee``, the target
-of ``cp`` / ``mv`` / ``install`` / ``ln`` (and the sources ``mv`` removes), ``sed -i`` / ``perl -i`` files,
-``touch``, ``truncate``, ``dd of=``, ``chmod`` / ``chown``, and the single-file removals (``removal_paths``).
-"""
+"""The hard core of a run's shell: what no default and no team setting lets a command change."""
 
 from __future__ import annotations
 
@@ -86,7 +71,6 @@ def _segment_targets(segment: tuple[str, ...]) -> list[str]:
 
 
 def written_paths(command: str) -> list[str]:
-    """The paths ``command`` names as written (best effort over what the shell parser reads)."""
     from .removal_rules import removal_paths
 
     paths = _redirect_targets(command)
@@ -97,7 +81,6 @@ def written_paths(command: str) -> list[str]:
 
 
 def refusal(command: str, cwd: str, root: str | None) -> tuple[str, str] | None:
-    """``(kind, path)`` of the first hard-core path ``command`` writes: ``outside``, or a protected kind."""
     if root is None:
         return None  # no bound repository to judge against: the capability decision and the sandbox hold
     for path in written_paths(command):

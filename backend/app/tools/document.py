@@ -1,14 +1,4 @@
-"""Deterministic Word document composition from turn evidence.
-
-``create_document`` is the document mirror of ``create_presentation``: it takes
-the corporate Word template's style catalog, the evidence the turn already
-collected (AWS topology snapshot, optional knowledge facts, diagrams from our own
-pipeline), plans the sections deterministically, composes the document from the
-template's own styles, and never invents a claim without a source. A profile may
-hold several Word templates for different purposes; the right one is chosen
-explicitly, and when several exist and none was named the tool returns the
-catalog so the caller picks a purpose rather than the tool guessing.
-"""
+"""Deterministic Word document composition from turn evidence."""
 
 from __future__ import annotations
 
@@ -185,7 +175,6 @@ class CreateDocumentTool:
 
 
 def _parse_content(raw: Any) -> dict[str, Any]:
-    """Normalise the optional ``content`` param (dict or JSON string) to a dict."""
     if isinstance(raw, str) and raw.strip():
         import json
 

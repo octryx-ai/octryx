@@ -21,8 +21,6 @@ async def register_platform(
     metadata: dict[str, Any] | None = None,
     requested_scopes: list[str] | None = None,
 ) -> dict[str, Any]:
-    """Register a new platform. Returns platform_id + client credentials."""
-
     existing = await db.execute(
         select(MashPlatform).where(MashPlatform.name == name)
     )

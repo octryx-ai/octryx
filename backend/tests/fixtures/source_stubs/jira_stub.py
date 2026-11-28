@@ -1,20 +1,4 @@
-"""A read-only Jira Server/DC REST (API v2) stub for the release acceptance check (K2).
-
-It answers exactly the requests the governed Jira Source Sync connector (``sync/jira.py``,
-``sync/jira_releases.py``), the live ``jira_release_status`` (``sync/jira_release_status.py``) and
-the admin connection test (``services/connector_test/collab.py``) make, over ``jira_fixtures.py``:
-
-- ``GET /rest/api/2/search?jql=&startAt=&maxResults=&fields=`` for exactly the two JQL shapes the
-  platform builds: ``project in ("OPS") ORDER BY created ASC, key ASC`` (the issue sync) and
-  ``project = "OPS" AND fixVersion = <id> ORDER BY key ASC`` (release notes and live status). Any
-  other JQL is a 400, so a changed query shape fails loudly instead of matching by accident;
-- ``GET /rest/api/2/project/{key}/version?startAt=&maxResults=&orderBy=sequence``: the versions,
-  paged with ``isLast``;
-- ``GET /rest/api/2/myself``: the connection test (``/rest/api/3/myself`` is Cloud-only: 404).
-
-Every other request is refused: 405 for any method but GET, 401 without the stub's Basic
-credential, 404 for anything unknown. Served by ``server.py jira`` (``stub_http.py``).
-"""
+"""A read-only Jira Server/DC REST (API v2) stub for the release acceptance check (K2)."""
 
 from __future__ import annotations
 
@@ -36,7 +20,6 @@ def _issue_number(issue: dict) -> int:
 
 
 def _matching_issues(jql: str) -> list[dict] | None:
-    """The fixture issues of one supported JQL, in its order; ``None`` for an unsupported query."""
     project = _PROJECT_JQL.fullmatch(jql)
     if project:
         keys = {key.strip('"') for key in project.group("keys").split(", ")}
@@ -91,7 +74,6 @@ def _versions(project_key: str, query: dict[str, list[str]]) -> tuple[int, dict]
 
 
 def handle(method: str, target: str, authorization: str | None) -> tuple[int, dict]:
-    """Answer one request: ``(status, JSON body)``. Pure, so tests can call it without a socket."""
     path, query = split_target(target)
     if method != "GET":
         return 405, {"errorMessages": ["read-only stub"]}

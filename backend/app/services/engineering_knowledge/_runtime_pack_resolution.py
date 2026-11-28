@@ -198,7 +198,6 @@ async def attach_retrieved_index_records(
     *,
     max_records_per_kind: int,
 ) -> None:
-    """The pack's index records in their stored order (kind, title); the prompt does not rank them."""
     records = (
         await db.execute(
             select(EngineeringKnowledgeRetrievalIndex)

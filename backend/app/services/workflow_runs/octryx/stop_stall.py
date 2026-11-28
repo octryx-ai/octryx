@@ -22,8 +22,7 @@ def _set_stall(run: WorkflowRun, value: dict[str, Any] | None) -> None:
     run.context = context
 
 
-#: ``"stall_after": N`` on the phase or its size class: the N-th identical stop with nothing done in between pauses
-#: (a flow rule, so workflow data; without it the second one).
+# ``stall_after`` (phase or size class): the N-th identical stop with nothing done in between pauses; else the second.
 STALL_AFTER_KEY = "stall_after"
 DEFAULT_STALL_AFTER = 2
 
@@ -41,9 +40,7 @@ async def _stall_after(db: AsyncSession, run: WorkflowRun, node_id: str) -> int:
 
 
 async def _stalled(db: AsyncSession, run: WorkflowRun, node_id: str, missing: str, attempts: int) -> bool:
-    """Fail fast (weak models, few tokens): the same checks fail again with nothing done since the
-    last stop — another forced pass would repeat it. The run pauses with the reason instead of the launcher's
-    block cap spending up to four more passes (otherwise four identical failed passes in a row)."""
+    # Pausing here keeps the launcher's block cap from repeating identical failed passes.
     from ..limits import pause_run
     from ..states import PAUSE_RUNTIME_FAILED
 
@@ -59,7 +56,7 @@ async def _stalled(db: AsyncSession, run: WorkflowRun, node_id: str, missing: st
     _set_stall(run, None)
     from .same_pass import keep_delta, resume
 
-    keep_delta(run, node_id, missing)  # the same pass goes on with what is missing
+    keep_delta(run, node_id, missing)
     await pause_run(db, run, reason=PAUSE_RUNTIME_FAILED, actor_id=None, detail={
         "message": (f"The phase stopped {stops} times on the same missing checks with no tool call or answer between: "
                     f"{missing}. "
@@ -78,11 +75,7 @@ def _set_item_stall(run: WorkflowRun, key: str, value: dict[str, Any] | None) ->
 
 async def _item_stalled(db: AsyncSession, run: WorkflowRun, key: str, session_id: str, missing: str,
                         attempts: int) -> bool:
-    """A teamwork item stopping twice on the same missing checks with nothing done in between: the item fails with
-    the reason (the coordinator re-plans with it); the run itself never pauses for one item.
-
-    Each item keeps its own stall record: with one record for the run, items stopping side by side overwrote each
-    other's, so a looping item was never seen as stalled and ran until the job's 60-minute limit."""
+    # Each item keeps its own stall record; one shared record let parallel items overwrite each other's.
     from ..teamwork.item_results import item_finished
 
     entry = dict(run.node_state or {}).get("entry")

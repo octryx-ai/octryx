@@ -1,20 +1,4 @@
-"""Build a Workspace's routes from the connections available there.
-
-For each connector whose Workspace entry exists and is active (that entry stays the connector's access switch):
-
-1. the connections available in the Workspace (``grants.py``, ``config_effective.effective``), split into the
-   Workspace's own and the shared ones; the own ones take precedence, a shared connection serves only the keys no own
-   connection binds (:func:`effective_of`, unchanged from);
-2. a key two connections of the same precedence bind is **ambiguous**: neither serves it and the router refuses it
-   (``connection_ambiguous``, ``needs_configuration``); a binding is never chosen by order;
-3. a disabled connection stays in the routes with ``is_active`` false (its keys never fall back to another account;
-   every use is refused), the agent tools level is the grant's;
-4. exactly one available, active connection that binds no key is the Workspace's default connection
-   (``unbound_default.py``), carried in ``routes.defaults``; it is no named route.
-
-Existing named connections are routed: a Workspace row is that Workspace's own, a global row is
-shared with every Workspace, their bound scopes decide.
-"""
+"""Build a Workspace's routes from the connections available there."""
 
 from __future__ import annotations
 
@@ -38,12 +22,6 @@ from .unbound_default import unbound_defaults
 
 
 async def active_workspace_entries(db: AsyncSession, tool_names: Iterable[str], project_id: str) -> set[str]:
-    """The connectors among ``tool_names`` the Workspace has not switched off (one query).
-
-    A connection available in the Workspace is enough to use its connector (a Bitbucket connection can be
-    "Working" and available in every Workspace while a Workspace has no separate ``bitbucket`` entry; every Bitbucket
-    tool would then be "not active"). Only an existing, inactive Workspace entry switches the connector off; whether a
-    connection serves it is still decided by the grants and routes."""
     wanted = sorted(set(tool_names))
     if not wanted:
         return set()
@@ -59,7 +37,6 @@ async def active_workspace_entries(db: AsyncSession, tool_names: Iterable[str], 
 
 
 def ambiguous_of(own: Iterable[NamedConnection], shared: Iterable[NamedConnection]) -> frozenset[str]:
-    """Keys two own connections bind, or two shared connections bind where no own connection does."""
     def doubled(connections: Iterable[NamedConnection]) -> set[str]:
         seen: set[str] = set()
         twice: set[str] = set()
@@ -76,12 +53,6 @@ def ambiguous_of(own: Iterable[NamedConnection], shared: Iterable[NamedConnectio
 def effective_of(
     own: Iterable[NamedConnection], shared: Iterable[NamedConnection]
 ) -> list[tuple[str, NamedConnection, frozenset[str]]]:
-    """``(scope, connection, keys it serves in the Workspace)``: the Workspace's own, then the shared ones.
-
-    A shared connection serves only the keys no own connection binds (the own binding wins); one whose every key is
-    overridden serves nothing there and is left out (also of a fan-out search). Ambiguous keys
-    (:func:`ambiguous_of`) are served by none of them.
-    """
     own, shared = list(own), list(shared)
     ambiguous = ambiguous_of(own, shared)
     overridden: set[str] = set()
@@ -99,7 +70,6 @@ def effective_of(
 def split_routes(
     rows: list[tuple[ConnectorNamedConnection, Grant | None]], tool: str, default_ids: set[str]
 ) -> tuple[list[tuple[NamedConnection, Grant]], list[tuple[NamedConnection, Grant]]]:
-    """The available named connections of ``tool``: ``(own, shared)``; the default connection is no named route."""
     own, shared = [], []
     for row, grant in rows:
         if grant is None or row.tool_name != tool or str(row.id) in default_ids:
@@ -111,7 +81,6 @@ def split_routes(
 async def effective_connections(
     db: AsyncSession, tool: str, project_id: str
 ) -> list[tuple[str, NamedConnection, frozenset[str]]]:
-    """:func:`effective_of` for one Workspace, from the connections available there (no secret is resolved)."""
     own, shared = split_routes(await rows_with_grants(db, [tool], project_id), tool, set())
     return effective_of([c for c, _ in own], [c for c, _ in shared])
 
@@ -123,10 +92,6 @@ async def workspace_routes(
     *,
     secrets: bool = True,
 ) -> NamedConnectionRoutes:
-    """The Workspace's routes for each connector whose entry is active (see the module doc).
-
-    ``secrets=False``: no secret is resolved here; each connection keeps its ``source`` for ``with_secrets``.
-    """
     if not project_id:
         return EMPTY_ROUTES
     tools = list(dict.fromkeys(tool_names))

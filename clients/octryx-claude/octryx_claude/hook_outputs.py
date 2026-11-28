@@ -79,9 +79,6 @@ PLAIN_FORM_REASON = pipeline_texts.FALLBACK_TEXTS["run.launcher.plain_form"]
 
 def test_run_output(hook_input: dict[str, Any], contract: dict[str, Any] | None,
                     shim: str = "") -> dict[str, Any] | None:
-    """A test run of a run phase, already allowed by the platform, runs outside Claude Code's sandbox: the same
-    command wrapped for the session's one ``excludedCommands`` entry, allowed without a prompt (``local_tests``);
-    ``None`` for anything else."""
     tool_input = hook_input.get("tool_input")
     if hook_input.get("tool_name") != "Bash" or not isinstance(tool_input, dict) or not shim:
         return None
@@ -109,7 +106,6 @@ def test_run_output(hook_input: dict[str, Any], contract: dict[str, Any] | None,
 
 
 def unwrapped(hook_input: dict[str, Any]) -> dict[str, Any]:
-    """The hook input with a wrapped test run's command as the agent wrote it (the platform's evidence)."""
     tool_input = hook_input.get("tool_input")
     if hook_input.get("tool_name") != "Bash" or not isinstance(tool_input, dict):
         return hook_input
@@ -120,8 +116,6 @@ def unwrapped(hook_input: dict[str, Any]) -> dict[str, Any]:
 
 
 def _rewritten(body: dict[str, Any], tool_input: object) -> dict[str, Any] | None:
-    """An allow whose tool input the platform rewrote (``updated_input``, a pytest run with ``-v``): Claude Code runs
-    the rewritten call; Codex has no ``updatedInput`` and runs the call unchanged. ``None`` for a plain allow."""
     updated = body.get("updated_input")
     if not isinstance(updated, dict) or not isinstance(tool_input, dict) or codex_hook_input.in_codex():
         return None
@@ -132,7 +126,6 @@ def _rewritten(body: dict[str, Any], tool_input: object) -> dict[str, Any] | Non
 
 def pre_tool_use_output(result: PlatformResult, tool_input: object = None,
                         texts: dict[str, Any] | None = None) -> dict[str, Any] | None:
-    """Hook stdout for a tool-check result; ``None`` means "no objection"."""
     if result.outcome == "ok":
         decision = result.body.get("decision")
         if decision == "allow":
@@ -156,7 +149,6 @@ def _read_hook_input() -> dict[str, Any]:
 
 
 def _with_context(output: dict[str, Any] | None, event: str, text: str) -> dict[str, Any] | None:
-    """Context the model reads (PostToolUse / UserPromptSubmit ``additionalContext``)."""
     if not text:
         return output
     specific = dict((output or {}).get("hookSpecificOutput") or {})
@@ -172,7 +164,6 @@ def _emit(output: dict[str, Any] | None) -> None:
 
 
 def _redirected_output(output: dict[str, Any] | None, redirected: dict[str, Any]) -> dict[str, Any] | None:
-    """The decision about the copy, carrying the copy's path to Claude Code (a denial stays as it is)."""
     if output is None:
         output = _permission("allow", "the session's own tool output, read from a copy")
     specific = output.get("hookSpecificOutput")

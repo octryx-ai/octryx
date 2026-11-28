@@ -1,17 +1,4 @@
-"""Validation of a fragment and of a composed graph, through the unchanged phased validator.
-
-``validate_fragment_definition`` checks the fragment's own rules (entry, node kinds, ports, local node refs,
-``provides`` / ``requires``), then wraps it into a synthetic phased graph and runs ``validate_phased_definition``
-over it: ``__start → entry``; a ``pause`` port → ``__pause_<port>`` (``action_failed``) → ``__end``; an ``outcome``
-or ``any`` port → ``__end_<port>``; a ``loop`` port → a loop edge back to ``__start``. Errors naming a synthetic
-node are dropped, and so is a missing input the fragment declares in ``requires`` (the composite produces it). So
-loops, routes, failure routes, gates, phase agents and cycles inside a fragment are judged by the same validator
-as every published workflow.
-
-``validate_composition`` compiles the source, runs the unchanged ``validate_phased_definition`` over the compiled
-graph and adds the compiler's refusals; its report carries ``composition`` (the pinned fragments with their
-capability and approval analysis, the compiled digest and the source hash).
-"""
+"""Validation of a fragment and of a composed graph, through the unchanged phased validator."""
 
 from __future__ import annotations
 
@@ -39,7 +26,6 @@ def _text(value: Any) -> str:
 
 
 def known_kinds() -> frozenset[str]:
-    """Every artefact kind of the data-flow vocabulary (phase outputs plus the server-produced kinds)."""
     from ..data_flow import (
         CHANGE_PLAN,
         CONFIRMED_TESTS,
@@ -57,7 +43,6 @@ def known_kinds() -> frozenset[str]:
 
 
 def harness_definition(fragment: FragmentDefinition) -> dict[str, Any]:
-    """The fragment wrapped into a synthetic phased graph (only for validation; never stored or run)."""
     nodes: list[dict[str, Any]] = [{"id": "__start", "type": "start"}, *fragment.nodes]
     edges: list[dict[str, Any]] = [{"id": "__e_start", "source_node_id": "__start",
                                     "target_node_id": fragment.entry}]
@@ -140,7 +125,6 @@ def _report(errors: list[dict[str, str]], definition: dict[str, Any]) -> dict[st
 
 
 def validate_fragment_definition(definition: dict) -> dict:
-    """The validation report of a fragment (the shape of ``validate_phased_definition``)."""
     try:
         fragment = parse_fragment(definition)
     except FragmentError as exc:
@@ -166,7 +150,6 @@ def _analysis(instance: dict[str, Any], definition: dict[str, Any]) -> dict[str,
 
 
 def validate_composition(source: dict, resolved: Mapping[str, ResolvedFragment]) -> dict:
-    """Compile, then the unchanged phased validator over the compiled graph, plus the compiler's refusals."""
     from ..graph import EXECUTION_KIND_PHASED
     from ..graph_validation import validate_phased_definition
 

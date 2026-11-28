@@ -1,12 +1,4 @@
-"""Channel approval commands: ``approve <id>`` and ``reject <id> [reason]``.
-
-The decider is the platform user the sender resolves to (``sender_identity.py``); a sender that
-resolves to nobody is refused (``channel_sender_unresolved``) and never decides as the channel's
-service user (``run_as.py``). The decision goes through the same owners as every route: a session approval
-through ``decide_session_approval`` (write access to its session), any other approval (task
-run, governance review) through ``decide_sessionless_approval`` (``services/approval/access.py``).
-A refusal is a fixed reply; the HTTP detail is never echoed into the channel.
-"""
+"""Channel approval commands: ``approve <id>`` and ``reject <id> [reason]``."""
 
 from __future__ import annotations
 
@@ -39,7 +31,6 @@ def is_approval_command(content: str) -> bool:
 async def handle_approval_command(
     db, content: str, sender_user_id: str | None, *, session_factory
 ) -> str | None:
-    """The reply to an approval command, or ``None`` when ``content`` is not one."""
     match = APPROVE_RE.match(content)
     decision, reason = ("approved", None) if match else (None, None)
     if not match:
@@ -89,8 +80,6 @@ async def _decide(db, approval_id: str, user_id: str, decision: str, reason: str
 
 
 async def _start_line(db, approval: Approval) -> str:
-    """The resumed workflow start's outcome, kept apart from the approval's: a typed refusal names its state and
-    reason (``needs_configuration`` / ``workspace_required``) and what to do."""
     from ...models import Session as AgentSession
     from ..workflow_routing.proposal_approval import START_STARTED, workflow_start_outcome
 

@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from app.services.model_gateway.litellm import LiteLLMGatewayError
 from app.services.model_gateway.litellm.errors import GATEWAY_STATE_CAPABILITY_NOT_PROVEN
 from tests.model_gateway.conftest import ALIAS, MESSAGES, MODEL_GROUP, TOOLS, VIRTUAL_KEY, FakeLiteLLMGateway
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
 
@@ -42,15 +44,14 @@ async def test_tool_request_without_probe_evidence_is_refused_before_dispatch(bu
     assert gateway.chat_requests == []
 
 
-async def test_capability_not_declared_for_the_alias_is_refused(build_gateway_client) -> None:
+async def test_reasoning_the_alias_does_not_declare_is_left_out_not_refused(build_gateway_client) -> None:
     gateway = FakeLiteLLMGateway(catalog={"data": [{"id": MODEL_GROUP, "model_info": {"supports_reasoning": True}}]})
     client = build_gateway_client(gateway)
 
-    with pytest.raises(LiteLLMGatewayError) as excinfo:
-        await client.chat(MESSAGES, model=ALIAS, reasoning_effort="high")
+    await client.chat(MESSAGES, model=ALIAS, reasoning_effort="high")
 
-    assert excinfo.value.denial_reason == "capability_not_declared_for_alias"
-    assert gateway.requests == []
+    (request,) = gateway.chat_requests
+    assert "reasoning_effort" not in json.loads(request.content)
 
 
 async def test_catalog_probe_failure_is_a_typed_sync_error(build_gateway_client) -> None:

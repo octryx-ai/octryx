@@ -9,6 +9,7 @@
   "test_runner.label and hint: how the contract's how_to_run_tests names the runner (with the catalog's run.tests.* wording); a pytest runner's options stay in the shell policy's own rules.",
   "test_runner.full_run_hint: what a full run of that runner may add (the Stop feedback and the system test rule name it; the shell policy allows exactly the runner's options); general.full_run_hint for a command no runner matches.",
   "test_runner.report_env: the environment that makes the runner also write a JUnit report to {report} while its own output stays as it is; the platform's own runs (pipeline, red_on_base) set it and read every test's result from that report, never from an agent's (maybe piped) output. summary_only: the runner has no machine-readable per-test report the platform can ask for; there the pipeline's exit code and summary judge. options \"any\": the runner's options are not restricted by this data (the shell policy's own rule applies).",
+  "test_runner.report_args: for a runner with no per-test report file (unittest), the flag that makes it name every test with its outcome in its own output ('add', unless the command has one of 'unless'); the platform's pipeline adds it to a plain call of a matching command and reads every test's result from the run's whole output.",
   "test_runner.only_files (`python3 -m unittest discover -s tests tests/test_pricing.py` ran no test, because discover reads a file as its start folder): how a runner runs only some test files, for the base-commit run (red_on_base). Per command prefix an argv template; the first that fits wins. 'contains' / 'lacks': a word the command must have / must not have; 'single_file': only for one file (else the full command). {test} the repository's test command as it is, {prefix} that command up to and including the runner prefix, {files} the files, {basename} the one file's name, {modules} the Python files as dotted modules. unittest discover keeps its own -s/-t (its modules import each other from the start folder) and gets -p; a bare `python -m unittest` takes modules. A command without a fitting template runs in full and the platform reads only the asked tests; the device never guesses by appending files.",
   "ui_paths (the web test shows whether it really works): regular expressions searched in a changed file's repository path that mark it as part of what a person sees; a size class's skip with \"unless_changed\": \"ui_paths\" keeps the step (the hands-on test) when the change touches one.",
   "build_artifacts (do not rebuild everything every time): a build the device reuses for the same inputs: tool and the args that start the call (a call starting so is served from the cache), ignore_args that do not change the output, the output folder and the inputs (files or folders of the app folder) whose bytes, with the args and the tool's version, make the key. Only an exact key is reused; a stack without the entry builds as before.",
@@ -512,6 +513,9 @@
     "report_env": {
      "PYTEST_ADDOPTS": "--junitxml={report}"
     },
+    "report_args": [
+     {"commands": [["python", "-m", "unittest"], ["python3", "-m", "unittest"], [".venv/bin/python", "-m", "unittest"]], "add": "-v", "unless": ["-v", "--verbose"]}
+    ],
     "failure_hint": "to see a red test's message: `python -m pytest <file>::<test> -x -q 2>&1 | tail -40`"
    },
    "test_output": {

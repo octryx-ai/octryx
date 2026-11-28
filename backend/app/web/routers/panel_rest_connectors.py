@@ -1,14 +1,4 @@
-"""Admin API of the custom REST connector; platform admins only.
-
-- ``/chat/api/panel/rest-apis``: list, create (manual), ``/import`` (OpenAPI text or URL; nothing enabled);
-- ``/chat/api/panel/rest-apis/{id}``: read (with operations and warnings), update, delete;
-- ``.../operations`` and ``.../operations/{op_id}``: add (manual), update (enable, llm_name, llm_description,
-  read_only, params_overlay, grants with data scope, response_select, records_path, pagination, an OData
-  ``preset``), delete; an OData ``$batch`` operation cannot be enabled;
-- ``.../operations/{op_id}/test``: a call as the calling admin through the same executor and audit;
-- ``.../connections`` and ``.../connections/{cid}``: per Workspace or platform, secrets write-only;
-- ``/chat/api/panel/rest-api-calls``: the latest audited calls (``?definition_id=``, ``?op_id=`` the operation id).
-"""
+"""Admin API of the custom REST connector; platform admins only."""
 
 from __future__ import annotations
 

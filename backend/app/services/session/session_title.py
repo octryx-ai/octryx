@@ -1,10 +1,5 @@
-"""Deterministic chat titles.
-
-No model call: the first sentence of the first message, with leading greetings and filler removed,
-the composer's attachment block, code and URLs dropped, sentence case, cut at a word boundary within
-``TITLE_MAX_CHARS``. ``metadata.title_source`` records where a title came from: ``prompt`` (this rule)
-or ``user`` (renamed). A user title is never overwritten.
-"""
+"""Deterministic chat titles: no model call. ``metadata.title_source`` records ``prompt`` or ``user``; a user title is
+never overwritten."""
 
 from __future__ import annotations
 
@@ -53,7 +48,6 @@ def _cut_at_word(text: str, limit: int) -> str:
 
 
 def title_from_prompt(prompt: str) -> str:
-    """The title of a chat whose first message is ``prompt``."""
     text = _ATTACHMENT_BLOCK.sub("", str(prompt or ""))
     text = _CODE_FENCE.sub(" ", text)
     text = _INLINE_CODE.sub(" ", text)
@@ -68,7 +62,7 @@ def title_from_prompt(prompt: str) -> str:
 
 
 def apply_prompt_title(metadata: dict[str, Any], prompt: str) -> None:
-    """Sets the prompt title unless the chat already has a title (a user title is never replaced)."""
+    # A user title is never replaced.
     if metadata.get("title"):
         return
     metadata["title"] = title_from_prompt(prompt)
@@ -76,7 +70,7 @@ def apply_prompt_title(metadata: dict[str, Any], prompt: str) -> None:
 
 
 def apply_run_title(metadata: dict[str, Any], title: str) -> None:
-    """A workflow run's main thread is named after the run ("<work item key> <title>"); a user title stays."""
+    # A user title stays.
     clean = re.sub(r"\s+", " ", str(title or "")).strip()[:120]
     if not clean or metadata.get(TITLE_SOURCE_KEY) == TITLE_SOURCE_USER:
         return

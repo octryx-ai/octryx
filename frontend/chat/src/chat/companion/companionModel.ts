@@ -1,7 +1,4 @@
-// Octryx companion, stage 1: one place for what needs the person, what runs and what is done.
-// Pure functions only: reading the attention payload (GET /api/v1/attention), the octopus' face and eight arms, the
-// notification rules and the request an action sends. Every field is read tolerantly; unknown values are dropped,
-// never shown.
+// Every field is read tolerantly; unknown values are dropped, never shown.
 import { groupAttention, needsYou } from "./companionGroups";
 import {
   ARM_COUNT, DEFAULT_QUIET_HOURS,
@@ -12,7 +9,6 @@ import { record, str } from "./companionValues";
 
 const CLOCK = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-/** Overall face: worry on a problem, open when something needs the person, sleep in quiet hours or with nothing on. */
 export function faceState(attention: Attention | null): FaceState {
   if (!attention) return "sleep";
   if (attention.items.some((item) => item.kind === "problem") || attention.running.some((run) => run.state === "problem")) return "worry";
@@ -23,7 +19,6 @@ export function faceState(attention: Attention | null): FaceState {
 
 const NODE_OF: Record<RunState, NodeState> = { working: "run", needs_you: "wait", done: "done", problem: "fail" };
 
-/** Eight arm nodes: one per run; more than eight runs put "+N" on the eighth. Unreachable: all off. */
 export function armNodes(running: RunningAgent[], reachable = true): ArmNode[] {
   if (!reachable) return Array.from({ length: ARM_COUNT }, () => ({ state: "off", label: "Not connected", more: 0 }));
   const nodes: ArmNode[] = running.slice(0, ARM_COUNT).map((run) => ({ state: NODE_OF[run.state], label: run.label, more: 0 }));
@@ -32,26 +27,20 @@ export function armNodes(running: RunningAgent[], reachable = true): ArmNode[] {
   return nodes;
 }
 
-/** Whether an arm moves: only while something works (never under reduced motion, which the view decides). */
 export const armsMoving = (nodes: ArmNode[]) => nodes.some((node) => node.state === "run");
 
-/**
- * Notify rules: questions, gates, approvals, handoffs, done and problems notify; budget from 80 %, allowance from 95 %.
- * Phase changes, finished turns and green tests never become attention items, so they stay silent.
- */
 export function notifies(item: AttentionItem): boolean {
   if (item.kind === "budget") return item.percent === null || item.percent >= 80;
   if (item.kind === "allowance") return item.percent === null || item.percent >= 95;
   return true;
 }
 
-/** Items new since the previous load that notify. The first load is the baseline and announces nothing. */
+// The first load is the baseline and announces nothing.
 export function itemsToNotify(previous: Set<string> | null, attention: Attention): AttentionItem[] {
   if (previous === null || attention.quiet.active) return [];
   return attention.items.filter((item) => !previous.has(item.key) && notifies(item));
 }
 
-/** "Octryx: 1 needs you, 3 working" — the button's accessible name. */
 export function companionLabel(attention: Attention | null): string {
   if (!attention) return "Octryx: not connected";
   // The same groups as the panel, so the name never counts a run twice.
@@ -66,7 +55,6 @@ export function companionLabel(attention: Attention | null): string {
   return `Octryx: ${parts.length ? parts.join(", ") : "nothing needs you"}`;
 }
 
-/** The request an action sends: free text goes into body[input.field]. */
 export function buildActionRequest(action: AttentionAction, text = ""): AttentionRequest | { error: string } {
   const body = { ...action.request.body };
   if (action.input) {
@@ -77,7 +65,6 @@ export function buildActionRequest(action: AttentionAction, text = ""): Attentio
   return { ...action.request, body };
 }
 
-/** Seconds left until an item expires (device approvals); null without an expiry. */
 export function secondsLeft(expiresAt: string | null, now = Date.now()): number | null {
   if (!expiresAt) return null;
   const at = Date.parse(expiresAt);
@@ -90,7 +77,6 @@ export function countdownText(seconds: number | null): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")} left`;
 }
 
-/** quiet_hours of the notification preferences; the default when missing or malformed. */
 export function readQuietHours(payload: unknown): { quiet: QuietHours; stored: boolean } {
   const quiet = record(record(payload)?.quiet_hours);
   if (!quiet || !CLOCK.test(str(quiet.start)) || !CLOCK.test(str(quiet.end))) return { quiet: { ...DEFAULT_QUIET_HOURS }, stored: false };
@@ -99,7 +85,6 @@ export function readQuietHours(payload: unknown): { quiet: QuietHours; stored: b
 
 export const validQuietHours = (quiet: QuietHours) => CLOCK.test(quiet.start) && CLOCK.test(quiet.end) && quiet.start !== quiet.end;
 
-/** The PUT body: quiet hours plus the stored channel switches unchanged (the server takes a partial update). */
 export function quietHoursBody(preferences: unknown, quiet: QuietHours): Record<string, unknown> {
   const current = record(preferences) ?? {};
   const keep = Object.fromEntries(Object.entries(current).filter(([key, value]) => key.endsWith("_enabled") && typeof value === "boolean"));

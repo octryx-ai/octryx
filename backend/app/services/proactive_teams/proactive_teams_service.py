@@ -1,15 +1,4 @@
-"""Proactive Teams messaging — resolve users and initiate 1:1 conversations.
-
-This service allows the agent to proactively contact a user via Teams,
-e.g., to ask clarifying questions about a Jira ticket.
-
-Required Azure AD Application Permissions:
-  - User.Read.All (resolve email → Teams user ID)
-  - TeamsAppInstallation.ReadWriteForUser.All (install bot for user if needed)
-
-The Bot Framework Connector /v3/conversations endpoint is used to create the
-1:1 conversation and send the first message.
-"""
+"""Proactive Teams messaging — resolve users and initiate 1:1 conversations."""
 
 import logging
 import time
@@ -27,8 +16,6 @@ _BF_SCOPE = "https://api.botframework.com/.default"
 
 
 class ProactiveTeamsService:
-    """Manages proactive 1:1 messaging to Teams users via Bot Framework."""
-
     def __init__(
         self,
         app_id: str,
@@ -48,7 +35,6 @@ class ProactiveTeamsService:
     # ---------------------------------------------------------------- tokens
 
     async def _get_graph_token(self, client: httpx.AsyncClient) -> str:
-        """Acquire or reuse a Microsoft Graph application token."""
         if self._graph_token and time.time() < self._graph_token_expires_at - 60:
             return self._graph_token
 
@@ -69,7 +55,6 @@ class ProactiveTeamsService:
         return self._graph_token
 
     async def _get_bf_token(self, client: httpx.AsyncClient) -> str:
-        """Acquire or reuse a Bot Framework Connector token."""
         if self._bf_token and time.time() < self._bf_token_expires_at - 60:
             return self._bf_token
 
@@ -92,10 +77,6 @@ class ProactiveTeamsService:
     # ---------------------------------------------------------------- graph
 
     async def resolve_user_by_email(self, email: str) -> dict[str, Any] | None:
-        """Resolve a user's Teams identity (id, displayName) from their email.
-
-        Requires: User.Read.All application permission.
-        """
         async with httpx.AsyncClient(timeout=15) as client:
             token = await self._get_graph_token(client)
             resp = await client.get(
@@ -115,10 +96,6 @@ class ProactiveTeamsService:
             }
 
     async def ensure_bot_installed_for_user(self, user_id: str) -> bool:
-        """Ensure the bot app is installed for the user (required for proactive DMs).
-
-        Requires: TeamsAppInstallation.ReadWriteForUser.All application permission.
-        """
         async with httpx.AsyncClient(timeout=15) as client:
             token = await self._get_graph_token(client)
             headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
@@ -154,11 +131,6 @@ class ProactiveTeamsService:
         user_id: str,
         message: str,
     ) -> dict[str, Any] | None:
-        """Create a 1:1 conversation with a Teams user and send a message.
-
-        Uses Bot Framework Connector API POST /v3/conversations.
-        Returns the conversation reference (serviceUrl|conversationId) on success.
-        """
         async with httpx.AsyncClient(timeout=20) as client:
             token = await self._get_bf_token(client)
 
@@ -199,10 +171,6 @@ class ProactiveTeamsService:
     # ---------------------------------------------------------------- high-level
 
     async def send_proactive_message(self, email: str, message: str) -> dict[str, Any] | None:
-        """End-to-end: resolve user by email → ensure bot installed → send message.
-
-        Returns conversation reference dict or None on failure.
-        """
         user = await self.resolve_user_by_email(email)
         if not user:
             return None

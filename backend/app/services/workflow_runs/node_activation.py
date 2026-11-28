@@ -44,13 +44,12 @@ _WAITING_BY_KIND = {
 
 async def _activate(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, node: PhasedNode,
                     actor_id: str | None) -> Any:
-    """The node's route value, or ``_WAIT`` when the run now waits at this node."""
     from .handoff.lifecycle import guard_receiver
 
     receiver = await guard_receiver(db, run)
     from .size_class.merge import entered as merge_entered
 
-    merged, route = await merge_entered(db, run, node)  # a size class does this phase inside a later one
+    merged, route = await merge_entered(db, run, node)
     if merged:
         return route
     if node.kind == NODE_START:
@@ -58,9 +57,6 @@ async def _activate(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, node
     if node.kind == NODE_PHASE:
         return await _activate_phase(db, run, node)
     if node.kind == NODE_GATE:
-        from .slices.results import refresh_slices
-
-        await refresh_slices(db, run)  # a child that ended without a report is a failed slice
         return await _evaluate_gate(db, run, node)
     if node.kind == NODE_DECISION:
         return await _activate_decision(db, run, graph, node)
@@ -77,7 +73,6 @@ async def _activate(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, node
     if node.kind == NODE_PARALLEL:
         from .teamwork.scheduler import enter as enter_parallel_work
 
-        # The coordinator's plan runs as one session per item; the scheduler resolves the node (done | replan).
         route = await enter_parallel_work(db, run, node, graph=graph)
         return route if route else _WAIT
     if node.kind == NODE_REVIEW:
@@ -94,7 +89,6 @@ async def _activate(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, node
 
 
 async def _activate_start(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, receiver: Any) -> Any:
-    """The start node: a workflow that receives a specification starts only from an accepted handoff."""
     from .data_flow import receives_spec
 
     if receives_spec(graph):
@@ -107,10 +101,9 @@ async def _activate_start(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph
 
 
 async def _activate_phase(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> Any:
-    """A phase: a fresh pass's evidence, and a device thread continues it without a manual prompt."""
     from .run_memory import entered as memory_entered
 
-    await memory_entered(db, run, node)  # what earlier runs of the app learned, for this pass's brief
+    await memory_entered(db, run, node)
     _set_context(run, "evidence", node.id, {"tools": [], "artifacts": [], "turns": 0})
     # A device's change and a four-eyes approval belong to one pass: a new pass never reviews, pushes or
     # deploys on the previous one's.
@@ -130,7 +123,7 @@ async def _activate_decision(db: AsyncSession, run: WorkflowRun, graph: PhasedGr
     from .conditions import ConditionUnavailableError, decision_route
 
     try:
-        value = await decision_route(db, run, graph, node)  # field conditions and the otherwise route
+        value = await decision_route(db, run, graph, node)
     except ConditionUnavailableError as error:
         await fail_run(db, run, str(error))
         return _WAIT
@@ -142,7 +135,7 @@ async def _activate_platform_action(db: AsyncSession, run: WorkflowRun, node: Ph
     from .platform_actions import WAIT, run_platform_action
     from .size_class.steps import skip_entered
 
-    if await skip_entered(db, run, node):  # the run's size class leaves this check out
+    if await skip_entered(db, run, node):
         return SUCCEEDED
 
     route = await run_platform_action(db, run, node)
@@ -150,7 +143,6 @@ async def _activate_platform_action(db: AsyncSession, run: WorkflowRun, node: Ph
 
 
 async def _activate_waiting(db: AsyncSession, run: WorkflowRun, node: PhasedNode, actor_id: str | None) -> Any:
-    """A node that waits for a person or an outside state (a confirmation of an epic's story may pass at once)."""
     if node.kind == NODE_CONFIRMATION:
         from .auto_accept import accept_on_entry
         from .graph import CONFIRMED

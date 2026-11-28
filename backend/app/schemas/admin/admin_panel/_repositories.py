@@ -58,7 +58,7 @@ class GitHubRepositoryCreateRequest(BaseModel):
     register_code_repository: bool = False
     project_id: OptionalWorkspaceId = None
     index_backend: Literal["auto", "zoekt", "ripgrep"] = "auto"
-    semantic_backend: Literal["auto", "scip", "lsp", "regex"] = "auto"
+    semantic_backend: Literal["auto", "lsp", "regex"] = "auto"
     structure_backend: Literal["auto", "tree-sitter", "regex"] = "auto"
     graph_backend: Literal["disabled", "auto", "code_graph", "graphify"] = "auto"
     timeout_sec: int = Field(default=300, ge=30, le=1800)

@@ -4,6 +4,7 @@ from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -11,7 +12,7 @@ def uuid_pk():
     return str(uuid.uuid4())
 
 
-class StoredSecret(Base):
+class StoredSecret(WorkspaceBound, Base):
     __tablename__ = "stored_secrets"
     __table_args__ = (Index("ix_stored_secrets_expires_at", "expires_at"),)
 
@@ -30,7 +31,9 @@ class StoredSecret(Base):
     project = relationship("Project")
 
 
-class SecretRotationLog(Base):
+class SecretRotationLog(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"secret_id": "stored_secrets"}
     __tablename__ = "secret_rotation_log"
     __table_args__ = (
         Index("ix_secret_rotation_log_secret_created", "secret_id", "created_at"),

@@ -1,17 +1,5 @@
-"""Process and runtime metrics of the api and the worker: request latency, the database pool, the event loop, the
-process itself and the build (``octryx_api_request_duration_seconds``, ``octryx_db_pool_*``,
-``octryx_event_loop_lag_seconds``, ``process_*``, ``octryx_build_info``).
-
-All in memory or read from the running process at scrape time; nothing queries the database.
-
-- Request latency per endpoint (route template) and method: observed by the request middleware.
-- The pool: SQLAlchemy's ``QueuePool`` status (size, checked out, idle, overflow) and the requests that gave up
-  waiting for a connection (``sqlalchemy.exc.TimeoutError`` reaching the middleware; an exhausted
-  pool can take the API out of service).
-- Event loop lag: a light task (started with the first scrape) sleeps ``LAG_TICK_SECONDS`` and measures how late it
-  wakes; the gauge is the worst lag of the last ``LAG_WINDOW_SECONDS``.
-- ``process_*`` in the names Prometheus' client libraries use (Linux ``/proc``; elsewhere what ``resource`` offers).
-"""
+"""Process and runtime metrics of the api and the worker: request latency, database pool, event loop, process and
+build."""
 
 from __future__ import annotations
 
@@ -40,7 +28,6 @@ _monitor: asyncio.Task[None] | None = None
 
 
 def reset() -> None:
-    """Tests: start empty."""
     API_DURATION.series.clear()
     POOL_TIMEOUTS.series.clear()
     _lags.clear()
@@ -65,7 +52,6 @@ async def _measure_lag() -> None:
 
 
 def ensure_loop_monitor() -> None:
-    """Start the lag task in this process's running loop once (a new loop, as in tests, gets its own)."""
     global _monitor
     loop = asyncio.get_running_loop()
     if _monitor is not None and not _monitor.done() and _monitor.get_loop() is loop:

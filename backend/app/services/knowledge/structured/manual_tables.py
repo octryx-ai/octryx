@@ -1,21 +1,4 @@
-"""Parameter and compatibility tables of a manual, by header semantics.
-
-Docling renders a table as its own span, one ``cell | cell`` row per line. A table that crosses a
-page continues in later spans **without** its header, separated only by page-continuation text
-(``Table 31 – continued from previous page``). :func:`logical_tables` stitches those spans back into
-one table under the header that opened it, inside the same section. A table span that opens with an
-unrecognized row and does not continue an open table is not read.
-
-**Parameter tables** have a name column (``Parameter``, optionally prefixed with the INI section
-pattern: ``[Cache?] Parameter``) and a ``Default`` column. A row with an empty name continues the
-previous parameter's description. A parameter's scope is the header's INI section pattern, else the
-plugin that the enclosing heading names (``CacheProvider`` › ``Configuration``), else none.
-
-**Compatibility tables** have a product column first and at least two columns whose header is a
-profile component (``Java SE``, ``Post-greSQL``). A header cell that Docling merged from several
-components (``Tom- cat My- SQL``) is split only when its value has exactly as many tokens; an
-ambiguous column yields no edge, and its row is kept as a ``TableRow`` node instead.
-"""
+"""Parameter and compatibility tables of a manual, by header semantics."""
 
 from __future__ import annotations
 
@@ -37,7 +20,6 @@ MANDATORY = "<mandatory>"
 
 
 def dehyphenate(text: str) -> str:
-    """Repair Docling's line-break hyphens (``Post-greSQL`` -> ``PostgreSQL``, ``2019- 2022`` -> ``2019-2022``)."""
     return _DIGIT_HYPHEN.sub("-", _SOFT_HYPHEN.sub("", " ".join(text.split())))
 
 
@@ -58,7 +40,6 @@ def _is_filler(span: SpanInput, profile: StructuredProfile) -> bool:
 
 
 def parameter_columns(header: list[str], profile: StructuredProfile) -> dict[str, int | str | None] | None:
-    """The column roles of a parameter table header, or ``None`` when it is not one."""
     if not header:
         return None
     match = _SECTION_PREFIX.match(header[0])
@@ -79,7 +60,6 @@ def parameter_columns(header: list[str], profile: StructuredProfile) -> dict[str
 
 
 def _split_components(folded: str, components: tuple[Component, ...]) -> list[Component] | None:
-    """``folded`` as one component, or as a concatenation of up to three, else ``None``."""
     for component in components:
         if folded == component.folded:
             return [component]

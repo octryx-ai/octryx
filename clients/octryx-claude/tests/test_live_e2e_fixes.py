@@ -15,7 +15,6 @@ pytestmark = requires_git
 
 
 def _receiver_config(tmp_path, monkeypatch, kind: str = "autocrlf") -> None:
-    """The receiver converts line endings: autocrlf with a smudging global attributes file, or core.eol=crlf."""
     attributes = tmp_path / "global-attributes"
     attributes.write_text("* text eol=crlf filter=shout\n")
     core = (f"\tautocrlf = true\n\tattributesFile = {attributes}\n" if kind == "autocrlf" else
@@ -52,7 +51,6 @@ def test_resume_is_byte_identical_under_a_converting_receiver_config(
 
 @pytest.mark.parametrize("kind", ["autocrlf", "eol"])
 def test_the_receivers_own_config_would_convert_without_the_fix(tmp_path, monkeypatch, repos, kind):  # noqa: F811
-    """The scenario is real: a plain checkout under the same config is not byte-identical."""
     (repos["receiver"] / ".gitattributes").write_text("* text=auto\n")
     git(repos["receiver"], "add", ".gitattributes")
     git(repos["receiver"], "commit", "-q", "-m", "attributes")

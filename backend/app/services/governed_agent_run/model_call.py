@@ -1,24 +1,4 @@
-"""The governed model path of a governed agent run: Model Policy -> admitted gateway runtimes.
-
-1. The run's Model Policy reference (``name@revision``) resolves to a published revision in the run's
-   Workspace whose entries still hash to the stored digest (:func:`load_policy_aliases`). Its entries are
-   the ordered gateway aliases.
-2. The configured control-plane runtime targets are read; only ``litellm_gateway`` targets serving one of
-   those aliases are kept, in policy order. A non-gateway target never serves a governed run (it would pass
-   admission vacuously). None left: ``needs_configuration`` / ``model_runtime_unavailable``.
-3. The chain is admitted through ``services/model_gateway/dispatch_admission`` under the caller's dispatch
-   owner: the project's own ``model_policy`` grant, and the driver re-checks the grant and the Workspace data
-   classification before any request. A refused chain is ``needs_configuration`` / ``model_alias_not_admitted``
-   or ``denied`` when the Workspace itself could not be admitted.
-4. Every model request passes the platform budget policy, then the engine's runtime
-   chain (``_chat_with_runtime_fallback``) for the current policy alias with that alias's own retry policy. A
-   typed transient failure of the whole alias chain fails over to the next alias of the same policy
-   (``model_failover.py``). An all-targets admission refusal is classified from typed attempt facts only
-   (``admission_refusal_of_attempts``); any other failure is ``provider_error``, logged and carried
-   (``RunRefusal.detail``) with its sanitized cause (``provider_failure.failure_detail``).
-5. Usage is accounted per request: tokens from the provider usage, cost from the platform's cost
-   attribution, and a ``UsageEvent`` for the session's budget ledger.
-"""
+"""The governed model path of a governed agent run: Model Policy -> admitted gateway runtimes."""
 
 from __future__ import annotations
 
@@ -30,12 +10,13 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ...agent.core.context.engine_limits import APPROX_CHARS_PER_TOKEN
-from ...agent.core.execution_support import record_usage_event
-from ...agent.core.runtime.runtime_admission_contract import admission_refusal_of_attempts
-from ...agent.core.runtime.runtime_errors import RUNTIME_ERROR_DATA_POLICY_DENIED
-from ...agent.engine.runtime._engine_runtime_fallback import _chat_with_runtime_fallback
-from ...agent.engine.runtime._engine_runtime_retry_policy import build_runtime_retry_policy
+from app.agent.runtime.engine_limits import APPROX_CHARS_PER_TOKEN
+from app.agent.runtime.execution_support import record_usage_event
+from app.agent.runtime.retry_policy import build_runtime_retry_policy
+from app.agent.runtime.runtime_admission_contract import admission_refusal_of_attempts
+from app.agent.runtime.runtime_errors import RUNTIME_ERROR_DATA_POLICY_DENIED
+from app.agent.runtime.runtime_fallback import _chat_with_runtime_fallback
+
 from ...exceptions.tool import BudgetLimitExceededError
 from ...models import ModelPolicy, ModelPolicyRevision
 from ...models.runtime.governed_revision import REGISTRY_STATUS_RETIRED, REVISION_STATE_PUBLISHED
@@ -69,7 +50,6 @@ RuntimeResolver = Callable[..., Awaitable[list[dict[str, Any]]]]
 
 
 async def load_policy_aliases(db: AsyncSession, workspace_id: str, ref: ResourceRef) -> list[str]:
-    """The ordered gateway aliases of exactly the pinned, published Model Policy revision."""
     policy = (
         await db.execute(
             select(ModelPolicy).where(ModelPolicy.workspace_id == workspace_id, ModelPolicy.name == ref.name)
@@ -120,8 +100,6 @@ async def admitted_runtimes(
 
 
 class GovernedModelCall:
-    """The ``ModelCall`` closure the harness model adapter dispatches through; accounts usage."""
-
     def __init__(
         self,
         db: AsyncSession,
@@ -149,7 +127,6 @@ class GovernedModelCall:
         self.failovers: list[dict[str, str]] = []
 
     async def _enforce_budget(self, messages: list[dict[str, Any]], chain: AliasChain) -> None:
-        """The platform budget policy for a request about to go to ``chain`` (also before a switch)."""
         context = self._context
         try:
             await enforce_budget_limits(

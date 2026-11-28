@@ -1,10 +1,4 @@
-"""Template resolution for the deterministic presentation composer.
-
-The deck is only ever built from a template that the platform already knows:
-the corporate identity profile's composer template (the normalised derivative
-when it is current, otherwise the original — that decision belongs to
-``corp_identity_service``, not here) or an explicitly named template file.
-"""
+"""Template resolution for the deterministic presentation composer."""
 
 from __future__ import annotations
 
@@ -15,8 +9,6 @@ from ..context import ToolContext
 
 
 class TemplateResolutionError(RuntimeError):
-    """No configured template is usable; carries a closed configuration code."""
-
     def __init__(self, message: str, *, code: str = "presentation_template_unconfigured") -> None:
         super().__init__(message)
         self.code = code
@@ -28,7 +20,6 @@ async def resolve_composer_template(
     profile_id: str = "",
     template_path: str = "",
 ) -> tuple[Path, dict[str, Any]]:
-    """Return ``(template_path, resolution_meta)`` for the composer."""
     if template_path.strip():
         explicit = Path(template_path.strip()).expanduser()
         if not explicit.is_file():

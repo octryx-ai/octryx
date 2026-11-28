@@ -4,6 +4,7 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -88,7 +89,7 @@ class UserGroup(Base):
     granted_at = Column(DateTime, default=utc_now)
 
 
-class ProjectGroup(Base):
+class ProjectGroup(WorkspaceBound, Base):
     __tablename__ = "project_groups"
 
     project_id = Column(String(36), ForeignKey("projects.id"), primary_key=True, index=True)
@@ -107,7 +108,7 @@ class ProjectGroup(Base):
     )
 
 
-class UserProject(Base):
+class UserProject(WorkspaceBound, Base):
     __tablename__ = "user_projects"
 
     user_id = Column(String(36), ForeignKey("users.id"), primary_key=True)
@@ -126,12 +127,9 @@ class UserProject(Base):
     )
 
 
-class ProjectUserRoleAssignment(Base):
-    """Normalized project-role assignments for a direct user/project grant.
-
-    One row per (user, project, role_name); the only store of a direct grant's
-    project roles.
-    """
+class ProjectUserRoleAssignment(WorkspaceBound, Base):
+    """Normalized project-role assignments for a direct user/project grant. One row per (user, project, role_name): the
+    only store of a direct grant's project roles."""
 
     __tablename__ = "project_user_role_assignments"
 
@@ -140,12 +138,9 @@ class ProjectUserRoleAssignment(Base):
     role_name = Column(String(50), primary_key=True)
 
 
-class ProjectGroupRoleAssignment(Base):
-    """Normalized project-role assignments for a group/project grant.
-
-    One row per (group, project, role_name); the only store of a group grant's
-    project roles.
-    """
+class ProjectGroupRoleAssignment(WorkspaceBound, Base):
+    """Normalized project-role assignments for a group/project grant. One row per (group, project, role_name): the only
+    store of a group grant's project roles."""
 
     __tablename__ = "project_group_role_assignments"
 

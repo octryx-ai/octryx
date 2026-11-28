@@ -8,7 +8,10 @@ import pytest
 from app.services.workflow_runs import pipeline, pipeline_failure, pipeline_report
 from app.services.workflow_runs.binding import run_turn_resolution
 from tests.phased_workflow_fixtures import phase_turn
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_pipeline_support import COMMANDS, TASKS, _at_pipeline, _definition, _report
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 JUNIT = """<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" tests="3">
 <testcase classname="tests.test_search" name="test_text_search" time="0.1"/>
@@ -65,7 +68,6 @@ def test_the_run_card_shows_the_screenshots_the_review_takes():
 
 
 def test_a_finished_run_does_not_say_it_waits_and_a_bitbucket_pr_has_its_link():
-    """Once the stories are done, the card must not say the run waits for the merge without a PR link."""
     from types import SimpleNamespace
 
     from app.services.secure_work.pull_requests.record_identity import answered_pull_request
@@ -83,15 +85,12 @@ def test_a_finished_run_does_not_say_it_waits_and_a_bitbucket_pr_has_its_link():
 
 @pytest.mark.asyncio
 async def test_a_server_run_skips_the_pipeline_and_says_so(db, monkeypatch):
-    """The workflow covers several scenarios; a server run has no pipeline runner yet."""
     run, _session = await _at_pipeline(db, monkeypatch, runtime="server")
     assert run.status == "completed" and run.context["pipeline"]["state"] == "skipped"
 
 
 @pytest.mark.asyncio
 async def test_every_test_of_the_junit_report_is_recorded_and_a_red_one_is_named_to_the_agent(db, monkeypatch):
-    """The pipeline must not keep the JUnit report as text, else ``passed_tests`` sees none of its tests and the
-    agent hears only the command. Each test is a result, and the failing ids go back to the agent."""
     from app.services.workflow_runs.task_list import passed_tests
 
     run, session = await _at_pipeline(db, monkeypatch)
@@ -108,8 +107,6 @@ async def test_every_test_of_the_junit_report_is_recorded_and_a_red_one_is_named
 
 @pytest.mark.asyncio
 async def test_green_needs_every_task_proven_by_the_pipeline_and_then_the_tasks_are_done(db, monkeypatch):
-    """The pipeline is the one judge of "task proven". A task whose proof test did not pass there
-    sends the work back with the list; once every proof passed, the tasks are done (the review verifies them)."""
     run, session = await _at_pipeline(db, monkeypatch)
     run.context = {**run.context, "task_list": [*TASKS, {"id": "T3", "text": "chips",
                                                          "proof": "tests/test_chips.py::test_chips",
@@ -142,8 +139,6 @@ def test_the_pipeline_follows_a_phase_only_with_the_step_and_a_declared_command(
 
 @pytest.mark.asyncio
 async def test_the_pipeline_is_red_on_the_code_style_whatever_the_suites_say(db, monkeypatch):
-    """The platform enforces the installation's code style itself, on the device's counts of the
-    whole change against the run's base; a touched legacy file over the limit only warns."""
     from app.services.code_style.resolve import effective, flat
 
     run, session = await _at_pipeline(db, monkeypatch)
@@ -161,7 +156,6 @@ async def test_the_pipeline_is_red_on_the_code_style_whatever_the_suites_say(db,
 
 
 def test_a_pipeline_red_only_on_code_style_tells_the_agent_what_to_fix():
-    """When only code style is red, the agent's contract names what to fix."""
     from types import SimpleNamespace
 
     finding = "coffee/flutter/claude/system_test/run_system_test.py:717: E501 Line too long [linter]"

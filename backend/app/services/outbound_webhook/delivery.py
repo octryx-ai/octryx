@@ -19,7 +19,7 @@ from ...time_utils import utc_now, utc_now_aware
 from ..error_facts import error_text
 from ..outbound_egress import CONNECTION_OUTBOUND_WEBHOOK, EgressRefusedError, egress_transport
 from ..request_context import get_current_request_id
-from ..secret import decrypt_secret
+from ..secret import SecretHolder, reveal_held_secret
 from .catalog import ALLOWED_OUTBOUND_WEBHOOK_EVENTS, OUTBOUND_WEBHOOK_RETRY_DELAYS_SECONDS
 from .response_facts import response_facts_line
 
@@ -168,15 +168,15 @@ async def _post_delivery(
 
 
 async def _deliver(db: AsyncSession, row: OutboundWebhookDelivery) -> None:
-    """Send one due delivery; a missing or inactive webhook dead-letters it, a failure schedules a retry."""
     webhook = await db.get(OutboundWebhook, row.webhook_id)
     if webhook is None or not webhook.is_active:
         row.status = "dead_letter"
         row.error = "Outbound webhook is missing or inactive"
         row.next_retry_at = None
         return
+    holder = SecretHolder("outbound_webhook", webhook.id, webhook.project_id)
     try:
-        secret = decrypt_secret(webhook.encrypted_secret)
+        secret = await reveal_held_secret(db, webhook.encrypted_secret, holder=holder, purpose="outbound_webhook.sign")
     except Exception as exc:
         _schedule_retry(row, error_text("webhook_secret_decrypt_failed", exc), webhook=webhook)
         return

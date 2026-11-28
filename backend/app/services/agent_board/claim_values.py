@@ -52,7 +52,6 @@ def normalize_path(value: str) -> str:
 
 
 def paths_from(value: Any) -> list[str]:
-    """At most :data:`MAX_PATHS` non-empty repository paths of at most :data:`MAX_PATH_CHARS` each."""
     if value is None:
         return []
     if not isinstance(value, list) or len(value) > MAX_PATHS:
@@ -68,7 +67,6 @@ def paths_from(value: Any) -> list[str]:
 
 
 def paths_overlap(claimed: Iterable[str], wanted: Iterable[str]) -> bool:
-    """Whether a claimed path and a wanted path prefix cover each other (either is a prefix of the other)."""
     wanted_paths = [normalize_path(path) for path in wanted if isinstance(path, str) and normalize_path(path)]
     return any(own.startswith(path) or path.startswith(own) for own in claimed for path in wanted_paths)
 

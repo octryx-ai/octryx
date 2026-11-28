@@ -22,9 +22,11 @@ class AdminListWebhooksTool:
         from sqlalchemy import select
 
         from ...models import Webhook
+        from ...services.project.private_workspace import hidden_private_ids
 
+        hidden = await hidden_private_ids(context.db, str(context.user_id))
         result = await context.db.execute(select(Webhook).order_by(Webhook.name))
-        webhooks = result.scalars().all()
+        webhooks = [webhook for webhook in result.scalars().all() if webhook.project_id not in hidden]
         return {
             "webhooks": [
                 {

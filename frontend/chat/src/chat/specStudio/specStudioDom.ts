@@ -1,6 +1,5 @@
-// DOM helpers of the Spec Studio mock (kept apart from the components for fast refresh).
+// Kept apart from the components for fast refresh.
 
-/** Where an element sits in the mock's own pixels (its centre): the pin of a note added from the list. */
 export function elementCentre(root: HTMLElement | null, path: string): { x: number; y: number } | null {
   const scalerBox = root?.querySelector(".studio-scaler")?.getBoundingClientRect();
   const element = root?.querySelector(`[data-mock-path="${CSS.escape(path)}"]`)?.getBoundingClientRect();

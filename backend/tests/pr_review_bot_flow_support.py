@@ -31,7 +31,6 @@ def _git(cwd, *args) -> str:
 
 
 def _origin(tmp_path: Path) -> tuple[Path, str]:
-    """A remote with ``main`` and the pull request's branch (one changed line in an existing file); a clone on main."""
     origin = tmp_path / "origin"
     origin.mkdir()
     _git(origin, "init", "-q", "-b", "main")
@@ -83,5 +82,4 @@ REVIEW = {"verdict": "changes", "summary": "Round half away from zero.", "findin
 
 @pytest.fixture(autouse=True)
 def _no_background(monkeypatch):
-    """No test leaves a background start behind."""
     monkeypatch.setattr(bot_webhook, "_spawn", lambda coroutine: coroutine.close())

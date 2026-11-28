@@ -1,25 +1,5 @@
-"""Custom REST operations for devices: two Knowledge MCP tools, ``rest_operations`` and ``rest_call``.
-
-The Knowledge MCP registers its tools statically at startup, but REST operations are database rows that differ per
-Workspace and role (``rest_connector``). So a device gets exactly two tools:
-
-- ``rest_operations(query?)``: the operations the caller may use in the connection's Workspace, with their model
-  description, read/write class and the parameter schema *for this caller* (scoped parameters left out, exactly as
-  the chat offers them, ``rest_connector.tool_surface``);
-- ``rest_call(operation, arguments)``: runs one of them through the chat's governed dispatch
-  (``tools.registry.execute_tool_with_plugins``): the work-role filter, the Workspace tool policy, the run class of
-  the operation, the central approval gate, then the executor's grants, data scope and audit. Nothing of that is
-  re-implemented here, so a device can never get further than the chat.
-
-Both pass the Knowledge MCP's own chain first (``mcp_governed_knowledge.run_mcp_tool_chain``: OAuth scope, active
-user, rate limit, connection Workspace, audit). The Workspace must be one the person may read; an operation the
-caller is not offered there (another Workspace's grant, no grant, disabled) is answered as unknown, never as
-"not granted", so it stays invisible.
-
-A write needs the ``knowledge:write`` scope and a person's approval for every call (``tool_approval_gate`` rule
-``device_external_write``): the device gets ``approval_required`` with the approval id, a person decides in Octryx,
-and the device repeats the same call. The connection's credentials never leave the server; the device sees results.
-"""
+"""Custom REST operations for devices: two Knowledge MCP tools, ``rest_operations`` and ``rest_call``. Operations are
+per-Workspace rows, so a device gets two static tools instead of one per operation."""
 
 from __future__ import annotations
 
@@ -33,10 +13,10 @@ from ..models import User
 from ..tools.context import ToolContext
 from ..tools.knowledge_evidence._scope import authorized_workspace
 from ..tools.result_content import mcp_result_checked
-from .mcp_extra_scope import chat_tool_project_config, refusal
+from .mcp_extra_scope import refusal
 from .mcp_governed_knowledge import READ_SCOPE, WRITE_SCOPE, McpCaller, failure, run_mcp_tool_chain
 from .mcp_governed_knowledge_tools import AuthenticatedContext, mcp_caller
-from .run_capability.worker_profiles import worker_tool_context_state
+from .mcp_registry_tools import session_tool_context
 
 REST_WORKER = "mcp_rest_call"
 UNKNOWN_OPERATION = refusal("not_found", "rest_operation_unknown",
@@ -45,36 +25,11 @@ UNKNOWN_OPERATION = refusal("not_found", "rest_operation_unknown",
 _NOTE = " The Workspace is this MCP connection's (grant binding or X-Octryx-Workspace header)."
 
 
-async def _context(db: AsyncSession, caller: McpCaller, user: User, workspace: str, session_id: str) -> ToolContext:
-    """The context a chat turn of this person in this Workspace would have, with the device worker's run class."""
-    from .work_role_model.surfaces import mcp_grant
-
-    config = await chat_tool_project_config(db, user_id=str(user.id), workspace_id=workspace)
-    context = ToolContext(
-        user_id=str(user.id),
-        project_ids=[workspace],
-        roles=list(config.get("user_roles") or []),  # the chat's platform roles (``viewer`` when none)
-        session_id=session_id,
-        project_config=config,
-        db=db,
-        request_id=caller.request_ref,
-        run_capability=worker_tool_context_state(REST_WORKER),
-    )
-    context.work_role_grant = await mcp_grant(db, str(user.id), workspace)
-    return context
-
-
 async def _offered(context: ToolContext) -> list[dict[str, Any]]:
-    """The caller's ``rest__`` tools as the chat would offer them (grants, Workspace tool policy, work roles)."""
-    from ..tools.visibility import filter_tool_definitions_by_visibility
     from .rest_connector.tool_surface import list_rest_tool_definitions
-    from .tool_access_policy import filter_tool_definitions_for_project_policy
-    from .work_role_model.surfaces import filter_definitions
+    from .tool_offer_policy import policy_visible_definitions
 
-    definitions = await list_rest_tool_definitions(context.db, context)
-    definitions = filter_tool_definitions_by_visibility(definitions, context.project_config)
-    definitions = filter_definitions(definitions, context.work_role_grant)
-    return filter_tool_definitions_for_project_policy(definitions, context.project_config)
+    return policy_visible_definitions(await list_rest_tool_definitions(context.db, context), context)
 
 
 def _entry(definition: dict[str, Any]) -> dict[str, Any]:
@@ -112,10 +67,8 @@ async def rest_call(context: ToolContext, arguments: dict[str, Any], scopes: tup
 
 async def run_rest_mcp_tool(db: AsyncSession, *, caller: McpCaller, tool_name: str,
                             arguments: dict[str, Any]) -> dict[str, Any]:
-    """One ``rest_operations`` / ``rest_call`` for an MCP caller; the caller commits."""
-
     async def execute(user: User, workspace: str, session_id: str) -> dict[str, Any]:
-        context = await _context(db, caller, user, workspace, session_id)
+        context = await session_tool_context(db, caller, user, workspace, session_id, worker=REST_WORKER)
         authorized = await authorized_workspace({}, context)
         if type(authorized) is dict:
             return authorized

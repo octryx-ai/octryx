@@ -1,10 +1,4 @@
-"""Ticket keys in free text, by explicit patterns only.
-
-ServiceNow numbers come from the profile (``INC0000105``, ``CHG0000202``). Jira keys are matched
-only for the project keys the Workspace's own Jira connectors are configured with
-(``knowledge_source_connectors.scope.project_keys``), so ``UTF-8`` or ``SHA-256`` never become
-tickets. Node keys are shared by every layer: ``servicenow:INC…``, ``jira:PROJ-123``.
-"""
+"""Ticket keys in free text, by explicit patterns only."""
 
 from __future__ import annotations
 
@@ -32,7 +26,6 @@ def jira_pattern(project_keys: tuple[str, ...]) -> re.Pattern[str] | None:
 
 
 def ticket_mentions(text: str, profile: StructuredProfile, jira: re.Pattern[str] | None) -> list[tuple[str, str, int]]:
-    """``(node_type, number, first offset)`` per distinct ticket, in first-occurrence order."""
     found: dict[tuple[str, str], int] = {}
     for node_type, pattern in profile.ticket_patterns:
         for match in pattern.finditer(text):
@@ -45,7 +38,6 @@ def ticket_mentions(text: str, profile: StructuredProfile, jira: re.Pattern[str]
 
 
 def find_tickets(text: str, profile: StructuredProfile, jira: re.Pattern[str] | None) -> list[tuple[str, str]]:
-    """``(node_type, number)`` pairs in first-occurrence order, without duplicates."""
     return [(kind, number) for kind, number, _ in ticket_mentions(text, profile, jira)]
 
 

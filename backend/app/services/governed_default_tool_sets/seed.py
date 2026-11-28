@@ -1,4 +1,4 @@
-"""The code-owned seed sets per capability class (``diagnosis.v10``, ``plan.v2``, ``change.v2``, ``admin.v3``)."""
+"""The code-owned seed sets per capability class (``diagnosis.v11``, ``plan.v2``, ``change.v3``, ``admin.v3``)."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ from .families import (
     _CHAT_CONNECTOR_READ,
     _CONNECTOR_READ,
     _COORDINATION,
-    _DELEGATION,
     _DIAGRAMS,
     _KNOWLEDGE,
     _KNOWLEDGE_EXTRAS,
@@ -32,7 +31,7 @@ GOVERNED_DEFAULT_TOOL_SETS: dict[str, GovernedToolSet] = {
         GovernedToolSet(
             capability_type="diagnosis",
             set_id="diagnosis",
-            version=10,
+            version=11,
             title="Chat and diagnosis",
             description=(
                 "Chat: workflow selection, Knowledge and Memory, web, the read tools of the Workspace's active "
@@ -51,7 +50,6 @@ GOVERNED_DEFAULT_TOOL_SETS: dict[str, GovernedToolSet] = {
                 _CHAT_CONNECTOR_READ,
                 _MCP_BRIDGE,
                 _SHELL,
-                _DELEGATION,
                 _WORK_ITEMS,
                 _WORK_LIFECYCLE,
                 _COORDINATION,
@@ -115,7 +113,7 @@ GOVERNED_DEFAULT_TOOL_SETS: dict[str, GovernedToolSet] = {
         GovernedToolSet(
             capability_type="change",
             set_id="change",
-            version=2,
+            version=3,
             title="Change and coding",
             description=(
                 "The coding core: workspace read/write/edit, code search, tests and validation, CLI commands, "
@@ -165,7 +163,6 @@ GOVERNED_DEFAULT_TOOL_SETS: dict[str, GovernedToolSet] = {
                         "run_cli_command",
                     ),
                 ),
-                _DELEGATION,
                 ToolFamily(
                     "delivery",
                     (

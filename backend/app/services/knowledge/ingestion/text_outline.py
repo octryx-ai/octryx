@@ -1,16 +1,4 @@
-"""Section-aware spans for Markdown and AsciiDoc.
-
-Vendor documentation, release notes and wiki pages are organized by headings, and a heading alone
-as a span is useless evidence. For these two syntaxes the paragraphs are grouped like parsed
-documents are (``docling_document.py``): a heading opens the span it introduces, consecutive
-paragraphs of one section are joined up to :data:`TARGET_SPAN_CHARS`, and every span carries the
-path of headings above it. Offsets stay in the decoded text itself, exactly as for plain text, so
-a span is always a slice of the digest-verified original.
-
-Heading syntax is recognized on a paragraph's own line, never guessed from wording: Markdown ATX
-headings (``#`` to ``######``) and AsciiDoc section titles (``=`` to ``======``). AsciiDoc block
-anchors and attribute lines directly above a title (``[[id]]``, ``[#id]``) belong to it.
-"""
+"""Section-aware spans for Markdown and AsciiDoc."""
 
 from __future__ import annotations
 
@@ -35,7 +23,6 @@ _ANCHOR_LINE = re.compile(r"^\[\[?[^\]]*\]\]?$")
 
 
 def _heading(chunk: str, syntax: str) -> tuple[int, str] | None:
-    """``(level, title)`` when the paragraph is exactly one heading line (after its anchors)."""
     lines = [line for line in chunk.split("\n") if line.strip()]
     while len(lines) > 1 and _ANCHOR_LINE.fullmatch(lines[0].strip()):
         lines.pop(0)
@@ -48,13 +35,11 @@ def _heading(chunk: str, syntax: str) -> tuple[int, str] | None:
 
 
 def has_outline(text: str, media_type: str) -> bool:
-    """True when a Markdown or AsciiDoc text has at least one heading; only then are spans grouped."""
     syntax = OUTLINE_SYNTAX_BY_MEDIA_TYPE.get(media_type)
     return syntax is not None and any(_heading(chunk, syntax) for _, _, chunk in paragraph_pieces(text))
 
 
 def derive_outlined_spans(text: str, media_type: str) -> tuple[DerivedSpan, ...]:
-    """Spans of a Markdown or AsciiDoc text, each with its section path. Deterministic."""
     syntax = OUTLINE_SYNTAX_BY_MEDIA_TYPE.get(media_type)
     if syntax is None:
         raise InvalidEvidenceRequestError()

@@ -18,7 +18,6 @@ MAPPING = {"development": {"source_transition": "Start Progress", "sync_back": T
 
 @pytest.fixture
 async def world(db):
-    """Workspaces A and B, the admin, and no other active definition (the test's savepoint undoes it)."""
     for row in (await db.execute(select(WorkItemWorkflowDefinition))).scalars():
         row.is_active = False
     admin = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
@@ -31,7 +30,6 @@ async def world(db):
 
 @pytest.fixture
 def connectors(monkeypatch):
-    """Count every connector read and write a transition could make; none of them leaves the process."""
     calls: list[str] = []
 
     async def _offered(_db, *, item, preview):

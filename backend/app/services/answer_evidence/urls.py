@@ -1,13 +1,4 @@
-"""URL extraction and comparison for the answer evidence guard.
-
-Structural only: markdown links and bare ``http(s)`` URLs are found by their syntax, and two URLs
-are the same source when they match after normalization (scheme and host lowercased, fragment and
-trailing slash dropped). Dropping the fragment means a citation of ``page`` for evidence from
-``page#section`` is the same page, not an invented one.
-
-One closed internal route is recognized as well, by its own exact validator: the authenticated original of one
-Knowledge source revision (``knowledge_original_links``). No other relative or ``/api`` path is ever a source.
-"""
+"""URL extraction and comparison for the answer evidence guard."""
 
 from __future__ import annotations
 
@@ -37,7 +28,6 @@ def _trimmed(raw: str) -> str:
 
 
 def normalize_url(raw: object) -> str | None:
-    """The comparable form of a governed openable URL, or ``None`` when ``raw`` is not one."""
     if not isinstance(raw, str) or not raw.strip() or len(raw) > MAX_URL_CHARS:
         return None
     candidate = _trimmed(raw.strip())
@@ -54,7 +44,6 @@ def normalize_url(raw: object) -> str | None:
 
 
 def urls_in_text(text: str) -> list[str]:
-    """Every http(s) URL written in ``text`` (link targets and bare URLs), normalized, in order."""
     found: list[str] = []
     for match in _BARE_URL.finditer(text or ""):
         normalized = normalize_url(match.group(0))
@@ -69,7 +58,6 @@ def urls_in_text(text: str) -> list[str]:
 
 
 def link_target(cite_as: object) -> str | None:
-    """The normalized target of a ``[label](url)`` citation, or ``None`` for a plain label."""
     if not isinstance(cite_as, str):
         return None
     match = MARKDOWN_LINK.search(cite_as)

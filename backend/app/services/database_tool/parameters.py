@@ -14,7 +14,7 @@ from ...tools.context import ToolContext
 
 
 class DatabaseToolParameterError(ValueError):
-    """Own parameter/RLS validation failure; its message is authored here and safe to return."""
+    pass
 
 
 def _value_matches_schema(value: Any, schema: dict[str, Any]) -> bool:

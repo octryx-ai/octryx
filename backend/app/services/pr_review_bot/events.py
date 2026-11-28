@@ -1,22 +1,4 @@
-"""A pull request webhook read into the one shape the review bot starts from. Pure.
-
-The watch events (``workflow_runs.watch_events``) only know a pull request's end (approved, merged, declined): they
-wake a run that waits. The bot needs its beginning and every new head: a pull request opened, reopened, made ready
-for review or pushed to. Each platform names those differently:
-
-- GitHub: ``X-GitHub-Event: pull_request`` with ``action`` ``opened`` / ``reopened`` / ``synchronize`` /
-  ``ready_for_review``;
-- Bitbucket Cloud: ``X-Event-Key: pullrequest:created`` / ``pullrequest:updated`` (the source commit hash is the short
-  12-character one; the run reads the full one from its checkout);
-- Bitbucket Server/Data Center: ``eventKey`` ``pr:opened`` / ``pr:from_ref_updated`` in the body;
-- GitLab: ``X-Gitlab-Event: Merge Request Hook`` with ``action`` ``open`` / ``reopen``, or ``update`` with ``oldrev``
-  (new commits) or a draft made ready (``changes.draft`` to ``false``). The hook names the person who acted
-  (``user``), not the author: the opener on ``open``, the pusher on a push (the sync reads the real author).
-
-Anything else is ``None``, never guessed. The repository is in the run's notation (``github:owner/repo``,
-``gitlab:group/project``, ``bitbucket:PROJECT/slug``), so it matches a Workspace repository and
-``platform.scm.parse_repository``.
-"""
+"""A pull request webhook read into the one shape the review bot starts from."""
 
 from __future__ import annotations
 
@@ -111,7 +93,6 @@ def _server(payload: Any) -> PullRequestEvent | None:
 
 
 def _gitlab_ready(attributes: Any, changes: Any) -> bool:
-    """An update that brings new commits or takes the merge request out of draft."""
     if _text(attributes, "oldrev"):
         return True
     return any(_get(changes, key, "previous") is True and _get(changes, key, "current") is False
@@ -142,7 +123,6 @@ def _event(provider: str, path: str, pr_id: str, sha: str, source: str, target: 
 
 
 def pull_request_event(payload: Any, headers: Mapping[str, str]) -> PullRequestEvent | None:
-    """The opened or updated pull request a webhook reports, else ``None``."""
     if _header(headers, "x-github-event") == "pull_request":
         return _github(payload)
     if _header(headers, "x-event-key") in _CLOUD_KEYS:

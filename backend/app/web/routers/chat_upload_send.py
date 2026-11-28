@@ -19,22 +19,23 @@ from app.web._helpers.workspace_artifacts import (
 
 from ...agent.runtime_defaults import DEFAULT_AGENT_MODE_KEY
 from ...db import async_session_factory, get_db
+from ...http_multipart_route import BoundedFormRoute
 from ...models import Session as AgentSession
 from ...services.project.new_chat_workspace import new_chat_workspace
+from ...services.session.turn_handoff import names_a_workflow
 from ...services.session.workspace import ensure_session_workspace_root
 from ...services.session.workspace_sync import sync_workspace_file_after_write
 from .. import _context
 from .._helpers.api_guards import _require_api_user
-from .._helpers.chat_device_turn import device_chat_send, refuse_runtime_mismatch
+from .._helpers.chat_device_turn import device_chat_send, send_target
 from .._helpers.chat_send_idempotency import repeated_send_response
 from .._helpers.chat_turn_ack_state import _build_chat_turn_ack_state
 from .._helpers.chat_turn_start import _start_chat_turn
 
-router = APIRouter()
+router = APIRouter(route_class=BoundedFormRoute)
 
 
 async def _upload_destination(db: AsyncSession, user, resolved_session_id: str):
-    """The upload directory and its workspace root: the session's workspace, or a fresh draft bucket (no root)."""
     if resolved_session_id:
         session = (
             await db.execute(
@@ -66,7 +67,6 @@ async def _store_upload(
     workspace_root,
     resolved_session_id: str,
 ) -> dict[str, object]:
-    """Write one uploaded file into the upload directory and describe it for the composer."""
     safe_name = _safe_upload_name(upload.filename or "upload.bin")
     target = (upload_dir / f"{uuid.uuid4().hex}-{safe_name}").resolve()
     if upload_dir not in target.parents:
@@ -144,20 +144,22 @@ async def chat_send_api(
     user = await _require_api_user(request, db)
     if (repeated := await repeated_send_response(request, db, user=user, payload=payload)) is not None:
         return repeated
-    await refuse_runtime_mismatch(db, payload)  # a workflow run's thread runs where the run runs
-    if payload.execution_target is not None and payload.execution_target.kind == "device":
-        return await device_chat_send(request, db, user=user, payload=payload)  # never the server path
+    project_id = payload.project_id
+    if not str(payload.session_id or "").strip():
+        # A new chat starts in the named Workspace unless it is archived, else in the person's default one
+        # (``services/project/new_chat_workspace``).
+        project_id = await new_chat_workspace(db, user=user, project_id=project_id)
+    target = await send_target(db, payload)
+    named = payload.execution_target is not None and payload.execution_target.kind == "device"
+    if named or not names_a_workflow(payload.workflow_key, payload.workflow_decisions):
+        return await device_chat_send(request, db, user=user, payload=payload, target=target, project_id=project_id)
+    # A message naming a workflow is prepared first: held for its proposal (the start card), or handed to a runner.
     request_session_factory = getattr(request.app.state, "async_session_factory", async_session_factory)
     explicit_project_id = "project_id" in getattr(payload, "model_fields_set", set())
     explicit_runtime_target_id = "runtime_target_id" in getattr(payload, "model_fields_set", set()) and bool(
         str(payload.runtime_target_id or "").strip()
     )
     explicit_thinking_level = "thinking_level" in getattr(payload, "model_fields_set", set())
-    project_id = payload.project_id
-    if not str(payload.session_id or "").strip():
-        # A new chat never starts in an archived Workspace (a stale composer still naming one): the default
-        # Workspace, else the person's only one, else none (``services/project/new_chat_workspace``).
-        project_id = await new_chat_workspace(db, user=user, project_id=project_id)
     session = await _start_chat_turn(
         db=db,
         user=user,

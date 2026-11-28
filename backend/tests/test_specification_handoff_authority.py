@@ -30,11 +30,12 @@ from app.services.workflow_runs.records import WorkflowRunError
 from app.services.workflow_runs.specification.lineage import canonicalize_output, take_output_provenance
 from tests.knowledge_evidence_seed_support import fetch_user, seed_member
 from tests.phased_workflow_fixtures import publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.specification_definition_support import BUDGET
 from tests.specification_producer_support import BRIEF, IDEA, PLAN, SPEC, enter, producer, put
 from tests.team_handoff_support import action, counts, setup_case
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 
 
 @pytest.fixture(autouse=True)
@@ -45,7 +46,6 @@ async def tables(db):
 
 
 async def same_scope_producer(db, case):
-    """A second independent canonical producer in the same real source scope/principal, not a copied envelope."""
     parent = WorkflowRun(project_id=case.parent.project_id, workflow_kind="phased", workflow_key=case.parent.workflow_key,
         flow_definition_version_id=case.parent.flow_definition_version_id, requested_by=case.sender.id,
         status="running", state_version=0, node_state={"entry": 0}, context={}, limits={"budget": dict(BUDGET)})
@@ -73,10 +73,6 @@ async def same_scope_producer(db, case):
 
 
 async def prepared_spec_case(db, *, criteria=None, receiver_access=True, shared=None, members=()):
-    """Real typed producer/ledger and human decisions, before any offer; no authority doubles.
-
-    ``members``: further ordinary viewers seeded before the brief, each ``True`` with source ACL access.
-    """
     parent, sender, session, source, revision, call, kwargs, brief = (
         await same_scope_producer(db, shared) if shared is not None else await producer(db, complete=False))
     receiver = shared.receiver if shared else await fetch_user(
@@ -101,7 +97,6 @@ async def prepared_spec_case(db, *, criteria=None, receiver_access=True, shared=
         proposal["criteria"] = copy.deepcopy(criteria)
     await put(db, parent, "spec", await canonicalize_output(db, parent, "spec", proposal, principal=sender), confirm=True)
     await enter(db, parent, "offer")
-    # This test pins a published, valid child, without executing it or inventing an engineering grant.
     key = await publish_phased(db, {"execution_kind": "phased", "nodes": [
         {"id": "start", "type": "start"}, {"id": "done", "type": "outcome", "config": {"outcome": "done"}}],
         "edges": [{"id": "done", "source_node_id": "start", "target_node_id": "done"}]})
@@ -126,7 +121,6 @@ async def offer(db, case):
 
 
 async def accepted_spec_case(db, *, criteria=None, receiver_access=True):
-    """Reusable actual accepted parent+child fixture for the engineering criteria consumer."""
     case = await prepared_spec_case(db, criteria=criteria, receiver_access=receiver_access)
     await offer(db, case)
     case.action = action(case.row)
@@ -257,7 +251,6 @@ async def test_claimed_malformed_spec_never_selects_legacy_fallback(db, shape):
 async def test_legacy_non_spec_offer_does_not_become_spec_bound(db):
     case = await setup_case(db)
     assert not await has_spec_handoff(db, case.parent)
-    # Old service-only fixture keeps its original allocator/evaluator seam; no spec authority is mocked.
     from tests.team_handoff_support import allocate, rights
 
     binding = await service.accept_handoff(db, case.row.id, case.p, action(case.row),
@@ -272,7 +265,6 @@ async def test_second_current_confirmed_same_scope_parent_cannot_supply_the_acce
     second_proof = (await service.confirmed_envelopes(db, second.parent, ["spec"]))["spec"]
     from app.services.workflow_runs.handoff.specification import validate_spec_envelopes
 
-    # The substituted proof is fully canonical/current, not a draft or a broken source.
     assert await validate_spec_envelopes(db, parent=second.parent, actor=case.receiver,
         scope=case.scope, envelopes={"spec": second_proof})
     case.row.envelopes = {"spec": second_proof}

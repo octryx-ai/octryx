@@ -1,10 +1,4 @@
-"""Content routing: the sensitive categories a conversation already contained.
-
-One row per conversation: the gateway or chat session and the client's conversation id (Claude Code's
-``x-claude-code-session-id``; a new id after ``/clear`` is a new conversation, a new chat is a new session). It
-feeds ``principal.sensitive`` (a routed conversation stays on the approved model) and the Agents badge. It holds
-categories, detector counts, the first time and the policy and decision that first applied — never content.
-"""
+"""Content routing: the sensitive categories a conversation already contained."""
 
 from __future__ import annotations
 
@@ -13,6 +7,7 @@ import uuid
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, String, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -20,7 +15,9 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class ContentConversationState(Base):
+class ContentConversationState(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"session_id": "sessions"}
     __tablename__ = "content_conversation_state"
     __table_args__ = (
         UniqueConstraint("session_id", "conversation_key", name="uq_content_conversation_state"),

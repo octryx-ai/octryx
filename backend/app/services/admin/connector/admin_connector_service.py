@@ -1,9 +1,4 @@
-"""Admin-panel service helpers for connector management flows.
-
-The operation catalog lives in ``_admin_connector_operations`` and the activation
-state with the runtime-visible tool catalog in ``_admin_connector_activation``; importers use those
-modules directly.
-"""
+"""Admin-panel service helpers for connector management flows."""
 
 from __future__ import annotations
 
@@ -13,8 +8,8 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.atlassian_auth_modes import AtlassianAuthConfigError
-from app.services.atlassian_auth_validation import validate_auth_config
+from app.services.connector_auth.atlassian_modes import AtlassianAuthConfigError
+from app.services.connector_auth.atlassian_validation import validate_auth_config
 
 from ...connector_health import (
     list_connector_health_log,
@@ -137,6 +132,7 @@ async def save_connector(
         action="admin.connector.saved",
         resource_type="connector_config",
         resource_id=tool_name,
+        project_id=None,
         before=before_state,
         after=_connector_audit_state(updated, updated_policy),
         details={"connector_name": tool_name},
@@ -147,7 +143,6 @@ async def save_connector(
 def _require_valid_auth_mode(
     tool_name: str, config: dict[str, Any], payload: dict[str, Any], secret_fields: list[str]
 ) -> None:
-    """The effective entry (with any submitted secret) must satisfy its auth mode; 422 before writes."""
     submitted = {field: payload[field] for field in secret_fields if str(payload.get(field) or "").strip()}
     try:
         validate_auth_config(tool_name, {**config, **submitted})
@@ -166,7 +161,8 @@ async def test_connector(
     existing = await get_tool_config(db, tool_name, None)
     if not existing or not existing.config:
         return {"ok": False, "summary": "Connector not configured yet."}
-    resolved = await resolve_secret_refs(db, dict(existing.config), tool_name=tool_name, project_id=None)
+    resolved = await resolve_secret_refs(db, dict(existing.config), tool_name=tool_name, project_id=None,
+                                         purpose="connector.connection_test")
     # A manual test of the saved connection is a health check too, so the card never shows
     # "Unhealthy" beside a successful test.
     return await run_recorded_connection_test(
@@ -206,6 +202,7 @@ async def delete_connector(
         action="admin.connector.deleted",
         resource_type="connector_config",
         resource_id=tool_name,
+        project_id=None,
         before=before_state,
         after={},
         # Key without "secret": the audit redactor would blank a key naming it. Ids and names only.

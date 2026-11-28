@@ -1,10 +1,4 @@
-"""Which stored secrets a deleted global connector config leaves behind, and their release.
-
-The candidates are the secrets its ``*_secret_ref`` fields name plus the preset-scoped entries
-(``tool_name`` + secret field, global scope) a lost reference may have orphaned earlier. Release
-itself (keep what another holder references, destroy the rest) is owned by
-``services/secret/release.py``.
-"""
+"""Which stored secrets a deleted global connector config leaves behind, and their release."""
 
 from __future__ import annotations
 

@@ -42,7 +42,6 @@ async def _open_receipts(db: AsyncSession, run: WorkflowRun, role: str) -> list[
 
 async def _transition(db: AsyncSession, receipt: DocumentationAudienceReceipt, target: str,
                       values: dict[str, Any] | None = None) -> bool:
-    """Compare-and-set ``receipt`` to ``target`` on its current state and ``state_version``."""
     if not receipt_transition_allowed(receipt.state, target):
         return False
     current, version = receipt.state, int(receipt.state_version or 0)
@@ -77,7 +76,6 @@ def result_digest(receipt: DocumentationAudienceReceipt, *, outcome: str, hits: 
 
 
 def _same_bindings(receipt: DocumentationAudienceReceipt, publication: ConfirmedPublication) -> list[str]:
-    """The binding names whose current value differs from the receipt's."""
     drift = [key for key, value in publication.bindings().items() if getattr(receipt, key) != value]
     if sha256_json(receipt.query_set) != receipt.query_set_digest:
         drift.append("query_set")
@@ -90,7 +88,7 @@ async def _locked(db: AsyncSession, statement) -> DocumentationAudienceReceipt |
 
 
 async def _fresh_run(db: AsyncSession, run: WorkflowRun) -> WorkflowRun:
-    """Claim fresh Run before receipt: this lock order matches the workflow engine."""
+    # This lock order matches the workflow engine.
     coordinates = (run.project_id, run.current_node_id, dict(run.node_state or {}).get("entry"))
     await db.flush()
     fresh = (await db.execute(select(WorkflowRun).where(WorkflowRun.id == run.id)
@@ -104,7 +102,6 @@ async def _fresh_run(db: AsyncSession, run: WorkflowRun) -> WorkflowRun:
 
 async def _recheck(db: AsyncSession, receipt: DocumentationAudienceReceipt, run: WorkflowRun | None, *,
                    phase: str) -> ConfirmedPublication:
-    """Every binding of ``receipt`` against the database now; a failed re-check revokes it."""
     role = receipt.pass_key.rsplit("@", 1)[-1]
     try:
         if run is None or run.id != receipt.run_id:
@@ -132,7 +129,6 @@ async def _recheck(db: AsyncSession, receipt: DocumentationAudienceReceipt, run:
 
 
 def _expected_met(receipt: DocumentationAudienceReceipt, role: str) -> str:
-    """``""`` when the recorded result is the proof the role owes, else why not."""
     results = list(receipt.assertion_results or [])
     hits = list(receipt.hits or [])
     semantics = dict(receipt.issue_checks or {}).get("semantics")

@@ -1,10 +1,4 @@
-"""Real health for managed databases.
-
-A database's health is the result of the same probe as *Test connection* (``SELECT 1`` on a read-only connection),
-stored in ``connector_health`` under the key ``database:<id>`` and checked by the connector health worker on
-the shared schedule (5 min, backoff while failing). A database check never feeds a circuit
-breaker: query tools fail closed on their own.
-"""
+"""Real health for managed databases."""
 
 from __future__ import annotations
 
@@ -44,12 +38,10 @@ async def record_database_health(db: AsyncSession, connector_id: str, result: di
 
 
 async def check_database_health(db: AsyncSession, connector_id: str) -> dict:
-    """Run the connection probe and store it as the database's current health."""
     return (await test_and_record_database(db, connector_id))["health"]
 
 
 async def test_and_record_database(db: AsyncSession, connector_id: str) -> dict:
-    """*Test connection*: the probe result plus the health it recorded (flushed; the caller commits)."""
     from ..database_tool_service import test_database_connector
 
     started = time.perf_counter()
@@ -59,7 +51,6 @@ async def test_and_record_database(db: AsyncSession, connector_id: str) -> dict:
 
 
 async def refresh_due_database_health(db: AsyncSession, *, now: datetime, force: bool = False) -> list[dict]:
-    """Check every active database whose next check is due."""
     from ..connector_health.check_schedule import check_due
 
     connectors = (

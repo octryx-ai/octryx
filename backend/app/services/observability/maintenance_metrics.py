@@ -1,29 +1,5 @@
-"""Maintenance metrics: what the platform's checks find
-and what becomes of it, what reaches main, and what a run of a size class costs against reference runs.
-
-Counted at the event, in this process, never through the database:
-
-- ``octryx_check_findings_total{workflow,check,severity,outcome}``: a finding a check raised (``review``,
-  ``code_style:<rule>``, ``hands_on``) and what became of it: ``fixed`` (the check's next pass on the run no longer
-  has it), ``accepted`` (the product owner confirmed the decisions with review findings open) or ``waived``
-  (hands-on scenarios waived by an admin);
-- ``octryx_main_rule_violations_total{workflow,rule,severity}``: the code style findings of the run's last pipeline
-  pass when its pull request merged (what main got);
-- ``octryx_run_cost_usd`` / ``octryx_run_list_cost_usd`` / ``octryx_run_duration_seconds_by_class`` /
-  ``octryx_run_sessions{workflow,size_class,final_class,engine}`` (``size_class``: the class the run started in;
-  ``final_class``: after escalations): observed when a run finishes, from what this process summed
-  for the run when its ``usage_events`` rows were inserted (API cost and seat list price apart; the sessions that
-  made a model call); a run this process did not see from its start is observed with what it saw;
-- ``octryx_run_reference{workflow,size_class,kind,measure}``: the reference runs (``reference_runs.json``, kind
-  ``plain`` or ``light_measured``), set from data at import.
-
-- ``octryx_item_escaped_defects_total{workflow,origin_workflow}``: a bug flow's intake found the work item the bug is
-  about delivered by a platform run (``bugs/escaped``, event ``bug_escaped_from``);
-- ``octryx_pr_merged_total{workflow}`` and ``octryx_pr_reverted_total{workflow}`` (trust): a
-  run's pull request merged (``watch_condition_met`` ``pr.merged``), and a merged pull request reverted it
-  (``pr_reverted``, from the provider's revert description); revert rate = reverted / merged, review findings per
-  merged pull request = ``octryx_review_findings_total`` / merged.
-"""
+"""Maintenance metrics: what the platform's checks find and what becomes of it, what reaches main, and what a run of a
+size class costs against reference runs."""
 
 from __future__ import annotations
 
@@ -78,7 +54,6 @@ _SPENT: OrderedDict[str, dict[str, Any]] = OrderedDict()
 
 
 def _context(run: Any) -> dict[str, Any]:
-    """The run's context as already loaded: never a database load from inside the flush hook."""
     try:
         from sqlalchemy import inspect
 
@@ -97,7 +72,6 @@ def _bounded(store: OrderedDict, key: str, empty: Any) -> Any:
 
 
 def load_references(data: dict[str, Any] | None = None) -> None:
-    """Set the reference gauge from ``reference_runs.json`` (or ``data`` of the same shape)."""
     if data is None:
         data = json.loads(Path(__file__).with_name("reference_runs.json").read_text(encoding="utf-8"))
     REFERENCE.series.clear()
@@ -119,7 +93,6 @@ def _severities(findings: list[Any]) -> dict[str, int]:
 
 
 def _pass(workflow: str, run_id: str, check: str, now: dict[str, int]) -> Callable[[], None]:
-    """A new pass of ``check`` on the run: what it raised, and what the previous pass had that this one lacks."""
     def count() -> None:
         before = _bounded(_OPEN, run_id, {}).get(check) or {}
         for severity, number in now.items():
@@ -152,7 +125,6 @@ def _style_rules(text: str) -> dict[str, int]:
 
 def run_event(workflow: str, run_id: str, kind: str, detail: dict[str, Any],
               run: Any = None) -> Callable[[], None] | None:
-    """The maintenance count of one ``workflow_run_events`` row (``workflow_metrics.run_event`` calls it)."""
     if kind == "pr_reverted":
         return lambda: PRS_REVERTED.inc(workflow=workflow)
     if kind == "watch_condition_met" and detail.get("condition") == "pr.merged" and run is None:
@@ -200,7 +172,6 @@ def run_event(workflow: str, run_id: str, kind: str, detail: dict[str, Any],
 # ---- cost per run -----------------------------------------------------------------------------------------------
 
 def usage(run_id: str, *, cost: float, list_cost: float | None, session_id: str, engine: str) -> None:
-    """A model call of ``run_id`` was recorded (its ``usage_events`` row was inserted): add it to the run."""
     if not run_id:
         return
     spent = _bounded(_SPENT, run_id, {"cost": 0.0, "list_cost": 0.0, "sessions": set(), "engine": engine})
@@ -212,7 +183,6 @@ def usage(run_id: str, *, cost: float, list_cost: float | None, session_id: str,
 
 
 def run_finished(run: Any, seconds: float | None) -> Callable[[], None]:
-    """Observe the finished run's cost, duration and sessions by its size class (the run row in memory)."""
     run_id, workflow = str(run.id), str(run.workflow_key or "")
     # Keyed by the class the run STARTED in: an escalation M → L is the platform's extra cost
     # and must show against the start class's reference; the class it ended in is its own label.

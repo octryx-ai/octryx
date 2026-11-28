@@ -1,12 +1,4 @@
-"""PTY (pseudo-terminal) session manager.
-
-Provides real interactive shell sessions via WebSocket.
-Only works on Unix/macOS (uses os.openpty + subprocess.Popen with preexec_fn).
-
-Design decision: uses subprocess.Popen instead of os.fork() so that the asyncio
-event loop in the parent process is never copied into the child, avoiding
-potential deadlocks in uvicorn/asyncio contexts.
-"""
+"""PTY (pseudo-terminal) session manager."""
 
 from __future__ import annotations
 

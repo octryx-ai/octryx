@@ -7,10 +7,6 @@ import type { SchemaFormProps } from "./schemaFormTypes";
 import { normalizeField } from "./schemaResolve";
 import { clientFieldErrors, mergeErrors, orphanErrors } from "./schemaValidate";
 
-/**
- * Generic JSON-Schema property form. Renders the root object's properties
- * (required first); the host may override any field's control via `renderField`.
- */
 export function SchemaForm({
   schema,
   value,

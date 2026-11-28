@@ -1,21 +1,4 @@
-"""Relationship extraction into the PostgreSQL graph (graph on Postgres, part B write side).
-
-A governed model reads a small batch of a revision's spans at once and answers with typed facts,
-each naming the passage it was read from; the facts are written into ``kg_node``/``kg_edge`` and
-every span of the batch gets its episode row (``knowledge_graph_episodes``), which is what
-citations, the changes page and the extraction gap read. The extraction profile is data
-(``profiles/*.json``): its closed relation
-types, their descriptions and its instructions are the prompt, and the change-record self-check
-demotes a fact whose own check says it states no change.
-
-Entities are resolved inside the Workspace's product group: the same name (case and spacing
-folded) is the same entity, and a new name whose embedding is nearly identical to an existing
-entity's name (cosine >= ``SAME_ENTITY_SIMILARITY``) is that entity too. A fact already in the graph
-with the same endpoints, relation and text gains the new episode instead of becoming a duplicate.
-
-Everything is written through the caller's session and committed by the caller, so a batch is
-recorded completely or not at all. Rerunning a span replaces its episode and converges.
-"""
+"""Relationship extraction into the PostgreSQL graph."""
 
 
 from __future__ import annotations
@@ -69,7 +52,6 @@ async def extract_batch(
     valid_at: datetime,
     spans: list[SpanInput],
 ) -> BatchResult:
-    """Extract one batch of a revision's spans and record an episode for each of them (caller commits)."""
     result = BatchResult(spans=len(spans))
     if not spans:
         return result
@@ -178,7 +160,6 @@ async def _write_facts(
     valid_at: datetime,
     result: BatchResult,
 ) -> dict[int, int]:
-    """Write the facts; ``span ordinal -> facts written from it``."""
     resolved = await graph.entities([name for _, source, _, target, _ in facts for name in (source, target)], result)
     vectors = await embedding.embedder.embed([fact for *_, fact in facts], EmbeddingPurpose.DOCUMENT) if facts else []
     counts: dict[int, int] = {}

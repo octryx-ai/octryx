@@ -1,14 +1,4 @@
-"""The phased run engine: a bounded state machine over a phased graph.
-
-The run's cursor is ``current_node_id``. Activating a node either produces a route value at once (start,
-gate, decision, platform action, outcome) or makes the run wait: a phase waits for agent turns, a
-human-in-the-loop node for a person, a watch for an external state, a sub-workflow for its child run. The
-engine then follows the exit for the value; a ``loop`` edge counts its iteration and, at its limit, pauses
-the run (``limits``) — it never stops or continues silently.
-
-Only this module moves the cursor. Chat reports a phase turn's check result (:func:`complete_phase_turn`);
-people decide waiting nodes through ``hitl`` and ``pause``; observers report watched states.
-"""
+"""The phased run engine: a bounded state machine over a phased graph."""
 
 from __future__ import annotations
 
@@ -21,6 +11,7 @@ from ...models.runtime.flow_definition import FlowDefinitionVersion
 from ...models.runtime.secure_work import WorkItem
 from ...time_utils import utc_now
 from . import failure
+from .check_attempts import loop_bound, loop_pause
 from .engine_context import _WAIT, _set_context
 from .graph import (
     EDGE_LOOP,
@@ -42,7 +33,6 @@ from .states import (
     EVENT_NODE_ENTERED,
     EVENT_STARTED,
     KIND_PHASED,
-    PAUSE_LOOP_LIMIT,
     STATUS_RUNNING,
     started_by,
 )
@@ -54,7 +44,6 @@ MAX_TRANSITIONS_PER_STEP = 500
 async def published_phased_flow(
     db: AsyncSession, workflow_key: str, project_id: str | None
 ) -> tuple[FlowDefinition, FlowDefinitionVersion] | None:
-    """The published phased flow with ``workflow_key`` in the Workspace (or global), else ``None``."""
     from sqlalchemy import or_, select
 
     rows = (await db.execute(
@@ -120,7 +109,7 @@ async def start_phased_run(
                          **({"composition": pins} if (pins := run_composition(version)) else {})})
     from .size_class import classify_at_start
 
-    await classify_at_start(db, run, definition, item)  # the workflow's own size_classes block, if it has one
+    await classify_at_start(db, run, definition, item)
     if session is not None:
         await bind_session(db, run, session, actor_id=user.id)
     await _run_from(db, run, graph, start, actor_id=user.id)
@@ -137,7 +126,7 @@ async def _enter(db: AsyncSession, run: WorkflowRun, node: PhasedNode, *, iterat
         from .teamwork.item_stop import left_node
 
         await left_node(db, run, actor_id=actor_id)  # items still running stop and resume on the next pass
-    entry = int(dict(run.node_state or {}).get("entry") or 0) + 1  # one number per pass through any node
+    entry = int(dict(run.node_state or {}).get("entry") or 0) + 1
     if node.kind == NODE_PHASE:
         from .wip_reset import note_phase_entry
 
@@ -171,7 +160,6 @@ def _exit_for(graph: PhasedGraph, node: PhasedNode, value: Any, run: WorkflowRun
 
 async def _take(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, edge: PhasedEdge,
                 actor_id: str | None) -> PhasedNode | None:
-    """Follow ``edge``; a loop edge at its limit pauses the run and returns ``None``."""
     iteration = 1
     if edge.kind == EDGE_LOOP:
         counters = dict(run.loop_counters or {})
@@ -180,7 +168,7 @@ async def _take(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, edge: Ph
         from .size_class.loops import escalate_at_limit, round_limit
 
         used = escalate_at_limit(db, run, edge.id, used, limit)  # the run's class out of rounds: escalate
-        limit_now = round_limit(run, edge.id, limit)
+        limit_now, checks_cap = await loop_bound(db, run, graph, edge, round_limit(run, edge.id, limit))
         if used >= limit_now:
             if limit_now < limit:  # paused at the class's rounds: a person's "more rounds" count from there
                 counters[edge.id] = {**counter, "limit": limit_now}
@@ -188,11 +176,10 @@ async def _take(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, edge: Ph
             from .failure_codes import last as last_failure
 
             failed_last = last_failure(run, edge.source)  # who caused it: the last failure's code (``pause_causes``)
-            await pause_run(db, run, reason=PAUSE_LOOP_LIMIT, actor_id=actor_id,
-                            detail={"edge_id": edge.id, "used": used, "limit": limit_now,
-                                    **({"last_failure": failed_last} if failed_last else {}),
-                                    "resume": {"kind": "edge", "edge_id": edge.id}})
-            await failure.on_loop_limit(db, run, edge)  # one linked follow-up issue
+            reason, detail = loop_pause(run, edge, used, limit_now, checks_cap, failed_last)
+            await pause_run(db, run, reason=reason, actor_id=actor_id,
+                            detail={**detail, "resume": {"kind": "edge", "edge_id": edge.id}})
+            await failure.on_loop_limit(db, run, edge)
             return None
         counter.update({"used": used + 1, "limit": limit, "title": edge.title or counter.get("title") or edge.id})
         counters[edge.id] = counter
@@ -211,7 +198,6 @@ async def _take(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, edge: Ph
 
 async def _run_from(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, node: PhasedNode | None,
                     actor_id: str | None, *, value: Any = None, activate: bool = True) -> None:
-    """Activate ``node`` (or route on ``value`` from it) and keep going until the run waits or ends."""
     from .handoff.lifecycle import guard_receiver
 
     await guard_receiver(db, run)
@@ -237,7 +223,6 @@ async def _run_from(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, node
 
 
 async def resolve_current_node(db: AsyncSession, run: WorkflowRun, value: Any, *, actor_id: str | None) -> None:
-    """The current node produced ``value`` (a phase passed, a person decided): continue from it."""
     from .handoff.lifecycle import guard_receiver
 
     await guard_receiver(db, run)
@@ -259,7 +244,6 @@ async def resolve_current_node(db: AsyncSession, run: WorkflowRun, value: Any, *
 
 
 async def rerun_current_node(db: AsyncSession, run: WorkflowRun, *, actor_id: str | None) -> None:
-    """Activate the current node again (a platform action whose tool approval was granted) and go on."""
     graph = await graph_for_run(db, run)
     node = graph.nodes.get(run.current_node_id or "")
     if node is None:
@@ -271,7 +255,6 @@ async def rerun_current_node(db: AsyncSession, run: WorkflowRun, *, actor_id: st
 
 
 async def take_pending_edge(db: AsyncSession, run: WorkflowRun, edge_id: str, *, actor_id: str | None) -> None:
-    """Continue a run that paused on loop edge ``edge_id`` (after its limit was raised)."""
     from .handoff.lifecycle import guard_receiver
 
     await guard_receiver(db, run)
@@ -288,7 +271,6 @@ async def take_pending_edge(db: AsyncSession, run: WorkflowRun, edge_id: str, *,
 
 
 async def restart_at(db: AsyncSession, run: WorkflowRun, node_id: str, *, actor_id: str | None) -> None:
-    """Re-enter ``node_id`` (change plan): the run continues from there."""
     from .handoff.lifecycle import guard_receiver
 
     await guard_receiver(db, run)

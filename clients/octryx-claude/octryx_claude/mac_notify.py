@@ -1,16 +1,5 @@
-"""macOS notifications under octryx's own name (they showed as "Script Editor": ``osascript``'s ``display
-notification`` is always attributed to Script Editor).
-
-A tiny AppleScript applet, ``Octryx.app``, is built once on this Mac with ``osacompile`` (in octryx's state folder,
-no Dock icon: ``LSUIElement``). A notification posted by the applet carries its name. The text never becomes code:
-:func:`notify` writes ``title``/``message`` as a file into a private queue folder (0700, files 0600) and starts the
-applet, which shows every queued file and deletes it. The applet reads the files with ``cat`` on a fixed path and
-hands their contents to ``display notification`` as data; nothing the text contains is ever evaluated.
-
-macOS asks once whether "Octryx" may send notifications. Without the applet (``osacompile`` missing, the build
-failed), :func:`notify` falls back to the old ``osascript`` call: the notification still appears, as "Script
-Editor". Best effort everywhere; nothing here raises.
-"""
+"""macOS notifications under octryx's own name, via a tiny applet (``osascript`` notifications show as
+"Script Editor")."""
 
 from __future__ import annotations
 
@@ -55,7 +44,6 @@ end run
 
 
 def _clean(text: str, limit: int) -> str:
-    """One line, no control characters, at most ``limit`` characters."""
     flat = " ".join("".join(ch if ch.isprintable() else " " for ch in str(text)).split())
     return flat[:limit]
 
@@ -69,7 +57,6 @@ def queue_dir(root: Path | None = None) -> Path:
 
 
 def ensure_applet(root: Path | None = None, *, run: object = subprocess.run) -> Path | None:
-    """The applet, built (or rebuilt after a :data:`VERSION` change) when needed; ``None`` when it cannot be."""
     if sys.platform != "darwin":
         return None
     app = applet_path(root)
@@ -100,7 +87,6 @@ def ensure_applet(root: Path | None = None, *, run: object = subprocess.run) -> 
 
 
 def notify(title: str, message: str, *, root: Path | None = None, run: object = subprocess.run) -> None:
-    """Show ``message`` under ``title`` as a notification from "Octryx"; best effort, never raises."""
     if sys.platform != "darwin":
         return
     title, message = _clean(title, MAX_TITLE) or "Octryx", _clean(message, MAX_MESSAGE)

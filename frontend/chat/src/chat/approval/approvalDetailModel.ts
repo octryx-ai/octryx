@@ -1,10 +1,3 @@
-// The approval detail page (backend GET /api/v1/approvals/{id}): what was asked (the change preview, stored
-// masked since), who asked and who decided, where it belongs, and, while it waits, the decisions the server
-// offers. Pure, so the page and its unit tests share it.
-//
-// The page lives in Operations › Decisions as a hidden page: /chat?area=operations&tab=approvalDetail&approval=<id>.
-// The REST calls audit, the Decisions drawer and a workflow run's history link to it.
-
 import type { StatusTone } from "../../layout/StatusLabel";
 import { connectorWriteView } from "./connectorWriteView";
 import { restRequestView } from "./restRequestView";
@@ -28,12 +21,9 @@ export type ApprovalDetail = {
   createdAt: string | null;
   resolvedAt: string | null;
   payload: Record<string, unknown> | null;
-  // The approval in words: "Run a command on the Octryx server", and why the person is asked.
   title: string | null;
   subtitle: string | null;
-  // The preview's detail lines in words, as the server serves them (`approval/presentation`); null when not served.
   details: string[] | null;
-  // The decisions the server offers (`offered_decisions`); empty offers none.
   offered: Array<"once" | "always" | "deny">;
 };
 
@@ -71,14 +61,11 @@ export function parseApprovalDetail(payload: unknown): ApprovalDetail | null {
   };
 }
 
-// ---- view state ----------------------------------------------------------------------------------------------------
-
 export type ApprovalDetailState =
   | { kind: "loading" }
   | { kind: "message"; text: string }
   | { kind: "ready"; detail: ApprovalDetail };
 
-/** What the page shows for an answer of GET /api/v1/approvals/{id}: one sentence for every refusal. */
 export function approvalDetailState(answer: { status: number; payload?: unknown } | null): ApprovalDetailState {
   if (!answer) return { kind: "loading" };
   if (answer.status === 404) return { kind: "message", text: "This approval does not exist or is not visible to you." };
@@ -91,7 +78,6 @@ export function approvalDetailState(answer: { status: number; payload?: unknown 
   return detail ? { kind: "ready", detail } : { kind: "message", text: "The approval could not be read." };
 }
 
-/** The approval id of the page's address (`approval=<id>`), or null when it is missing or not an id. */
 export function approvalIdFromSearch(search: string): string | null {
   const id = new URLSearchParams(search).get("approval") ?? "";
   return /^[A-Za-z0-9_-]{1,64}$/.test(id) ? id : null;
@@ -99,8 +85,6 @@ export function approvalIdFromSearch(search: string): string | null {
 
 export const approvalDetailHref = (approvalId: string) =>
   `/chat?area=operations&tab=approvalDetail&approval=${encodeURIComponent(approvalId)}`;
-
-// ---- what the page shows -------------------------------------------------------------------------------------------
 
 export type ApprovalDetailStatus = { label: string; tone: StatusTone };
 
@@ -113,7 +97,6 @@ export function approvalDetailStatus(status: string): ApprovalDetailStatus {
 
 export type ApprovalPreviewKind = "plan" | "rest" | "connector" | "generic" | "none";
 
-/** Which preview component shows the payload: the write plan, a REST request, a connector write, or the generic one. */
 export function approvalPreviewKind(payload: Record<string, unknown> | null): ApprovalPreviewKind {
   if (!payload) return "none";
   if (writePlanView(payload)) return "plan";
@@ -125,12 +108,7 @@ export function approvalPreviewKind(payload: Record<string, unknown> | null): Ap
 
 export type ApprovalTexts = { title: string; subtitle: string };
 
-/**
- * The approval's title and why it is asked, the same everywhere it shows (chat card, approval page, phone). The
- * server words every approval (`approval/presentation.approval_texts`): "Run a command on the Octryx server",
- * "Comment on a Jira issue", "Write plan with 3 writes". Only a REST write keeps its own title ("POST /tickets on
- * Desk › create_ticket"): it names the request, which the server's sentence does not.
- */
+/** A REST write keeps its own title: it names the request, which the server's sentence does not. */
 export function approvalTexts(
   served: { title?: unknown; subtitle?: unknown } | null,
   payload: Record<string, unknown> | null,
@@ -142,12 +120,7 @@ export function approvalTexts(
 
 export type ApprovalDetailAction = { kind: ApprovalDecisionKind; label: string };
 
-/**
- * The buttons while the approval waits: the decisions the server offers (Deny, Always for this Workspace, Allow
- * once). A write plan and a connector write say Reject and Approve, as their
- * chat cards do. A governance publication is decided on its publishing page, so it gets none here; whether this
- * viewer may decide is the server's to say (a refusal is put into words).
- */
+/** A governance publication is decided on its publishing page, so it gets no buttons here. */
 export function approvalDetailActions(
   detail: Pick<ApprovalDetail, "status" | "kind" | "offered">,
   preview: ApprovalPreviewKind = "generic",
@@ -162,7 +135,6 @@ export function approvalDetailActions(
   return actions;
 }
 
-/** The line next to the buttons: what the decision covers. */
 export function approvalDetailNote(actions: ApprovalDetailAction[], preview: ApprovalPreviewKind): string {
   if (preview === "plan") return WRITE_PLAN_NOTE;
   return actions.some((action) => action.kind === "always")
@@ -182,7 +154,6 @@ export function approvalDecisionRequest(
 
 export type ApprovalDetailLink = { label: string; text: string; href: string };
 
-/** The chat it was asked in, or the workflow run (whose chat is the run's session). */
 export function approvalDetailLinks(detail: Pick<ApprovalDetail, "sessionId" | "workflowRunId">): ApprovalDetailLink[] {
   if (!detail.sessionId) return [];
   const href = `/chat?session_id=${encodeURIComponent(detail.sessionId)}`;
@@ -191,7 +162,6 @@ export function approvalDetailLinks(detail: Pick<ApprovalDetail, "sessionId" | "
     : [{ label: "Chat", text: "Open the chat ›", href }];
 }
 
-/** "Anna", or the short id when the server has no name. */
 export function personText(name: string | null, id: string | null): string {
   return name ?? (id ? `user ${id.slice(0, 8)}` : "unknown");
 }

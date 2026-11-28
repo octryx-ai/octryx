@@ -20,15 +20,8 @@ type LoadMcpTabDataArgs = {
   setMcpCatalog: Dispatch<SetStateAction<MCPCatalogEntry[]>>;
 };
 
-/**
- * Load the MCP tab for one explicitly selected Workspace.
- *
- * The selection is resolved first (keep the current one while it is still an
- * active project, else the first active project). When that changes the
- * selection, the loader only stores it: the selection effect in
- * useAdminPanelContainerEffects reloads the tab with the new Workspace, so the
- * registry is never read for a Workspace the selector does not show.
- */
+/** A changed selection is only stored: the selection effect reloads the tab, so the registry is never read
+ * for a Workspace the selector does not show. */
 export async function loadMcpTabData({
   readJson,
   adminProjects,

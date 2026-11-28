@@ -1,19 +1,5 @@
-"""End of a Source Sync connector: delete it, or deactivate every connector of a deleted Workspace.
-
-**Delete** (an author of the Workspace): the schedule stops and the connector configuration is
-removed together with its own sync state (per-item rows and run reports, which reference it). The
-ledger sources it already synced are **kept**: they are ordinary Workspace sources from then on,
-retained, served and removable under the same rules as an upload (``ledger/lifecycle.remove_source``,
-``retention/``). Nothing keeps them in step with the source system any more, and nothing tombstones
-them because the connector went away. A connector whose run lease is held is refused with
-``run_in_progress``; a connector of another Workspace is absent, not forbidden.
-
-**Deactivate for a deleted Workspace** (the project soft delete): every connector of the project is
-paused and its schedule switched off, so neither "run now" nor the scheduler acts on it.
-
-Both are audited with ids, keys and counts only. Delete commits; deactivation runs in the caller's
-transaction.
-"""
+"""End of a Source Sync connector: delete it, or deactivate every connector of a deleted Workspace. Synced ledger
+sources are kept."""
 
 from __future__ import annotations
 
@@ -84,6 +70,7 @@ async def delete_connector(
             action=DELETE_AUDIT_ACTION,
             resource_type="knowledge_source_connector",
             resource_id=row.id,
+            project_id=row.project_id,
             details={"workspace_id": authorized.project_id, **outcome},
         )
     )
@@ -95,7 +82,6 @@ async def delete_connector(
 
 
 async def deactivate_workspace_connectors(db: AsyncSession, *, project_id: str, actor_id: str) -> list[str]:
-    """Pause every connector of ``project_id`` and switch its schedule off; answer the changed ids."""
     rows = (
         await db.execute(
             select(KnowledgeSourceConnector)
@@ -117,6 +103,7 @@ async def deactivate_workspace_connectors(db: AsyncSession, *, project_id: str, 
                 action=DEACTIVATE_AUDIT_ACTION,
                 resource_type="knowledge_source_connector",
                 resource_id=row.id,
+                project_id=row.project_id,
                 details={
                     "workspace_id": project_id,
                     "connector_key": row.connector_key,

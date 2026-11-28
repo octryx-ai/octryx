@@ -1,15 +1,5 @@
-"""The Evidence operation registry served by PostgreSQL tables keyed by Workspace.
-
-The caller names a registry key and supplies exactly its declared parameters (``values``); the
-Workspace selects the rows (``project_id``), never a caller value. The schema comes from the Alembic
-migrations. The vector table exists only on a server with pgvector, so without it the vector
-operations are refused and the vector mode stays in its explicit unavailable state.
-
-Failures are typed: any database failure is :class:`EvidenceIndexUnavailableError`, a call outside
-the registry or with the wrong parameters is :class:`EvidenceIndexContractError`, and both are raised
-outside the handler, so no driver exception (which may carry statement text and values) is chained.
-Every call runs in its own short transaction with a statement timeout.
-"""
+"""The Evidence operation registry served by PostgreSQL tables keyed by Workspace. The Workspace selects the rows, never
+a caller value."""
 
 from __future__ import annotations
 
@@ -57,8 +47,6 @@ def _parsed_vector(value: object) -> list[float] | None:
 
 
 class PostgresEvidenceIndexClient(EvidenceIndexClient):
-    """Serves the Evidence registry from the shared PostgreSQL index tables."""
-
     def __init__(self, session_factory: Callable[[], AsyncSession] | None = None) -> None:
         if session_factory is None:
             # Imported on use: the application database module reads settings at import.
@@ -72,7 +60,7 @@ class PostgresEvidenceIndexClient(EvidenceIndexClient):
         return "PostgresEvidenceIndexClient(configured=True)"
 
     async def aclose(self) -> None:
-        """Nothing to release: sessions are per call and the engine is the application's."""
+        pass
 
     async def run(
         self,
@@ -80,7 +68,6 @@ class PostgresEvidenceIndexClient(EvidenceIndexClient):
         operation_key: str,
         parameters: dict[str, Any] | None = None,
     ) -> tuple[dict[str, Any], ...]:
-        """Run one registered operation against one Workspace's rows."""
         project_id = _project_id(workspace)
         try:
             spec = ops.operation(operation_key)
@@ -151,7 +138,6 @@ class PostgresEvidenceIndexClient(EvidenceIndexClient):
         return result
 
     async def vectors_available(self) -> bool:
-        """Whether this server holds the vector table (pgvector installed when it was migrated)."""
         if self._vectors_present is None:
             rows = await self._execute(sql.VECTOR_TABLE_PRESENT, {}, rows=True)
             self._vectors_present = bool(rows and rows[0].get("present"))
@@ -159,7 +145,6 @@ class PostgresEvidenceIndexClient(EvidenceIndexClient):
 
 
 def application_index_client() -> PostgresEvidenceIndexClient | None:
-    """A client on the application's own database, or ``None`` when that is not PostgreSQL."""
     from ....db.core import async_engine
 
     if async_engine.dialect.name != "postgresql":

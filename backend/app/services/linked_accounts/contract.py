@@ -1,12 +1,4 @@
-"""The platforms a user links an account on, and how each one names the account.
-
-- ``atlassian``: an Atlassian Cloud account, named by its **account id** (the same account on Jira Cloud and
-  Bitbucket Cloud); verified through a Workspace's Jira Cloud connection, else its Bitbucket Cloud connection;
-- ``jira_server`` / ``bitbucket_server``: a Jira or Bitbucket Server/Data Center **username**;
-- ``github`` / ``gitlab``: a GitHub login or GitLab username.
-
-A refusal is a :class:`LinkedAccountError` with a fixed ``code``.
-"""
+"""The platforms a user links an account on, and how each one names the account."""
 
 from __future__ import annotations
 
@@ -66,7 +58,6 @@ def platform(key: str) -> Platform:
 
 
 def normalized_identifier(spec: Platform, value: str) -> str:
-    """The account's identifier as stored, or a refusal naming what the platform expects."""
     text = str(value or "").strip()
     if spec.identifier == ACCOUNT_ID:
         if not ATLASSIAN_ACCOUNT_ID.fullmatch(text):

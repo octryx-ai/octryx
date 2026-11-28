@@ -25,7 +25,6 @@ async def create_resume_checkpoint(
     checkpoint_id: str,
     max_resume_attempts: int = 3,
 ) -> ResumeCheckpoint:
-    """Create a new ResumeCheckpoint record for a session + checkpoint pair."""
     # Idempotent: return existing if already created
     existing = await db.execute(
         select(ResumeCheckpoint).where(
@@ -55,7 +54,6 @@ async def get_active_checkpoint_for_session(
     *,
     session_id: str,
 ) -> ContextCheckpoint | None:
-    """Get the active context checkpoint for a session."""
     result = await db.execute(
         select(ContextCheckpoint)
         .where(
@@ -69,7 +67,6 @@ async def get_active_checkpoint_for_session(
 
 
 def can_resume(resume_checkpoint: ResumeCheckpoint) -> bool:
-    """Return True if the resume attempt is allowed under the current policy."""
     if resume_checkpoint.status in {"resumed", "failed", "exhausted"}:
         return False
     if resume_checkpoint.resume_attempt_count >= resume_checkpoint.max_resume_attempts:
@@ -84,11 +81,6 @@ async def attempt_resume(
     *,
     resume_checkpoint: ResumeCheckpoint | None = None,
 ) -> ResumeCheckpoint:
-    """Record a resume attempt for a session from a checkpoint.
-
-    If resume_checkpoint is None, a new one is created. The caller is responsible
-    for actually resuming the run (loading checkpoint context and continuing the loop).
-    """
     if resume_checkpoint is None:
         resume_checkpoint = await create_resume_checkpoint(
             db, session_id=session.id, checkpoint_id=checkpoint.id
@@ -100,7 +92,6 @@ async def attempt_resume(
         await db.commit()
         return resume_checkpoint
 
-    # Increment attempt count
     resume_checkpoint.resume_attempt_count = (resume_checkpoint.resume_attempt_count or 0) + 1
     resume_checkpoint.status = "in_progress"
     resume_checkpoint.last_resume_at = utc_now()
@@ -113,7 +104,6 @@ async def mark_resume_success(
     db: AsyncSession,
     resume_checkpoint: ResumeCheckpoint,
 ) -> ResumeCheckpoint:
-    """Mark a resume attempt as successfully resumed."""
     resume_checkpoint.status = "resumed"
     await db.commit()
     return resume_checkpoint
@@ -124,7 +114,6 @@ async def mark_resume_failed(
     resume_checkpoint: ResumeCheckpoint,
     error: str,
 ) -> ResumeCheckpoint:
-    """Mark a resume attempt as failed with an error message."""
     resume_checkpoint.status = "failed"
     resume_checkpoint.last_error = str(error)[:500]
     await db.commit()
@@ -135,7 +124,6 @@ async def find_all_recoverable_sessions(
     db: AsyncSession,
     limit: int = 100,
 ) -> list[tuple[Session, ContextCheckpoint]]:
-    """Find all sessions that have an active checkpoint and can be recovered."""
     result = await db.execute(
         select(Session, ContextCheckpoint)
         .join(
@@ -153,7 +141,7 @@ async def find_all_recoverable_sessions(
 
 
 def get_session_recovery_policy(session: Session) -> str:
-    """Get the recovery policy for a session, with fallback to manual_resume."""
+    # Falls back to ``manual_resume``.
     return str(session.recovery_policy or RECOVERY_POLICY_MANUAL_RESUME).strip().lower()
 
 

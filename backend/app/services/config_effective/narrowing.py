@@ -1,21 +1,4 @@
-"""What "narrower" means per field kind. Pure functions, no I/O.
-
-Each rule takes the object's base value, the deviation's value and the field path, and returns the value that
-applies in the Workspace:
-
-- ``strict`` (a write): a value that is not narrower raises :class:`DeviationNotNarrowerError` naming the field;
-- not strict (a read): a stored deviation that is no longer narrower (the base was narrowed later) is clamped to
-  the base, so a read never widens what the object allows.
-
-Kinds:
-
-- **scope**: ``{key: [items]}``; narrower is a subset per key. A base of ``None`` is unrestricted.
-- **schedule**: ``{"schedule": preset, "schedule_cron": cron | None}``; narrower is the same schedule or ``manual``
-  (``off`` is accepted as ``manual``).
-- **level**: ``off`` < ``read`` < ``write``; narrower is the same or lower.
-- **flag**: ``true`` → ``false`` only (enabled, write-back).
-- **subset**: a list (models); narrower is a subset.
-"""
+"""What "narrower" means per field kind."""
 
 from __future__ import annotations
 
@@ -50,7 +33,6 @@ def _items(value: Any, field: str) -> list[str]:
 
 
 def narrow_scope(base: Mapping[str, list[str]] | None, value: Any, field: str, *, strict: bool) -> dict[str, list]:
-    """A subset of ``base`` per key; ``base`` ``None`` admits any keys."""
     if not isinstance(value, Mapping):
         raise DeviationNotNarrowerError(field, f"{field} must be an object of key lists.")
     narrowed: dict[str, list[str]] = {}
@@ -78,7 +60,6 @@ def _schedule_pair(value: Mapping[str, Any]) -> tuple[str, str | None]:
 
 
 def narrow_schedule(base: Mapping[str, Any], value: Mapping[str, Any], field: str, *, strict: bool) -> dict:
-    """The same schedule as the base, or ``manual``."""
     wanted = _schedule_pair(value)
     current = _schedule_pair(base)
     if wanted[0] == SCHEDULE_OFF or wanted == current:
@@ -89,7 +70,6 @@ def narrow_schedule(base: Mapping[str, Any], value: Mapping[str, Any], field: st
 
 
 def narrow_level(base: str, value: Any, field: str, *, strict: bool) -> str:
-    """The same level or a lower one (``off`` < ``read`` < ``write``)."""
     if value not in LEVELS:
         raise DeviationNotNarrowerError(field, f"{field} must be one of: {', '.join(LEVELS)}.")
     base_rank = LEVELS.index(base) if base in LEVELS else 0
@@ -109,7 +89,6 @@ def _flag(value: Any, field: str) -> bool:
 
 
 def narrow_flag(base: Any, value: Any, field: str, *, strict: bool) -> bool:
-    """``true`` → ``false`` only; ``base`` may be a bool or ``{"enabled": bool, ...}``."""
     allowed = bool(base.get("enabled")) if isinstance(base, Mapping) else bool(base)
     wanted = _flag(value, field)
     if wanted and not allowed:
@@ -120,7 +99,6 @@ def narrow_flag(base: Any, value: Any, field: str, *, strict: bool) -> bool:
 
 
 def narrow_subset(base: list[str] | None, value: Any, field: str, *, strict: bool) -> list[str]:
-    """A subset of ``base`` (``None`` admits any)."""
     items = _items(value, field)
     if base is None:
         return items

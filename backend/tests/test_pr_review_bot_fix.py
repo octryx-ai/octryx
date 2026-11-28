@@ -1,12 +1,5 @@
-"""PR review bot: ``@octryx fix`` / ``write tests``.
-
-- a fix run pushes only onto an open, non-fork pull request's branch of a repository with ``fix_runs`` on, never onto
-  its target or a protected branch, one run per pull request at a time; anything else is answered, nothing starts;
-- in a finding's thread it fixes that finding, in the conversation every open blocking one; ``write tests`` changes
-  test files only; the person's default engine runs it (a named other engine is answered with a note);
-- the run finds the commenter's device folder named like the repository (a repository nobody ran on a device yet);
-- ``pr-fix`` never goes through ``scm.create_branch``: the succession rule there is untouched for every workflow.
-"""
+"""PR review bot: ``@octryx fix`` / ``write tests`` push only onto an open, non-fork pull request's branch
+with ``fix_runs`` on, one run per pull request at a time."""
 
 from __future__ import annotations
 
@@ -15,13 +8,18 @@ import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from app.models import UserLinkedAccount, WorkflowRun
 from app.services.pr_review_bot import comment_poll, fix
 from app.services.pr_review_bot.events import pull_request_event
 from app.services.pr_review_bot.settings import BotSettings, store_settings
 from tests.pr_review_bot_flow_support import HEADERS, _payload, _workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_pr_review_bot_commands import _comment
 from tests.test_pr_review_bot_explain_ignore import _provider, _reviewed
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 SEEDS = Path(__file__).parents[1] / "app/services/workflow_runs/seeds/phased_workflows.json"
 
@@ -32,7 +30,6 @@ def _git(cwd, *args) -> str:
 
 
 def test_pr_fix_never_creates_or_adopts_a_branch():
-    """The succession rule of ``scm.create_branch`` stays the only way any other workflow reaches a branch."""
     definition = next(item for item in json.loads(SEEDS.read_text()) if item["key"] == "pr-fix")["definition"]
     actions = [node["config"]["action"] for node in definition["nodes"] if node["type"] == "platform_action"]
     assert "scm.create_branch" not in actions and actions[0] == "pr_review.fix_prepare"
@@ -209,8 +206,6 @@ async def test_a_started_fix_run_checks_out_the_branch_and_reaches_its_fix_phase
 
 
 def test_the_report_names_the_failed_step_never_the_findings_the_run_started_with():
-    """When fix_prepare fails on the repository's operations, the answer names that failure; it must not say the
-    review had not passed the fix, quoting the finding the run was started with."""
     started_with = {"verdict": "changes", "node_id": "independent_review", "findings": [
         {"id": "F1", "severity": "high", "file": "pay/bulk.py", "line": 31, "fix": "Export bulk_savings."}]}
     refused = WorkflowRun(context={"review": started_with, "actions": {"fix_prepare": {
@@ -226,7 +221,6 @@ def test_the_report_names_the_failed_step_never_the_findings_the_run_started_wit
 
 
 def test_the_fix_commit_says_what_it_fixes_and_links_the_pull_request():
-    """The commit message must not read "PR fix" plus the trailers."""
     pr = SimpleNamespace(pr_id="2", url="https://github.com/octryx-ai/review-bot-test/pull/2", provider="github")
     event = SimpleNamespace(author="octryx-ai")
     subject, body = fix.commit_message("fix", [{"id": "F1", "severity": "medium", "file": "pay/bulk.py", "line": 34,
@@ -242,8 +236,6 @@ def test_the_fix_commit_says_what_it_fixes_and_links_the_pull_request():
 
 async def test_fix_on_an_installation_with_pr_fix_switched_off_says_so_and_where_to_switch_it_on(
         db, monkeypatch, tmp_path):
-    """``pr-fix`` ships optional and off: a fresh installation answers "No published workflow 'pr-fix'". The answer
-    names the workflow as its definition does, and where a platform administrator switches it on."""
     from sqlalchemy import select
 
     from app.models.runtime.flow_definition import FlowDefinition

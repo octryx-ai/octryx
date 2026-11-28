@@ -1,28 +1,5 @@
-"""Read-only Kubernetes and AWS tools on the Knowledge MCP (incident intake).
-
-The served set is a fixed allow list of chat tool classes (``tools/kubernetes.py``, ``tools/connectors/aws_*``);
-``mcp_connector_tools.McpConnectorReadTool`` wraps each with the chat's gates on the Workspace's own config: the
-project tool policy (so a connector policy's ``disabled_tools`` such as ``get_pod_logs`` is ``denied``), the
-connector activation and the approval policy. No write or action tool is ever on the list, whatever a policy
-says, and every tool is checked to be ``risk: read`` at import time. ``aws_allowed_services`` holds because
-every AWS call of these classes goes through ``cloud_common._aws_allowed``.
-
-**Workspace-owned credentials only.** In the chat, both connectors fall back to the
-*platform host's* credentials; over MCP that would read the platform's cluster or account for any Workspace.
-
-- **Kubernetes** (a built-in in the chat): an explicit deactivation of the ``kubernetes`` connector is honoured,
-  a Workspace without any connection key (:data:`KUBERNETES_CONNECTION_KEYS`) is ``connector_not_configured``,
-  and a call needs the Workspace's own ``k8s_api_url`` **and** ``k8s_token`` on the API path. A kubeconfig,
-  context or kubectl connection (the host's kubeconfig) and a URL without a token (the pod's own service-account
-  token) are ``needs_configuration`` / ``kubernetes_credentials_required``.
-- **AWS**: the chat's connector activation, then the Workspace's own access key id **and** secret access key, or
-  an ``aws_role_arn``. Region or profile alone (boto3's host default chain or a host profile) is
-  ``needs_configuration`` / ``aws_credentials_required``, unless a platform admin opted the connector entry in
-  with ``allow_platform_credentials: true`` (tool configuration entries are platform-admin only and audited; the
-  key is a selector, so ``Project.config`` can neither set nor supply it).
-
-Every result carries the ``content_is_data`` notice: cluster and cloud output is data, never instructions.
-"""
+"""Read-only Kubernetes and AWS tools on the Knowledge MCP (incident intake). A fixed allow list of chat tool classes,
+each behind the chat's gates on the Workspace's own config."""
 
 from __future__ import annotations
 
@@ -33,20 +10,10 @@ from ..tools.connectors.aws_compute import ListAwsCloudWatchAlarmsTool, ListAwsE
 from ..tools.connectors.aws_data import ListAwsRdsInstancesTool
 from ..tools.connectors.aws_gateway import AwsReadOperationTool
 from ..tools.connectors.aws_topology import AwsTopologySnapshotTool
-from ..tools.kubernetes import (
-    DescribeDeployment,
-    DescribeNode,
-    DescribePod,
-    GetK8sDeployments,
-    GetK8sEvents,
-    GetResourceUsage,
-    ListIngresses,
-    ListNamespaces,
-    ListNodes,
-    ListPods,
-    ListServices,
-    ListStatefulSets,
-)
+from ..tools.kubernetes_cluster import DescribeNode, GetK8sEvents, GetResourceUsage, ListNamespaces, ListNodes
+from ..tools.kubernetes_network import ListIngresses, ListServices
+from ..tools.kubernetes_pods import DescribePod, ListPods
+from ..tools.kubernetes_workloads import DescribeDeployment, GetK8sDeployments, ListStatefulSets
 from ..tools.visibility import connector_activation_decision
 from .named_connections.contract import DEFAULT_CONNECTION_NAME
 
@@ -103,7 +70,6 @@ def _has_content(value: object) -> bool:
 
 
 def kubernetes_activation(config: dict[str, Any]) -> str | None:
-    """``None`` when the Workspace's Kubernetes connection may be used over MCP, else the refusal reason."""
     _active, reason, _evidence = connector_activation_decision(KUBERNETES, config)
     if reason == DEACTIVATED:
         return DEACTIVATED
@@ -117,7 +83,6 @@ def kubernetes_activation(config: dict[str, Any]) -> str | None:
 
 
 def aws_activation(config: dict[str, Any]) -> str | None:
-    """``None`` when the Workspace's AWS connection may be used over MCP, else the refusal reason."""
     active, reason, _evidence = connector_activation_decision(AWS, config)
     if reason == DEACTIVATED:
         return DEACTIVATED
@@ -130,8 +95,7 @@ def aws_activation(config: dict[str, Any]) -> str | None:
 
 
 def uses_platform_credentials(connector: str, config: dict[str, Any]) -> bool:
-    """True when an admitted AWS call runs on the platform host's credentials: it has nothing of its own, so only
-    the opt-in admitted it (the activation gate ran before)."""
+    # Only the admin opt-in admitted it: the call has no credentials of its own.
     without_opt_in = {**config, PLATFORM_CREDENTIALS_OPT_IN: False}
     return connector == AWS and aws_activation(without_opt_in) == AWS_CREDENTIALS_REQUIRED
 
@@ -139,10 +103,6 @@ def uses_platform_credentials(connector: str, config: dict[str, Any]) -> bool:
 async def audit_platform_credentials(
     context: Any, *, tool_name: str, workspace_id: str, connection_id: str | None
 ) -> None:
-    """One audit row per MCP call that runs on the platform's credentials under the admin opt-in.
-
-    ``connection_id``: the named connection the call ran on, ``None`` for the default connection.
-    """
     context.db.add(
         AuditLog(
             user_id=str(context.user_id),

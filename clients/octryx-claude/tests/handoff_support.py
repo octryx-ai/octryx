@@ -28,7 +28,6 @@ def git(repo: Path, *args: str) -> str:
 
 @pytest.fixture
 def repos(tmp_path, monkeypatch):
-    """A bare 'remote', the user's clone with uncommitted work, and a second clone for the receiver."""
     config = tmp_path / "gitconfig"
     config.write_text("[user]\n\tname = t\n\temail = t@example.test\n[commit]\n\tgpgsign = false\n"
                       "[core]\n\tautocrlf = false\n")

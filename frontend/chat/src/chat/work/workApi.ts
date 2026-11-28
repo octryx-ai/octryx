@@ -1,12 +1,8 @@
-// Work API calls for work items, workflows and repository profiles.
 import { readJson } from "../../admin/utils/adminPanelHelpers";
 import type { WorkItem, WorkItemLifecycle } from "./workItemTypes";
 import type { WorkRepositoryProfile } from "./workCodingPipelineTypes";
 import type { WorkStateEvent, WorkTransitionPreview, WorkWorkflowDefinition } from "./workSyncWorkflowTypes";
 
-// The list is lean and paged ({items, total, limit, offset, next_offset}); description, comments, watchers,
-// components, linked issues and source_fields come from the item itself (workPlanListApi.loadWorkItem). A page without
-// next_offset ends the loop.
 export type WorkItemsPage = { items: WorkItem[]; total: number | null; nextOffset: number | null };
 
 export const WORK_ITEMS_PAGE_SIZE = 200;
@@ -21,12 +17,7 @@ export async function loadWorkItemsPage(offset = 0, limit = WORK_ITEMS_PAGE_SIZE
   return { items, total: typeof payload.total === "number" ? payload.total : null, nextOffset: next };
 }
 
-/**
- * Every item up to `limit`; the filters stay in the browser because they read list fields only. The first page tells
- * the total, so the remaining pages are requested together instead of one after another (perf step 1: ~950 items
- * were five sequential round trips). They are joined in offset order and end, at the first empty page or
- * at the page without a next offset. A server that sends no total is paged through next_offset one by one.
- */
+// The first page tells the total, so the remaining pages are requested together instead of one after another.
 export async function loadWorkItems(limit = 1000, projectId = ""): Promise<WorkItem[]> {
   const first = await loadWorkItemsPage(0, Math.min(WORK_ITEMS_PAGE_SIZE, limit), projectId);
   const items: WorkItem[] = [...first.items];
@@ -34,7 +25,7 @@ export async function loadWorkItems(limit = 1000, projectId = ""): Promise<WorkI
   if (first.total !== null) {
     const start = first.nextOffset;
     const end = Math.min(first.total, start + limit - items.length);
-    // The server's own page size (it may cap the limit), so no offset falls between two pages.
+    // The server may cap the limit; its own page size keeps offsets aligned.
     const step = Math.min(WORK_ITEMS_PAGE_SIZE, start);
     const offsets: number[] = [];
     for (let offset = start; offset < end; offset += step) offsets.push(offset);

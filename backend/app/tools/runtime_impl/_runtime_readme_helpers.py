@@ -70,8 +70,6 @@ def _read_text_if_exists(path: Path) -> str:
 
 
 def _module_summarizer(modules: list[dict[str, Any]], missing_after_write: list[str]) -> dict[str, Any]:
-    """Summarize generated vs. missing module readmes for caller-facing reporting."""
-
     return {
         "module_count": len(modules),
         "missing_count": len(missing_after_write),

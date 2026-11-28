@@ -1,41 +1,4 @@
-"""Resolve the capability class a run executes under.
-
-Precedence, first match wins, every step explicit and recorded as ``source``:
-
-1. A matched workflow (the current phase of the session's workflow run): the class the
-   phase declares. The request's ``agent_type`` is ignored and, when it differs
-   from the run's mode, recorded as ``agent_type_ignored``.
-2. A sub-agent run: the enforced class of its parent run, never more.
-3. A programmatic caller's declaration (``declared_run_capability`` session metadata,
-   :mod:`.declared`): the class a schedule or flow declares, a worker's profile, or the
-   spawning turn's class for a sub-agent. An unsupported declared value is
-   ``needs_configuration``.
-4. An explicit agent definition: the capability of the definition's own mode
-   (``change`` or read-only); other modes have no opinion here.
-5. A chat turn without a workflow (the chat entry points always record a routing
-   resolution): ``read_only``.
-6. A caller whose declaration record says it declares no class (a schedule or flow
-   definition without ``capability_class``): ``read_only``, recorded as
-   ``undeclared_read_only``.
-7. Anything else (a caller that records no declaration at all): ``needs_configuration``,
-   recorded as ``missing_declaration``. There is no silent default: every run has an
-   explicit profile origin, and every class is enforced.
-
-Chat is strictly read-only. A turn outside a workflow run's phase whose class
-came from a chat-side source (a routing workflow selected in chat, an agent definition's mode,
-the chat default) is capped to ``read_only`` (``capped_outside_run``); a recorded
-``capability_escalation=allow_changes`` raises nothing. Declared programmatic origins
-(a run's platform actions, workers, schedules, flows, a parent run) keep their class.
-
-Exception (work must be startable from the chat, ``chat_writes.py``): such a chat turn records
-``chat_connector_writes``; it stays ``read_only`` for everything else but may write through its connections, each
-call confirmed by the person (``tool_approval_gate``). A workflow run's phase, a sub-agent and a declared
-programmatic origin never get it.
-
-Tightening only: a run started by a parent run (``parent_session_id``) never exceeds the
-parent's enforced class, whatever steps 1-6 and the escalation decided; the cap is
-recorded as ``capped_by_parent``.
-"""
+"""Resolve the capability class a run executes under."""
 
 from __future__ import annotations
 

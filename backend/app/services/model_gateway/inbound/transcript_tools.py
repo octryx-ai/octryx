@@ -18,6 +18,7 @@ from ...agent_gateway.contract import (
     TOOL_CALL_STATUS_REQUESTED,
     TOOL_CALL_STATUS_SUCCESS,
 )
+from ...agent_gateway.stored_types import GatewayToolCallParameters
 from ...redaction_policy import redact_secret_payload, redact_secret_text
 from .turn_delta import ToolUseBlock, TurnDelta
 
@@ -57,8 +58,7 @@ def bounded_tool_input(value: Mapping[str, Any], *, codex_exec: bool = False) ->
 
 
 def result_excerpt(text: Any) -> str:
-    """A tool result, redacted and bounded, keeping its head **and** its tail: a test runner prints its summary last
-    (when pytest's "5 failed" is cut off the platform sees no test run and the phase never passes)."""
+    # Head and tail: a test runner prints its summary last.
     full = redact_secret_text(text)
     if len(full) <= MAX_TOOL_RESULT_EXCERPT_CHARS:
         return full
@@ -67,8 +67,8 @@ def result_excerpt(text: Any) -> str:
     return f"{full[:head]}\n...[truncated]...\n{full[-tail:]}"
 
 
-def _tool_use_parameters(use: ToolUseBlock) -> dict[str, Any]:
-    parameters: dict[str, Any] = {
+def _tool_use_parameters(use: ToolUseBlock) -> GatewayToolCallParameters:
+    parameters: GatewayToolCallParameters = {
         "source": TOOL_CALL_SOURCE_GATEWAY,
         "tool_use_id": use.tool_use_id[:64],
         "block_index": use.block_index,
@@ -79,17 +79,9 @@ def _tool_use_parameters(use: ToolUseBlock) -> dict[str, Any]:
     return parameters
 
 
+# Rows of one message share created_at, so block_index orders them even when the execution-evidence hook created one
+# before its siblings.
 async def _upsert_tool_calls(db: AsyncSession, session_id: str, delta: TurnDelta) -> None:
-    """One gateway row per ``tool_use`` id; converges with the execution-evidence hook.
-
-    A row that already carries the tool_use (``block_index``) is a client retry and is
-    left alone. A row the execution hook created first (``services/agent_gateway/
-    tool_execution.py``) gets the tool_use fields merged in; its other keys (the
-    ``executed`` evidence) are kept. All rows of one assistant message share one
-    ``created_at``, so ``block_index`` orders them even when the hook created one of
-    them before its siblings.
-    """
-
     ids = [use.tool_use_id for use in delta.prior_tool_uses] + [result.tool_use_id for result in delta.tool_results]
     ids = [item[:64] for item in ids if item]
     if not ids:

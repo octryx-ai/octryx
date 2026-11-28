@@ -1,25 +1,4 @@
-"""The turn's workflow selection, read from its routing resolution.
-
-The routing resolution (``explicit_selection.resolve_workflow_selection_for_turn``) is the
-only thing that selects a workflow family for a turn. This module reads it into one closed
-:class:`WorkflowSelection`; the execution strategy and the standard loop build a workflow
-contract only for a ``selected`` workflow, and only for that one. No prompt text is read here
-or downstream to pick a family.
-
-States (closed):
-
-- ``selected``: the current phase of the session's workflow run, or a platform service's own
-  selection (``platform_selection``).
-- ``none``: no workflow. The user chose "no workflow", the proposal found nothing or is
-  disabled, or no routing resolution at all.
-- ``unknown_key``: the ``workflow_key`` does not resolve to a published workflow. The
-  execution profile answers ``needs_clarification``.
-- ``needs_confirmation``: a proposed workflow waits for the user; the execution gate holds
-  the turn.
-- ``project_inactive``: the turn's Workspace is deleted or archived; the profile denies it.
-
-Only ``selected`` carries a ``workflow_id``. Every state carries a closed ``reason_code``.
-"""
+"""The turn's workflow selection, read from its routing resolution."""
 
 from __future__ import annotations
 
@@ -143,7 +122,6 @@ def _no_workflow(resolution: dict[str, Any]) -> WorkflowSelection:
 
 
 def workflow_selection_from_resolution(resolution: Any) -> WorkflowSelection:
-    """The closed selection a routing resolution makes; never reads the prompt."""
     if not isinstance(resolution, dict) or not resolution:
         return WorkflowSelection(SELECTION_NONE, REASON_NO_ROUTING_RESOLUTION)
     source = _text(resolution.get("source"))
@@ -167,12 +145,6 @@ def workflow_selection_from_resolution(resolution: Any) -> WorkflowSelection:
 
 
 def workflow_selection_from_analysis(request_analysis: Any) -> WorkflowSelection:
-    """The selection the contract builder sees.
-
-    The routing resolution decides whenever it is present. Without one, an explicit
-    ``workflow_contract`` the caller put into the analysis is the selection (a governed tool
-    or a test names its workflow this way); nothing else selects a family.
-    """
     analysis = request_analysis if isinstance(request_analysis, dict) else {}
     resolution = analysis.get(ROUTING_RESOLUTION_KEY)
     if isinstance(resolution, dict) and resolution:
@@ -189,16 +161,6 @@ def selected_workflow_analysis(
     *,
     workflow_decisions: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """A copy of ``request_analysis`` that carries the resolution and the selected contract.
-
-    Both builders of a turn's contract (the execution strategy and the standard loop) call
-    the contract builder with this copy, so a selected workflow's configured contract (from
-    its published definition or the platform service) reaches the family's contract builder
-    the same way on both paths, and a turn without a selection carries no contract at all.
-
-    ``workflow_decisions`` are the session's recorded closed decisions; they reach the builder
-    the same way on both paths.
-    """
     analysis = dict(request_analysis or {})
     analysis.pop("workflow_contract", None)
     if workflow_decisions:

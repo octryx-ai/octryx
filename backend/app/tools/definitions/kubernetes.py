@@ -133,6 +133,5 @@ _KUBERNETES_DIAGNOSIS_DEFINITIONS: dict[str, dict] = {
 
 
 def get_kubernetes_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for kubernetes tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy({**_KUBERNETES_DIAGNOSIS_DEFINITIONS, **KUBERNETES_RESOURCE_DEFINITIONS})

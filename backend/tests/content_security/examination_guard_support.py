@@ -1,23 +1,4 @@
-"""The resolver behind the examination guard (``test_examination_guard``): every scanner use and every consumer.
-
-Each module's names are resolved to what they finally denote, whatever the import form:
-
-- ``from pkg.scanner import scan``, ``from pkg import scanner`` then ``scanner.scan``, ``import pkg.scanner`` then
-  ``pkg.scanner.scan``, ``import pkg.scanner as s`` then ``s.scan``, relative imports;
-- a name assigned from a resolvable expression (``x = scanner.scan``, ``x = getattr(scanner, "scan")``);
-- a package (or any module) that re-binds a name (``pkg/__init__.py``: ``from .scanner import scan``): the
-  resolution follows the re-binding to the defining module.
-
-A violation is any *use* of a protected name outside its allowed modules, not only a direct call: a reference to
-a scanner function (passed, assigned, called through an alias), a ``ScanReport(...)`` construction, an import that
-re-binds a scanner function, a dynamic import of the scanner, a detector finder outside ``content_detection``, a
-read of ``.unfinished``. A consumer is any module that uses a name of a consumed interface (:data:`INTERFACES`), or,
-in the launcher, reads the platform's tool-result disposition (:data:`LAUNCHER_FIELDS`). An edge (:func:`edge`) is one
-use site of a consumed interface — module, enclosing definition, interface — so a result consumed at a second place
-in an already listed module is a new edge, not covered by the module's membership. A result object's methods are
-interfaces too (:data:`RESULT_METHODS`): in a module that holds such a result (it uses the producer, or defines it),
-every call of one of them is an edge (``scan.secret_kinds()``).
-"""
+"""The resolver behind the examination guard (``test_examination_guard``): every scanner use and every consumer."""
 
 from __future__ import annotations
 
@@ -39,35 +20,31 @@ ALLOWED_UNFINISHED_READERS = frozenset({SCANNER, CONTRACT, "app.services.knowled
 #: Consumed interfaces: module → the names whose use makes a module a consumer (``None``: every name).
 INTERFACES: Mapping[str, frozenset[str] | None] = {
     CONTRACT: None,
-    # ``scan_for``, and the Cedar conversion of an examination's findings (the policy query and its decision).
-    "app.services.content_routing.decision": frozenset({"scan_for", "decide_model_content", "decide_tool_result",
-                                                        "builtin_secret_decision"}),
-    # The tool-result dispositions of client tools (the gateway's policy check, the launcher's report).
+    "app.services.content_routing.decision": frozenset({"scan_for", "decide_model_content", "decide_tool_result"}),
     "app.services.content_routing.client_tool_results": frozenset({"launcher_tool_result",
                                                                    "client_tool_result_denial"}),
-    # The launcher's reading of that disposition (PostToolUse output).
     "octryx_claude.content_hooks": frozenset({"content_output"}),
-    # Indirect boundaries (Cut 10 S-04): the tool-result decision its adapters forward, the gateway plan its routes
+    # Indirect boundaries: the tool-result decision its adapters forward, the gateway plan its routes
     # dispatch (the planners and their route-facing callers), and the provider boundary every driver class is
     # wrapped with.
     "app.services.content_routing.tool_results": frozenset({"check_tool_result"}),
-    "app.services.content_routing.gateway_plan": frozenset({"plan_inbound"}),
-    "app.services.model_gateway.inbound.service": frozenset({"content_plan"}),
+    "app.services.content_security.enforcement_inbound": frozenset({"enforce_inbound"}),
+    "app.services.model_gateway.inbound.service": frozenset({"content_plan", "governed_plan"}),
     "app.services.model_gateway.inbound.seat_content": frozenset({"seat_content_plan"}),
     "app.services.content_security.model_call": frozenset({"enforced_chat"}),
-    # Result-consuming edges (Cut 11 S-04; reduced by the owner decision of 24.11.): the gateway's scan of the
-    # forwarded body and the decisions that consume it (fixed rules, the Workspace's content handling, the Cedar and
-    # tool-result refusals).
-    "app.services.content_routing.gateway": frozenset({"scan_request", "fixed_refusal", "handling_refusal",
-                                                       "content_refusal", "tool_result_refusal"}),
-    # The provider wrapper's examiner of a whole request.
+    # Result-consuming edges: the gateway's scan of the forwarded body and the decisions that consume it (fixed
+    # rules, the Workspace's content handling, the Cedar and tool-result refusals).
+    "app.services.content_security.format_request_body": frozenset({"examine_request_body"}),
+    "app.services.content_routing.gateway": frozenset({"fixed_refusal", "handling_refusal", "content_refusal",
+                                                       "tool_result_refusal"}),
     "app.services.content_detection.request_examination": frozenset({"RequestExaminer"}),
 }
 #: Methods of an examination result that hand its findings on: result type → (its producers, method names). A module
 #: holds the result when it uses a producer or defines the type; there each call of such a method is an edge.
 RESULT_METHODS: Mapping[str, tuple[frozenset[str], frozenset[str]]] = {
-    "app.services.content_routing.gateway.GatewayScan": (
-        frozenset({"app.services.content_routing.gateway.scan_request"}), frozenset({"secret_kinds"})),
+    "app.services.content_security.format_request_body.GatewayScan": (
+        frozenset({"app.services.content_security.format_request_body.examine_request_body"}),
+        frozenset({"secret_kinds"})),
 }
 #: The disposition fields of ``client_tool_results.launcher_tool_result`` only a launcher consumer reads.
 LAUNCHER_FIELDS = frozenset({"updated_output"})
@@ -93,7 +70,6 @@ def _absolute(module: Module, node: ast.ImportFrom) -> str:
 
 
 def _raw(expr: ast.AST, bindings: Mapping[str, str]) -> str:
-    """The dotted name ``expr`` denotes before re-bindings are followed ('' when it is not a name)."""
     if isinstance(expr, ast.Name):
         return bindings.get(expr.id, "")
     if isinstance(expr, ast.Attribute):
@@ -107,8 +83,6 @@ def _raw(expr: ast.AST, bindings: Mapping[str, str]) -> str:
 
 
 class Resolver:
-    """Names of every module resolved through imports, assignments and re-bindings (see the module doc)."""
-
     def __init__(self, sources: Mapping[str, tuple[str, bool]]) -> None:
         self.modules = {name: Module(name, ast.parse(text), package) for name, (text, package) in sources.items()}
         self._canonical: dict[str, str] = {}
@@ -145,7 +119,6 @@ class Resolver:
                 module.bindings[name] = resolved
 
     def canonical(self, dotted: str) -> str:
-        """``dotted`` with every re-binding followed to the defining module."""
         if dotted not in self._canonical:
             self._canonical[dotted] = self._follow(dotted) if dotted else ""
         return self._canonical[dotted]
@@ -192,7 +165,6 @@ def _dynamic_scanner_import(node: ast.Call) -> bool:
 
 
 def _interface_name(target: str) -> str:
-    """The consumed interface ``target`` denotes (``owner.name``), '' when none."""
     for owner, names in INTERFACES.items():
         if target == owner:
             return owner if names is None else ""
@@ -207,8 +179,6 @@ def _interface(target: str) -> bool:
 
 
 def _scopes(tree: ast.Module) -> tuple[dict[int, str], set[int]]:
-    """Every node's enclosing definition (``Class.method``; ``<module>`` at top level), and the annotation nodes
-    (a type named in an annotation is not a consumption of its result)."""
     scope: dict[int, str] = {}
     annotations: set[int] = set()
 
@@ -236,14 +206,11 @@ def _scopes(tree: ast.Module) -> tuple[dict[int, str], set[int]]:
 
 
 def edge(module: str, scope: str, interface: str, site: int = 1) -> str:
-    """The key of a result-consuming edge: where (module, enclosing definition) uses which interface; the second
-    and later site of the same edge carry their number (``#2``), so each is an edge of its own."""
     key = f"{module}:{scope} -> {interface}"
     return key if site == 1 else f"{key} #{site}"
 
 
 def _result_methods(resolver: Resolver, module: Module) -> list[tuple[str, str]]:
-    """The (interface, method name) pairs of :data:`RESULT_METHODS` whose result ``module`` holds."""
     found = []
     for result, (producers, names) in RESULT_METHODS.items():
         defines = result.rpartition(".")[0] == module.name
@@ -255,8 +222,6 @@ def _result_methods(resolver: Resolver, module: Module) -> list[tuple[str, str]]
 
 
 def _edges(resolver: Resolver, module: Module) -> list[str]:
-    """Every use site of a consumed interface in ``module`` (a constant, an import and an annotation are not a
-    use of a result): a second call of an interface in an already listed module or definition is a new edge."""
     scope, annotations = _scopes(module.tree)
     found: dict[int, str] = {}
     for node in module.nodes:
@@ -282,8 +247,6 @@ def _edges(resolver: Resolver, module: Module) -> list[str]:
 
 
 def sites(sources: Mapping[str, tuple[str, bool]]) -> dict[str, object]:
-    """``{"violations": {module: [...]}, "consumers": [...], "edges": [...]}`` over ``sources`` (module → (text, is
-    package)); a use inside the contract module itself is not a consumption."""
     resolver = Resolver(sources)
     violations: dict[str, list[str]] = {}
     consumers: set[str] = set()

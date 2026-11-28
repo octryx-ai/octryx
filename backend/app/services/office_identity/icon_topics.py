@@ -1,18 +1,4 @@
-"""Which catalog icon belongs on a topic: a closed synonym vocabulary.
-
-Templates name their icons however their author liked — library slugs
-(``networks``, ``charts_1``), alt text (``Shield icon``), file names
-(``lock-closed.svg``) or a caption next to the picture. A topic key therefore
-does not name one slug; it names a short, ordered list of plain words, and an
-icon matches a word when that word is one of the icon's own *words*: the tokens
-of its slug, name, alt text and file name (a trailing plural ``s`` is ignored).
-
-This stays deterministic and closed: the vocabulary is fixed, the first word in
-preference order that any catalog icon carries wins, and among several icons
-carrying it the catalog order decides. There is no scoring, no fuzzy match and
-no model in the path — a topic either names an icon this template ships, or it
-does not, and then nothing is placed.
-"""
+"""Which catalog icon belongs on a topic: a closed synonym vocabulary."""
 
 from __future__ import annotations
 
@@ -57,7 +43,6 @@ def _tokens(values: Iterable[str]) -> set[str]:
 
 
 def icon_words(icon: dict[str, Any]) -> frozenset[str]:
-    """The plain words an icon answers to (slug, name, alt text, file name, own tags)."""
     category_words = _tokens([str(icon.get("category") or ""), str(icon.get("category_key") or "")])
     tags = [tag for tag in (icon.get("tags") or ()) if isinstance(tag, str)]
     words = _tokens([str(icon.get(field) or "") for field in _NAME_FIELDS])
@@ -66,7 +51,6 @@ def icon_words(icon: dict[str, Any]) -> frozenset[str]:
 
 
 def match_topic_icon(icons: Iterable[Any], topic_key: str) -> dict[str, Any] | None:
-    """The first catalog icon carrying the topic's most preferred synonym, or ``None``."""
     synonyms = TOPIC_SYNONYMS.get(str(topic_key or "").strip().lower())
     if not synonyms:
         return None

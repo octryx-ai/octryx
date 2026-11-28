@@ -1,12 +1,5 @@
-"""Write the approved Studio back into the repository: decisions and tokens into SPEC.md, the approved mock next to it.
-
-Without it, specs said "no product owner answers" and dropped accepted
-proposals. So the platform writes the decisions itself, deterministically, instead of asking the agent to: every
-answer (an accepted proposal too), every design choice and every pinned comment, each naming its code
-identifier in backticks (the backtick rule ``spec_decisions_checked`` reads). A feature run adds only its own block
-(``run=<id>``), so an app's earlier decisions stay as they are; ``spec-studio.json`` keeps the approved app (tokens,
-screens, glossary) as the base the next feature's Studio shows as context.
-"""
+"""Write the approved Studio back into the repository: decisions and tokens into SPEC.md, the approved mock next to
+it."""
 
 from __future__ import annotations
 
@@ -30,7 +23,6 @@ def _option_label(question: dict[str, Any], value: str) -> str:
 
 def decision_lines(artefact: dict[str, Any], state: dict[str, Any], design: dict[str, Any],
                    screen_names: dict[str, str], deviations: list[dict[str, Any]] = ()) -> list[str]:
-    """One line per decision, in the order the product owner met them in the Studio."""
     lines: list[str] = []
     proposed = artefact["design"]["proposed"]
     reasons = {d["path"]: d for d in deviations}
@@ -103,8 +95,6 @@ def _replace_marked(text: str, opening: str, closing: str, block: str) -> str | 
 
 
 def merge_spec(text: str, *, run_id: str, decisions: str, tokens: str | None) -> str:
-    """SPEC.md with this run's decisions block at the end of the Decisions section and the token table in front of
-    it (both replaced in place when already there). Without a Decisions section, one is added at the end."""
     opening = f"<!-- spec-studio:decisions run={run_id} -->"
     replaced = _replace_marked(text, opening, f"<!-- /spec-studio:decisions run={run_id} -->", decisions)
     if replaced is not None:
@@ -129,7 +119,6 @@ def merge_spec(text: str, *, run_id: str, decisions: str, tokens: str | None) ->
 
 def approved_app(artefact: dict[str, Any], design: dict[str, Any], base: dict[str, Any] | None,
                  version: dict[str, Any]) -> dict[str, Any]:
-    """The approved app the next feature builds on: the base with this run's screens, words and rules added."""
     base = dict(base or {})
 
     def merged(key: str, ident: str) -> list[dict[str, Any]]:
@@ -147,13 +136,11 @@ def approved_app(artefact: dict[str, Any], design: dict[str, Any], base: dict[st
 
 
 def inside(root: Path, relative: str) -> Path | None:
-    """``relative`` under ``root``, or ``None`` when it would leave it."""
     target = (root / relative).resolve()
     return target if target == root.resolve() or root.resolve() in target.parents else None
 
 
 def read_base(local_path: str, spec_path: str) -> dict[str, Any] | None:
-    """The approved app next to the spec in the working copy (a feature's context), if one was approved before."""
     root = Path(local_path)
     spec = inside(root, spec_path or "SPEC.md")
     candidate = spec.parent / APPROVED_FILE if spec is not None else None
@@ -165,7 +152,6 @@ def read_base(local_path: str, spec_path: str) -> dict[str, Any] | None:
 
 
 def write_files(local_path: str, spec_path: str, *, spec_text_of, approved: dict[str, Any]) -> list[str]:
-    """Write SPEC.md (``spec_text_of(old_text)``) and ``spec-studio.json``; the relative paths written."""
     root = Path(local_path)
     spec = inside(root, spec_path or "SPEC.md")
     if spec is None:

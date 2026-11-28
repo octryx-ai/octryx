@@ -7,6 +7,9 @@ import pytest
 
 from app.services.workflow_runs.hands_on import step
 from tests.hands_on_support import _answer, _at_hands_on, _Model
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.mark.asyncio

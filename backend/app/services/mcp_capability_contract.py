@@ -1,15 +1,4 @@
-"""Pure contract and identifier rules for mirrored MCP capabilities.
-
-This module owns everything that can be decided without a database: which
-identifiers are addressable and persistable, and what public contract is stored
-for one discovered MCP tool. ``mcp_capability_catalog`` owns the writes,
-``mcp_capability_policy`` owns the decision.
-
-Only a normalized public contract is produced here: server and tool identity, a
-bounded and redacted description, a pruned input schema, and a deterministic
-digest of that normalized schema. MCP connection configuration — commands,
-URLs, environment, headers, OAuth material — is never read and never stored.
-"""
+"""Pure contract and identifier rules for mirrored MCP capabilities. Only a normalized public contract is stored."""
 
 from __future__ import annotations
 
@@ -19,7 +8,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from .mcp_capability_policy import (
+from .mcp_governance.capability_policy import (
     MCP_CAPABILITY_SOURCE_ENTITY_TYPE,
     mcp_capability_binding_key,
 )
@@ -45,30 +34,24 @@ _MAX_SOURCE_ENTITY_ID_CHARS = 120
 
 @dataclass(frozen=True, slots=True)
 class DiscoveredMcpTool:
-    """The public part of one discovered MCP tool, decoupled from the client."""
-
     name: str
     description: str
     input_schema: dict[str, Any]
 
 
 def is_ambiguous_mcp_identifier(value: str) -> bool:
-    """Return whether an identifier would collide with the catalog key format."""
     return any(token in str(value or "") for token in _AMBIGUOUS_IDENTIFIER_TOKENS)
 
 
 def capability_source_entity_id(server_name: str, tool_name: str) -> str:
-    """Return the persisted source-entity id of one mirrored capability."""
     return f"{server_name}:{tool_name}"
 
 
 def capability_display_name(server_name: str, tool_name: str) -> str:
-    """Return the catalog display name of one mirrored capability."""
     return f"{server_name}/{tool_name}"
 
 
 def exceeds_mcp_identifier_limits(server_name: str, tool_name: str) -> bool:
-    """Return whether one capability's derived identifiers do not fit their columns."""
     return (
         len(mcp_capability_binding_key(server_name, tool_name)) > _MAX_BINDING_KEY_CHARS
         or len(capability_source_entity_id(server_name, tool_name)) > _MAX_SOURCE_ENTITY_ID_CHARS
@@ -77,7 +60,6 @@ def exceeds_mcp_identifier_limits(server_name: str, tool_name: str) -> bool:
 
 
 def server_identifier_error(server_name: str) -> str | None:
-    """Return why a server name cannot be mirrored, or ``None`` when it can."""
     if is_ambiguous_mcp_identifier(server_name):
         return "MCP server name must not contain ':' or '__' to stay addressable as a capability"
     if (
@@ -89,7 +71,6 @@ def server_identifier_error(server_name: str) -> str | None:
 
 
 def discovered_mcp_tools(tools: Sequence[Any]) -> tuple[list[DiscoveredMcpTool], list[str]]:
-    """Split MCP client tool objects into mirrorable tools and rejected names."""
     discovered: list[DiscoveredMcpTool] = []
     rejected: list[str] = []
     for tool in tools or []:
@@ -111,12 +92,10 @@ def discovered_mcp_tools(tools: Sequence[Any]) -> tuple[list[DiscoveredMcpTool],
 
 
 def normalize_mcp_capability_description(value: Any) -> str:
-    """Return a bounded, secret-redacted capability description."""
     return redact_secret_text(value, max_chars=_MAX_DESCRIPTION_CHARS)
 
 
 def normalize_mcp_capability_schema(input_schema: Any) -> dict[str, Any]:
-    """Prune an MCP input schema down to a deterministic public argument contract."""
     schema = input_schema if isinstance(input_schema, dict) else {}
     raw_properties = schema.get("properties")
     raw_properties = raw_properties if isinstance(raw_properties, dict) else {}
@@ -144,13 +123,11 @@ def normalize_mcp_capability_schema(input_schema: Any) -> dict[str, Any]:
 
 
 def mcp_capability_schema_digest(normalized_schema: dict[str, Any]) -> str:
-    """Return a deterministic digest of the normalized public argument contract."""
     canonical = json.dumps(normalized_schema, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def mcp_capability_contract(*, server_name: str, tool: DiscoveredMcpTool) -> dict[str, Any]:
-    """Build the persisted public contract for one mirrored MCP capability."""
     normalized_schema = normalize_mcp_capability_schema(tool.input_schema)
     return {
         "sourceEntityType": MCP_CAPABILITY_SOURCE_ENTITY_TYPE,

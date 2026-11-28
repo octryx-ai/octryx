@@ -25,9 +25,8 @@ from .seat import (
 )
 from .seat_person import seat_phases
 
-# A seat review turn that failed for a passing reason (the call failed, no answer) is asked once more before the
-# company fallback; a limit, a refusal or a timeout is not (otherwise one failed Codex review call went
-# straight to a fallback model the Workspace does not admit, and the run paused).
+# A seat review turn that failed for a passing reason is asked once more before the company fallback; a limit, a
+# refusal or a timeout is not.
 SEAT_ATTEMPTS = 2
 _LASTING = ("usage_limit", "rate_limit", "seat_limit", "stopped_by_owner")
 
@@ -37,8 +36,6 @@ def _transient(reason: str) -> bool:
 
 
 class SeatOrCompanyReviewModel:
-    """The seat review, falling back to the same model on a company runtime when the seat is unavailable."""
-
     def __init__(self, db: AsyncSession, run: WorkflowRun, choice: Any, seat: SeatReviewModel | None,
                  company: Callable[[], Awaitable[Any]], *, unavailable: str = "",
                  sleep: Callable[[float], Awaitable[Any]] | None = None,
@@ -70,9 +67,7 @@ class SeatOrCompanyReviewModel:
         return await self._company.answer(system=system, user=user, images=images)
 
     async def _seat_answer(self, *, system: str, user: str, images: list[Any] | None) -> ReviewAnswer | None:
-        """The seat's answer, or ``None`` when the seat cannot give one (``self._unavailable`` says why). A full
-        device (``device_busy``) is waited out and asked again, up to ``devices.busy_wait``'s limit; it never uses up
-        an attempt (otherwise a run paused with ``seat_turn_failed:device_busy``)."""
+        # A busy device is waited out and never uses up an attempt.
         from ...devices import busy_wait
 
         attempt, busy_since = 0, None
@@ -101,7 +96,6 @@ class SeatOrCompanyReviewModel:
             return answer
 
     async def _fall_back(self, reason: str) -> Any:
-        """The company model instead of the seat: a visible event, and only within the run's budget."""
         from ..octryx.model_guard import run_budget, run_spend
 
         self.route = "company_fallback"
@@ -116,9 +110,6 @@ class SeatOrCompanyReviewModel:
 
 
 async def _model_not_admitted(db: AsyncSession, run: WorkflowRun, choice: Any) -> str:
-    """Why the seat cannot take the review model (``''`` when it can), named before a device is asked: the gateway
-    would refuse the call with ``seat_model_not_allowed`` and the run paused without saying which model (e.g.
-    claude-sonnet-5-5 against a baseline without it)."""
     from ...agent_gateway.seat_policy import workspace_seat_decision
 
     if choice.engine != ENGINE_CLAUDE_CODE or not run.project_id:
@@ -132,9 +123,6 @@ async def _model_not_admitted(db: AsyncSession, run: WorkflowRun, choice: Any) -
 
 async def seat_review_model(db: AsyncSession, run: WorkflowRun, choice: Any,
                             company: Callable[[], Awaitable[Any]]) -> SeatOrCompanyReviewModel:
-    """The seat reviewer for ``choice`` on the run's person's device, with the company fallback ready. A PR review bot
-    run with several seats is offered to them phase by phase, the first device that takes it reviews
-    (``seat_broadcast``); with exactly one seat it is that seat, as for a person's run."""
     from .seat_broadcast import BroadcastSeatReviewModel
 
     refused = await _model_not_admitted(db, run, choice)

@@ -21,14 +21,7 @@ def build_request_analysis(
     context_domains: list[str] | set[str] | tuple[str, ...] | None = None,
     enforce_domain_coverage: bool = False,
 ) -> dict[str, Any]:
-    """Describe the turn's explicit requirements for the loop's execution contract.
-
-    No field decides intent from the prompt. The domains are the context plan's
-    (``context_domains``) and its explicit coverage domains (``required_domains`` with
-    ``enforce_domain_coverage``, a scenario profile's setting); the prompt adds none.
-
-    The prompt is read only for a literally stated limit ("top 5"), a request parameter.
-    """
+    """Describe the turn's explicit requirements for the loop's execution contract."""
     analysis_message = str(user_message or "").strip()
     route_domains = {str(item).strip().lower() for item in (context_domains or []) if str(item).strip()}
     required = {str(item).strip().lower() for item in (required_domains or []) if str(item).strip()}

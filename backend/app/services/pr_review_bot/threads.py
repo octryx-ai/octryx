@@ -1,12 +1,4 @@
-"""The threads of the bot's inline comments across passes.
-
-- ``answer``: before an incremental pass posts its summary, the threads of findings it found fixed get "Fixed in"
-  and are resolved, and a finding still open gets one reply with the reviewer's evidence
-  (``incremental.thread_answers``); one post tool call, through the repository's governed connection;
-- ``note``: the outcome for the summary's footer, naming a thread that could not be answered with its reason;
-- ``remember``: which comment each posted finding got (the tools return ``inline_ids`` in the order sent) and which
-  findings were answered, kept on the run's ``open_findings`` for the next pass.
-"""
+"""The threads of the bot's inline comments across passes."""
 
 from __future__ import annotations
 
@@ -20,7 +12,6 @@ from .render import InlineComment
 
 async def answer(post: Callable[..., Awaitable[ToolOutcome]], passed: Effective | None,
                  sha: str) -> list[dict[str, Any]]:
-    """``{id, comment_id, resolve, replied, resolved, reason}`` per answered thread; ``[]`` on a full pass."""
     planned = thread_answers(passed, sha) if passed is not None else []
     if not planned:
         return []
@@ -36,7 +27,6 @@ async def answer(post: Callable[..., Awaitable[ToolOutcome]], passed: Effective 
 
 
 def note(answered: list[dict[str, Any]]) -> str:
-    """``2 threads resolved · 1 thread not answered (status_code 403)``; ``''`` when nothing was answered."""
     resolved = sum(1 for item in answered if item.get("resolve") and item.get("resolved"))
     failed = [item for item in answered if item.get("reason")]
     parts = [f"{resolved} thread(s) resolved"] if resolved else []
@@ -48,7 +38,6 @@ def note(answered: list[dict[str, Any]]) -> str:
 
 def remember(reviewer: list[dict[str, Any]], comments: list[InlineComment], ids: Any,
              answered: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The reviewer's open findings with the comment each got and whether its thread was answered."""
     posted = {comment.finding_id: str(ident) for comment, ident in zip(comments, ids if isinstance(ids, list) else [],
                                                                        strict=False)
               if comment.finding_id and ident}

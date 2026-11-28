@@ -20,7 +20,6 @@ CLASS_PIPELINE_RED = "pipeline_red"
 
 
 async def record_report(db: AsyncSession, run: WorkflowRun, report: dict[str, Any], *, session_id: str) -> str:
-    """The device's pipeline report for the pending pass; the state it established, or ``ignored``."""
     current = state(run)
     entry = dict(run.node_state or {}).get("entry")
     pass_key = (current.get("node_id"), current.get("entry"))
@@ -67,7 +66,7 @@ async def record_report(db: AsyncSession, run: WorkflowRun, report: dict[str, An
     again = sorted({test for item in results for test in item.get("flaky_again") or []})
     from .pipeline_head import binding
 
-    bound = await binding(run, report.get("tree"))  # the tree it ran on, the server's own (``pipeline_head``)
+    bound = await binding(run, report.get("tree"))
     audit = _audit(audit, ran, report, bound)
     _store_report(db, run, current, results, stored, green=green, missing_proofs=missing_proofs, bound=bound,
                   audit=audit, flaky=flaky, again=again, style_errors=style_errors, style_warnings=style_warnings,
@@ -82,7 +81,6 @@ async def record_report(db: AsyncSession, run: WorkflowRun, report: dict[str, An
 async def _red_on_base(db: AsyncSession, run: WorkflowRun, current: dict[str, Any], audit: dict[str, Any],
                        results: list[dict[str, Any]], report: dict[str, Any], *, entry: Any, clean: bool,
                        session_id: str) -> tuple[str | None, list[str]]:
-    """The confirmed tests' run on the base commit: ``(state when the run paused instead, errors for the agent)``."""
     from .red_on_base import environment_failure as base_environment
     from .red_on_base import judge as red_on_base
     from .red_on_base import record as record_base_run
@@ -116,7 +114,6 @@ async def _red_on_base(db: AsyncSession, run: WorkflowRun, current: dict[str, An
 
 async def _environment_red(db: AsyncSession, run: WorkflowRun, current: dict[str, Any], audit: dict[str, Any],
                            results: list[dict[str, Any]], report: dict[str, Any], *, session_id: str) -> str | None:
-    """The run paused because the environment could not run a red command; ``None`` when the change is red."""
     from .pipeline_environment import environment_failure
 
     failure = await environment_failure(db, run, [item for item in results
@@ -131,7 +128,6 @@ def _store_report(db: AsyncSession, run: WorkflowRun, current: dict[str, Any], r
                   stored: list[dict[str, Any]], *, green: bool, missing_proofs: list[str], bound: dict[str, Any],
                   audit: dict[str, Any], flaky: list[str], again: list[str], style_errors: list[str],
                   style_warnings: list[str], base_errors: list[str], session_id: str) -> None:
-    """The pass's pipeline state on the run and its ``pipeline_reported`` event."""
     _set(run, {**current, "state": STATE_GREEN if green else STATE_RED, "results": stored, "audit": audit,
                "unproven": missing_proofs, "reported_at": utc_now().isoformat(), "session_id": session_id,
                **({"code_style_errors": style_errors} if style_errors else {}),
@@ -142,8 +138,7 @@ def _store_report(db: AsyncSession, run: WorkflowRun, current: dict[str, Any], r
         **({"red_on_base": base_errors or "every confirmed test fails on the base"}
            if current.get("red_on_base") else {}),
         **({"flaky": flaky, "flaky_again": again} if flaky else {}),
-        # Why a pass with green exits is red, on record (otherwise a pass red from its code
-        # style alone had an event that did not say so).
+        # Why a pass with green exits is red, on record.
         **({"code_style_errors": style_errors[:10]} if style_errors else {}),
         **({"red_on_base_errors": base_errors[:10]} if base_errors else {}),
         "commands": [{"command": item["command"], "exit_code": item["exit_code"], "seconds": item["seconds"],
@@ -157,18 +152,16 @@ async def _outcome(db: AsyncSession, run: WorkflowRun, results: list[dict[str, A
                    ran: list[str], stored: list[dict[str, Any]], *, green: bool, flaky: list[str],
                    missing_proofs: list[str], style_errors: list[str], base_errors: list[str],
                    bound: dict[str, Any]) -> ToolOutcome:
-    """The step's outcome: green goes on (its verified commands remembered), red goes back with every reason."""
     if green:
         from .run_memory import pipeline_green as remember_green
 
-        await remember_green(db, run, results)  # the app's verified commands, for the next run (run memory)
+        await remember_green(db, run, results)
         note = (f"pipeline green; flaky, not counted this time (failed, then passed on a re-run with no change): "
                 f"{', '.join(flaky)}") if flaky else ""
         return ToolOutcome(SUCCEEDED, {"results": stored, **({"flaky": flaky} if flaky else {})}, note)
     missing = [command for command in commands if command not in ran]
     failed = [_failed_line(item) for item in results if not _green(item)]
-    # Code style first: otherwise the agent fixed the test failures it read first and grew the
-    # oversized file again in every round.
+    # Code style first: an agent fixes the failures it reads first and would grow the oversized file again.
     reasons = ["code style: " + "; ".join(style_errors[:12])] if style_errors else []
     reasons += [*failed, *(f"{command} did not run" for command in missing)]
     if missing_proofs:
@@ -183,8 +176,6 @@ async def _outcome(db: AsyncSession, run: WorkflowRun, results: list[dict[str, A
 
 
 def _style(current: dict[str, Any], report: dict[str, Any]) -> tuple[list[str], list[str]]:
-    """The change's code style errors and warnings, from the device's counts against the run's base
-    (``code_style.check``); none when the pipeline was started without a style or the device sent no counts."""
     from app.services.code_style.l10n_check import l10n_findings
     from app.services.code_style.tool_check import tool_findings
 
@@ -200,11 +191,7 @@ def _style(current: dict[str, Any], report: dict[str, Any]) -> tuple[list[str], 
 
 
 def style_verdict(run: WorkflowRun, report: dict[str, Any]) -> dict[str, Any]:
-    """Fail fast: the device asks before the system test whether the change's code
-    style is red. Judged here by the same rules as the report (``_style``: old debt and info-only lint lines stay
-    warnings), so the style verdict lives in one place; the device only skips the expensive command on ``blocking``.
-    Read only: nothing is recorded; the pass's report is judged again as always. A report for another pass, or a pass
-    without a style, is never blocking."""
+    # Read only and judged by the report's rules, so the style verdict lives in one place.
     current = state(run)
     entry = report.get("entry")
     pass_key = (current.get("node_id"), current.get("entry"))
@@ -216,8 +203,6 @@ def style_verdict(run: WorkflowRun, report: dict[str, Any]) -> dict[str, Any]:
 
 
 def _audit(audit: dict[str, Any], ran: list[str], report: dict[str, Any], bound: dict[str, Any]) -> dict[str, Any]:
-    """Which commands ran, from which declaration, on which commit and tree (the device's ``head`` and ``tree``, the
-    server's own tree from ``pipeline_head``)."""
     head = str(report.get("head") or "")[:64]
     tree = str(report.get("tree") or "")[:64]
     return {**audit, "commands": ran, **({"head": head} if head else {}), **({"device_tree": tree} if tree else {}),
@@ -226,7 +211,6 @@ def _audit(audit: dict[str, Any], ran: list[str], report: dict[str, Any], bound:
 
 async def _file_red(db: AsyncSession, run: WorkflowRun, current: dict[str, Any], audit: dict[str, Any],
                     report: dict[str, Any], *, session_id: str) -> str:
-    """Red without running anything: the environment file is missing, invalid, or its setup failed."""
     from .pipeline_head import binding
 
     bound = await binding(run, report.get("tree"))
@@ -245,8 +229,6 @@ async def _file_red(db: AsyncSession, run: WorkflowRun, current: dict[str, Any],
 async def _environment_pause(db: AsyncSession, run: WorkflowRun, current: dict[str, Any], audit: dict[str, Any],
                              results: list[dict[str, Any]], report: dict[str, Any], failure: dict[str, Any], *,
                              session_id: str, pause: Any = None) -> str:
-    """Red because the environment could not run a command (``pipeline_environment``): the run pauses
-    ``environment_not_ready`` at this step; no fix round, no loop iteration, no size escalation."""
     from .pipeline_head import binding
     from .workspace.readiness import pause_not_ready
 
@@ -262,17 +244,15 @@ async def _environment_pause(db: AsyncSession, run: WorkflowRun, current: dict[s
                      for item in results]})
     from .run_memory import environment_failed
 
-    environment_failed(run, failure)  # kept with what ran past it once a pipeline is green (run memory)
+    environment_failed(run, failure)
     if pause is not None:
-        await pause()  # another cause than the environment (the platform's evidence gap)
+        await pause()
     else:
         await pause_not_ready(db, run, {**failure, "session_id": session_id})
     return STATE_RED
 
 
 async def _route(db: AsyncSession, run: WorkflowRun, outcome: ToolOutcome) -> None:
-    """Route the waiting node as ``run_platform_action`` would have (ledger, event); red is no failure pause:
-    the definition's ``failed`` edge sends the work back to the agent."""
     from .engine import resolve_current_node
     from .engine_context import _set_context
     from .states import EVENT_ACTION

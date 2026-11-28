@@ -12,14 +12,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 async def attach_example_deck_to_corp_identity_profile(
     db: AsyncSession, *, profile_id: str, file_name: str, file_bytes: bytes
 ) -> dict[str, Any]:
-    """Attach an example presentation (Slot 2) to a PowerPoint identity profile.
-
-    The example teaches *how* each named layout is filled (dramaturgy); it never
-    contributes brand, theme, or content. It is validated against the profile's
-    own template before it is stored: an example that shares no layout names with
-    the brand teaches nothing and is rejected rather than kept as dead weight. A
-    new example replaces any prior one — a profile carries at most one.
-    """
     from .. import corp_identity_service as svc
     from ..office_identity import build_template_snapshot
 
@@ -72,7 +64,6 @@ async def attach_example_deck_to_corp_identity_profile(
 async def clear_example_deck_from_corp_identity_profile(
     db: AsyncSession, *, profile_id: str
 ) -> dict[str, Any]:
-    """Remove a profile's example deck; the profile falls back to its own slides."""
     from .. import corp_identity_service as svc
 
     registry = await svc._load_registry(db)

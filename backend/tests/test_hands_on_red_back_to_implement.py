@@ -1,7 +1,5 @@
-"""A red hands-on test sends the run back into the building phase with what failed: the turn's prompt names the
-building phase and points at phase.hands_on_failure, and the run contract carries exactly the failed scenarios
-(a generic text named after the hands-on step, with no failed scenario, leaves the session changing nothing:
-hands_on_unchanged)."""
+"""A red hands-on test sends the run back into the building phase carrying exactly the failed scenarios; a generic
+failure without one is ``hands_on_unchanged``."""
 
 from __future__ import annotations
 
@@ -17,7 +15,10 @@ from app.services.workflow_runs.octryx import continuation_prompts
 from app.services.workflow_runs.octryx.continuation_marker import CONTEXT_KEY
 from app.services.workflow_runs.octryx.contract import run_contract
 from tests.phased_workflow_fixtures import PHASE
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import DEFINITION, _confirm, _device_run, _jobs, _reenter
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 BUILD = copy.deepcopy(PHASE)
 BUILD["workflow_contract"]["capability_class"] = "change"
@@ -51,16 +52,13 @@ async def test_a_red_hands_on_test_goes_back_into_the_building_phase_with_exactl
     await apply_event(db, job, "job_event", {"kind": "session", "claude_session_id": "claude-build-1"}, limits={})
     await apply_event(db, job, "job_accepted", {"turn_id": job.turn_id}, limits={})
 
-    # The building phase passed: the hands-on step's turn is the building phase's and resumes its session.
     await _reenter(db, run, "hands_on", runtime_step=True)
     assert run.context[CONTEXT_KEY]["then_phase"] == "work"
     await apply_event(db, job, "turn_finished", {"turn_id": job.turn_id, "status": "success"}, limits={})
     assert offer_body(job, limits={})["resume_session_id"] == "claude-build-1"
-    # The launcher starts this agent only after a red test: the prompt names the building phase, not the step.
     assert "Phase 'Implement'" in job.turn_prompt and "hands-on test is red" in job.turn_prompt
     assert "phase.hands_on_failure" in job.turn_prompt and "Hands-on test of the built app" not in job.turn_prompt
 
-    # Red with two failed scenarios: the loop goes back to the building phase.
     run.context = {**dict(run.context or {}), HANDS_ON_KEY: {"state": "red", "node_id": "hands_on", "results": RESULTS,
                                                              "problem": "2 of 3 scenarios failed"}}
     await apply_event(db, job, "job_accepted", {"turn_id": job.turn_id}, limits={})
@@ -75,7 +73,6 @@ async def test_a_red_hands_on_test_goes_back_into_the_building_phase_with_exactl
 
 
 def test_a_red_reproduce_check_is_the_expected_result_and_never_reads_as_a_red_hands_on_test():
-    """The bug flow's reproduce check uses the same action; red there means the bug is reproduced."""
     run = SimpleNamespace(id="r-1", workflow_key="bug-fix-reproduction", project_id=None, ticket_key="OCX-1", title="T")
     fix = SimpleNamespace(kind="phase", title="Fix", id="fix", config={})
     reproduce = SimpleNamespace(kind="platform_action", title="Reproduce the bug", id="reproduce",

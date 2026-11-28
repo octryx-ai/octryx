@@ -9,13 +9,16 @@ from app.runtime_lifecycle import get_task_scheduler
 from app.services.admin.connector import admin_webhook_service
 from app.services.workflow_runs.actions import perform_action
 from app.services.workflow_runs.records import active_run_for_session
-from tests.test_inbound_alert_starts_action import _fake_model, _setup
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+from tests.test_inbound_alert_starts_action import _setup
 from tests.test_workflow_run_platform_actions import FakeTools
 from tests.workflow_acceptance_b_e_support import _server_pipeline  # noqa: F401
 from tests.workflow_acceptance_support import (  # noqa: F401 - the stubbed Jira and GitHub fixture
     _phase_turn,
     submitted,
 )
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.mark.asyncio
@@ -25,10 +28,9 @@ async def test_incident_analysis_starts_from_a_signed_test_alert_and_hands_over_
     task.config = {**task.config, "workflow_run": {"workflow_key": "incident-analysis",
                                                    "repository": "github:acme/pay", "jira_project_key": "OPS"}}
     await db.commit()
-    _fake_model(monkeypatch, [])
     tools = FakeTools(monkeypatch, {"create_jira_ticket": [{"ticket_id": "OPS-12", "status": "created"}]})
 
-    accepted = await admin_webhook_service.send_test_alert(db, webhook_id=created["id"], sample="firing_error_rate")
+    accepted = await admin_webhook_service.send_test_alert(db, webhook_id=created["id"], viewer_id=admin.id, sample="firing_error_rate")
     assert accepted["signature"] == "hmac_timestamped"  # the real signature check
     await get_task_scheduler()._execute_task(task.id, task_run_id=accepted["task_run_id"], trigger_type="webhook",
                                              trigger_id=created["id"])

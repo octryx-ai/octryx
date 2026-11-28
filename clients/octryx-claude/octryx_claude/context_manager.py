@@ -1,21 +1,4 @@
-"""octryx's context manager: what a session keeps when Claude Code compacts it.
-
-The context matters a great deal: a model whose context is shaped actively, instead of growing without end, gives
-better quality; and it must be possible to turn this off.
-
-- **before compacting** (``PreCompact`` hook, terminal and Mac turns alike): from the session's own transcript octryx
-  collects the goal, the latest requests, the files changed, the test runs and the open todo items. Claude Code uses
-  the hook's output as the instructions for its summary, so exactly these survive (paths, commands and results kept
-  verbatim). The local decision model (d1-2B, ``local_model``), when it is set up, ranks the requests by how much
-  they matter for continuing the work; without it, the newest come first.
-- **after compacting** (``SessionStart`` with ``source: compact``): the same facts are put back at the start of the
-  conversation, so nothing depends on the summary alone.
-- **off switch:** ``octryx-claude context-manager off`` (or ``OCTRYX_CONTEXT_MANAGER=0``). Then both hooks answer
-  nothing and Claude Code compacts as it does by itself.
-
-Only the session's own transcript is read; the facts are kept per session under octryx's state (0600) and nowhere
-else. Nothing here ever blocks a compaction.
-"""
+"""The context manager: what a session keeps when Claude Code compacts it (can be turned off)."""
 
 from __future__ import annotations
 
@@ -41,8 +24,6 @@ TEST_RUNNER = re.compile(r"^(pytest|python3? -m pytest|uv run pytest|poetry run 
 
 
 def is_test_command(command: str) -> bool:
-    """A shell segment that *starts* with a test runner (``cd x && npm test`` counts, a heredoc that edits a test file
-    does not)."""
     if "<<" in command:
         command = command.split("\n", 1)[0]  # a heredoc's body is data (a file being written), not commands
     segments = re.split(r"[;\n]|&&|\|\|?", command)
@@ -50,7 +31,6 @@ def is_test_command(command: str) -> bool:
 
 
 def _program_basename(segment: str) -> str:
-    """``venv/bin/python -m pytest`` → ``python -m pytest``."""
     first, _, rest = segment.partition(" ")
     if "/" in first and not first.startswith("./"):
         first = first.rsplit("/", 1)[-1]
@@ -69,8 +49,6 @@ def enabled(state: LocalState) -> bool:
 
 
 def own_transcript(state: LocalState, hook_input: dict[str, Any]) -> Path | None:
-    """The session's transcript, only inside octryx's own Claude config dirs (as ``SessionEnd`` reads it):
-    a path elsewhere is never read, whatever the hook input says."""
     from .digest import transcript_inside  # noqa: PLC0415
 
     raw = str(hook_input.get("transcript_path") or "")
@@ -101,7 +79,6 @@ def _text(content: Any) -> str:
 
 
 def extract(lines: list[str]) -> dict[str, Any]:
-    """The facts worth keeping, from transcript lines (oldest first)."""
     requests: list[str] = []
     files: list[str] = []
     tests: list[dict[str, Any]] = []
@@ -153,7 +130,6 @@ def extract(lines: list[str]) -> dict[str, Any]:
 
 
 async def _rank(requests: list[str], state: LocalState) -> list[str]:
-    """The requests ordered by the decision model's 'important for continuing' probability; unchanged without it."""
     from . import device_state  # noqa: PLC0415
     from .local_model import D1_2B, LocalModel, chosen_model, find_llama_server, model_path, usable  # noqa: PLC0415
 
@@ -209,7 +185,6 @@ def _facts_path(state: LocalState, session_id: str) -> Path | None:
 
 
 def pre_compact(state: LocalState, hook_input: dict[str, Any], *, rank: bool = True) -> str:
-    """The compaction instructions for this session ("" when off or nothing is known)."""
     if not enabled(state):
         return ""
     transcript = own_transcript(state, hook_input)
@@ -231,7 +206,6 @@ def pre_compact(state: LocalState, hook_input: dict[str, Any], *, rank: bool = T
 
 
 def session_start(state: LocalState, hook_input: dict[str, Any]) -> dict[str, Any] | None:
-    """After a compaction: the kept facts as context at the start of the conversation."""
     if hook_input.get("source") != "compact" or not enabled(state):
         return None
     path = _facts_path(state, str(hook_input.get("session_id") or ""))

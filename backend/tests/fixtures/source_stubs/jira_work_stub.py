@@ -1,10 +1,5 @@
-"""An in-memory Jira Server/DC REST (API v2) stub for workflow-run acceptance tests.
-
-It answers the requests the governed Jira write tools make for a run: ``GET /rest/api/2/project/{key}`` (issue
-types), ``POST /rest/api/2/issue`` (create: ``<KEY>-<n>``), ``GET /rest/api/2/issue/{key}``, ``POST
-/rest/api/2/issue/{key}/comment``. API v3 paths answer 404 (Server/DC), so the tools use v2. The read-only release
-stub (``jira_stub.py``) stays unchanged. State lives in :data:`ISSUES` until :func:`reset`.
-"""
+"""In-memory Jira Server/DC REST (API v2) stub for workflow-run acceptance tests; state lives in :data:`ISSUES`
+until :func:`reset`, and API v3 paths answer 404."""
 
 from __future__ import annotations
 

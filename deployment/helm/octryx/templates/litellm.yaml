@@ -1,0 +1,15 @@
+# The bundled LiteLLM's settings: no message, spend or error logging and no callbacks, so prompts and answers never
+# land in its database.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "octryx.fullname" . }}-litellm
+  labels: {{- include "octryx.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    litellm_settings:
+      turn_off_message_logging: true
+      drop_params: true
+    general_settings:
+      disable_spend_logs: true
+      disable_error_logs: true

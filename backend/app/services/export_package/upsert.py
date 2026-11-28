@@ -29,7 +29,6 @@ from ...services.skill_catalog.portable import import_portable_skill
 
 
 def _imported_reply_contract(entity: dict[str, Any]) -> str | None:
-    """A package without the key is free text; a present ``null`` or invalid contract refuses the import."""
     try:
         declared = declared_reply_contract(entity, REPLY_CONTRACT_FIELD)
         return None if declared is None else reply_contract_column(declared)
@@ -38,7 +37,6 @@ def _imported_reply_contract(entity: dict[str, Any]) -> str | None:
 
 
 def _imported_tool_surface(entity: dict[str, Any]) -> str:
-    """A package without the key is ``governed``; a present ``null``/empty/unknown value refuses the import."""
     try:
         return declared_tool_surface(entity, TOOL_SURFACE_FIELD)
     except ValueError as exc:
@@ -93,7 +91,6 @@ def _apply_agent_fields(
 
 
 async def _replace_agent_steps(db: AsyncSession, agent: AgentDefinition, existing: Any, entity: dict[str, Any]) -> None:
-    """Drop an existing definition's steps and add the package's steps."""
     if existing:
         for step in list(existing.steps):
             await db.delete(step)
@@ -165,7 +162,6 @@ async def upsert_agent_from_package(
 
 
 async def _drop_task_children(db: AsyncSession, task: Task, existing: Task) -> None:
-    """An overwritten task loses its old dependencies and steps before the package's are added."""
     for dependency in (
         (await db.execute(select(TaskDependency).where(TaskDependency.task_id == task.id))).scalars().all()
     ):

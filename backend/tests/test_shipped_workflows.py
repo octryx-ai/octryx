@@ -1,11 +1,4 @@
-"""Which workflows Octryx ships, as seed data:
-
-- default, active on a fresh installation: bug-fix-reproduction, epic-delivery ("Story / epic delivery"), spec-writing,
-  pr-review-bot, pr-review-explain;
-- optional, shipped switched off (an admin switches one on): pr-fix, jira-intake-triage, incident-analysis,
-  team-delivery;
-- never seeded: feature-delivery-tdd (the base of the accepted-spec engineering graph; the suite publishes it).
-"""
+"""Which workflows Octryx ships, as seed data."""
 
 from __future__ import annotations
 
@@ -50,25 +43,23 @@ async def test_a_fresh_installation_has_the_defaults_on_the_optional_off_and_not
     assert {key for key, flow in flows.items() if flow.is_active} == DEFAULT
     assert {key for key, flow in flows.items() if not flow.is_active} == OPTIONAL
     assert not REMOVED & set(flows)
-    assert all(flow.current_version_id for flow in flows.values())  # the optional ones are published, just off
+    assert all(flow.current_version_id for flow in flows.values())
 
 
 @pytest.mark.asyncio
 async def test_an_installation_keeps_what_it_has_and_its_own_switches(db):
-    flows = await _shipped(db)  # the suite's baseline: every shipped workflow, all switched on, and B
+    flows = await _shipped(db)
     flows["team-delivery"].is_active = True
     await db.flush()
 
     await seed_phased_workflows(db, admin_user=await admin_user(db))
     after = await _shipped(db)
-    assert set(after) & REMOVED == {"feature-delivery-tdd"}  # the explicitly published B is kept
-    assert after["team-delivery"].is_active  # the installation's own switch stays
+    assert set(after) & REMOVED == {"feature-delivery-tdd"}
+    assert after["team-delivery"].is_active
 
 
 @pytest.mark.asyncio
 async def test_a_run_shows_its_workflows_current_name_not_one_derived_from_the_key(db):
-    """The run view carries the definition's name, so a renamed shipped workflow ("Story / epic delivery") shows its
-    current name, not a stale one."""
     from app.models import WorkflowRun
     from app.services.workflow_runs.views import run_view
 

@@ -14,8 +14,6 @@ from .build_guard_rules import (
 
 
 def _program_name(word: str) -> tuple[str, bool]:
-    """``(name, is_repository_path)``: a program directly in a system directory is its basename; any other path
-    (relative, ``..``, another directory) is a file of the working copy. Names are exact (case-sensitive)."""
     if "/" not in word:
         return word, False
     path = PurePosixPath(word)
@@ -29,7 +27,6 @@ def _interpreter_family(name: str) -> bool:
 
 
 def _skip_options(words: Sequence[str], *, with_value: Iterable[str] = ()) -> int:
-    """The index of the first operand after leading options (``with_value`` options consume the next word)."""
     takes_value = set(with_value)
     index = 0
     while index < len(words):
@@ -43,7 +40,6 @@ def _skip_options(words: Sequence[str], *, with_value: Iterable[str] = ()) -> in
 
 
 def _unwrap(name: str, args: Sequence[str]) -> list[str] | None:
-    """The command a launcher runs (``[]``: none), or ``None`` when ``name`` is not a launcher."""
     if name == "env":
         index = 0
         while index < len(args):

@@ -1,18 +1,4 @@
-"""Stop a device phase turn that runs in circles.
-
-Example: an agent finished its code within minutes, then called ``Bash echo "SUCCESS: ..."`` 1132 times in an hour
-(~$21, 106M input tokens) until the launcher's job limit ended it: every echo succeeded, nothing denied it, and the
-model never ended its turn. The platform sees every model request of a run-bound device session, so it stops the
-turn there:
-
-- **no-op loop**: at least ``NOOP_LIMIT`` of the phase's last ``NOOP_WINDOW`` calls are shell commands that only print
-  (``echo``, ``printf``, ``true``, ``:``);
-- **repeat loop**: the same tool with the same input ``REPEAT_LIMIT`` times among the phase's last ``REPEAT_WINDOW``
-  calls.
-
-On a loop the run pauses ``runtime_failed`` (code ``agent_loop``; Continue runs the phase again from a fresh window)
-and every further model request of the session is refused while the pause lasts, so the device turn ends at once.
-"""
+"""Stop a device phase turn that runs in circles."""
 
 from __future__ import annotations
 
@@ -44,7 +30,6 @@ def _input(row: ToolCall) -> dict[str, Any]:
 
 
 def noop_shell(tool_name: str, tool_input: dict[str, Any]) -> bool:
-    """A shell command that only prints: every ``&&``/``;`` part is echo, printf, true or ``:`` with plain words."""
     if tool_name not in SHELL_TOOLS:
         return False
     command = str(tool_input.get("command") or "").strip()
@@ -55,8 +40,7 @@ def noop_shell(tool_name: str, tool_input: dict[str, Any]) -> bool:
 
 
 def once_per_call(rows: Sequence[ToolCall]) -> list[tuple[str, dict[str, Any]]]:
-    """One entry per tool call, oldest first. A call the policy denies is recorded twice
-    (``denied_by_policy`` and ``error``), so two attempts looked like four and paused the run as a loop."""
+    # A denied call is recorded twice (denied_by_policy and error) and must count once for the loop check.
     calls: dict[str, tuple[str, dict[str, Any]]] = {}
     for row in rows:
         parameters = row.parameters if isinstance(row.parameters, dict) else {}
@@ -69,7 +53,6 @@ def once_per_call(rows: Sequence[ToolCall]) -> list[tuple[str, dict[str, Any]]]:
 
 
 def loop_kind(calls: Sequence[tuple[str, dict[str, Any]]]) -> str | None:
-    """``"noop"`` or ``"repeat"`` for the phase's calls (oldest first), else ``None``."""
     recent = list(calls)[-NOOP_WINDOW:]
     if len(recent) >= NOOP_LIMIT and sum(noop_shell(name, data) for name, data in recent) >= NOOP_LIMIT:
         return "noop"
@@ -95,7 +78,6 @@ def _paused_for_loop(run: WorkflowRun) -> bool:
 
 
 async def device_loop_refusal(db: AsyncSession, session_id: str) -> str | None:
-    """The refusal reason for a model request of a run-bound session that loops, else ``None``."""
     from ..limits import pause_run
     from ..records import active_run_for_session, lock_run
     from ..states import PAUSE_RUNTIME_FAILED, STATUS_RUNNING

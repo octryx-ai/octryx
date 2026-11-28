@@ -1,14 +1,4 @@
-"""Zero-config platform sessions for MCP clients.
-
-Any MCP client that merely connects and calls tools (Claude Code, Codex,
-Copilot, OpenCode, ...) becomes visible on the platform WITHOUT any client
-configuration: the dispatch layer resolves one external_agent session per
-OAuth grant and activity day and records every tool call as a ToolCall row
-on it - the normal session views show client, day, and tool activity.
-
-Honest limit: the client's own LLM tokens never traverse this server; token
-figures still arrive only via ``session_ingest`` (hook or instruction).
-"""
+"""Zero-config platform sessions for MCP clients."""
 
 from __future__ import annotations
 
@@ -30,7 +20,6 @@ _MAX_PARAM_CHARS = 600
 
 
 def mcp_client_name(ctx: Any) -> str:
-    """Best-effort client identity from the MCP initialize handshake."""
     try:
         client_params = ctx.session.client_params  # type: ignore[union-attr]
         info = getattr(client_params, "clientInfo", None) or getattr(client_params, "client_info", None)
@@ -52,7 +41,6 @@ async def record_mcp_tool_activity(
     tool_name: str,
     arguments: dict[str, Any],
 ) -> str:
-    """Attach this tool call to the grant's auto session (created on first use)."""
     activity_date = utc_now().date().isoformat()
     session = (
         await db.execute(

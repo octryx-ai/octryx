@@ -1,5 +1,5 @@
 // Render guards for admin runtime and people parts split into smaller functions: the gateway fields, the add-provider
-// panel, the Google and local-bootstrap provider cards, voice & speech, the user accounts panel, plus the identity
+// panel, voice & speech, the user accounts panel, plus the identity
 // provider hook behave and render the same after being split up.
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -44,88 +44,26 @@ test("the gateway fields render address, models and technical details and patch 
 });
 
 const providerCtx = (patch = {}) => ({
-  showAddProvider: true, setShowAddProvider: noop, handleAddProvider: noop, providerFormError: null, providerFormLoading: false,
-  newProviderDriver: "openai_compatible", newProviderDisplay: "", newProviderEndpointUrl: "", newProviderKey: "", newProviderRegion: "",
-  newProviderArn: "", newProviderSecretKey: "", newProviderSessionToken: "", newProviderAuthMode: "oauth", newGoogleClientId: "",
-  newGoogleClientSecret: "", newGoogleCloudProject: "", setNewProviderDriver: noop, setNewProviderDisplay: noop, setNewProviderEndpointUrl: noop,
-  setNewProviderKey: noop, setNewProviderRegion: noop, setNewProviderArn: noop, setNewProviderSecretKey: noop, setNewProviderSessionToken: noop,
-  setNewProviderAuthMode: noop, setNewGoogleClientId: noop, setNewGoogleClientSecret: noop, setNewGoogleCloudProject: noop, ...patch,
+  showAddProvider: true, setShowAddProvider: noop, newProviderDisplay: "", setNewProviderDisplay: noop,
+  handleCreateLiteLlmGatewayProvider: async () => ({ ok: true, error: null }), ...patch,
 });
 
 const labels = (view) => view.root.findAll((node) => node.type === "label" && node.props.className === "admin-panel__field")
   .map((node) => text(node.children[0]));
 
-test("add provider shows the access fields per provider type, the footer and the error", () => {
+test("add provider offers only an external LiteLLM gateway, with its footer", () => {
   const { AddProviderForm } = load("admin/components/providerTab/AddProviderForm.tsx");
   const closed = [];
-  const openai = create(createElement(AddProviderForm, { ctx: providerCtx({ setShowAddProvider: (value) => closed.push(value), providerFormError: "Boom" }) }));
-  assert.equal(byTestId(openai, "provider-add-panel").length, 1);
-  same(labels(openai).slice(-3), ["Display name", "API base URL", "API key (optional for local gateways)"]);
-  assert.equal(text(byTestId(openai, "provider-add-submit")[0]), "Add provider");
-  assert.ok(text(openai.root).includes("Boom"));
-  byTestId(openai, "provider-add-cancel")[0].props.onClick();
+  const gateway = create(createElement(AddProviderForm, { ctx: providerCtx({ setShowAddProvider: (value) => closed.push(value) }) }));
+  assert.equal(byTestId(gateway, "provider-add-panel").length, 1);
+  assert.equal(labels(gateway)[0], "Display name");
+  assert.ok(!labels(gateway).includes("Provider type"));
+  assert.ok(!text(gateway.root).includes("AWS Bedrock") && !text(gateway.root).includes("OpenRouter"));
+  assert.equal(text(byTestId(gateway, "provider-add-submit")[0]), "Add LiteLLM gateway");
+  byTestId(gateway, "provider-add-cancel")[0].props.onClick();
   same(closed, [false]);
-
-  const bedrock = create(createElement(AddProviderForm, { ctx: providerCtx({ newProviderDriver: "bedrock_api", providerFormLoading: true }) }));
-  same(labels(bedrock).slice(-5), ["AWS region", "IAM role ARN (optional)", "AWS access key ID (optional for local dev)", "AWS secret access key",
-    "AWS session token (optional)"]);
-  assert.equal(text(byTestId(bedrock, "provider-add-submit")[0]), "Adding…");
-  assert.equal(all(bedrock, "input").filter((node) => node.props.type === "password").length, 2);
-
-  const google = create(createElement(AddProviderForm, { ctx: providerCtx({ newProviderDriver: "gemini_api" }) }));
-  same(labels(google).slice(-4), ["Google auth mode", "Google OAuth client ID", "Google OAuth client secret", "Google Cloud project"]);
-  const gemini = create(createElement(AddProviderForm, { ctx: providerCtx({ newProviderDriver: "gemini_api", newProviderAuthMode: "api_key" }) }));
-  same(labels(gemini).slice(-2), ["Google auth mode", "Gemini API key"]);
-  const ollama = create(createElement(AddProviderForm, { ctx: providerCtx({ newProviderDriver: "ollama" }) }));
-  same(labels(ollama).slice(-2), ["Display name", "Ollama URL"]);
-  assert.equal(all(ollama, "input").filter((node) => node.props.type === "password").length, 0);
   const hidden = create(createElement(AddProviderForm, { ctx: providerCtx({ showAddProvider: false }) }));
   assert.equal(hidden.toJSON(), null);
-});
-
-test("the Google provider card switches between login, key display and key editing, and saves its OAuth config", () => {
-  const { ProviderGoogleAuth } = load("admin/components/providerTab/ProviderGoogleAuth.tsx");
-  const saved = [];
-  const drafts = [];
-  const ctx = { editingKey: null, googleConnectLoading: null, handleGoogleConnect: noop, handleSaveApiKey: noop, newKeyValue: "",
-    handleProviderDraftChange: (...args) => drafts.push(args), handleSaveGoogleProviderConfig: (id) => saved.push(id),
-    providerDrafts: { g1: { google_cloud_project: "proj-x" } }, savingProviderConfig: null, setEditingKey: noop, setNewKeyValue: noop };
-  const oauth = create(createElement(ProviderGoogleAuth, { ctx, provider: { id: "g1", auth_mode: "oauth", auth_login: "ada", google_oauth_client_configured: true } }));
-  const page = text(oauth.root);
-  for (const part of ["Google Gemini", "ada · no project", "Reconnect with Google", "OAuth Config", "Save Config"]) assert.ok(page.includes(part), part);
-  same(all(oauth, "input").map((node) => node.props.placeholder), ["Google OAuth Client ID", "Leave blank to keep current client secret", "Google Cloud Project"]);
-  assert.equal(all(oauth, "input")[2].props.value, "proj-x");
-  all(oauth, "input")[1].props.onChange({ target: { value: "s" } });
-  same(drafts[0], ["g1", "google_oauth_client_secret", "s"]);
-  all(oauth, "button").find((node) => text(node) === "Save Config").props.onClick();
-  same(saved, ["g1"]);
-  const key = create(createElement(ProviderGoogleAuth, { ctx, provider: { id: "g2", auth_mode: "api_key", has_api_key: true, api_key_masked: "AI…12" } }));
-  assert.ok(text(key.root).includes("AI…12"));
-  assert.ok(all(key, "button").some((node) => text(node) === "Change"));
-  const editing = create(createElement(ProviderGoogleAuth, { ctx: { ...ctx, editingKey: "g2", savingProviderConfig: "g2" }, provider: { id: "g2", auth_mode: "api_key" } }));
-  same(all(editing, "button").map((node) => text(node)), ["Save", "Cancel", "Saving…"]);
-  assert.equal(all(editing, "input")[0].props.placeholder, "Enter Gemini API key");
-});
-
-test("the local bootstrap card hides without state and shows its fields, actions and anchor line", () => {
-  const { ProvidersLocalBootstrapCard } = load("admin/components/providerTab/ProvidersLocalBootstrapCard.tsx");
-  const base = { handleCheckLocalBootstrap: noop, handleSetupLocalBootstrap: noop, localBootstrap: null, localBootstrapActionLoading: null,
-    localBootstrapDisplayDraft: "", localBootstrapEndpointDraft: "", localBootstrapError: null, localBootstrapLoading: false,
-    localBootstrapMakePrimary: false, localBootstrapModelDraft: "", localBootstrapPullModel: true, setLocalBootstrapDisplayDraft: noop,
-    setLocalBootstrapEndpointDraft: noop, setLocalBootstrapMakePrimary: noop, setLocalBootstrapModelDraft: noop, setLocalBootstrapPullModel: noop,
-    providers: [] };
-  assert.equal(create(createElement(ProvidersLocalBootstrapCard, { ctx: base })).toJSON(), null);
-  const bootstrap = { setup_complete: true, health_status: "ok", endpoint_url: "http://localhost:11434", available_models: ["gemma4:e4b"],
-    provider_display_name: "Anchor", model_id: "gemma4", is_primary: true, last_health_error: "" };
-  const view = create(createElement(ProvidersLocalBootstrapCard, { ctx: { ...base, localBootstrap: bootstrap, localBootstrapError: "Down",
-    localBootstrapActionLoading: "setup" } }));
-  const page = text(view.root);
-  for (const part of ["Local Gemma 4 Anchor", "Ollama endpoint", "Bootstrap model", "Display name", "Pull model automatically",
-    "Set as primary runtime", "Check Ollama", "Bootstrapping…", "Configured · ok · http://localhost:11434 · models: gemma4:e4b",
-    "Current anchor: Anchor · model gemma4 · primary runtime", "Down"]) assert.ok(page.includes(part), part);
-  assert.equal(all(view, "input").length, 5);
-  const loading = create(createElement(ProvidersLocalBootstrapCard, { ctx: { ...base, localBootstrapLoading: true } }));
-  assert.ok(text(loading.root).includes("Loading local status…"));
 });
 
 test("voice & speech loads both cards, switches the TTS provider fields and saves the provider, config and speech requests", async () => {

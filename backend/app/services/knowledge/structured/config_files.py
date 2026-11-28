@@ -1,29 +1,5 @@
-"""Configuration files parsed per format, with the 1-based line of every key.
-
-Which line prefixes make a comment comes from the profile per format
-(``configuration.comment_prefixes``); a commented-out ``;key=value`` is a comment, never a key.
-
-- **INI**: ``[Section]`` headers, ``key = value`` pairs split at the first ``=``, and a line
-  starting with a profile comment prefix (``#``, ``;``, ``\\``) is a comment. A line starting with a
-  profile continuation prefix (``configuration.continuation_prefixes``, e.g. ``+``) continues the
-  previous value (the prefix reads as a space; indentation is ignored); a value ending in such a
-  prefix (a regular expression) is never a continuation. A continuation line that reads as
-  ``key=value`` with a secret key or value is never joined: it is its own, redacted setting. The
-  profile allows only 1-3 punctuation characters as a comment or continuation prefix, so a prefix
-  never swallows a key. The comment lines directly above a key
-  belong to it (they carry ticket keys such as ``; PROJ-123: reduced from 5000ms to 500ms.``).
-- **Properties**: ``key=value``, ``key: value`` or ``key value``; profile comments (``#``, ``!``,
-  ``;``); a trailing backslash continues the value.
-- **YAML** (Helm values): every scalar leaf under its dotted path (``app.image.tag``), list items
-  as ``[index]``; the line is the leaf's own.
-
-Values the shared redaction policy treats as secrets (``redaction_policy.is_secret_setting``: by the
-key's last word, camel/snake/kebab-case aware, or by value, including ``user:password@`` and JDBC
-``user/password@`` connection strings) are replaced by ``[redacted]`` and flagged, so they are never
-stored, compared or shown. The registry sections (profile ``registry_sections``) type the other
-sections: ``[Services] HttpService_Ping = HttpService(HttpServer, /ping, Ping)`` makes
-``[HttpService_Ping]`` an ``HttpService``.
-"""
+"""Configuration files parsed per format, with the 1-based line of every key. A commented-out ``;key=value`` is a
+comment, never a key."""
 
 from __future__ import annotations
 
@@ -62,7 +38,6 @@ class ParsedConfig:
     truncated: bool = False
 
     def section_types(self, registry_sections: tuple[str, ...]) -> dict[str, str]:
-        """Section name -> plugin type from the registry sections; a section not listed types itself."""
         types: dict[str, str] = {}
         for entry in self.entries:
             if entry.section in registry_sections and not entry.redacted:
@@ -91,7 +66,6 @@ def _add(parsed: ParsedConfig, entry: ConfigEntry) -> None:
 
 
 def _continue(entry: ConfigEntry, text: str) -> None:
-    """Append a ``+`` continuation line; the joined value is checked for secrets again."""
     if entry.redacted:
         return
     joined = " ".join(f"{entry.value} {text}".split())[:MAX_VALUE_CHARS]
@@ -102,7 +76,6 @@ def _continue(entry: ConfigEntry, text: str) -> None:
 
 
 def _secret_setting(*texts: str) -> str | None:
-    """The key of the first text that reads as ``key=value`` with a secret key or value, else ``None``."""
     for text in texts:
         key, sign, value = text.partition("=")
         key = key.strip()

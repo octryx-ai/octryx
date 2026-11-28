@@ -1,29 +1,4 @@
-"""Explicit AgentDefinition dispatch binding of an Action.
-
-``tasks.dispatch_binding`` is a closed, explicitly authored value (``models/project/task.py``), required on
-every Action:
-
-* ``"task_definition"``: the Action runs its own definition (its step pipeline, its Work intake task
-  type, or its own prompt turn), dispatched by the platform to a Worker or, for deterministic
-  pipelines, run locally;
-* ``"agent_definition"``: the Action runs its selected AgentDefinition under the Action's owner,
-  Workspace and existing policy, without a separate Worker business record;
-* ``"workflow_run"``: the Action starts a phased workflow run (workflow_run_binding admission).
-
-None is derived from names, prompts, task types or configuration alone.
-
-An agent-bound Action is only runnable as exactly that: an ``agent_run`` task without enabled steps whose
-config names a non-blank agent. Save validation enforces this before any write
-(``services/admin/task/_dispatch_binding.py``). This module owns the two runtime seams:
-
-* **Dispatch.** When no Worker is available, a bound Action is claimed by the scheduling process
-  through the existing local claim, within the same capacity, same-task, cancellation, lease and
-  epoch limits. A selected Worker still wins, with its existing accounting.
-* **Execution.** Before any step or agent routing, a bound Action whose stored state no longer
-  matches (edited outside the admin save path, steps enabled later, agent removed) is refused with
-  a typed code, so it can never run as an unrelated step pipeline or as an agent-less prompt turn.
-  The selected agent itself is then admitted by ``admit_agent_turn`` as for every Action.
-"""
+"""Explicit AgentDefinition dispatch binding of an Action."""
 
 from __future__ import annotations
 
@@ -55,8 +30,6 @@ BINDING_MESSAGES = {
 
 
 class DispatchBindingError(ActionAdmissionError):
-    """A bound Action refused before any session or model dispatch; fixed code only."""
-
     def as_metadata(self) -> dict[str, str]:
         return {"code": self.code, "message": BINDING_MESSAGES[self.code]}
 
@@ -66,7 +39,6 @@ def is_agent_definition_bound(task: Any) -> bool:
 
 
 def binding_defect(*, task_type: Any, config: Any, has_enabled_steps: bool) -> str | None:
-    """The first reason an ``agent_definition`` binding cannot run this task state, or ``None``."""
     if task_type != BOUND_TASK_TYPE:
         return BINDING_TYPE_UNSUPPORTED
     if has_enabled_steps:
@@ -87,7 +59,6 @@ async def has_enabled_steps(db: Any, task_id: str) -> bool:
 
 
 async def require_bound_task_runnable(db: Any, task: Any) -> None:
-    """Refuse a bound Action whose stored state no longer matches its authored execution kind."""
     binding = getattr(task, "dispatch_binding", None)
     if binding not in DISPATCH_BINDINGS:
         raise DispatchBindingError(BINDING_INVALID)

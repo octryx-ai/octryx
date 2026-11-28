@@ -17,7 +17,6 @@ from tests.agent_gateway.seat_upstream_support import anthropic  # noqa: F401 - 
 
 
 async def _renewed(db, workspace_id: str, user_id: str) -> UserDevice:
-    """The session's grant becomes a device grant that the device then renewed (old revoked, new current)."""
     row = (await db.execute(select(AgentPresence).where(AgentPresence.project_id == workspace_id))).scalar_one()
     old = await db.get(OAuthGrant, row.seat_grant_id)
     device = UserDevice(owner_user_id=user_id, name="mac", name_key="mac", os="macos", public_key="k")

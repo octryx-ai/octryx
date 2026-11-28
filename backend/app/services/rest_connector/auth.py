@@ -1,10 +1,4 @@
-"""Authentication of a custom REST call with the connection's technical account.
-
-One scheme per definition (``none``, ``api_key_header``, ``api_key_query``, ``bearer``, ``basic``,
-``oauth2_client_credentials``). There is no silent fallback between schemes: a connection whose secret for the
-definition's scheme is missing is refused with the field it lacks, never sent unauthenticated or with another
-credential. Secrets come resolved from the secret store and leave this module only inside the outgoing request.
-"""
+"""Authentication of a custom REST call with the connection's technical account."""
 
 from __future__ import annotations
 
@@ -31,7 +25,7 @@ _EXPIRY_MARGIN_SECONDS = 30.0
 
 
 class AuthConfigError(ValueError):
-    """The connection cannot authenticate for the definition's scheme; the message names fields only."""
+    pass
 
 
 @dataclass
@@ -89,7 +83,6 @@ async def _client_credentials_token(
 async def apply_auth(
     client: httpx.AsyncClient, *, connection_id: str, auth: dict[str, Any], config: dict[str, Any]
 ) -> AppliedAuth:
-    """The headers and query parameters that authenticate one call; refuses a missing credential."""
     scheme = str(auth.get("scheme") or "none")
     if scheme == "none":
         return AppliedAuth()
@@ -110,7 +103,6 @@ async def apply_auth(
 
 
 def reserved_names(auth: dict[str, Any]) -> frozenset[str]:
-    """Header and query names the scheme owns; an operation parameter of that name is never sent from arguments."""
     names = {"authorization"}
     if auth.get("scheme") == "api_key_header":
         names.add(str(auth.get("header_name") or "X-API-Key").lower())

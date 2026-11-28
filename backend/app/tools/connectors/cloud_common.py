@@ -42,8 +42,6 @@ async def _run_subprocess(
     cwd: str | None = None,
     timeout: float = SUBPROCESS_TIMEOUT_SECONDS,
 ) -> tuple[int, str, str]:
-    """``(exit code, stdout, stderr)``; a git network step that failed for a transient reason (network, 5xx, rate
-    limit) is tried again with a backoff (``git_errors.run_with_retry``)."""
     from .git_errors import run_with_retry
 
     return await run_with_retry(_run_subprocess_once, command, env=env, cwd=cwd, timeout=timeout)

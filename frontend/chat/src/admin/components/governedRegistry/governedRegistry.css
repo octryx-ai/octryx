@@ -9,7 +9,7 @@
 .ws-bar__name {
   color: var(--highlight, var(--text));
   font-size: var(--ds-text-lg);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: -0.015em;
 }
 
@@ -48,7 +48,7 @@
 .ws-eyebrow {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }

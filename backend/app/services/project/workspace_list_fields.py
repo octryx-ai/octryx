@@ -1,9 +1,4 @@
-"""The workspace list's summary fields: active member count and last update (Admin › Workspaces).
-
-``member_count`` counts every active person once, whether a direct member (``user_projects``) or through a group
-bound to the workspace (``user_groups`` × ``project_groups``) — the same membership as
-``GET /api/v1/workspaces/{id}/members``. ``class`` stays ``None`` until the workspace overview slice stores it.
-"""
+"""The workspace list's summary fields: active member count and last update (Admin › Workspaces)."""
 
 from __future__ import annotations
 
@@ -18,7 +13,6 @@ from ...time_utils import ensure_utc
 
 
 async def workspace_list_fields(db: AsyncSession, project_ids: Iterable[str]) -> dict[str, dict[str, Any]]:
-    """``project_id -> {member_count, updated_at, class}`` in two queries."""
     ids = sorted({str(project_id) for project_id in project_ids if project_id})
     if not ids:
         return {}

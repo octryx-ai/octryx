@@ -1,6 +1,4 @@
-"""The repository's declared environment in the launch folder (``workspace_prep`` step 2): the probes, the setup
-commands and the local excludes.
-"""
+"""The repository's declared environment in the launch folder: the probes, the setup commands and the local excludes."""
 
 from __future__ import annotations
 
@@ -77,8 +75,6 @@ def _probe(root: Path, probe: dict[str, Any], env: dict[str, str]) -> dict[str, 
 
 
 def exclude_environment(root: Path, path: list[Any], patterns: list[Any] | None = None) -> None:
-    """The environment's directories (``.venv``) and the test report never become part of the change: a local
-    exclude, not a commit (``patterns`` as the server derived them, else the ``path`` directories)."""
     tops = sorted({Path(str(item)).parts[0] for item in path if str(item) and not os.path.isabs(str(item))})
     wanted = [str(item) for item in patterns if _EXCLUDE.match(str(item))] if patterns else [
         f"/{top}/" for top in tops if top not in ("", ".", "..")]
@@ -94,7 +90,7 @@ def exclude_environment(root: Path, path: list[Any], patterns: list[Any] | None 
 
 
 def prepare_environment(root: Path, environment: dict[str, Any] | None) -> dict[str, Any]:
-    exclude_runtime_files(root)  # test reports, caches, venvs and databases never enter the change (M1)
+    exclude_runtime_files(root)  # test reports, caches, venvs and databases never enter the change
     if not environment:
         return {"state": "not_declared", "probes": [], "setup": []}
     if environment.get("environment_file"):
@@ -133,9 +129,6 @@ def prepare_environment(root: Path, environment: dict[str, Any] | None) -> dict[
 
 
 def prepare_from_file(root: Path, pointer: dict[str, Any]) -> dict[str, Any]:
-    """The repository's environment file (``environment_file``): read and validated in the folder; when it is there
-    and valid, the app folder is made ready (its ``check``, else its ``setup``) so the agent works with it. Never
-    blocks the run: the pipeline judges the file and sends a missing or invalid one back to the agent."""
     from . import environment_file
 
     account = environment_file.resolve(root, str(pointer.get("environment_file") or ""), pointer.get("environment_pin"))
@@ -157,8 +150,6 @@ def prepare_from_file(root: Path, pointer: dict[str, Any]) -> dict[str, Any]:
 
 
 def file_environment(root: Path, environment: dict[str, Any]) -> tuple[Path, dict[str, Any]]:
-    """``(folder, environment)`` the agent's ``PATH`` comes from: the app folder and the file's environment when the
-    repository's environment file is there and valid, else ``root`` and the platform's environment."""
     from . import environment_file
 
     if not environment.get("environment_file"):

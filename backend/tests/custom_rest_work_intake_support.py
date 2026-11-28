@@ -13,7 +13,7 @@ from app.models import Project, User, WorkItem
 from app.services.rest_connector.connections import create_connection
 from app.services.rest_connector.definitions import create_definition, update_operation
 from app.services.secure_work.intake.setup import save_intake
-from tests.rest_connector_support import API, SECRET, recorded_api
+from tests.support.rest_connector_support import API, SECRET, recorded_api
 
 STATUS_BODY = {"required": True, "schema": {"type": "object", "properties": {"status": {"type": "string"}}}}
 
@@ -54,7 +54,6 @@ def api(monkeypatch):
 
 
 def pages(api, *answers: list[dict]) -> None:
-    """The list operation answers ``answers`` page by page (``next`` cursor), the write returns 200."""
     def answer(request: httpx.Request) -> httpx.Response:
         if request.method == "POST":
             return httpx.Response(200, json={"ok": True})

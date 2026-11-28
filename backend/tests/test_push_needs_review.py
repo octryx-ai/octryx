@@ -1,8 +1,4 @@
-"""A push that agent work reaches without an independent review is warned about.
-
-A device run pushes only the change the reviewer reviewed, so a workflow whose agent work reaches the push without a
-review stops there for safety; the designer must say so instead of calling the workflow valid.
-"""
+"""A push that agent work reaches without an independent review is warned about."""
 
 from __future__ import annotations
 
@@ -33,7 +29,7 @@ def _spec_workflow(with_review: bool) -> dict:
 
 def _codes(definition: dict) -> set[str]:
     report = validate_phased_definition(definition)
-    assert "push_without_review" not in {error["code"] for error in report["errors"]}  # a server run may push
+    assert "push_without_review" not in {error["code"] for error in report["errors"]}
     return {warning["code"] for warning in report["warnings"]}
 
 

@@ -1,16 +1,4 @@
-"""A handoff's durable lessons become Workspace memory.
-
-On a confirmed takeover, and when a Work Item reaches a done state, the latest handoff's ``open_decisions``
-(class ``decision``), ``pitfalls`` (``learning``) and ``rules`` (``convention``) are written through the existing
-memory service (``knowledge/memory/capture.remember``), so ``memory_recall`` finds them:
-
-- one item per Work Item and section, keyed by ``turn_ref = handoff:<work item id>:<section>``; a changed section
-  supersedes the previous item of that key (``supersedes_id``, the old one ``superseded``);
-- the author class is ``model_inferred`` for an agent's handoff and ``human_stated`` for a person's;
-- idempotent: the same content again records nothing new (``remember`` consolidates by content).
-
-Texts were secret-scanned when the handoff was written; the memory service scans them again.
-"""
+"""A handoff's durable lessons become Workspace memory."""
 
 from __future__ import annotations
 
@@ -66,7 +54,6 @@ async def _previous(db: AsyncSession, project_id: str, key: str) -> KnowledgeMem
 
 
 async def capture_handoff_memory(db: AsyncSession, handoff: WorkItemHandoff) -> list[str]:
-    """Write the handoff's lessons; returns the outcomes per section (``recorded``/``already_known``...). Flushes."""
     item = await db.get(WorkItem, handoff.work_item_id)
     try:
         workspace = WorkspaceId.parse(handoff.project_id)
@@ -110,7 +97,6 @@ async def capture_latest_handoff_memory(db: AsyncSession, work_item_id: str) -> 
 
 
 async def capture_if_done(db: AsyncSession, work_item_id: str) -> list[str]:
-    """After a transition: a Work Item in a done state keeps its latest handoff's lessons."""
     item = await db.get(WorkItem, work_item_id)
     if item is None:
         return []

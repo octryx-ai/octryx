@@ -1,12 +1,10 @@
-// The neutral fallback for a connector without a brand glyph: a monogram from its name. ServiceNow's entry in
-// CONNECTOR_ICONS is a generic stand-in (simple-icons ships no ServiceNow glyph), so it counts as glyph-less too.
+// simple-icons ships no ServiceNow glyph, so its CONNECTOR_ICONS entry is only a stand-in.
 const GENERIC_GLYPH_KINDS = new Set(["servicenow"]);
 
 export function hasBrandGlyph(kind: string, glyphs: Record<string, unknown>): boolean {
   return Boolean(glyphs[kind]) && !GENERIC_GLYPH_KINDS.has(kind);
 }
 
-/** "ServiceNow" → "SN", "Azure DevOps" → "AD", "servicenow" → "S"; at most two letters. */
 export function connectorMonogram(label: string): string {
   const words = label.trim().split(/[\s_\-./]+/).filter(Boolean);
   if (!words.length) return "?";

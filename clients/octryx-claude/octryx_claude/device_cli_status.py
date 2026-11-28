@@ -15,7 +15,6 @@ from .state import CREDENTIAL_SET_DEVICE, LocalState
 
 
 def _folder_line(folder: str, live: dict[str, Any], os_name: str) -> str:
-    """One allowlisted folder with the service's own access verdict (when the service has checked it)."""
     verdicts = live.get("folder_access") if isinstance(live.get("folder_access"), dict) else {}
     if folder not in verdicts:
         return f"  {folder}"
@@ -31,7 +30,6 @@ STATUS_STALE_SECONDS = 3 * 60
 
 def _connection_line(device: dict[str, Any], live: dict[str, Any], *, service_running: bool | None,
                      now: float | None = None) -> str:
-    """What the service last said about its connection, and why it is not connected."""
     if device.get("revoked") or live.get("revoked"):
         return " · revoked (the service asks the platform again periodically; or run: device enable)"
     if live.get("connected"):
@@ -88,9 +86,6 @@ POLICY_TIMEOUT = 10.0
 
 
 def model_note(state: LocalState) -> str:
-    """``status_block.model_note`` for the person's Workspace: "no model available …" when no company model is
-    admitted and no seat login is usable, else ``""`` (also when the platform cannot be asked). Outsider walk
-    : the device offered only governed, the Workspace had no model key, and nothing said so."""
     import uuid  # noqa: PLC0415
 
     from . import status_block  # noqa: PLC0415
@@ -120,7 +115,6 @@ def _tools_line(state: LocalState) -> str:
 
 
 def run_tools(args: argparse.Namespace, state: LocalState) -> int:
-    """The pinned tools and their state; ``--ensure`` installs the missing ones into the launcher's own folders."""
     from . import tools  # noqa: PLC0415
 
     problems = tools.ensure(state.root) if args.ensure else []

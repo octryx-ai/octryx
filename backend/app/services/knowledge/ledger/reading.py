@@ -1,10 +1,5 @@
-"""Read a cited span with its neighbours, from the ledger (the ``read`` operation).
-
-A search hit is one span; answering well often needs the paragraph before and after it. The read
-resolves the evidence key inside the authorized Workspace only, and returns the span's revision's
-neighbouring spans in order. It reads PostgreSQL, the full history, so a key of a superseded
-revision still reads, marked ``current=False`` so the caller can say so.
-"""
+"""Read a cited span with its neighbours, from the ledger (the ``read`` operation). The evidence key resolves inside the
+authorized Workspace only."""
 
 from __future__ import annotations
 
@@ -46,7 +41,6 @@ class SpanWindow:
 
 
 async def _center(db: AsyncSession, project_id: str, evidence_key: str, principal_keys: tuple[str, ...]):
-    """The cited span's revision, position and labels, or the not-found state."""
     center = (
         await db.execute(
             select(
@@ -70,7 +64,7 @@ async def _center(db: AsyncSession, project_id: str, evidence_key: str, principa
                 KnowledgeSourceRevision.project_id == project_id,
                 KnowledgeEvidenceSpan.evidence_key == evidence_key,
                 KnowledgeEvidenceSource.project_id == project_id,
-                # A restricted source reads only for a reader its ACL admits, history included (5b).
+                # A restricted source reads only for a reader its ACL admits, history included.
                 visible_source(project_id, KnowledgeEvidenceSource.source_key, principal_keys),
             )
         )
@@ -82,7 +76,6 @@ async def _center(db: AsyncSession, project_id: str, evidence_key: str, principa
 
 
 async def _neighbours(db: AsyncSession, project_id: str, revision_id: str, ordinal: int, window: int):
-    """The spans of one revision within ``window`` of ``ordinal``, in order, with their line ranges."""
     return (
         await db.execute(
             select(
@@ -112,7 +105,6 @@ async def _neighbours(db: AsyncSession, project_id: str, revision_id: str, ordin
 async def read_span_window(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, evidence_key: object, window: object = 1
 ) -> SpanWindow:
-    """The span of ``evidence_key`` with up to ``window`` spans on each side, in order."""
     if not is_valid_evidence_id(evidence_key) or type(window) is not int or not 0 <= window <= MAX_READ_WINDOW:
         raise InvalidEvidenceRequestError()
     project_id = authorized.project_id

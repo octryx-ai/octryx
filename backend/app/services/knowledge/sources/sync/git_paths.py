@@ -1,15 +1,5 @@
-"""Paths of a repository snapshot: include/exclude globs, the path rule, and the language facet.
-
-Globs are POSIX and anchored at the repository root: ``*`` matches inside one path segment, ``?``
-one character inside a segment, and ``**`` any number of whole segments (``src/**/*.java`` matches
-``src/A.java`` and ``src/a/b/A.java``; ``**/test/**`` matches every file below any ``test``
-directory). No other syntax exists, so a glob never means something it does not say.
-
-A path is used only when it is a plain relative POSIX path without control characters, ``.``/``..``
-segments or a leading slash, within ``MAX_PATH_CHARS``; any other entry is
-``skipped_unsupported_path``. The language facet comes from a closed extension and file-name table;
-a file outside it has no language (``None``), never a guessed one.
-"""
+"""Paths of a repository snapshot: include/exclude globs, the path rule, and the language facet. Globs know only ``*``,
+``?`` and ``**``, anchored at the root."""
 
 from __future__ import annotations
 
@@ -63,8 +53,6 @@ _LANGUAGE_BY_NAME = {"Dockerfile": "dockerfile", "Makefile": "makefile", "pom.xm
 
 
 class PathFilter:
-    """Admits a path when it matches an include glob (or none is given) and no exclude glob."""
-
     __slots__ = ("exclude", "include", "_exclude", "_include")
 
     def __init__(self, include: tuple[str, ...], exclude: tuple[str, ...]) -> None:
@@ -100,7 +88,6 @@ def _compile(glob: str) -> re.Pattern[str]:
 
 
 def validate_globs(raw: object) -> tuple[str, ...]:
-    """A bounded list of root-anchored globs; ``None`` or an empty list is no glob."""
     if raw is None:
         return ()
     if not isinstance(raw, list | tuple) or len(raw) > MAX_GLOBS:

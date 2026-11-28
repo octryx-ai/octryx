@@ -1,8 +1,4 @@
-"""Cedar → builder model: the read-back half of ``builder``.
-
-:func:`parse` maps a statement's EST (``cedarpy.policies_to_json_str``) onto the builder blocks and accepts the model
-only when ``builder.render`` gives back exactly the same text; anything else is ``None`` ("Hand-written").
-"""
+"""Cedar → builder model: the read-back half of ``builder``."""
 
 from __future__ import annotations
 
@@ -237,7 +233,6 @@ def _model_of(est: Mapping[str, Any]) -> PolicyModel:
 
 
 def parse_est(est: Mapping[str, Any], text: str) -> PolicyModel | None:
-    """The model of a statement's EST, only when :func:`render` gives back exactly ``text``."""
     from .builder_model import model_from_json
 
     try:
@@ -251,7 +246,6 @@ def parse_est(est: Mapping[str, Any], text: str) -> PolicyModel | None:
 
 
 def parse(text: str) -> PolicyModel | None:
-    """The model of one statement's text (see :func:`parse_est`)."""
     try:
         est = json.loads(cedar_module().policies_to_json_str(text))
     except ValueError:

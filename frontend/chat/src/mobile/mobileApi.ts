@@ -3,6 +3,7 @@
 import type { WorkflowOption } from "../chatOptionTypes";
 import type { WorkflowProposalView } from "../chatDecisionTypes";
 import type { ProposalAnswerBody } from "../chat/run/workflowProposalAnswer";
+import { epicProgressPath } from "../chat/work/epicViewModel";
 import { api, startSession } from "./mobileSession";
 
 // --- the app's data --------------------------------------------------------------------------------------------
@@ -134,6 +135,8 @@ export const startRun = (body: Record<string, unknown>) =>
 
 // A task's detail and its change plans; both are scoped to the person's Workspaces.
 export const loadTask = (id: string) => api<unknown>(`/api/v1/secure-work/work-items/${encodeURIComponent(id)}`);
+// An Epic's lanes, derived on the platform (the web's Work › Epics reads the same).
+export const loadEpicProgress = (id: string) => api<unknown>(epicProgressPath(id));
 export const loadTaskPlans = (id: string) =>
   api<unknown>(`/api/v1/secure-work/work-items/${encodeURIComponent(id)}/change-plans`);
 

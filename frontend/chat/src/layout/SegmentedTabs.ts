@@ -1,18 +1,12 @@
 import { createElement, useEffect, useRef, type KeyboardEvent } from "react";
 
-// The one tab style (design system): segments, for page views (Open | Merged | All) and for the tabs inside a side
-// panel. role=tablist with roving focus: arrow keys move and select, Home/End jump. No pill groups anywhere else.
-
-// testId: the tab button's own data-testid (pages whose tests click one tab).
 export type SegmentedTab = { key: string; label: string; count?: number; disabled?: boolean; testId?: string };
 
 export type SegmentedTabsProps = {
   tabs: SegmentedTab[];
   value: string;
   onChange: (key: string) => void;
-  // Accessible name of the group ("Pull request views").
   label: string;
-  // id prefix: a tab is `${idPrefix}-tab-${key}` and controls `${idPrefix}-panel-${key}`.
   idPrefix?: string;
   size?: "regular" | "small";
   testId?: string;
@@ -29,10 +23,6 @@ export function nextTabKey(tabs: SegmentedTab[], current: string, key: string): 
   return null;
 }
 
-/**
- * The scroll position that shows the selected segment inside a row that scrolls sideways (a phone, an open help
- * panel): unchanged when it is fully visible, else just enough to show it with a small margin. Pure, for tests.
- */
 export function scrollToShow(scrollLeft: number, viewWidth: number, tabLeft: number, tabWidth: number, margin = 16): number {
   if (tabLeft < scrollLeft) return Math.max(0, tabLeft - margin);
   if (tabLeft + tabWidth > scrollLeft + viewWidth) return Math.max(0, tabLeft + tabWidth - viewWidth + margin);
@@ -42,7 +32,7 @@ export function scrollToShow(scrollLeft: number, viewWidth: number, tabLeft: num
 export function SegmentedTabs({ tabs, value, onChange, label, idPrefix = "ds-tabs", size = "regular", testId }: SegmentedTabsProps) {
   const refs = useRef(new Map<string, HTMLButtonElement | null>());
   const listRef = useRef<HTMLDivElement | null>(null);
-  // On a narrow screen the selected tab can sit off-screen in the sideways-scrolling row. The row scrolls the selected segment into view when it is chosen or shown.
+  // On a narrow screen the selected tab can sit off-screen in the sideways-scrolling row.
   useEffect(() => {
     const list = listRef.current;
     const tab = refs.current.get(value);

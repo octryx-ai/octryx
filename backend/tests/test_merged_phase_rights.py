@@ -1,7 +1,5 @@
-"""A merged phase may do what either phase it holds may do: the fix phase's ``protect_confirmed_tests`` must not
-refuse every test file, or class S could never write its reproduction. Only the tests the platform confirmed stay
-locked. A refusal rule that sends the run back to a phase merged into the current one goes on in the same turn
-instead of pausing and restarting it."""
+"""A merged phase may do what either phase it holds may do; only the tests the platform confirmed stay locked.
+A refusal rule sending the run back to a merged phase goes on in the same turn instead of pausing."""
 
 from __future__ import annotations
 
@@ -15,6 +13,9 @@ from app.services.workflow_runs.path_rules import PROTECT_CONFIRMED_TESTS, WRITE
 from app.services.workflow_runs.protected_paths import path_matches, protected_kind
 from app.services.workflow_runs.seeding import SEEDS_PATH
 from app.services.workflow_runs.size_class.merge import merged_config
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 ROOT = "/repo"
 SAMPLES = ["e2e/python/tests/test_split.py", "e2e/node/test/books.test.js", "e2e/python/splitbill/core.py",
@@ -36,7 +37,7 @@ def _allowed(rules: dict, path: str, confirmed: list[str]) -> bool:
 def _seed_merges() -> list[tuple[str, dict, dict]]:
     found = []
     for workflow in json.loads(SEEDS_PATH.read_text(encoding="utf-8")):
-        definition = dict(workflow.get("definition") or {})  # a composed one (definition_source) merges nothing
+        definition = dict(workflow.get("definition") or {})
         nodes = {node["id"]: node for node in definition.get("nodes") or []}
         for settings in dict(dict(definition.get("size_classes") or {}).get("classes") or {}).values():
             for source, target in dict(settings.get("merge") or {}).items():
@@ -56,7 +57,7 @@ def test_a_merge_loses_no_right_of_either_phase():
         for path in SAMPLES:
             if _allowed(_rules(first), path, []) or _allowed(_rules(second), path, []):
                 assert _allowed(_rules(merged), path, []), (name, path)
-        if _rules(second).get(PROTECT_CONFIRMED_TESTS) is True:  # the later phase's lock on confirmed tests stays
+        if _rules(second).get(PROTECT_CONFIRMED_TESTS) is True:
             assert not _allowed(_rules(merged), SAMPLES[0], [SAMPLES[0]]), name
 
 
@@ -103,9 +104,6 @@ CONFIRMING = frozenset({"tests_green", "confirmed_tests_intact", "reproduces", "
 
 
 def test_every_gate_after_a_merge_gets_the_confirmation_the_skipped_steps_gave():
-    """A gate after the merged phase that judges confirmed tests (``green``) gets them in merge mode: the merged phase
-    submits the reproduction the platform binds itself (``merge.confirm_in_turn``) and the class proves it on the
-    base commit (without it there are no confirmed tests and green fails at every turn's end)."""
     from app.services.workflow_runs.size_class.merge import merged_config
 
     checked = 0

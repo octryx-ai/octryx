@@ -1,15 +1,4 @@
-"""Explicit permission-mode choice for Automation targets.
-
-Actions (tasks) and inbound webhooks store a permission-mode key as ``agent_type``.
-``resolve_agent_mode`` silently substitutes a fallback for an empty or unknown key and
-accepts a deactivated one, so an *explicitly submitted* value is held to the same
-contract as an Agent Definition write (``require_agent_mode``): it must name an
-active, publishable mode. Unlike that contract, an explicit blank is not "unset" here:
-an empty Automation form must not silently become the default mode.
-
-Callers decide what counts as explicit; an API omission keeps its existing default.
-The runtime and every other caller keep ``resolve_agent_mode``.
-"""
+"""Explicit permission-mode choice for Automation targets."""
 
 from __future__ import annotations
 
@@ -31,22 +20,10 @@ _NON_KEY_CHARACTERS = re.compile(r"[^a-z0-9]+")
 
 
 def authoring_key_form(value: str) -> str:
-    """The key ``normalize_agent_mode_key`` derives, *without* its default fallback.
-
-    Same rule as ``normalization.normalize_agent_mode_key`` (lower-case, runs of other characters
-    become ``_``, outer ``_`` stripped). An empty result means the value names no key at all:
-    punctuation, underscores or non-ASCII letters only. The global function
-    maps that to the default mode; an explicit Automation choice must not.
-    """
     return _NON_KEY_CHARACTERS.sub("_", value.strip().lower()).strip("_")
 
 
 async def require_explicit_agent_mode(db: AsyncSession, value: Any, *, field: str = "agent_type") -> str:
-    """The stored key for an explicitly submitted mode, or a typed 422 before any write.
-
-    Blank or non-text → ``agent_mode_required``; no key characters (``"!!!"``, ``"___"``, ``"…"``) →
-    ``invalid_agent_mode_key``; unknown or inactive → ``unknown_agent_mode``.
-    """
     if not isinstance(value, str) or not value.strip():
         raise HTTPException(
             status_code=422,
@@ -62,7 +39,6 @@ async def require_explicit_agent_mode(db: AsyncSession, value: Any, *, field: st
 
 
 async def authored_agent_mode(db: AsyncSession, payload: dict[str, Any], *, field: str = "agent_type") -> str:
-    """Create path: an explicit value is validated; an omitted key keeps its existing default resolution."""
     if field in payload:
         return await require_explicit_agent_mode(db, payload[field], field=field)
     return (await resolve_agent_mode(db, DEFAULT_AGENT_MODE_KEY)).key

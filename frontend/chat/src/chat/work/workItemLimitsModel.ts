@@ -1,10 +1,5 @@
-// A Work item's run limits under "Advanced" (backend api/routes/workflow_runs.py, services/workflow_runs/limits.py):
-// "Rounds per loop" and "Cost budget (USD)". Pure: no React.
-//
-// PUT …/work-items/<id>/limits REPLACES the item's limits (`{loop_limit?, budget?}`), so every body carries what the
-// item already has: the loop limit and the other budget keys (tokens, active_seconds, tool_calls) stay as stored.
-// An empty cost field clears only `cost_usd`. The server has no cascade, so "Also set for all child items" saves the
-// same cost budget on each child with the same PUT, each child keeping its own loop limit and other budget keys.
+// The PUT replaces the item's limits, so every body carries what the item already has.
+// The server has no cascade: each child gets its own PUT, keeping its other limits.
 
 import { isEpic } from "./epicViewModel";
 import type { WorkItem } from "./workItemTypes";
@@ -14,7 +9,6 @@ export type LimitsBody = { loop_limit?: number; budget?: Record<string, number> 
 
 const positive = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value) && value > 0;
 
-/** GET …/limits → `{run_limits: {loop_limit?, budget?}}`, read defensively. */
 export function readItemLimits(raw: unknown): ItemLimits {
   const limits = ((raw as { run_limits?: unknown } | null)?.run_limits ?? {}) as Record<string, unknown>;
   const loop = limits.loop_limit;
@@ -23,7 +17,6 @@ export function readItemLimits(raw: unknown): ItemLimits {
   return { loopLimit: typeof loop === "number" && Number.isInteger(loop) && loop >= 1 ? loop : null, budget };
 }
 
-/** The fields' text for stored limits. */
 export function limitsDraft(limits: ItemLimits): { loop: string; cost: string } {
   return {
     loop: limits.loopLimit ? String(limits.loopLimit) : "",
@@ -31,7 +24,6 @@ export function limitsDraft(limits: ItemLimits): { loop: string; cost: string } 
   };
 }
 
-/** The cost field: empty clears the budget, otherwise a positive amount in USD (cents at most). */
 export function costBudgetValue(draft: string): { value: number | null } | { error: string } {
   const text = draft.trim().replace(",", ".");
   if (!text) return { value: null };
@@ -41,13 +33,11 @@ export function costBudgetValue(draft: string): { value: number | null } | { err
   return { value };
 }
 
-/** The stored budget with `cost_usd` set (a number) or removed (null); other keys stay. */
 export function budgetWithCost(budget: Record<string, number>, cost: number | null): Record<string, number> {
   const { cost_usd: _old, ...rest } = budget;
   return cost === null ? rest : { ...rest, cost_usd: cost };
 }
 
-/** The whole body for one item: its loop limit and its budget with the new cost; empty parts are left out. */
 export function limitsBody(loopLimit: number | null, budget: Record<string, number>): LimitsBody {
   const body: LimitsBody = {};
   if (loopLimit) body.loop_limit = loopLimit;
@@ -55,17 +45,14 @@ export function limitsBody(loopLimit: number | null, budget: Record<string, numb
   return body;
 }
 
-/** A child's body when the cost budget cascades: its own limits, only the cost changed. */
 export const childLimitsBody = (child: ItemLimits, cost: number | null): LimitsBody =>
   limitsBody(child.loopLimit, budgetWithCost(child.budget, cost));
 
 export const isStory = (item: Pick<WorkItem, "issue_type">) =>
   String(item.issue_type || "").trim().toLowerCase() === "story";
 
-/** Only an Epic or a Story offers "Also set for all child items". */
 export const cascades = (item: Pick<WorkItem, "issue_type">) => isEpic(item) || isStory(item);
 
-/** Every item below `item` in the same list: by `epic_key` (an epic's stories) and `parent_key` (sub-items), deep. */
 export function childItems(item: Pick<WorkItem, "id" | "source_key">, items: readonly WorkItem[]): WorkItem[] {
   const found = new Map<string, WorkItem>();
   let keys = new Set([item.source_key].filter(Boolean));
@@ -83,14 +70,12 @@ export function childItems(item: Pick<WorkItem, "id" | "source_key">, items: rea
   return [...found.values()];
 }
 
-/** The note after a cascade: how many children took the budget, and which did not. */
 export function cascadeNote(saved: number, failed: readonly string[]): string {
   const took = saved === 1 ? "1 child item" : `${saved} child items`;
   if (!failed.length) return `Saved here and on ${took}.`;
   return `Saved here and on ${took}; not saved on ${failed.join(", ")}.`;
 }
 
-/** A refused limits save in words, shown at the field. */
 export function limitsSaveError(error: unknown): string {
   const { status, code } = (error ?? {}) as { status?: number; code?: string | null };
   if (code === "invalid_run_limits" || status === 422) {

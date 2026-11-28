@@ -1,8 +1,4 @@
-// Cron helper for the scheduler form. Behaviour source:
-// backend/app/scheduler/dispatch/registration.py uses APScheduler 3
-// CronTrigger.from_crontab on an AsyncIOScheduler without an explicit time zone.
-// In APScheduler the numeric weekday counts from Monday = 0 (standard cron uses
-// Sunday = 0), so the examples use weekday names, which mean the same in both.
+// APScheduler counts numeric weekdays from Monday = 0 (cron: Sunday = 0), so the examples use weekday names.
 
 const CRON_EXAMPLES = [
   { expression: "*/15 * * * *", meaning: "every 15 minutes" },

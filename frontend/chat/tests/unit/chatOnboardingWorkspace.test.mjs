@@ -94,6 +94,7 @@ function renderHeader(props, executionTarget = { kind: "server" }) {
     useMyRole: { useMyRole: () => null },
     useThreadTranscript: { useThreadTranscript: () => ({ available: false, open() {}, viewer: null }) },
     ThreadEngineBadge: { ThreadEngineBadge: () => null },
+    useSessionPool: { useSessionPool: () => null },
   });
   let view;
   act(() => {

@@ -1,8 +1,4 @@
-"""Validation of research policy specs.
-
-Each section of a spec is checked by its own helper; all of them append to the same
-error and warning lists, in the order the sections were always checked.
-"""
+"""Validation of research policy specs."""
 
 from __future__ import annotations
 

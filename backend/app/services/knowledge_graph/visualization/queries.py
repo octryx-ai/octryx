@@ -29,12 +29,10 @@ def _node_payload(node: KnowledgeGraphNode, degree: int, *, matched: bool = Fals
 
 
 def _in_scope(column, project_id: str):
-    """The project's own rows plus the instance-global layer."""
     return (column == project_id) | (column.is_(None))
 
 
 async def _scoped_totals(db: AsyncSession, project_id: str) -> dict[str, int]:
-    """Totals of the shown scope: one project (plus global rows) or, without a project, the instance."""
     totals: dict[str, int] = {}
     for key, model, active_only in (
         ("total_nodes", KnowledgeGraphNode, True),

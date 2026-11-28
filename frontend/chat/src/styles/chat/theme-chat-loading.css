@@ -10,7 +10,7 @@
 .chat-loading__orb {
   width: 64px;
   height: 64px;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: radial-gradient(
     circle at 30% 30%,
     rgba(232, 223, 197, 0.95),

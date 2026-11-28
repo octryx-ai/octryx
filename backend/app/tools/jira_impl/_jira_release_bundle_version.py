@@ -14,8 +14,6 @@ from ._jira_helpers_resolver import _jira_resolve_cloud_assignee
 
 @dataclass(frozen=True)
 class BundleRequest:
-    """What the bundle should do, read from the tool parameters."""
-
     project_key: str
     release_name: str
     tickets: list[Any]
@@ -30,8 +28,6 @@ class BundleRequest:
 
 @dataclass(frozen=True)
 class ReleaseVersion:
-    """The created or reused Jira version the tickets point at."""
-
     version_id: str
     version_name: str
     created: bool
@@ -45,8 +41,6 @@ class ReleaseVersion:
 async def resolve_cloud_accounts(
     client: httpx.AsyncClient, jira_url: str, *, headers: dict[str, str], request: BundleRequest
 ) -> tuple[dict[str, Any] | None, dict[str, str]]:
-    """Jira Cloud has no user names: every assignee is resolved to an account before the first write,
-    so an unresolved person refuses the whole bundle instead of leaving it half created."""
     cloud_accounts: dict[str, str] = {}
     for ticket in request.tickets:
         person = str(ticket.get("assignee") or "").strip() if isinstance(ticket, dict) else ""
@@ -75,7 +69,6 @@ async def _update_existing_version(
     existing: dict[str, Any],
     version_id: str,
 ) -> None:
-    """A reused version takes a changed description or release date."""
     version_update_payload: dict[str, Any] = {}
     if request.version_description and str(existing.get("description") or "").strip() != request.version_description:
         version_update_payload["description"] = request.version_description

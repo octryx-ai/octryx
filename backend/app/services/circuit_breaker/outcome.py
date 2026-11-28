@@ -1,16 +1,4 @@
-"""Which tool results count for a connector's circuit breaker.
-
-The breaker protects the platform from a connector that is down. A result that only says *we* may not or did not ask
-correctly is no sign of that: three repository-policy denials ("operation is disabled by the configured repository
-policy") opened ``github@platform``, and the next, allowed status post to GitHub was blocked.
-
-- **counts as a failure**: an error without such a sign: a 5xx, a timeout, a network or connection error, a 429
-  (the provider is throttling us), an unexplained tool error;
-- **counts as nothing** (neither failure nor success): a denial by our own policy (``denied_by_policy``, a
-  ``policy`` on the result, "denied by ... policy", "is disabled by the configured"), a missing or invalid
-  configuration or argument of ours, and a 4xx other than 408 / 429 (unauthorized, forbidden, not found, conflict,
-  validation): the request, not the connector, was the problem.
-"""
+"""Which tool results count for a connector's circuit breaker."""
 
 from __future__ import annotations
 
@@ -42,7 +30,6 @@ def _status(result: dict[str, Any]) -> int | None:
 
 
 def breaker_outcome(result: Any) -> str:
-    """``failure``, ``ignored`` or ``success`` of one tool result for its connector's breaker."""
     if not isinstance(result, dict) or "error" not in result:
         return SUCCESS
     category = str(result.get("error_category") or result.get("category") or "").strip().lower()

@@ -6,8 +6,9 @@ import type {
 } from "./companionTypes";
 import { optStr, pick, record, str } from "./companionValues";
 
-// "handover": a run handed over to the person (accept/decline).
-const KINDS: AttentionKind[] = ["question", "gate", "device_approval", "done", "problem", "budget", "allowance", "handover", "live", "turn"];
+// "handover": a session (or run) handed over to the person (accept/decline); "pool": one the person can take over.
+const KINDS: AttentionKind[] = ["question", "gate", "device_approval", "done", "problem", "budget", "allowance", "handover", "live", "turn",
+  "pool"];
 const RUN_STATES: RunState[] = ["working", "needs_you", "done", "problem"];
 const METHODS: AttentionRequest["method"][] = ["POST", "PUT", "PATCH", "DELETE"];
 
@@ -58,7 +59,8 @@ export function readAttentionItem(value: unknown): AttentionItem | null {
   const percent = typeof item.percent === "number" && Number.isFinite(item.percent) ? item.percent : null;
   // An activity problem about a run (looping, silent, jobs refused) is the run's own entry.
   const problemRun = kind === "problem" && str(record(record(item.problem)?.object)?.type) === "workflow_run";
-  const runId = str(record(item.run)?.id) || (/^(run|done|handover):/.test(key) || problemRun ? str(item.id) : "");
+  // A handover's id is its session when no run moves with it: only its run reference names a run.
+  const runId = str(record(item.run)?.id) || (/^(run|done):/.test(key) || problemRun ? str(item.id) : "");
   return {
     key, kind, id: str(item.id), title: str(item.title) || kind.replace("_", " "),
     subtitle: str(item.subtitle), createdAt: optStr(item.created_at), expiresAt: optStr(item.expires_at),

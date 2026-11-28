@@ -9,8 +9,11 @@ from app.services.workflow_runs.records import new_chat_session
 from app.services.workflow_runs.review.model import ReviewAnswer
 from app.services.workflow_runs.review.runner import run_due_reviews
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_pause import _turn
 from tests.workflow_run_review_support import CHANGES, PASS, ScriptedReviewer, _started
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _contract(*criteria):
@@ -19,8 +22,6 @@ def _contract(*criteria):
 
 
 class PartsReviewer(ScriptedReviewer):
-    """Notes for each part of the change, then the verdict."""
-
     async def answer(self, *, system: str, user: str) -> ReviewAnswer:
         parted = "Do not give a verdict now" in system
         self.answers = [{"notes": [{"file": "big.py", "line": 3, "severity": "low", "problem": "naming"}],
@@ -100,9 +101,6 @@ def test_a_change_too_large_for_one_call_is_split_into_parts_that_hold_all_of_it
 
 @pytest.mark.asyncio
 async def test_every_reviewer_call_of_a_large_change_stays_below_the_price_tier(db, tmp_path, monkeypatch):
-    """A verdict call that carries the whole change can exceed 100K input tokens. A change over the call budget is
-    read in parts first; the verdict call gets
-    the parts' notes instead of the change, and no call is above the budget."""
     from app.services.workflow_runs.review import reading
 
     # A small budget (the frame of a run in its Workspace still fits), so the test change is "large".
@@ -127,8 +125,6 @@ async def test_every_reviewer_call_of_a_large_change_stays_below_the_price_tier(
 
 @pytest.mark.asyncio
 async def test_a_review_call_above_the_haiku_price_tier_is_priced_at_the_step(db, monkeypatch):
-    """A review call above the 100K-token tier is priced at that tier in usage_events, not as if below it; above it
-    the whole call costs ×5."""
     from decimal import Decimal
     from types import SimpleNamespace
 

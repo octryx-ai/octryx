@@ -19,7 +19,6 @@ def secret_tool_name(server_name: str) -> str:
 
 
 def runtime_registration_id(mcp_client_manager: Any, server_name: str) -> str | None:
-    """Return the registry identity occupying the process-wide runtime name."""
     config = mcp_client_manager.get_server(server_name)
     metadata = getattr(config, "metadata", None)
     if not isinstance(metadata, dict):
@@ -33,7 +32,7 @@ async def registration_is_connected(
     *,
     mcp_client_manager: Any,
 ) -> bool:
-    """Trust a live runtime slot only when it belongs to this persisted row."""
+    # A live runtime slot is trusted only when it belongs to this persisted row.
     if runtime_registration_id(mcp_client_manager, registration.name) != registration.id:
         return False
     return await mcp_client_manager.is_connected(registration.name)
@@ -158,6 +157,7 @@ async def resolved_runtime_config(
                 expected_tool_name=secret_tool_name(registration.name),
                 expected_field_name=binding.field_name,
                 expected_project_id=registration.workspace_id,
+                purpose="mcp_server.launch",
             )
             if secret is None:
                 return None

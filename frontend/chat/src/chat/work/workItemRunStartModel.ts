@@ -1,12 +1,7 @@
 import type { RuntimeTargetChoices, RuntimeTargetOption } from "../workflowRun/runtimeTargetModel";
 
-// Starting a workflow run from a Work Item. Pure: no React.
-//
-// "Start run" is the primary action; while it cannot start, it is disabled, neutral and says why. The run
-// location's sentence stands below its select, so the select's label is never cut. Repository, branch and the
-// run limits are rare choices and live under "Advanced".
+// The location's sentence stands below its select, so the select's label is never cut.
 
-/** Why "Start run" cannot be pressed now; null when it can. */
 export function startRunBlockedReason(workflowKey: string, busy: boolean, projectId: string | null | undefined): string | null {
   if (busy) return "Starting…";
   // A workflow run needs a Workspace (the server refuses it with `workspace_required`).
@@ -15,13 +10,11 @@ export function startRunBlockedReason(workflowKey: string, busy: boolean, projec
   return null;
 }
 
-/** The run location the select shows: the person's choice, else the server's default. */
 export function chosenTarget(targets: RuntimeTargetChoices, targetKey: string): RuntimeTargetOption | null {
   const key = targetKey || targets.default;
   return targets.options.find((option) => option.key === key) ?? null;
 }
 
-/** The sentence below the run location: the server's help, or what an offline device means. */
 export function targetHelp(option: RuntimeTargetOption | null): string {
   if (!option) return "";
   const help = typeof option.help === "string" ? option.help.trim() : "";
@@ -30,7 +23,6 @@ export function targetHelp(option: RuntimeTargetOption | null): string {
   return "";
 }
 
-/** Whether "Advanced" opens by itself: only when one of its fields already holds a value. */
 export function advancedOpen(repository: string, branch: string, limits: string): boolean {
   return Boolean(repository.trim() || branch.trim() || limits.trim());
 }

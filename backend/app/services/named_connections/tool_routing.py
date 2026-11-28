@@ -1,32 +1,4 @@
-"""Route a connector tool call to the connection of its scope, for every descriptor connector.
-
-Every connector tool call of a Workspace with named connections passes here (the chat dispatch in
-``tools/registry.py`` and the MCP connector tools), so no tool chooses an account itself:
-
-- **A call naming its scope** (the descriptor's ``request_keys``: Confluence ``space_key``; Jira
-  ``project_key`` or the project of ``ticket_id``/``ticket_ids``; the ServiceNow ``table``, implicit for
-  incidents and changes) runs with
-  the config of the one connection that serves it (``resolver.py``). Keys served by two connections
-  are refused (``scope_spans_connections``); a key no connection may serve is refused
-  (``connection_not_configured_for_scope``).
-- **A search without a scope** (the descriptor's ``fan_out_tools``) runs once per
-  connection, each restricted to its own scopes (a named connection to its bound keys, the default to
-  its allowlist without them), and the results are merged with a per-connection summary.
-- **Any other call without a scope** (a page or ticket list by id, boards, priorities) runs on the
-  default connection, whose allowlist no longer holds any bound key: the tool's own allowlist check
-  refuses an item of a bound scope instead of reading it with the wrong account.
-
-Which connection a call runs on is planned first, purely (``route_planner.py``: the explicit ``connection``
-argument, keys, fan-out, the descriptor's ``unscoped`` rule and every refusal); the policy decisions see
-the same plan. Before a call runs on a named connection, the descriptor's ``runtime_guard`` (no fallback
-to a host or platform credential) and ``request_guard`` (e.g. allowed namespaces) apply. The
-``connection`` argument itself never reaches the tool.
-
-A Workspace without named connections for the connector is passed through unchanged. A config whose
-routes lost their type (``resolver.ROUTES_UNAVAILABLE``) refuses every connector call
-(``named_connection_routes_unavailable``) instead. Only the secret of the connection a call runs on is
-resolved (``resolver.with_secrets``).
-"""
+"""Route a connector tool call to the connection of its scope, for every descriptor connector."""
 
 from __future__ import annotations
 
@@ -53,14 +25,12 @@ REASON_REQUEST_NOT_ALLOWED = "named_connection_request_not_allowed"
 
 
 def scope_keys(tool: str, tool_name: str, params: dict) -> tuple[str, ...]:
-    """The scope keys a call names, canonical and de-duplicated (``()`` for none)."""
     descriptor = descriptor_of(tool)
     return _plan_scope_keys(descriptor, tool_name, params) if descriptor is not None else ()
 
 
 def _guarded(descriptor: ConnectorDescriptor, connection: ResolvedNamedConnection | None, config: dict,
              tool_name: str, params: dict) -> dict[str, Any] | None:
-    """The refusal of a named connection's runtime or request guard, or ``None``."""
     if connection is None:
         return None
     label = {"connection": connection.name, "connection_id": connection.id}
@@ -101,7 +71,6 @@ async def _run_on(
 
 
 def _on_connection(context: Any, config: dict, connection: ResolvedNamedConnection | None) -> Any:
-    """``context`` with the connection's config and, where the context carries it, the connection's id."""
     if hasattr(context, "connection_id"):
         return replace(context, project_config=config, connection_id=connection_ref(connection))
     return replace(context, project_config=config)
@@ -111,7 +80,6 @@ async def _fan_out(
     plan: RoutePlan, routes: NamedConnectionRoutes, base: dict, tool_name: str, params: dict, context: Any,
     execute: Execute,
 ) -> dict[str, Any]:
-    """One search per connection, each on its own scopes; results merged, failures named per connection."""
     descriptor = plan.descriptor
     tool = descriptor.connector
     bound = routes.bound_keys(tool)
@@ -141,10 +109,6 @@ async def _fan_out(
 
 
 async def routed_execute(tool_name: str, params: dict, context: Any, execute: Execute) -> Any:
-    """Run ``execute`` with the config of the connection that serves this call (see the module doc).
-
-    Every connector call passes here, also the ones that skip the registry (named-connection MCP tools, Teams
-    replies): its arguments lose any fence marker a model or a flow copied in (fence only at a model's input)."""
     from ..content_security.knowledge_fence import unfenced_result
 
     params = unfenced_result(params)

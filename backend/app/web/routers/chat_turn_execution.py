@@ -68,10 +68,7 @@ async def chat_turn_execution_summary_api(
 
 async def _prepare_answer(db: AsyncSession, *, session_id: str, user_id: str,
                           payload: WorkflowProposalDecisionRequest) -> None:
-    """"Other workflow…" replaces the pending proposal's workflow (422 for a key outside the person's catalog); a
-    chosen run location and repository are recorded on the start card before the answer starts the run, and a
-    phased start without its Workspace (typed ``needs_configuration`` / ``workspace_required``) or its repository is
-    refused (409) before anything is decided."""
+    # A phased start without its Workspace or repository is refused (409) before anything is decided.
     from sqlalchemy import select
 
     session = (await db.execute(select(AgentSession).where(
@@ -119,7 +116,7 @@ async def _prepare_answer(db: AsyncSession, *, session_id: str, user_id: str,
 
 
 async def _check_card_model(db, session, *, user_id: str, run_on: str, model: str) -> None:
-    """A card model only for a device location and only one the device may run there (422 before anything starts)."""
+    # A card model only for a device location and only one the device may run there; refused before anything starts.
     from ...models import User
     from ...services.devices.device_models import admitted_device_model
     from ...services.workflow_routing.phased_start import chosen_start
@@ -144,13 +141,7 @@ async def chat_workflow_proposal_decision_api(
     payload: WorkflowProposalDecisionRequest = Body(...),
     db: AsyncSession = Depends(get_db),
 ):
-    """Answer the pending workflow proposal by deciding its one approval record; idempotent.
-
-    ``apply`` (Allow once) and ``always`` (also a standing Workspace confirmation) approve the
-    record, ``skip`` (Deny) rejects it; the approval resume re-sends the held message once — or, for a
-    phased workflow, creates the Work item and starts its run (``phased_start``). ``other`` with a
-    ``workflow_key`` of the person's catalog shows the card for that workflow instead (422 otherwise).
-    """
+    """Answer the pending workflow proposal by deciding its one approval record; idempotent."""
     user = await _require_api_user(request, db)
     if payload.decision != "skip":
         await _prepare_answer(db, session_id=session_id, user_id=user.id, payload=payload)

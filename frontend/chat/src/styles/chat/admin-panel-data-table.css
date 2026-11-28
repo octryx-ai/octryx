@@ -19,7 +19,7 @@
   padding: 0 var(--ds-cell-pad-x, 0.75rem);
   color: var(--ds-header-ink, var(--muted));
   font-size: var(--ds-font-size-small, 0.74rem);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   white-space: nowrap;
   border-bottom: 1px solid var(--ds-line-strong, var(--border));
   background: var(--ds-surface-raised, var(--surface-overlay-strong));
@@ -48,10 +48,6 @@
   background: var(--ds-surface-hover, var(--surface-overlay-strong));
 }
 
-.admin-panel__row--inactive td {
-  opacity: 0.45;
-}
-
 .admin-panel__cell--muted {
   color: var(--muted) !important;
   font-size: var(--ds-text-sm);
@@ -69,7 +65,7 @@
   background: var(--ds-tone-neutral-bg, var(--surface-overlay));
   color: var(--ds-tone-neutral-ink, var(--muted-strong));
   font-size: var(--ds-font-size-small, 0.74rem);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   line-height: 1.35;
   white-space: nowrap;
 }
@@ -87,7 +83,7 @@
 }
 
 .admin-panel__badge--inactive {
-  font-weight: 500;
+  font-weight: var(--ds-weight-medium);
 }
 
 .admin-panel__badge--warning {
@@ -113,7 +109,7 @@
   background: color-mix(in srgb, var(--status-error) 7%, transparent);
   color: var(--status-error);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: pointer;
   transition:
     background 140ms ease,
@@ -143,7 +139,7 @@
 
 .admin-overview-card__label {
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-transform: uppercase;
   letter-spacing: 0.1em;
   color: var(--muted);
@@ -152,7 +148,7 @@
 .admin-overview-card__value {
   margin-top: 0.5rem;
   font-size: var(--ds-text-2xl);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: -0.04em;
   color: var(--text);
 }

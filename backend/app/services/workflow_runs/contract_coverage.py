@@ -1,38 +1,4 @@
-"""A TDD run's test contract must specify the new behaviour.
-
-Without this check a Clarify agent could submit a test contract of only existing tests, every one ``regression``
-and none ``new``: ``phase_outputs._test_contract`` accepted it, the Clarify check passed, and the confirmation card
-showed a contract under which "Tests first" had nothing that must fail and the run would have delivered nothing.
-
-When the run's own graph says it is test-first — a gate checks ``tests_red`` (the contract's new tests must fail before
-the change) — a submitted test contract is checked against these limits:
-
-1. **At least one ``new`` test, and a ``new`` test is proven new** (:func:`new_test_refusals`).
-   ``new`` is a concrete test case — ``file::test_x`` or ``file::Class::test_x`` — the run's base does not define
-   (read from the run's working copy at its base commit; Python resolved with ``ast``), or a whole file the base tree
-   provably does not have. An existing file, class or test, a folder, or any form that cannot be proven is refused —
-   relabelling an existing test never passes the gate. Absence counts only from a successful tree lookup; a git
-   error, timeout or unreadable blob refuses ``needs_configuration`` and records nothing.
-2. **Only real Work-item criteria need a new test.** The structured source is the confirmed Definition of Ready of the
-   item's triage run (Workflow A, ``context.definition_of_ready.acceptance_criteria``), addressed ``AC1``…``ACn`` in
-   that order: each needs a contract criterion with that id and at least one ``new`` test (or ``manual_only`` with its
-   reason). Further criteria the agent adds (regressions) may stay regression-only. A free-text description is never
-   parsed into criteria.
-3. **The source is named, coverage is not claimed.** Every refusal names where the criteria came from; the recorded
-   contract carries ``criteria_source`` — the source, or that the item has none, and that whether the tests prove
-   the ticket stays the person's check. Nothing here judges semantic coverage from counts or labels.
-4. **An automatic refusal is no decision.** It is a failed submit: nothing is recorded or replaced (the existing
-   contract stays as it was), no confirmation, no human rejection, no loop is consumed; the phase's ``tool_called``
-   check fails, the agent gets the checks reminder and submits again.
-
-The person's confirmation stays its own gate; nothing here writes tests. Regression tests stay allowed, ``manual_only``
-is unaffected, and a run whose graph has no ``tests_red`` gate (any other output, any other workflow) is unaffected.
-
-A test contract for a typed accepted-spec child instead consumes the exact parent criteria, stable IDs and
-Given/When/Then through the public current-receiver authority resolver. This strict path precedes the graph's
-``tests_red`` guard: an unavailable spec never falls back to DoR or free text. It requires genuine new tests/manual
-reasons but does not add a Red gate or claim semantic coverage. The eventual engineering graph owns its real Red gate.
-"""
+"""A TDD run's test contract must specify the new behaviour."""
 
 from __future__ import annotations
 
@@ -61,7 +27,6 @@ def _checks(config: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def graph_requires_new_tests(graph: Any) -> bool:
-    """True when the graph has a gate that needs the contract's new tests failing first (``tests_red``)."""
     return any(node.kind == NODE_GATE and any(check.get("type") == TESTS_RED_CHECK for check in _checks(node.config))
                for node in graph.nodes.values())
 
@@ -71,8 +36,6 @@ async def requires_new_tests(db: AsyncSession, run: WorkflowRun) -> bool:
 
 
 async def structured_criteria(db: AsyncSession, run: WorkflowRun) -> tuple[list[str], str]:
-    """``(criteria, source)``: the Work item's acceptance criteria from its confirmed Definition of Ready (triage
-    outcome ``done``) and that run's id, else ``([], '')``."""
     from .definition_of_ready import DOR_KEY, TRIAGE_WORKFLOW_KEY
 
     if not run.work_item_id:
@@ -98,13 +61,10 @@ _COPY_UNREADABLE = ("the run's working copy at its base commit could not be read
 
 
 def _is_test_name(name: str) -> bool:
-    """A name pytest collects as a test case (``test*`` functions and methods)."""
     return name.startswith("test")
 
 
 def _python_scope(content: str, chain: list[str]) -> tuple[str, str] | None:
-    """What ``file::A::B::name`` resolves to at the base: ``(kind, '')`` with kind ``function`` | ``class`` |
-    ``absent``, or ``None`` when the file does not parse (unprovable)."""
     try:
         body: list[ast.stmt] = ast.parse(content).body
     except SyntaxError:
@@ -122,16 +82,7 @@ def _python_scope(content: str, chain: list[str]) -> tuple[str, str] | None:
 
 
 async def new_test_refusals(run: WorkflowRun, test_ids: list[str]) -> tuple[list[str], str]:
-    """``(refusals, '')`` for the selectors marked ``new`` that are not proven new test cases at the run's base, or
-    ``([], why)`` when the base could not be read (``needs_configuration``; nothing is assumed).
-
-    Allowed as ``new``: a concrete test case — ``file::test_x`` or ``file::Class::test_x`` (any nesting) — that the
-    base does not define, in a file that exists or not; or a whole file the base tree provably does not have. Refused:
-    a file, class or folder that exists, a test the base defines, and any form that cannot be proven (a directory, a
-    name without its file, a name pytest does not collect, a file that does not parse). Absence counts only from a
-    successful tree lookup (``git ls-tree <base> -- <path>`` answering nothing); any git error, timeout or unreadable
-    blob is ``needs_configuration``.
-    """
+    # Absence counts only from a successful tree lookup; any git error is needs_configuration, never assumed new.
     from . import safe_git
     from .phase_workspace import run_working_copy
 
@@ -187,9 +138,6 @@ async def new_test_refusals(run: WorkflowRun, test_ids: list[str]) -> tuple[list
 async def check_contract_coverage(
     db: AsyncSession, run: WorkflowRun, record: dict[str, Any], *, principal: User | None = None
 ) -> tuple[dict[str, Any], list[str], str]:
-    """``(record, problems, reason)`` for a submitted contract (roles resolved): unchanged and ``[]`` outside a
-    test-first run unless spec-bound. A claimed spec requires actual-principal authority before the graph guard;
-    ``needs_configuration`` refuses unavailable authority or an unreadable base without replacing a contract."""
     from .specification.engineering_contract import accepted_spec_criteria, criterion_text
 
     try:

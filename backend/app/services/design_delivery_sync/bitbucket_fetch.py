@@ -7,16 +7,14 @@ from typing import Any
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.atlassian_auth_modes import BITBUCKET
+from app.services.connector_auth.atlassian_modes import BITBUCKET
 
-from ..atlassian_auth import credential_auth, resolve_credential
+from ..connector_auth.atlassian import credential_auth, resolve_credential
 from ..outbound_egress import CONNECTION_BITBUCKET, egress_transport
 from .scm_common import resolved_bitbucket_config
 
 
 def _auth(config: dict[str, Any]) -> httpx.Auth | None:
-    """The connection's sign-in (``cloud_api_token``, ``basic``, ``bearer_pat``, OpenID Connect); ``None``: nothing is
-    read."""
     credential = resolve_credential(BITBUCKET, config)
     return credential_auth(credential) if credential is not None else None
 

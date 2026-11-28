@@ -1,9 +1,5 @@
-"""Where a hook process's time goes: one line per hook in the launcher's ``logs/hook-timings.jsonl``.
-
-Each step's seconds since the process started name the step. The ``exit`` mark comes from ``atexit``: when Claude Code's
-own duration is far above it, the time went after the hook's code (a child or thread holding the process).
-Local only, and no content: step names and seconds.
-"""
+"""Where a hook process's time goes: one line per hook in ``logs/hook-timings.jsonl``, step names and seconds only.
+The ``exit`` mark comes from ``atexit``, so time after it went to a child or thread holding the process."""
 
 from __future__ import annotations
 
@@ -48,7 +44,6 @@ _current: HookTimer | None = None
 
 
 def start(event: str, folder: Callable[[], Path]) -> HookTimer:
-    """The process's timer; written at exit into ``folder()`` (resolved then, after the launcher's state is known)."""
     global _current
     timer = _current = HookTimer(event)
 
@@ -64,7 +59,6 @@ def start(event: str, folder: Callable[[], Path]) -> HookTimer:
 
 
 def start_for(argv: list[str]) -> None:
-    """A hook command (``hook <event>``) times itself; both entry points call this first."""
     if argv[:1] == ["hook"] and len(argv) >= 2 and _current is None:
         start(argv[1], _log_folder)
 
@@ -76,7 +70,6 @@ def _log_folder() -> Path:
 
 
 def mark(step: str, **facts: str) -> None:
-    """A step of the running hook; nothing outside a hook process."""
     if _current is not None:
         _current.mark(step)
         _current.facts.update({key: str(value)[:80] for key, value in facts.items()})

@@ -1,6 +1,5 @@
 import pytest
 
-from app.agent.core.context.run_context_tooling import build_run_context_tool_definitions
 from app.tools import discovery_impl
 from app.tools.context import ToolContext
 from app.tools.definitions import get_tool_definition_metadata
@@ -76,54 +75,8 @@ def test_connector_visibility_allows_active_connector_tools() -> None:
     assert _names(filtered) == ["knowledge_search", "search_jira_tickets"]
 
 
-@pytest.mark.asyncio
-async def test_runtime_tool_definition_assembly_hides_inactive_connector_tools() -> None:
-    tool_definitions = await build_run_context_tool_definitions(
-        db=None,
-        tool_context=_context({}),
-        capability_type="diagnosis",
-        include_tools=True,
-        tool_allowlist=[],
-        blocked_tools=[],
-        agent_definition=None,
-        get_all_tools_with_plugins=lambda *, agent_type: [
-            _tool("knowledge_search"),
-            _tool("search_jira_tickets"),
-        ],
-        filter_tool_definitions=lambda definitions, allowlist: [
-            definition for definition in definitions if definition.get("function", {}).get("name") in set(allowlist)
-        ],
-        exclude_tool_definitions=lambda definitions, blocked: [
-            definition for definition in definitions if definition.get("function", {}).get("name") not in set(blocked)
-        ],
-    )
-
-    assert _names(tool_definitions) == ["knowledge_search"]
 
 
-@pytest.mark.asyncio
-async def test_runtime_tool_definition_assembly_keeps_active_connector_tools() -> None:
-    tool_definitions = await build_run_context_tool_definitions(
-        db=None,
-        tool_context=_context({"connectors": {"jira": {"enabled": True}}}),
-        capability_type="diagnosis",
-        include_tools=True,
-        tool_allowlist=[],
-        blocked_tools=[],
-        agent_definition=None,
-        get_all_tools_with_plugins=lambda *, agent_type: [
-            _tool("knowledge_search"),
-            _tool("search_jira_tickets"),
-        ],
-        filter_tool_definitions=lambda definitions, allowlist: [
-            definition for definition in definitions if definition.get("function", {}).get("name") in set(allowlist)
-        ],
-        exclude_tool_definitions=lambda definitions, blocked: [
-            definition for definition in definitions if definition.get("function", {}).get("name") not in set(blocked)
-        ],
-    )
-
-    assert _names(tool_definitions) == ["knowledge_search", "search_jira_tickets"]
 
 
 @pytest.mark.asyncio

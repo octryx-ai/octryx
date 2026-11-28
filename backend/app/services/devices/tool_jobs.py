@@ -1,21 +1,5 @@
 """Device jobs without an agent: the launcher's pinned tools run on code the platform sent (one transport and one job
-type for the PR review bot's scan and the check proof of From Correction to Check).
-
-- :func:`offer` (any process) stores the job: its archives (``tree_archive.Archive``, bytes in the database until
-  sent), its ``steps`` and the ``candidates``, the devices that may run it, in order of preference. It never waits.
-- the channel tick (:func:`deliver`, API process, per connected device) claims a pending job for the first candidate
-  that is connected and reports every tool of ``needs`` (compare-and-set: one device only), offers its archives for
-  that device (``tree_archive.offer``) and sends ``tool_job {job_id, archives, steps, timeout}``;
-- the device answers ``tool_job_result {job_id, steps}`` (raw: status, exit code, output ends, the files each step
-  wrote, a large one as an upload reference) or ``tool_job_failed {job_id, reason}`` (:func:`apply_message`). The
-  platform judges the result, never the launcher;
-- :func:`result` answers ``None`` while the job runs, then ``{state, reason, device_id, steps}``; a job nobody
-  finished within its ``timeout_seconds`` becomes ``timeout``. ``on_done`` (``"module:function"`` under
-  ``app.services``) is called once when the job ends, with ``(db, job)``.
-
-A step: ``{id, tool, args, timeout, outputs}``; in ``args`` ``{archive:<name>}`` is that archive's unpacked folder and
-``{out:<file>}`` a file in the job's output folder (``outputs`` names those files). Nothing runs through a shell.
-"""
+type for the PR review bot's scan and the check proof of From Correction to Check)."""
 
 from __future__ import annotations
 
@@ -74,7 +58,6 @@ async def offer(db: AsyncSession, *, purpose: str, candidates: list[str], archiv
                 steps: list[dict[str, Any]], needs: list[str] | None = None, requested_by: str | None = None,
                 workspace_id: str | None = None, timeout_seconds: int = 600,
                 on_done: str | None = None) -> DeviceToolJob:
-    """Store the job (flushed, not committed); :class:`ToolJobError` for a job that could never run."""
     timeout = max(10, min(int(timeout_seconds), MAX_TIMEOUT))
     names = [archive.name for archive in archives]
     if len(set(names)) != len(names) or not all(_NAME.match(name) for name in names):
@@ -103,7 +86,6 @@ async def offer(db: AsyncSession, *, purpose: str, candidates: list[str], archiv
 
 
 async def devices_of(db: AsyncSession, user_ids: list[str]) -> list[str]:
-    """The active, unpaused devices of these people, in the people's order (a candidate list for :func:`offer`)."""
     rows = (await db.execute(select(UserDevice.id, UserDevice.owner_user_id).where(
         UserDevice.owner_user_id.in_(user_ids), UserDevice.status == DEVICE_STATUS_ACTIVE,
         UserDevice.paused.is_(False)).order_by(UserDevice.created_at))).all()
@@ -117,7 +99,6 @@ def _due(job: DeviceToolJob) -> bool:
 
 async def _finish(db: AsyncSession, job: DeviceToolJob, state: str, *, reason: str = "",
                   result: dict[str, Any] | None = None) -> bool:
-    """Compare-and-set from an open state; ``on_done`` once. ``False`` when the job had ended already."""
     changed = (await db.execute(update(DeviceToolJob).where(DeviceToolJob.id == job.id,
                                                             DeviceToolJob.state.in_(OPEN)).values(
         state=state, reason=reason[:300] or None, result=result, finished_at=utc_now()))).rowcount
@@ -137,7 +118,6 @@ async def _finish(db: AsyncSession, job: DeviceToolJob, state: str, *, reason: s
 
 
 async def expire(db: AsyncSession) -> int:
-    """Jobs past their time become ``timeout`` (no device took them, or the device never answered)."""
     jobs = (await db.execute(select(DeviceToolJob).where(DeviceToolJob.state.in_(OPEN)).order_by(
         DeviceToolJob.created_at).limit(50))).scalars().all()
     ended = 0
@@ -150,7 +130,6 @@ async def expire(db: AsyncSession) -> int:
 
 
 async def deliver(db: AsyncSession, connection: Any) -> int:
-    """Claim and send the pending jobs this connected device may run (the channel tick)."""
     have = {key for key, version in dict(getattr(connection, "tools", None) or {}).items() if version}
     jobs = (await db.execute(select(DeviceToolJob).where(DeviceToolJob.state == PENDING).order_by(
         DeviceToolJob.created_at).limit(50))).scalars().all()
@@ -207,7 +186,6 @@ def _reported(raw: Any, job: DeviceToolJob) -> list[dict[str, Any]]:
 
 
 async def apply_message(db: AsyncSession, device_id: str, message_type: str, body: dict[str, Any]) -> bool:
-    """The device's answer to a job it was sent; anything else (another device's job, an ended one) is ignored."""
     job = await db.get(DeviceToolJob, str(body.get("job_id") or ""))
     if job is None or job.device_id != device_id or job.state != SENT:
         return False
@@ -217,7 +195,6 @@ async def apply_message(db: AsyncSession, device_id: str, message_type: str, bod
 
 
 async def result(db: AsyncSession, job_id: str) -> dict[str, Any] | None:
-    """``None`` while the job runs; then ``{state, reason, device_id, steps}``."""
     job = await db.get(DeviceToolJob, job_id)
     if job is None:
         return {"state": FAILED, "reason": "unknown tool job", "device_id": None, "steps": []}

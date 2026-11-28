@@ -1,10 +1,4 @@
-"""The Spec Studio artefact (phase output ``spec_studio``): normalised record plus the problems that refuse it.
-
-The record is data the Studio renders and the platform reasons about, never free text: the live mock is built from
-``design`` tokens and ``screens`` blocks, the questions are buttons, the rules carry worked examples. A refused
-proposal lists every problem at once, so the agent fixes it in one go. Content is never cut (no artificial
-limits); only the shape is checked.
-"""
+"""The Spec Studio artefact (phase output ``spec_studio``): normalised record plus the problems that refuse it."""
 
 from __future__ import annotations
 
@@ -17,7 +11,6 @@ COLOR_KEYS = ("bg", "surface", "text", "muted", "accent", "ok", "warn")
 OPTIONAL_COLOR_KEYS = ("error",)
 ZERO_CONFIG = ("yes", "no")
 TONES = ("neutral", "ok", "warn", "error", "accent")
-# The mock's building blocks. Each has the fields the renderer reads; ``blocks`` nests (card, row).
 BLOCKS: dict[str, tuple[str, ...]] = {
     "eyebrow": ("text",), "title": ("text",), "text": ("text",), "muted": ("text",),
     "card": ("title", "blocks"), "row": ("blocks",),
@@ -184,7 +177,6 @@ def _unique(items: list[dict[str, Any]], what: str, problems: list[str]) -> None
 
 
 def validate_spec_studio(raw: dict[str, Any]) -> tuple[dict[str, Any], list[str]]:
-    """The normalised artefact and the problems that refuse it (shape only; the gates judge the content)."""
     problems: list[str] = []
     mode = _t(raw.get("spec_mode") or raw.get("mode")) or "new"  # tools say spec_mode: no MCP tool has "mode"
     target = _t(raw.get("target")) or "web"

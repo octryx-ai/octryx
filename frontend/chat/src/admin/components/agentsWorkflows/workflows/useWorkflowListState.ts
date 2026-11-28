@@ -1,12 +1,11 @@
 // The Workflows list's state: the overview, the search and filters, the open workflow, unsaved-edit guarding and
-// the On/Off switch per workflow; plus the address change for starting a new flow.
+// the On/Off switch per workflow.
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from "react";
 
 import { useAdminNavigation } from "../../../adminNavigation";
-import { NEW_FLOW_PARAM } from "../../../editorLinks";
 import type { ReadJsonFn } from "../../../hooks/useAdminTabLoader.types";
 import {
-  listUrl, readOpenWorkflow, requestLeave, type KindFilter, type ListedWorkflow, type OpenWorkflow, type WorkflowsListView,
+  readOpenWorkflow, requestLeave, type ListedWorkflow, type OpenWorkflow,
 } from "./workflowListModel";
 import {
   WORKFLOWS_OVERVIEW_PATH, flowActivePath, readWorkflowsOverview, type ScopeFilter, type WorkflowsOverview,
@@ -40,13 +39,10 @@ export function useWorkflowListState(readJson: ReadJsonFn) {
   const [query, setQuery] = useState("");
   const [capability, setCapability] = useState("");
   const [scope, setScope] = useState<ScopeFilter>("all");
-  const [kind, setKind] = useState<KindFilter>("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [open, setOpen] = useState<OpenWorkflow>(() => readOpenWorkflow(window.location.search));
-  // A create request for a flow (`new_flow`, from "+ New workflow" or a workspace's link) opens the builder's drawer.
-  const [creatingFlow, setCreatingFlow] = useState(() => new URLSearchParams(window.location.search).get(NEW_FLOW_PARAM) === "1");
   const [showTestFlows, setShowTestFlows] = useState(false);
-  // Unsaved edits in the open editor (both editors report them); leaving waits for the ConfirmDialog.
+  // Unsaved edits in the open editor (it reports them); leaving waits for the ConfirmDialog.
   const [dirty, setDirty] = useState(false);
   const [pendingLeave, setPendingLeave] = useState<(() => void) | null>(null);
   const leave = (action: () => void) => {
@@ -68,20 +64,10 @@ export function useWorkflowListState(readJson: ReadJsonFn) {
   const toggleActive = (item: ListedWorkflow, active: boolean) =>
     switchActive(readJson, item, active, setSwitching, setProblem, setOverview);
   return {
-    openAdminTab, overview, problem, setProblem, query, setQuery, capability, setCapability, scope, setScope, kind, setKind,
-    filtersOpen, setFiltersOpen, open, setOpen, creatingFlow, setCreatingFlow, showTestFlows, setShowTestFlows, setDirty,
+    openAdminTab, overview, problem, setProblem, query, setQuery, capability, setCapability, scope, setScope,
+    filtersOpen, setFiltersOpen, open, setOpen, showTestFlows, setShowTestFlows, setDirty,
     pendingLeave, setPendingLeave, leave, load, switching, toggleActive,
   };
 }
 
 export type WorkflowListState = ReturnType<typeof useWorkflowListState>;
-
-// Opens the flow builder's create drawer on this page's canvas.
-export function startNewFlow(state: WorkflowListState, onListView: (view: WorkflowsListView) => void) {
-  const url = new URL(listUrl(window.location.href, "canvas", null), window.location.origin);
-  url.searchParams.set(NEW_FLOW_PARAM, "1");
-  window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
-  state.setOpen(null);
-  state.setCreatingFlow(true);
-  onListView("canvas");
-}

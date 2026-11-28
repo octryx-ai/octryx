@@ -1,16 +1,5 @@
-"""The closed, versioned registry of Evidence index operations.
-
-Every interaction the product has with the Evidence index is a named entry here: a **read** or a
-**write** with a **fixed parameter name set**. A caller passes an operation key and parameter values,
-never statement text; the statement behind each key is fixed in ``postgres_statements``. The registry
-deliberately contains exactly one delete, by the unique ``evidence_key``: the index mirrors the
-ledger's *current* revisions, so the spans of a superseded or tombstoned revision are removed again
-(the ledger keeps them as history).
-
-Source ACL facets. Every span write sets the span's ``acl_keys`` marker and every retrieval operation
-carries ``principals``, so a restricted span is filtered inside the statement, never after it
-(``access/acl_keys.py``).
-"""
+"""The closed, versioned registry of Evidence index operations. Callers pass an operation key and parameters, never
+statement text."""
 
 from __future__ import annotations
 
@@ -24,16 +13,12 @@ _PARAMETER_NAME = re.compile(r"^[a-z][a-z0-9_]{0,39}$")
 
 
 class OperationKind(StrEnum):
-    """Whether an operation only reads or also writes."""
-
     READ = "read"
     WRITE = "write"
 
 
 @dataclass(frozen=True, slots=True)
 class OperationSpec:
-    """One named, versioned operation with a fixed parameter set."""
-
     key: str
     kind: OperationKind
     parameters: frozenset[str]
@@ -51,7 +36,6 @@ class OperationSpec:
 _READ = OperationKind.READ
 _WRITE = OperationKind.WRITE
 
-# --- projection
 UPSERT_EVIDENCE_SCOPED = "upsert_evidence_scoped_v2"
 DELETE_EVIDENCE = "delete_evidence_v1"
 COUNT_EVIDENCE_BY_KEY = "count_evidence_by_key_v1"
@@ -59,7 +43,6 @@ COUNT_EVIDENCE_BY_KEY = "count_evidence_by_key_v1"
 # written with their marker, never without one.
 MARK_UNMARKED_EVIDENCE = "mark_unmarked_evidence_v1"
 
-# --- lexical retrieval: one term or a conjunctive pair, optionally scoped by product and version
 SEARCH_EVIDENCE_LEXICAL = "search_evidence_lexical_v2"
 SEARCH_EVIDENCE_LEXICAL_PAIR = "search_evidence_lexical_pair_v2"
 SEARCH_EVIDENCE_LEXICAL_SCOPED = "search_evidence_lexical_scoped_v2"
@@ -67,19 +50,16 @@ SEARCH_EVIDENCE_LEXICAL_PAIR_SCOPED = "search_evidence_lexical_pair_scoped_v2"
 SEARCH_EVIDENCE_LEXICAL_SCOPED_VERSION = "search_evidence_lexical_scoped_version_v2"
 SEARCH_EVIDENCE_LEXICAL_PAIR_SCOPED_VERSION = "search_evidence_lexical_pair_scoped_version_v2"
 
-# --- vector retrieval in one catalogued embedding space (``space``), optionally scoped
 SEARCH_EVIDENCE_VECTOR = "search_evidence_vector_v3"
 SEARCH_EVIDENCE_VECTOR_SCOPED = "search_evidence_vector_scoped_v3"
 SEARCH_EVIDENCE_VECTOR_SCOPED_VERSION = "search_evidence_vector_scoped_version_v3"
 
 
 def set_vector_operation(space_key: str) -> str:
-    """Store one span's vector in one embedding space."""
     return f"set_vector_{space_key}_v1"
 
 
 def read_vector_operation(space_key: str) -> str:
-    """One span's stored vector, by evidence key (structured-graph similarity)."""
     return f"read_vector_{space_key}_v1"
 
 
@@ -136,7 +116,6 @@ OPERATIONS = MappingProxyType(_REGISTRY)
 
 
 def operation(key: object) -> OperationSpec:
-    """Resolve a registered operation. An unknown key is a closed-registry error."""
     if type(key) is not str:
         raise KeyError("unknown evidence index operation")
     spec = _REGISTRY.get(key)
@@ -146,7 +125,6 @@ def operation(key: object) -> OperationSpec:
 
 
 def operation_keys() -> frozenset[str]:
-    """Every registered operation key; the registry is closed to everything else."""
     return frozenset(_REGISTRY)
 
 

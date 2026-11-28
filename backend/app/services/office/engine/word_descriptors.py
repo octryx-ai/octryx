@@ -77,7 +77,6 @@ def table_text(table: Table) -> str:
 
 
 def body_blocks(document: Any) -> list[tuple[str, str, Any]]:
-    """Body-level paragraphs and tables in order, with their paths."""
     blocks: list[tuple[str, str, Any]] = []
     counts = {"p": 0, "tbl": 0}
     for child in document.element.body.iterchildren():

@@ -2,16 +2,10 @@ import type { WorkChangePlan } from "../work/workChangePlanTypes";
 import type { WorkCodingAuditReport } from "../work/workCodingReviewTypes";
 import type { CodingReviewSummary, CodingReviewVerdict } from "./codingTypes";
 
-// The reviewer verdict the backend computes: the `review_summary` of the Coding session list
-// and the `reviewer_approval` gate of the coding audit come from the same evaluator. This module only
-// reads them, strictly: a value is used only when it is complete and bound to the exact latest plan
-// id and version on screen. Anything else is "unavailable", which is never shown as zero blockers or
-// as a passing review. Nothing here evaluates review decisions.
+// A value counts only when complete and bound to the latest plan; anything else is unavailable, never zero blockers.
 
 const VERDICTS: ReadonlySet<string> = new Set(["pass", "block", "review_required", "missing"]);
-// Two different `blocking` flags (root counterprobe): the list summary's flag means "a current
-// negative review" (status block only); the coding audit gate's flag is PR-readiness blocking, from
-// coding_audit.BLOCKING_GATE_STATUSES = {block, failed, missing}, so a known "missing" gate blocks there.
+// The list's blocking means a negative review; the audit gate also blocks on missing.
 const LIST_BLOCKING: ReadonlySet<string> = new Set(["block"]);
 const AUDIT_GATE_BLOCKING: ReadonlySet<string> = new Set(["block", "missing"]);
 
@@ -23,8 +17,6 @@ function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
 }
 
-// Bound to the latest plan: same id and version, or both absent when the item has no plan (the
-// backend then reports "missing").
 function boundTo(status: string, planId: unknown, planVersion: unknown, latestPlan: WorkChangePlan | null): boolean {
   if (!latestPlan) return status === "missing" && planId == null && planVersion == null;
   return planId === latestPlan.id && planVersion === latestPlan.version;
@@ -39,7 +31,6 @@ function verdict(status: string, reason: string, latestPlan: WorkChangePlan | nu
   };
 }
 
-// The list's `review_summary`.
 export function reviewSummaryFromCandidate(raw: unknown, latestPlan: WorkChangePlan | null): CodingReviewSummary {
   const summary = record(raw);
   if (!summary) return unavailableReview("not_loaded");
@@ -50,7 +41,6 @@ export function reviewSummaryFromCandidate(raw: unknown, latestPlan: WorkChangeP
   return verdict(status, reason, latestPlan);
 }
 
-// The coding audit's `reviewer_approval` gate.
 export function reviewSummaryFromAuditReport(report: WorkCodingAuditReport | null, latestPlan: WorkChangePlan | null): CodingReviewSummary {
   if (!report) return unavailableReview("not_loaded");
   const gates = Array.isArray(report.quality_gates) ? report.quality_gates : [];
@@ -66,8 +56,7 @@ export function reviewSummaryFromAuditReport(report: WorkCodingAuditReport | nul
   return verdict(gate.status, gate.reason, latestPlan);
 }
 
-// The blocker count next to the verdict. An unavailable review may hide a blocker, so the count is
-// only the known blockers then, never presented as "no blockers".
+// An unavailable review may hide a blocker, so the count never reads as "no blockers".
 export function blockerCountText(count: number, review: CodingReviewSummary, noun = true): string {
   const unknown = review.status === "unavailable";
   const blockers = count === 1 ? "blocker" : "blockers";
@@ -75,7 +64,6 @@ export function blockerCountText(count: number, review: CodingReviewSummary, nou
   return unknown ? `${count} known (work review unknown)` : String(count);
 }
 
-// The one-line "Work review" value shown on the card and in the overview.
 export function reviewSummaryLabel(review: CodingReviewSummary): string {
   switch (review.status) {
     case "block":

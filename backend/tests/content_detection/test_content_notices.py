@@ -1,7 +1,4 @@
-"""The chat notices of content policies: from the chat driver through the engine into the turn summary.
-
-Names, counts and ids only: the test email address and phone number never reach a notice, a runtime attempt or the summary.
-"""
+"""The chat notices of content policies: from the chat driver through the engine into the turn summary."""
 
 from __future__ import annotations
 
@@ -10,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from app.agent.engine.runtime._engine_runtime_fallback import _chat_with_runtime_fallback
+from app.agent.runtime.runtime_fallback import _chat_with_runtime_fallback
 from app.services.content_routing.notices import closed_notice, turn_content_obligations
 from app.services.model_gateway.litellm.errors import LiteLLMGatewayError
 from app.services.session.turn_execution_summary import TurnExecutionEvidence, build_turn_execution_summary
@@ -38,7 +35,6 @@ class _Client:
 
 
 async def _chat(policy: str) -> Any:
-    """``apply_chat_content`` for an email address and a phone number under ``policy`` (enforce): the result, or the refusal raised."""
     from app.db import core as db_core
     from app.services.content_routing.chat import apply_chat_content
     from app.services.model_gateway.litellm.alias_catalog import resolve_alias_admission
@@ -72,7 +68,7 @@ async def _attempts(outcome: Any) -> list[dict[str, Any]]:
 
 
 @pytest.mark.asyncio
-async def test_masked_routed_and_refused_chat_turns_reach_the_summary_without_the_data(client):  # client: test DB
+async def test_masked_routed_and_refused_chat_turns_reach_the_summary_without_the_data(client):
     routed = await _chat(ROUTED.replace(f'@reroute_to("{ALIAS}")', '@reroute_to("approved-model")'))
     served = await _attempts({"content": "ok", "tool_calls": [], "content_obligation": dict(routed.notice)})
     refused = await _chat(BLOCK)
@@ -99,7 +95,7 @@ async def test_masked_routed_and_refused_chat_turns_reach_the_summary_without_th
 
 
 def test_notices_are_closed_deduplicated_and_quiet_for_a_sticky_route_without_findings():
-    number = "".join(char for char in PHONE if char.isdigit())  # a long all-digit value
+    number = "".join(char for char in PHONE if char.isdigit())
     hostile = {"kind": "mask", "found": {number: 1, "email": 2}, "masked": 2, "policies": [f"x {number}", "p"],
                "decision_id": number, "model_to": number, "reason": "content_obligation_applied"}
     notice = closed_notice(hostile, source="model")
@@ -114,10 +110,9 @@ def test_notices_are_closed_deduplicated_and_quiet_for_a_sticky_route_without_fi
 
 
 def test_a_chat_content_refusal_is_terminal_and_never_falls_back():
-    """No fallback to a runtime that does not check content (it would send the same content unchecked)."""
-    from app.agent.core.runtime.runtime_admission_contract import admission_refusal_of_attempts
-    from app.agent.core.runtime.runtime_errors import RUNTIME_ERROR_CONTENT_POLICY_DENIED, classify_runtime_error
-    from app.agent.engine.runtime._engine_runtime_retry_policy import plan_exception_retry
+    from app.agent.runtime.retry_policy import plan_exception_retry
+    from app.agent.runtime.runtime_admission_contract import admission_refusal_of_attempts
+    from app.agent.runtime.runtime_errors import RUNTIME_ERROR_CONTENT_POLICY_DENIED, classify_runtime_error
     from app.services.content_routing.chat import _refuse
 
     error_class = classify_runtime_error(_refuse("content_policy_denied")).error_class

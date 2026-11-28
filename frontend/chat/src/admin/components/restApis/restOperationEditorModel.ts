@@ -1,12 +1,8 @@
-// REST API model: the operation editor drafts, grants, scopes, request bodies and their warnings.
 import type { PaginationType, ParamOverlay, RestGrant, RestOperation, WriteCapability } from "./restApisApi";
 import { idempotentAllowed, OFFERED_TO_NOBODY, scopeWithoutFilterText } from "./restOperationsModel";
 import { answerBody, initialPresetChoice, type PresetChoice } from "./restOdataModel";
 
-// ---- operation editor --------------------------------------------------------------------------------------------
-
 export type ScopeRow = { param: string; value: string };
-/** `bodyScope`: rows of a dotted body path (in `param`) and the value Octryx sets there. */
 export type GrantDraft = {
   role: string;
   workspaceId: string;
@@ -37,8 +33,7 @@ export type OperationDraft = {
   pagination: PaginationDraft;
   capability: WriteCapability;
   idempotent: boolean;
-  // Backend: the template choice: the API default ("inherit"), none, a template, or "" (set by hand: the
-  // records path and pages above are sent as they are).
+  // "" means set by hand: the records path and pages above are sent as they are.
   presetChoice: PresetChoice;
 };
 
@@ -90,7 +85,7 @@ export function operationDraft(op: RestOperation): OperationDraft {
   return { ...draft, presetChoice: initialPresetChoice(op, draft) };
 }
 
-/** A typed value from an input: the parameter's schema type decides (the executor compares values exactly). */
+/** The schema type decides, because the executor compares values exactly. */
 export function coerceValue(raw: string, type?: string): string | number | boolean {
   const value = raw.trim();
   if ((type === "integer" || type === "number") && value !== "" && Number.isFinite(Number(value))) return Number(value);
@@ -105,17 +100,15 @@ type JsonSchema = { type?: unknown; properties?: Record<string, JsonSchema> };
 const asSchema = (value: unknown): JsonSchema | null =>
   value && typeof value === "object" && !Array.isArray(value) ? (value as JsonSchema) : null;
 
-/** The request body's JSON schema (an OpenAPI requestBody keeps it under `schema`), or null without a body. */
 function bodySchema(op: Pick<RestOperation, "request_body">): JsonSchema | null {
   const body = asSchema(op.request_body);
   if (!body) return null;
   return asSchema((body as { schema?: unknown }).schema) ?? body;
 }
 
-/** A body scope needs a request body (the server refuses it otherwise). */
+/** The server refuses a body scope without a request body. */
 export const hasRequestBody = (op: Pick<RestOperation, "request_body">) => asSchema(op.request_body) !== null;
 
-/** The body's dotted field paths with a scalar type, for the body-scope suggestions ("assignment_group", "group.id"). */
 export function bodyFieldPaths(op: Pick<RestOperation, "request_body">): Array<{ path: string; type: string }> {
   const out: Array<{ path: string; type: string }> = [];
   const walk = (schema: JsonSchema | null, prefix: string, depth: number) => {
@@ -164,10 +157,7 @@ export function paginationBody(draft: PaginationDraft): Record<string, unknown> 
   return body;
 }
 
-/**
- * The operation PUT: everything the editor owns; read_only only for a POST (a search); the run class only for a
- * write; idempotent only for a PUT or DELETE (the server refuses it elsewhere).
- */
+/** The server refuses read_only off a POST, the run class off a write and idempotent off a PUT or DELETE. */
 export function operationBody(op: RestOperation, draft: OperationDraft): Record<string, unknown> {
   const overlay: Record<string, ParamOverlay> = {};
   for (const [name, entry] of Object.entries(draft.overlay)) {
@@ -200,10 +190,6 @@ export function bodyScopeMissingText(params: string[]): string {
   return `Scope on ${params.join(", ")} only: the model still writes the request body. If the API takes the target from the body, fix that field too (body scope).`;
 }
 
-/**
- * A grant's own warning. A read: a scope that only the API's honesty keeps (no result filter). A write with a body:
- * fixed parameters but no body scope, so the body can still name another target (a result filter does not help there).
- */
 export function grantWarning(grant: GrantDraft, write = false, hasBody = false): string | null {
   const params = grant.scope.filter((row) => row.param && row.value.trim() !== "").map((row) => row.param);
   if (!params.length) return null;
@@ -215,7 +201,6 @@ export function grantWarning(grant: GrantDraft, write = false, hasBody = false):
   return scopeWithoutFilterText(params);
 }
 
-/** The editor's warnings while it is edited: no grants, a scope without a filter or without a body scope. */
 export function operationWarnings(op: RestOperation, draft: OperationDraft, perGrant = true): string[] {
   const warnings: string[] = [];
   const write = !isReadDraft(op, draft);
@@ -227,14 +212,12 @@ export function operationWarnings(op: RestOperation, draft: OperationDraft, perG
   return warnings;
 }
 
-/** A live editor hint about an edit not saved yet; the server's warnings replace it once saved. */
 export const unsavedHint = (hint: string) => `Unsaved: ${hint}`;
 
 const FIELD_PATH = /^[A-Za-z0-9_$@-]+(\.[A-Za-z0-9_$@-]+)*$/;
 
 export type GrantProblems = { role?: string; scope?: string; bodyScope?: string; filter?: string };
 
-/** What the server would refuse, said at the field before saving. */
 export function grantProblems(grant: GrantDraft): GrantProblems {
   const problems: GrantProblems = {};
   if (!/^[A-Za-z0-9_.:-]{1,80}$/.test(grant.role.trim())) problems.role = "Name a role: letters, digits or _ . : - (up to 80).";

@@ -1,10 +1,3 @@
-"""Octryx Mobile, client side: the launcher's heartbeat and the Stop hook's summary.
-
-- while Claude Code runs the launcher beats every interval and stops when the session ends;
-- the summary is the first prompt's first line and the last answer, redacted like the session digest (a token
-  never leaves the machine), capped; command wrappers are no title; an unreadable transcript gives nothing.
-"""
-
 from __future__ import annotations
 
 import json

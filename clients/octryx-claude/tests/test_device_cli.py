@@ -1,9 +1,3 @@
-"""``octryx-claude device …``: enable/disable/status/pause/folders/parallel and the OS service units.
-
-Nothing is installed on the machine running the tests: the service managers get a fake runner and a temporary
-HOME, and the platform is an ``httpx.MockTransport``.
-"""
-
 from __future__ import annotations
 
 import argparse
@@ -123,9 +117,6 @@ def test_disable_removes_the_service_revokes_with_the_device_token_and_keeps_the
 
 
 def test_a_lost_answer_keeps_the_key_and_the_retry_proves_it_is_the_same_device(state, tmp_path, capsys):
-    """Demo cold run: the platform registered the device, the answer timed out, the launcher forgot its
-    key, and the retry met its own entry as device_name_taken. Now the key and a pending marker are stored before
-    the request; the retry sends the same key with a proof the platform can check."""
     import base64
 
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PublicKey

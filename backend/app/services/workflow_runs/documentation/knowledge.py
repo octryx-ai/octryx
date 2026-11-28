@@ -1,27 +1,5 @@
-"""``documentation.sync_published_version``: make sure the published documentation page is in Knowledge, and prove it.
-
-The run's requester runs the Workspace's confirmed Confluence Knowledge source (the Source Sync's own
-``run_connector``, a full pass of its scope, under the requester's Knowledge author rights). ``run_connector``
-commits on its own, so it never runs inside the run's transaction (``external_step``): the step leases its pass,
-commits (the claim ends explicitly), runs the sync in its own session, then re-claims the run only if status, node,
-entry, lease and the publication are unchanged — else ``run_moved_on`` and nothing is recorded.
-
-The published facts come from the run's approved, sent-confirmed write intent, never from a sync marker. After the
-sync the page is read **once more at exactly the published version** through the bounded legacy-view profile
-(``sources/sync/confluence.py``, ``ConfluenceConnector.fetch_pinned_view``) on the very connection the sync reads
-the space with — pinned to the intent's instance and connection. A different version refuses and relists
-(``index_timeout``); a malformed answer or bytes that are not the ingested revision refuse as ``parse_failed``. Four
-separate digests are recorded and compared only within their own representation:
-
-- ``storage_digest``: the publication's read-back ``body.storage`` (from the intent);
-- ``view_raw_digest``: ``body.view`` as fetched at the pinned version;
-- ``document_html_digest``: the generated HTML document (title + canonical link + view), equal to the projected
-  revision's ``content_sha256``;
-- ``index_refs_digest``: the projected revision id and its span keys.
-
-The proof summary lives in ``run.context.documentation.provenance``. The search-hit ``version`` is a product
-version and is never called the page version (``page_version`` always comes from the intent).
-"""
+"""``documentation.sync_published_version``: make sure the published documentation page is in Knowledge, and prove
+it."""
 
 from __future__ import annotations
 
@@ -71,14 +49,12 @@ PROVENANCE_KEY = "provenance"
 
 
 def evidence_runtime():
-    """The Knowledge runtime the sync runs on (a seam: tests pass the stub runtime)."""
     from ...knowledge.runtime import get_evidence_runtime
 
     return get_evidence_runtime()
 
 
 def sync_transport():
-    """The source transport (``None`` = the governed egress; a seam for the acceptance stub)."""
     return None
 
 
@@ -92,8 +68,7 @@ def _covers(row: KnowledgeSourceConnector, settings: DocumentationSettings) -> b
 
 
 def source_sync_session():
-    """The Source Sync's own session: its commits never touch the run's transaction. A seam: the test
-    harness shares its single-connection session."""
+    # Its own session, so the sync's commits never touch the run's transaction.
     from ....db.core import async_session_factory
 
     return async_session_factory()
@@ -101,9 +76,6 @@ def source_sync_session():
 
 async def _run_source(db: AsyncSession, run: WorkflowRun, row: KnowledgeSourceConnector,
                       page: dict[str, Any]) -> str:
-    """The sync run's state, or a fixed refusal reason. Runs in its own session (``db`` is not used for writes).
-
-    ``page``: the published page facts the publication pin reads."""
     from app.services.knowledge.sources.sync.service_run import run_connector
 
     from ...knowledge.access.authorization import WorkspaceWriteForbiddenError, authorize_workspace
@@ -132,8 +104,6 @@ async def _run_source(db: AsyncSession, run: WorkflowRun, row: KnowledgeSourceCo
         return str(sync.reason or sync.state) if sync.state == "needs_configuration" else str(sync.state)
 
 
-# --- Publish & prove: sync_published_version ----------------------------------------------------------------------
-
 
 def _intent_page(intent, space_key: str) -> dict[str, Any]:
     return {"page_id": str(intent.result_page_id or ""), "version": intent.result_version,
@@ -148,8 +118,6 @@ def _intent_facts(intent) -> dict[str, Any]:
 
 
 async def _pinned_reader(db: AsyncSession, row: KnowledgeSourceConnector, page: dict[str, Any]):
-    """``(connector, "")`` bound to the connection the source reads the page's space with, pinned to the intent's
-    instance and connection; ``(None, refusal)`` otherwise. Reads the database only (no request)."""
     from ...knowledge.sources.sync.confluence import ConfluenceConnector
     from ...knowledge.sources.sync.contract import ConnectorError
     from ...knowledge.sources.sync.provenance import scope_connection
@@ -177,7 +145,6 @@ async def _pinned_reader(db: AsyncSession, row: KnowledgeSourceConnector, page: 
 
 
 def _pinned_refusal(error) -> tuple[str, str, dict[str, Any]]:
-    """``(failure class, reason, facts)`` of a refused pinned read."""
     from ...knowledge.sources.sync import confluence as source
 
     facts: dict[str, Any] = {"pinned_read": error.reason, "source_reason": error.source_reason or None}
@@ -212,9 +179,6 @@ PROJECTION_POLL_SECONDS = 2.0
 async def await_projection(probe: Callable[[], Awaitable[Any]], *, timeout: float = PROJECTION_WAIT_SECONDS,
                            interval: float = PROJECTION_POLL_SECONDS,
                            sleep: Callable[[float], Awaitable[Any]] = asyncio.sleep) -> bool:
-    """Poll ``probe`` while it refuses only because the head is not projected yet; ``True`` once it binds.
-
-    Any other refusal ends the wait at once (``False``): the authoritative binding afterwards reports it."""
     deadline = time.monotonic() + max(0.0, timeout)
     while True:
         try:
@@ -228,7 +192,6 @@ async def await_projection(probe: Callable[[], Awaitable[Any]], *, timeout: floa
 
 async def sync_published_version(db: AsyncSession, run: WorkflowRun, params: dict[str, Any] | None = None
                                  ) -> ToolOutcome:
-    """Sync the configured source, pin the fetched version to the published one and record the four digests."""
     from app.services.knowledge.sources.sync.confluence_pinned import LEGACY_VIEW_PROFILE, PinnedViewRefusedError
 
     from ...knowledge.sources.sync.items import ConnectorRef

@@ -1,21 +1,12 @@
-"""Secret values leave a device's job messages before they are buffered or sent.
-
-A pipeline step's ``output_tail``, a hands_on ``error`` or a tool's ``stdout`` is whatever a command printed, and a
-test that prints ``DB_PASSWORD=…`` or a stack trace with a token put it on the platform, which redacted it only when
-showing it. Now the device redacts every output field of a job message with the transcript rules
-(:func:`transcript_redact.redact_text`: ``secret_patterns.py`` plus the assignment, JSON and header rules), before
-the outbox writes it to disk. Only output fields are touched: ids, paths, hashes and file payloads stay exact.
-The platform still redacts on its side as well.
-
-If the rules cannot be loaded, an output field is replaced as a whole: fail closed, the job itself goes on.
-"""
+"""Secret values leave a device's job messages before they are buffered or sent."""
 
 from __future__ import annotations
 
 from typing import Any
 
 #: Keys whose string values are command output (also inside lists and nested dicts).
-OUTPUT_KEYS = frozenset({"output_tail", "output", "stdout", "stderr", "error", "traceback", "log_tail"})
+OUTPUT_KEYS = frozenset({"output_tail", "output", "stdout", "stderr", "error", "traceback", "log_tail",
+                         "report_text", "junit_xml"})
 UNAVAILABLE = "[redacted: secret rules unavailable on this device]"
 
 
@@ -40,7 +31,6 @@ def _walk(value: Any, redact, inside_output: bool) -> Any:
 
 
 def redact_outputs(body: dict[str, Any]) -> dict[str, Any]:
-    """``body`` with every output field's text redacted; other fields unchanged."""
     return _walk(body, _redactor(), False)
 
 

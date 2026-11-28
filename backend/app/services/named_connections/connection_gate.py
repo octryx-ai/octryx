@@ -1,21 +1,4 @@
-"""What a connection's grant allows, enforced on the route plan and on tool visibility.
-
-Every use of a connection passes one of two checks, both pure (no session, no secret):
-
-- **use** (:func:`use_refusal`, every consumer: tool calls, platform services, intakes, Knowledge sync): a disabled
-  named connection refuses (``connection_disabled``); the default connection is always active and available
-  (``unbound_default.py``), so it never refuses here;
-- **agent tools** (:func:`level_refusal`, tool calls only): level ``off`` refuses every tool of the connection
-  (``connection_agent_tools_off``), ``read`` refuses a tool whose definition risk is not ``read``
-  (``connection_agent_tools_read_only``; ``write``, ``admin`` and an unknown risk are write-risk), ``write`` allows
-  everything - the approval of a write tool stays with ``services/tool_approval_gate.py``.
-
-The default entry (no default connection) has no grant: it is used.
-Every refusal carries ``state: needs_configuration`` and names the connection (id and name), never a secret.
-:func:`gate_plan` applies both to a planned call; a fan-out search skips the connections it may not use and lists
-them (``RoutePlan.skipped``). :func:`hidden_reason` hides a connector tool when no connection that could serve it
-in the Workspace allows it.
-"""
+"""What a connection's grant allows, enforced on the route plan and on tool visibility."""
 
 from __future__ import annotations
 
@@ -51,7 +34,6 @@ def use_refusal(routes: NamedConnectionRoutes, tool: str, target: ResolvedNamedC
 
 
 def target_level(routes: NamedConnectionRoutes, tool: str, target: ResolvedNamedConnection | None) -> str | None:
-    """The agent tools level of ``target`` (``None``: the default entry, no grant)."""
     if target is not None:
         return target.level
     default = routes.default_of(tool)
@@ -70,7 +52,6 @@ def level_refusal(level: str | None, tool_name: str) -> str | None:
 
 def target_refusal(routes: NamedConnectionRoutes, tool: str, target: ResolvedNamedConnection | None,
                    tool_name: str = "") -> str | None:
-    """Why ``target`` may not run this use (``tool_name`` empty: not an agent tool call), ``None`` when it may."""
     return use_refusal(routes, tool, target) or level_refusal(target_level(routes, tool, target), tool_name)
 
 
@@ -90,7 +71,6 @@ def refusal_of(code: str, routes: NamedConnectionRoutes, tool: str,
 
 
 def gate_plan(plan: Any, base: dict | None, tool_name: str = "") -> Any:
-    """``plan`` (a ``route_plan.RoutePlan``) refused or narrowed by the grants of the connections it runs on."""
     if plan.refusal is not None or plan.descriptor is None:
         return plan
     routes, tool = routes_of(base), plan.descriptor.connector
@@ -108,10 +88,6 @@ def gate_plan(plan: Any, base: dict | None, tool_name: str = "") -> Any:
 
 
 def hidden_reason(tool_name: str, config: dict | None) -> str | None:
-    """Why a routed connector tool is hidden: every connection that could serve it refuses it (``None``: visible).
-
-    Only connections with a grant count (named connections, a default connection); a Workspace without them keeps
-    today's visibility."""
     descriptor = descriptor_for_tool(tool_name)
     routes = routes_of(config)
     if descriptor is None or routes.unavailable:

@@ -1,13 +1,4 @@
-"""Where a plugin's skills reach: only the Workspaces where the plugin is installed and active.
-
-Catalog skills are global; a plugin a Workspace admin installs for their Workspace must not appear in every other
-Workspace. ``skill_reach`` maps each skill a plugin brought to the Workspaces it may be delivered in (``None`` = every
-Workspace, from a platform install). A skill only disabled installs brought maps to an empty set (delivered nowhere).
-Skills no plugin brought are not in the map and keep the catalog's own rules.
-
-An image plugin's platform install (``image.py``) only holds its skills and MCP servers; it reaches no Workspace by
-itself. Each Workspace where an admin activated the plugin refers to those skills, and that is the reach.
-"""
+"""Where a plugin's skills reach: only the Workspaces where the plugin is installed and active."""
 
 from __future__ import annotations
 

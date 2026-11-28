@@ -737,7 +737,6 @@ def _normalize_source_overrides(value: Any) -> dict[str, Path]:
 
 
 async def _resolve_pack_version_id(db, identifier: str, *, allow_latest_editable: bool = False) -> str:
-    """Accept pack version ids, pack ids, pack keys, and simple target-version aliases."""
     if not identifier:
         if allow_latest_editable:
             latest_version = await _latest_editable_pack_version(db)

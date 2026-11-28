@@ -1,21 +1,4 @@
-"""The review bot's opt-in per repository.
-
-A Workspace repository (``CodeRepository``) carries the bot's settings in ``config_json["pr_review_bot"]``, next to
-the repository's code style, so no migration is needed and a repository removed from the Workspace takes its
-settings with it:
-
-- ``trigger``: ``webhook`` (each pull request event), ``sync`` (the hourly pull request sync), ``both`` or ``off``.
-  A repository without settings is ``off``: the bot posts on a repository only after an admin switched it on;
-- ``protected_branches``: the branches where Octryx only ever opens pull requests (never pushes), kept per repository
-  for the correction runs of a later stage; the bot itself never pushes and never merges;
-- ``review_drafts``: draft pull requests are reviewed too (default: not until they are ready for review);
-- ``fix_runs``: ``@octryx fix`` / ``write tests`` may push onto pull request branches (default off);
-- ``size_limit_lines`` / ``size_limit_files``: the size brake (default 800 / 25 carefully read lines / files);
-- ``status_policy``: what the commit status ``octryx-review`` says (the platform
-  informs and never silently blocks a team's merge): ``inform`` (default; ``success`` with the findings counted in
-  its description, ``failure`` only for a committed secret) or ``gate`` (``failure`` on blocking findings, switched
-  on deliberately where a team wants the review as a required check).
-"""
+"""The review bot's opt-in per repository."""
 
 from __future__ import annotations
 
@@ -48,7 +31,6 @@ MAX_BRANCH = 255
 
 
 def _branch_problem(name: str, seen: set[str]) -> bool:
-    """A protected branch the UI must point at: empty, too long, with spaces or ``..``, or listed twice."""
     return not name or len(name) > MAX_BRANCH or any(char.isspace() for char in name) or ".." in name or name in seen
 
 
@@ -82,7 +64,6 @@ class BotSettings:
 
 
 def parse_settings(raw: Any, *, strict: bool = False) -> BotSettings:
-    """The stored or submitted settings; ``strict`` (an admin's PUT) refuses what a stored record only ignores."""
     if not isinstance(raw, dict):
         if strict and raw is not None:
             raise BotSettingsError("settings_not_an_object")
@@ -136,7 +117,6 @@ def store_settings(record: CodeRepository, settings: BotSettings) -> None:
 
 
 def repository_of(record: CodeRepository) -> str:
-    """The record in the run's notation (``github:owner/repo``), ``''`` for a provider the bot does not post on."""
     provider = str(record.provider or "").lower()
     if provider == SNAPSHOT_PROVIDER:
         provider = str(record.name or "").strip("/").partition("/")[0].lower()
@@ -153,8 +133,6 @@ async def workspace_repositories(db: AsyncSession, project_id: str) -> list[Code
 
 
 async def repository_record(db: AsyncSession, project_id: str, repository: str) -> CodeRepository | None:
-    """The Workspace's record of ``repository`` (``<provider>:<path>``, case-insensitive); the provider's own record
-    wins over a knowledge snapshot of the same repository."""
     wanted = repository.strip().lower()
     matches = [row for row in await workspace_repositories(db, project_id) if repository_of(row).lower() == wanted]
     return next((row for row in matches if row.provider != SNAPSHOT_PROVIDER), matches[0] if matches else None)

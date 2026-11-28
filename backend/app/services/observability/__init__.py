@@ -1,9 +1,4 @@
-"""Service helper package: observability.
-
-The package surface is resolved lazily (PEP 562): the run-summary helpers in this package are imported by the
-turn-trace writer deep inside the agent runtime, so importing the package must not pull in the metrics, health
-and request-metric modules (which import the agent runtime themselves).
-"""
+"""Service helper package: observability."""
 
 from importlib import import_module
 from typing import Any

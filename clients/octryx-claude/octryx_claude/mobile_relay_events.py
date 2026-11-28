@@ -15,7 +15,6 @@ INCOMING = re.compile(
 
 
 def parse_incoming(event: dict[str, Any]) -> list[tuple[str, str, str]]:
-    """The cross-session messages in one stdout event of the relay: ``[(from address, from name, text)]``."""
     if not isinstance(event, dict) or event.get("type") != "user":
         return []
     origin = event.get("origin") if isinstance(event.get("origin"), dict) else {}
@@ -34,7 +33,6 @@ def parse_incoming(event: dict[str, Any]) -> list[tuple[str, str, str]]:
 
 
 def sent_calls(event: dict[str, Any]) -> list[tuple[str, str, str]]:
-    """The relay's own SendMessage calls in one stdout event: ``[(tool_use id, to, message)]``."""
     if not isinstance(event, dict) or event.get("type") != "assistant":
         return []
     out = []
@@ -47,7 +45,6 @@ def sent_calls(event: dict[str, Any]) -> list[tuple[str, str, str]]:
 
 
 def tool_results(event: dict[str, Any]) -> list[tuple[str, bool]]:
-    """The results of tool calls in one stdout event: ``[(tool_use id, succeeded)]``."""
     if not isinstance(event, dict) or event.get("type") != "user":
         return []
     content = (event.get("message") or {}).get("content")

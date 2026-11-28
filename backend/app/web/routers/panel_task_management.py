@@ -61,7 +61,7 @@ async def panel_create_task(
     db: AsyncSession = Depends(get_db),
 ):
     user = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    await require_existing_workspace(db, user.id, payload.project_id)
     return JSONResponse(await admin_create_task(db, user_id=user.id, payload=payload.model_dump()))
 
 

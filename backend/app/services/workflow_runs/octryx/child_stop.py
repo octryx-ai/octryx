@@ -16,10 +16,6 @@ from .stop_evidence import _parameters, _since, declared_lint, phase_evidence
 async def _child_stop(db: AsyncSession, run: WorkflowRun, node: Any, hook_input: dict[str, Any],
                       tool_calls: Sequence[ToolCall], test_prefixes: tuple[tuple[str, ...], ...], *,
                       principal: Any = None, session: Any = None, delegates: bool = False) -> dict[str, Any]:
-    """One Claude Code sub-agent's report: its own evidence for the phase, recorded per child; no advance.
-
-    ``delegates``: the phase opted in to sub-agents, so a child with missed checks is recorded ``failed`` but not
-    blocked; the main session's Stop judges the phase."""
     from ...workflow_checks.library import FAILED
     from ...workflow_checks.library import evaluate_checks as evaluate
     from ..records import record_event

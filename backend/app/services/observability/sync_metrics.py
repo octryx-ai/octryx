@@ -1,7 +1,5 @@
-"""Work item syncs in Prometheus, from memory (incremental syncs run every minute; metrics never read
-the database): runs by kind (jira, servicenow, ...), window (full, incremental) and outcome (completed, blocked,
-failed, skipped), the items each run fetched, and its duration. Counted where the run ends, in the process that ran
-it (API for a person's start, worker for a schedule)."""
+"""Work item syncs in Prometheus, counted from memory: runs by kind, window and outcome, the items fetched and the
+duration."""
 
 from __future__ import annotations
 

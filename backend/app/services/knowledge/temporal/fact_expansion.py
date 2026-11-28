@@ -1,31 +1,4 @@
-"""The graph facts behind one Workspace's search hits, plus one hop (open point K3).
-
-Hybrid search finds spans. Where those spans were extracted into the Workspace graph, their facts
-say the same thing in a typed, citable form, and the facts next to them (sharing an entity) often
-answer what the span only hints at: the migration guide's requirements section names "Java 17",
-the fact next to it says "Spring Boot 4.0 requires Java 17". This module reads both, bounded and
-deterministic:
-
-1. **Seed episodes.** The hit spans' episodes (``knowledge_graph_episodes``), in hit order. A group
-   (product) outside the read's product bound is not read.
-2. **Direct facts.** The facts extracted from those episodes (at most :data:`MAX_DIRECT_FACTS`).
-3. **One hop.** The facts of the same group that share an entity with a direct fact (at most
-   :data:`MAX_HOP_FACTS`, entities bounded by :data:`MAX_HOP_ENTITIES`). Never a second hop.
-4. **Ranking.** The graph's edge search for the query (full text and vector, fused by rank, the same
-   search ``knowledge_changes`` uses) ranks the candidates. The final order fuses that ranking with
-   the hit order of the direct facts (RRF). A hop fact enters only when the edge search ranks it:
-   it is related to the hit, but only the query says it is relevant.
-5. **Citations.** Every fact resolves through PostgreSQL to its span citation exactly like
-   ``knowledge_changes`` (``changes.cited_facts``, ``resolve_citations`` with the reader's ACL principal
-   keys). A direct fact is cited from its hit span, a hop fact from its own first span. A fact
-   that does not resolve (restricted, superseded, another Workspace) is dropped, and so is a fact
-   whose citation lies outside the read's products or version.
-
-Every graph call (Bolt and the query embedding) runs inside one deadline shared by the whole
-search; PostgreSQL reads stay outside it, so a cancelled call never leaves the shared session
-half-used. States (never an empty "no facts" in disguise): ``ok``, ``not_extracted``,
-``needs_configuration``, ``denied``, ``unavailable``, ``timeout``, ``contract_violation``.
-"""
+"""The graph facts behind one Workspace's search hits, plus one hop."""
 
 from __future__ import annotations
 
@@ -147,7 +120,6 @@ async def _episode_spans(db: AsyncSession, project_id: str, episodes: set[str]) 
 
 
 async def _read_group(driver, runtime: EvidenceRuntime, query: str, group: str, episodes: list[str]):
-    """``(direct rows, hop rows, edge-search ranking)`` of one group; graph calls only."""
     records, _, _ = await driver.execute_query(_DIRECT, group=group, episodes=episodes, limit=MAX_DIRECT_FACTS)
     direct = {record["uuid"]: dict(record) for record in records}
     entities: list[str] = []
@@ -164,8 +136,6 @@ async def _read_group(driver, runtime: EvidenceRuntime, query: str, group: str, 
 
 
 def _fused_order(direct: dict[str, dict], hop: dict[str, dict], ranking: list[str], hit_rank: dict[str, int]):
-    """Edge-search rank fused with hit order; a hop fact counts only when the edge search ranks it."""
-
     def first_hit(row: dict) -> int:
         return min((hit_rank[episode] for episode in row.get("episodes") or () if episode in hit_rank), default=0)
 
@@ -196,7 +166,6 @@ async def expand_workspace_facts(
     deadline: float,
     limit: int,
 ) -> WorkspaceFacts:
-    """The cited facts behind ``hits`` (``(revision_id, span_ordinal)`` in hit order) in one Workspace."""
     if runtime.embedding is None:
         return WorkspaceFacts(STATE_NEEDS_CONFIGURATION)
     graph = await db.get(KnowledgeGraphWorkspace, authorized.project_id)
@@ -237,7 +206,6 @@ async def expand_workspace_facts(
 
 
 def _interleaved(read: list[tuple[dict, dict, list[str]]], hit_rank: dict[str, int]):
-    """``(rows by uuid, [(uuid, via)])``: each group's fused order, the groups taking turns."""
     rows: dict[str, dict[str, Any]] = {}
     queues: list[list[tuple[str, str]]] = []
     for direct, hop, ranking in read:

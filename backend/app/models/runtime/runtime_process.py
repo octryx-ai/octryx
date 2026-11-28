@@ -8,6 +8,7 @@ import uuid
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 from ..json_text import safe_json_dict, safe_json_list
 
@@ -16,7 +17,8 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class RuntimeProcess(Base):
+class RuntimeProcess(WorkspaceBound, Base):
+    __workspace_owners__ = {"session_id": "sessions"}
     __tablename__ = "runtime_processes"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)

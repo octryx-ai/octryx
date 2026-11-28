@@ -1,13 +1,4 @@
-"""The ``review`` node runs as the platform Reviewer.
-
-The review's instructions are the Reviewer agent's (plus the closed answer contract the run parses) and its
-runtime preference applies:
-``coding``-tagged runtimes first and, when another is admitted, never the model the author phase used (taken
-from the run's recorded usage, never guessed). Only when the author's model is the one admitted runtime does the
-review share it, recorded as ``reviewer_runtime_shared``. A Reviewer that cannot run gives no verdict (the run
-pauses ``review_no_decision`` with the typed reason). There is no other path and no
-separate review prompt.
-"""
+"""The ``review`` node runs as the platform Reviewer."""
 
 from __future__ import annotations
 
@@ -48,7 +39,6 @@ async def _author_model(db: AsyncSession, run: WorkflowRun) -> str:
 
 
 async def reviewer_setup(db: AsyncSession, run: WorkflowRun) -> ReviewerSetup | str:
-    """A typed refusal reason, or the Reviewer's setup (there is no other path)."""
     row = await platform_agent(db, REVIEWER)
     reason = agent_refusal(row)
     if reason:
@@ -62,11 +52,6 @@ async def reviewer_setup(db: AsyncSession, run: WorkflowRun) -> ReviewerSetup | 
 
 def order_review_runtimes(admitted: list[dict[str, Any]], setup: ReviewerSetup | None, *, model: str = ""
                           ) -> tuple[list[dict[str, Any]], bool]:
-    """``(runtimes to try, shared with the author)``.
-
-    ``model``: the review node's chosen model (designer, ``config.model``). When it is admitted it is tried first,
-    also when the author used it (a reviewer on the author's own weak model passed stories without a finding),
-    recorded as shared; the other admitted runtimes stay as fallback."""
     if model:
         chosen = [runtime for runtime in admitted if str(runtime.get("model") or "") == model]
         if chosen:
@@ -83,6 +68,5 @@ def order_review_runtimes(admitted: list[dict[str, Any]], setup: ReviewerSetup |
     others = [runtime for runtime in ordered if str(runtime.get("model") or "") != setup.author_model]
     if not others:
         return ordered, True
-    # Another model first; the author's own model last instead of no review at all (otherwise, when every other
-    # admitted runtime failed and the run paused review_no_decision although the author's model was there).
+    # Another model first; the author's own model last instead of no review at all.
     return others + [runtime for runtime in ordered if runtime not in others], False

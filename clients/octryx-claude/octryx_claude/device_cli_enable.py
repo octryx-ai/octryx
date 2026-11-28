@@ -60,7 +60,6 @@ Probe = Callable[[LocalState, list[str]], dict[str, str] | None]
 
 
 def _local_blocked(folders: list[str], os_name: str) -> str:
-    """The refusal for the first folder this process cannot read, else ``""``."""
     for folder in folders:
         if device_folder_access.access_problem(folder):
             return (f"denied: {device_folder_access.REASON_NOT_ACCESSIBLE}: "
@@ -70,8 +69,6 @@ def _local_blocked(folders: list[str], os_name: str) -> str:
 
 def _service_blocked(state: LocalState, folders: list[str], os_name: str, probe: Probe | None, *,
                      started: bool = False) -> tuple[str, bool]:
-    """``(refusal, answered)``: the service's own check of ``folders``; asked only when it was just (re)started or
-    is known to run (it refreshes its folder verdicts every minute)."""
     if not folders or not (started or device_folder_access.service_alive(state)):
         return "", False
     answer = (probe or device_folder_access.probe_from_service)(state, folders)
@@ -91,7 +88,6 @@ def _device_name(raw: str) -> str:
 
 def _rerun_enable(args: argparse.Namespace, state: LocalState, current: dict[str, Any], *, manager: Any,
                   probe: Probe | None) -> int:
-    """``device enable`` on an enabled device: new folders join, the service unit is rewritten and reloaded."""
     os_name = str(current.get("os") or "")
     try:
         folders = [device_state.local_folder(item) for item in args.folder]
@@ -132,7 +128,6 @@ def _warn_folders(folders: list[str], os_name: str) -> None:
 
 def _registration_body(state: LocalState, current: dict[str, Any], *, name: str, base_url: str, os_name: str,
                        folders: list[str], parallel: int, profiles: list[str], kind: str) -> dict[str, Any]:
-    """The registration request; the device key is new unless a pending registration of this name is retried."""
     # A pending registration of this name keeps its key: when the answer was lost, the retry proves it is the
     # device the platform registered (a cold run met its own entry as name_taken).
     pending = current.get("pending") if isinstance(current.get("pending"), dict) else {}

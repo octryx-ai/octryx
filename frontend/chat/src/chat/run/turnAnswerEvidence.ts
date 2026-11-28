@@ -1,22 +1,10 @@
-// Answer evidence section of `turn_execution_summary.v1` (evidence enforcement E1):
-// typed parse and pure presentation.
-//
-// Backend `services/answer_evidence/record.py` owns the closed decision:
-// `passed` (every statement links a source from the turn's tool results),
-// `reminded` (an intermediate reply), `refused` (the uncited answer was
-// withheld) and `unsourced` (the turn's tool results carry no openable source,
-// so no evidence of this turn backs the answer; answer_evidence/check.py). This client renders
-// `unsourced` as an explicit, turn-scoped marker with a visible explanation, so it
-// does not read as "these links are missing" next to the answer's Sources entry.
-// It never turns a link into verification. An unknown value renders
-// nothing.
+// unsourced renders as an explicit turn-scoped marker, so it does not read as missing links; an unknown value renders nothing.
 
 export const TURN_ANSWER_EVIDENCE_STATES = [
   "passed",
   "reminded",
   "refused",
   "unsourced",
-  // Delivered with each uncited claim or invented link marked "no source" in place (backend).
   "marked",
 ] as const;
 
@@ -33,7 +21,6 @@ export type TurnAnswerEvidencePresentation = {
   tone: "success" | "neutral" | "attention";
   label: string;
   description: string;
-  // Shown as visible text under the status row, not only as a tooltip.
   explain?: boolean;
 };
 

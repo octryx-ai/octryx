@@ -14,7 +14,7 @@
   padding: 0;
   color: var(--ds-text);
   font-size: var(--ds-font-size);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .ds-form-section__body { display: grid; gap: 0.5rem; min-width: 0; }
@@ -28,7 +28,7 @@
 .ds-advanced__summary {
   color: var(--ds-muted);
   font-size: var(--ds-font-size);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: pointer;
 }
 

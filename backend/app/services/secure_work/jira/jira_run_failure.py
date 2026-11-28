@@ -1,19 +1,4 @@
-"""A failed Jira intake run is recorded, not lost with the request.
-
-A failure recorded inside the request would be discarded by the request's rollback, and the intake would keep showing
-its last success. So the failure is written in its own transaction after the rollback (so nothing half-synced is kept),
-with a fixed code and, where Jira explained itself, Jira's own message (a JQL error, never a secret, a header or a
-body):
-
-- ``scope_not_allowed``: the intake leaves the Workspace's ``jira_allowed_projects``;
-- ``jql_invalid``: Jira refused the query (invalid, or unbounded on Cloud) with ``message``;
-- ``intake_connection_unavailable``: the intake's named connection is gone from the Workspace;
-- ``connection_disabled`` / ``connection_not_available`` / ``connection_use_disabled`` / ``connection_ambiguous``:
-  the intake's connection refuses it (``named_connections/linked_use.py``);
-- ``source_unauthorized``: Jira answered HTTP 401; the intake's connection is marked ``failing``
-  (``named_connections/runtime_state.py``);
-- ``jira_sync_failed``: anything else, with the exception type only.
-"""
+"""A failed Jira intake run is recorded, not lost with the request."""
 
 from __future__ import annotations
 
@@ -40,7 +25,7 @@ MAX_MESSAGE_CHARS = 500
 
 
 def failure_facts(exc: BaseException) -> dict[str, Any]:
-    """``{code, reason, message?}`` for a failed run; only fixed codes and Jira's JQL message."""
+    # Only fixed codes and Jira's JQL message.
     detail = exc.detail if isinstance(exc, HTTPException) else None
     if isinstance(detail, dict) and detail.get("reason") == CODE_SCOPE_NOT_ALLOWED:
         projects = [str(key) for key in detail.get("projects") or []][:20]
@@ -58,7 +43,7 @@ def failure_facts(exc: BaseException) -> dict[str, Any]:
 
 
 def run_values(run: WorkItemSyncRun) -> dict[str, Any]:
-    """The run's identity, read before a rollback expires it."""
+    # Read before a rollback expires it.
     return {
         "sync_config_id": run.sync_config_id,
         "triggered_by": run.triggered_by,
@@ -71,7 +56,6 @@ def run_values(run: WorkItemSyncRun) -> dict[str, Any]:
 async def record_failed_run(
     db: AsyncSession, *, config_id: str, values: dict[str, Any], exc: BaseException, trigger: str | None = None
 ) -> None:
-    """Roll the failed attempt back, then record the failed run and the config's status durably."""
     await db.rollback()
     facts = failure_facts(exc)
     now = utc_now()

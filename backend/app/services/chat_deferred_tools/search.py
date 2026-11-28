@@ -14,7 +14,6 @@ def _query_key(query: str) -> str:
 
 
 def _unmatched_note(query: str, catalog: dict[str, dict], core: set[str]) -> str:
-    """Names a ``select:`` asked for that are not offered by that name (core tools are already callable)."""
     wanted = _select_names(query) or []
     callable_now = [name for name in wanted if name in core]
     missing = [name for name in wanted if name not in catalog and name not in core]
@@ -27,12 +26,8 @@ def _unmatched_note(query: str, catalog: dict[str, dict], core: set[str]) -> str
 
 
 async def chat_tool_search(params: dict[str, Any], context: Any) -> dict[str, Any]:
-    """``tool_search`` in a chat turn: load the named (or closest) deferred tools for the next model call and session.
-
-    The same query asked again in one turn gets a short answer instead of the full schemas: a weak model
-    can send the same ``select:`` query many times in one turn, and each answer afresh feeds it until the tool-call
-    limit.
-    """
+    """``tool_search`` in a chat turn: load the named (or closest) deferred tools for the next model call and
+    session."""
     query = str(params.get("query") or "")
     catalog = context.deferred_tool_catalog or {}
     direct = set(getattr(context, "chat_direct_tool_names", None) or ())
@@ -77,7 +72,6 @@ async def chat_tool_search(params: dict[str, Any], context: Any) -> dict[str, An
 
 
 def _tool_line(definition: dict[str, Any]) -> dict[str, str]:
-    """A loaded tool's name and first sentence: the deferred listing does not name a loaded tool."""
     function = definition.get("function") or {}
     description = " ".join(str(function.get("description") or "").split())
     first = re.split(r"(?<=[.!?])\s", description, maxsplit=1)[0]

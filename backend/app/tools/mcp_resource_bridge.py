@@ -1,42 +1,4 @@
-"""Governed MCP resource and prompt bridge tools.
-
-These four tools run through the Workspace resource catalog
-(``services/mcp_resource_gate.py``), not the project MCP *server* policy alone: an
-item must be mirrored **and** enabled for the active workspace before it is visible
-or callable, and no model-supplied URI is forwarded to the remote server.
-
-Three consequences are deliberate and visible in the payloads:
-
-- **Discovery is catalog-served.** ``list_mcp_server_resources`` and
-  ``list_mcp_server_prompts`` answer from the governed catalog and never open a
-  connection, so nothing is discovered that could not also be dispatched, and no
-  handshake happens for a project that may not see anything. An item added to the
-  server after the last mirror run is invisible until an admin re-mirrors.
-- **Identities are opaque, not URIs.** A resource is addressed by the catalog
-  identity discovery published (``resource_id``). No URI is accepted, echoed, or
-  persisted on this path at all, so a credential-bearing URI is not addressable
-  and there is nothing raw for a turn event or a ``ToolCall`` row to keep. The
-  governed URI reaches the transport from the catalog, never from the model.
-- **The pre-transport check is the full decision.** ``governed_mcp_resource_access``
-  resolves the canonical server identity, runs the binding decision, *and* runs
-  the approval gate before any ``connect()``, so executing one of these tools
-  outside registry dispatch is governed identically. The canonical identity
-  matters because governance is keyed by the casefolded server name while the
-  transport is keyed by a configured one: if two configured servers casefold to
-  the same identity, one catalog entry would describe two different remote
-  servers and the request denies instead.
-- **A lost audit row is said out loud.** The audit insert runs in its own
-  SAVEPOINT, so it can never abort the turn's transaction, and a request whose
-  evidence could not be written carries ``governance_audit: "unavailable"``
-  rather than looking like one that was audited.
-- **The audit row is written after the fact.** Governance admitting a request is
-  not an execution — the transport can be unreachable and ``connect()`` can fail
-  — so these tools record ``executed_allowed`` only once the remote call has
-  actually been attempted, and record the transport failure otherwise.
-
-They live in their own module because ``mcp_bridge.py`` would otherwise grow past
-the 500-line soft maximum; the server and tool bridge stays there.
-"""
+"""Governed MCP resource and prompt bridge tools."""
 
 from __future__ import annotations
 
@@ -45,15 +7,15 @@ from typing import Any
 from fastapi import HTTPException
 
 from ..services.mcp_access_policy import blocked_mcp_server_result, mcp_access_for_context
-from ..services.mcp_resource_arguments import MCP_RESOURCE_ID_PARAM, governed_argument_value
-from ..services.mcp_resource_audit import (
+from ..services.mcp_governance.resource_arguments import MCP_RESOURCE_ID_PARAM, governed_argument_value
+from ..services.mcp_governance.resource_audit import (
     GOVERNANCE_AUDIT_KEY,
     GOVERNANCE_AUDIT_UNAVAILABLE,
     OUTCOME_EXECUTED,
     OUTCOME_TRANSPORT_FAILED,
     OUTCOME_TRANSPORT_UNAVAILABLE,
 )
-from ..services.mcp_resource_identity import (
+from ..services.mcp_governance.resource_identity import (
     MCP_PROMPT_KIND,
     MCP_RESOURCE_KIND,
     normalized_mcp_prompt_identity,
@@ -68,7 +30,6 @@ def _server_denial(server_name: str, context: ToolContext) -> dict[str, Any] | N
 
 
 async def _configured_server_names(context: ToolContext) -> list[str]:
-    """Resolve transport identities from the authoritative scoped registry."""
     if context.db is None:
         return []
     from ..services.mcp_server_registry_queries import list_scoped_registration_names
@@ -81,7 +42,6 @@ async def _configured_server_names(context: ToolContext) -> list[str]:
 
 
 async def _connect_registry_server(server_name: str, context: ToolContext, manager: Any) -> bool:
-    """Materialize credentials and connect only after resource governance allowed access."""
     if context.db is None:
         return False
     from app.web._helpers.context_runtime import _MCP_CATALOG
@@ -127,11 +87,6 @@ async def _registry_server_connected(server_name: str, context: ToolContext, man
 
 
 def _transport_outcome(result: Any) -> str:
-    """Whether the remote call that just returned actually completed.
-
-    ``MCPClientManager`` answers with ``{"success": True, ...}`` or with a bounded
-    ``{"error": ...}``; only the first is an execution.
-    """
     if isinstance(result, dict) and result.get("error") is not None:
         return OUTCOME_TRANSPORT_FAILED
     return OUTCOME_EXECUTED
@@ -171,7 +126,7 @@ class ListMcpServerResourcesTool:
 
         # Imported lazily: the gate reaches the approval gate, whose import chain
         # must not run while the tool registry is being built.
-        from ..services.mcp_resource_discovery import governed_mcp_resource_listing
+        from ..services.mcp_governance.resource_discovery import governed_mcp_resource_listing
 
         listing = await governed_mcp_resource_listing(
             context,
@@ -226,11 +181,11 @@ class ReadMcpServerResourceTool:
         if server_denial is not None:
             return server_denial
 
-        from ..services.mcp_resource_access import (
+        from ..services.mcp_governance.resource_access import (
             governed_mcp_resource_access,
             record_mcp_resource_execution,
         )
-        from ..services.mcp_resource_gate import annotate_lost_governance_audit
+        from ..services.mcp_governance.resource_gate import annotate_lost_governance_audit
 
         access = await governed_mcp_resource_access(
             context,
@@ -289,7 +244,7 @@ class ListMcpServerPromptsTool:
         if server_denial is not None:
             return server_denial
 
-        from ..services.mcp_resource_discovery import governed_mcp_resource_listing
+        from ..services.mcp_governance.resource_discovery import governed_mcp_resource_listing
 
         listing = await governed_mcp_resource_listing(
             context,
@@ -343,11 +298,11 @@ class GetMcpServerPromptTool:
         if server_denial is not None:
             return server_denial
 
-        from ..services.mcp_resource_access import (
+        from ..services.mcp_governance.resource_access import (
             governed_mcp_resource_access,
             record_mcp_resource_execution,
         )
-        from ..services.mcp_resource_gate import annotate_lost_governance_audit
+        from ..services.mcp_governance.resource_gate import annotate_lost_governance_audit
 
         raw_arguments = params.get("arguments")
         arguments = raw_arguments if isinstance(raw_arguments, dict) else {}

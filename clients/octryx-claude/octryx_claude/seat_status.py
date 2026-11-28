@@ -1,28 +1,4 @@
-"""What the launcher knows about the ``seat`` profile, without reading any credential.
-
-Seat states, the first that holds wins:
-
-- ``unknown``: the Workspace's client policy could not be read;
-- ``forbidden``: the client policy does not allow seat (with its fixed reason);
-- ``login_expired``: a seat turn ended with Claude Code's ``authentication_failed`` (or ``oauth_org_not_allowed``);
-- ``not_logged_in``: no sign of the subscription login (``profile_choice.seat_logged_in``, presence only);
-- ``limit_reached``: a seat turn ended with ``rate_limit`` or ``billing_error`` within the last five hours;
-- ``ready``.
-
-Where a failure comes from: Claude Code's ``StopFailure`` hook ("fires instead of Stop when an API error ended the
-turn"; its output is ignored) carries the fixed ``error`` code. The hook records it for the session and, for a
-subscription problem, in ``.seat-problem.json``. The next prompt of the session shows it once (``UserPromptSubmit``
-``systemMessage``), the launcher prints it again when the session ends, and the next start's status block and
-``--profile auto`` use it. A completed seat turn (``Stop``) or ``octryx-claude login --seat`` clears it.
-
-A refusal by the Octryx seat route is told apart by the gateway's fixed message prefix
-``Octryx gateway: <state> (<reason>)``: that is not a subscription problem.
-
-**A device turn's limit** (coordinator structured signals only): a run turn that ended on the
-account's limit reports a fixed code as ``turn_finished.error`` (:func:`turn_limit_code` for Claude Code's result
-``error``, :func:`codex_limit_code` for Codex's error event), so the platform never has to read the model's text for
-it. Only what the engine reported counts: an agent's sentence that mentions "rate limit" is not a limit.
-"""
+"""What the launcher knows about the ``seat`` profile, without reading any credential."""
 
 from __future__ import annotations
 
@@ -87,7 +63,6 @@ def _clock(at: float) -> str:
 
 
 def classify_failure(hook_input: dict[str, Any], *, now: float | None = None) -> SeatFailure | None:
-    """A ``StopFailure`` hook input → the seat failure it means, or ``None`` (overloaded, server errors, ...)."""
     at = time.time() if now is None else now
     error = safe_code(hook_input.get("error"))
     text = " ".join(
@@ -104,16 +79,12 @@ def classify_failure(hook_input: dict[str, Any], *, now: float | None = None) ->
 
 
 def turn_limit_code(error: object) -> str:
-    """Claude Code's result/assistant ``error`` of a turn → its limit code, ``""`` for any other error."""
     code = safe_code(error)
     return code if code in TURN_LIMIT_CODES else ""
 
 
 def codex_limit_code(row: dict[str, Any]) -> str:
-    """A ``codex exec --json`` ``error`` / ``turn.failed`` line → ``usage_limit`` / ``rate_limit``, else ``""``.
-
-    Codex's error kind when it sends one, its exact account message, or an HTTP 429 in the error it reports; never
-    the agent's own text (that comes as ``item.completed`` agent messages, not as an error line)."""
+    # Never the agent's own text: that arrives as item.completed agent messages, not as an error line.
     if row.get("type") not in ("error", "turn.failed"):
         return ""
     error = row.get("error") if isinstance(row.get("error"), dict) else {}
@@ -128,7 +99,6 @@ def codex_limit_code(row: dict[str, Any]) -> str:
 
 
 def failure_message(failure: SeatFailure) -> str:
-    """The explicit message with the fix; fixed codes only."""
     if failure.kind == KIND_LOGIN_EXPIRED:
         return (f"seat: your Claude subscription login was rejected ({failure.code}). Fix: run /login in this "
                 f"session or `{SEAT_LOGIN_COMMAND}`, or restart with `{GOVERNED_COMMAND}`.")
@@ -162,7 +132,6 @@ def session_failure(state: LocalState, session_key: str) -> SeatFailure | None:
 
 
 def take_unshown_failure(state: LocalState, session_key: str) -> SeatFailure | None:
-    """The session's failure once: the second call returns ``None``."""
     path = state.session_dir(session_key) / SESSION_FAILURE_FILE
     payload = read_json(path)
     failure = _failure_from(payload)
@@ -178,14 +147,12 @@ def clear_problem(state: LocalState) -> None:
 
 
 def clear_after_success(state: LocalState, session_key: str) -> None:
-    """A seat turn completed: the subscription works again."""
     with contextlib.suppress(FileNotFoundError):
         (state.session_dir(session_key) / SESSION_FAILURE_FILE).unlink()
     clear_problem(state)
 
 
 def stored_problem(state: LocalState, *, now: float | None = None) -> SeatFailure | None:
-    """The last subscription problem; a limit counts for ``LIMIT_WINDOW_SECONDS`` only."""
     failure = _failure_from(read_json(state.root / PROBLEM_FILE))
     if failure is None:
         return None
@@ -196,7 +163,6 @@ def stored_problem(state: LocalState, *, now: float | None = None) -> SeatFailur
 
 
 def seat_refusal(policy: dict[str, Any]) -> str:
-    """``""`` when the client policy allows the seat profile, else its fixed reason."""
     seat = policy.get("seat") if isinstance(policy.get("seat"), dict) else {}
     if safe_code(seat.get("seat_mode")) == "allowed":
         return ""
@@ -222,7 +188,6 @@ def seat_state(state: LocalState, *, policy_ok: bool, seat_refusal: str, logged_
 
 
 def finish_seat_session(state: LocalState, session_key: str, exit_code: int, out: TextIO) -> bool:
-    """After a seat session: say what failed and how to fix it; ``True`` when the seat login proved itself."""
     failure = session_failure(state, session_key)
     if failure is not None:
         out.write(f"octryx-claude: {failure_message(failure)}\n")

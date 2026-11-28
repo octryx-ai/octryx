@@ -1,6 +1,4 @@
-"""A run in a repository with several apps knows its app before any change: the launcher
-reports the tracked environment files, the record keeps them, and the bug intake chooses the app (the start's, the
-item's component, the folder the report names, the only one) or asks once with the options."""
+"""A run in a repository with several apps knows its app before any change."""
 
 from __future__ import annotations
 
@@ -75,9 +73,9 @@ async def test_the_record_keeps_the_reported_apps(db):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(("components", "text", "chosen"), [
-    (["e2e/node"], "", "e2e/node"),                                   # the item's component
-    (["node"], "", "e2e/node"),                                       # by the folder's name
-    ([], "see e2e/python/splitbill/core.py", "e2e/python"),          # the folder the report names
+    (["e2e/node"], "", "e2e/node"),
+    (["node"], "", "e2e/node"),
+    ([], "see e2e/python/splitbill/core.py", "e2e/python"),
 ])
 async def test_the_intake_chooses_the_named_app(db, components, text, chosen):
     run = await _run(db, BENCH)
@@ -93,7 +91,7 @@ async def test_the_start_wins_and_a_single_app_needs_no_question(db):
     single = await _run(db, BENCH[2:])
     assert await choose_app(db, single, components=[], text="") == {}
     assert single.context[APP_KEY]["path"] == "e2e/python"
-    unknown = await _run(db)  # no list yet: the record's file stays the default
+    unknown = await _run(db)
     assert await choose_app(db, unknown, components=[], text="") == {} and APP_KEY not in unknown.context
 
 

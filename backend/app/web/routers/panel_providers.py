@@ -4,11 +4,8 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.providers import list_driver_specs
 from app.db import get_db
 from app.schemas.admin.admin_provider_panel import (
-    LocalBootstrapHealthRequest,
-    LocalBootstrapSetupRequest,
     ProviderCreateRequest,
     ProviderUpdateRequest,
 )
@@ -33,15 +30,6 @@ from app.services.admin.provider.admin_provider_service import (
 from app.services.control_plane_service import (
     build_provider_client_kwargs_async,
 )
-from app.services.local_bootstrap import (
-    ensure_local_bootstrap,
-    get_local_bootstrap_status,
-    probe_ollama_endpoint,
-    refresh_provider_health,
-)
-from app.services.local_runtime_orchestrator import (
-    ensure_local_runtime_started,
-)
 from app.services.secret import set_secret_value
 from app.services.setup_guide import get_setup_guide_status
 from app.web._helpers.api_guards import _require_admin_api
@@ -52,61 +40,10 @@ from .panel_provider_runtime import router as panel_provider_runtime_router
 router = APIRouter()
 
 
-@router.get("/chat/api/panel/provider-drivers")
-async def panel_list_provider_drivers(request: Request, db: AsyncSession = Depends(get_db)):
-    await _require_admin_api(request, db)
-    return JSONResponse(list_driver_specs())
-
-
-@router.get("/chat/api/panel/local-bootstrap")
-async def panel_get_local_bootstrap(request: Request, db: AsyncSession = Depends(get_db)):
-    await _require_admin_api(request, db)
-    return JSONResponse(await get_local_bootstrap_status(db))
-
-
 @router.get("/chat/api/panel/setup-guide")
 async def panel_get_setup_guide(request: Request, db: AsyncSession = Depends(get_db)):
     await _require_admin_api(request, db)
     return JSONResponse(await get_setup_guide_status(db))
-
-
-@router.post("/chat/api/panel/local-bootstrap/health")
-async def panel_check_local_bootstrap_health(
-    payload: LocalBootstrapHealthRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-):
-    await _require_admin_api(request, db)
-    if payload.auto_start:
-        await ensure_local_runtime_started(driver="ollama", endpoint_url=payload.endpoint_url or "")
-    probe = await probe_ollama_endpoint(payload.endpoint_url or "")
-    return JSONResponse(
-        {
-            "health_status": probe["status"],
-            "last_health_error": probe["error"],
-            "endpoint_url": probe["base_url"],
-            "available_models": probe["model_ids"],
-        }
-    )
-
-
-@router.post("/chat/api/panel/local-bootstrap/setup")
-async def panel_setup_local_bootstrap(
-    payload: LocalBootstrapSetupRequest,
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-):
-    await _require_admin_api(request, db)
-    return JSONResponse(
-        await ensure_local_bootstrap(
-            db,
-            endpoint_url=payload.endpoint_url,
-            model_id=payload.model_id,
-            display_name=payload.display_name,
-            pull_model=payload.pull_model,
-            make_primary=payload.make_primary,
-        )
-    )
 
 
 @router.get("/chat/api/panel/providers")
@@ -177,11 +114,6 @@ async def panel_sync_provider_models(provider_id: str, request: Request, db: Asy
         )
     )
 
-
-@router.post("/chat/api/panel/providers/{provider_id}/health")
-async def panel_refresh_provider_health(provider_id: str, request: Request, db: AsyncSession = Depends(get_db)):
-    await _require_admin_api(request, db)
-    return JSONResponse(await refresh_provider_health(db, provider_id=provider_id))
 
 
 router.include_router(panel_provider_runtime_router)

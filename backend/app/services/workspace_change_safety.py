@@ -62,7 +62,7 @@ def workspace_has_dirty_files(state: dict[str, Any]) -> bool:
 
 
 def _git_env() -> dict[str, str]:
-    """git on an agent's working copy runs nothing it configures (``execution_runtime.server_env``)."""
+    # git on an agent's working copy runs nothing it configures.
     import os
 
     from .execution_runtime.server_env import with_git_hardening

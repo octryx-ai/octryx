@@ -39,8 +39,6 @@ class V2Child:
 
 @dataclass(frozen=True, slots=True)
 class V2Scan:
-    """A cursor scan: ``complete`` only when the last answer had no next link and nothing was refused."""
-
     items: tuple[Any, ...]
     complete: bool
     reason: str = ""
@@ -79,7 +77,6 @@ def parse_space(payload: Any, *, expected_id: str | None = None) -> V2Space:
 
 def parse_page(payload: Any, *, expected_id: str | None = None, expected_version: int | None = None,
                want_storage: bool = False, sent: str = SENT_NO) -> V2Page:
-    """A page answer, validated field by field (``sent`` marks the error of a mutating reply)."""
     try:
         if not isinstance(payload, dict):
             raise _malformed("page is not an object")

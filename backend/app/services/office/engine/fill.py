@@ -1,13 +1,4 @@
-"""``{{placeholder}}`` template fill for Word, PowerPoint and Excel that keeps the template's styling.
-
-A placeholder may be split over several runs (Office splits text at every edit or spell-check boundary). The
-replacement works on the paragraph's text nodes in document order: the value goes into the text node where the
-placeholder starts, so it takes that run's formatting, and the consumed text is removed from the following
-nodes. Paragraph, run, cell and shape formatting are never rebuilt.
-
-Keys may be dotted (``{{customer.name}}``) to reach nested data. A key without data stays in the document, so
-the ``issues`` view reports it as ``unresolved_placeholder`` instead of silently printing an empty string.
-"""
+"""``{{placeholder}}`` template fill for Word, PowerPoint and Excel that keeps the template's styling."""
 
 from __future__ import annotations
 
@@ -57,7 +48,6 @@ class FillReport:
 
 
 def _fill_text_nodes(nodes: list[Any], data: dict[str, Any], report: FillReport, *, list_separator: str) -> None:
-    """Replace placeholders across ``nodes`` (lxml text elements of one paragraph)."""
     texts = [node.text or "" for node in nodes]
     full = "".join(texts)
     if "{{" not in full:
@@ -99,7 +89,6 @@ def _fill_paragraph_elements(
 
 
 def fill_word(document: Any, data: dict[str, Any]) -> dict[str, Any]:
-    """Body (incl. tables and text boxes), every header and footer part, footnotes and endnotes."""
     report = FillReport()
     roots = [document.element.body]
     for rel in document.part.rels.values():
@@ -115,7 +104,6 @@ def fill_word(document: Any, data: dict[str, Any]) -> dict[str, Any]:
 
 
 def fill_slides(presentation: Any, data: dict[str, Any]) -> dict[str, Any]:
-    """Every slide's shapes, including groups and table cells, and its speaker notes (chart parts excluded)."""
     report = FillReport()
     for slide in presentation.slides:
         roots = [slide.shapes._spTree]
@@ -127,10 +115,6 @@ def fill_slides(presentation: Any, data: dict[str, Any]) -> dict[str, Any]:
 
 
 def fill_sheets(workbook: Any, data: dict[str, Any]) -> dict[str, Any]:
-    """Cell text; a cell that is exactly one placeholder takes the value's type (numbers stay numbers).
-
-    Filled values are data: a value like ``=HYPERLINK(...)`` is stored as text, never as a live formula.
-    """
     from .sheets import set_literal
 
     report = FillReport()

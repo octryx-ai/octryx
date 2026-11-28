@@ -158,12 +158,7 @@ SNAPSHOT_PROVIDER = "knowledge_snapshot"
 
 async def _snapshot_record(db: AsyncSession, project_ids: list[str], provider: str,
                            references: set[str]) -> CodeRepository | None:
-    """A record set up from a Knowledge repository source (``provider: knowledge_snapshot``, "Set up" on Work ›
-    Repositories) whose source's remote is this provider's repository: its own operation policy decides.
-
-    Without this, scm.create_branch on such a repository is "not configured",
-    because the record carries no provider or remote of its own (they live on its source, which also gives the run its
-    reference, ``phased_start_repository.run_reference``)."""
+    # Its own operation policy decides: the record carries no provider or remote of its own.
     from ..models.project.knowledge_source_sync import KnowledgeSourceConnector
     from .workflow_routing.phased_start_repository import run_reference
 

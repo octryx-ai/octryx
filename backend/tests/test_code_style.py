@@ -1,6 +1,5 @@
-"""The code style is defined once for the installation (300 lines per file, tests 500, functions
-60, the Flutter layout lib/app, lib/core, lib/features/<feature>/{data,domain,presentation}), overridable per
-Workspace, repository and language, every value with its source."""
+"""The code style is defined once for the installation (file, test and function lengths, the Flutter layout),
+overridable per Workspace, repository and language, every value with its source."""
 
 from __future__ import annotations
 
@@ -10,6 +9,9 @@ from app.services.code_style.resolve import effective, flat
 from app.services.code_style.schema import normalize_profile
 from app.services.code_style.schema_values import CodeStyleError
 from app.services.code_style.store import repository_profile, workspace_profile
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def test_the_most_specific_level_wins_per_field_and_excludes_add_up():
@@ -103,8 +105,6 @@ async def test_the_levels_are_written_by_their_admins_and_the_preview_names_the_
 
 
 def test_the_platform_judges_the_change_by_the_resolved_style():
-    """Red for a new file over the limit, one grown past it or one already over it that grows; a
-    touched file that was over the limit before only warns. Tests 500, functions 60, the Flutter layout."""
     from app.services.code_style.check import findings
 
     dart = flat(effective({}, "dart"))
@@ -135,8 +135,6 @@ def test_the_platform_judges_the_change_by_the_resolved_style():
 
 @pytest.mark.asyncio
 async def test_a_changing_phase_gets_the_style_brief_and_the_reviewer_its_checklist(db, monkeypatch):
-    """The engines get the style in every changing phase, the reviewer as a checklist (in a fence:
-    the rules text is the admins' data)."""
     from app.services.code_style.brief import REVIEW_INSTRUCTION, reviewer_checklist
     from app.services.workflow_runs.octryx.hooks import session_contract
     from tests.server_build_lock import lift_server_build_lock
@@ -211,8 +209,6 @@ def test_the_translations_have_the_same_keys_and_placeholders_in_every_language(
 
 
 def test_translations_live_per_feature_keys_are_unique_and_the_merged_file_is_never_edited_by_hand():
-    """Feature first, then language; gen-l10n reads the merged file; a key two features define is
-    red, a key without its feature prefix a warning, the merged file changed alone a warning."""
     from app.services.code_style.brief import agent_brief
     from app.services.code_style.l10n_check import l10n_findings
 
@@ -237,7 +233,7 @@ def test_translations_live_per_feature_keys_are_unique_and_the_merged_file_is_ne
     assert ("l10n_generated_edited", "lib/l10n/app_de.arb", "error") in found
     merged_run = {**facts, "changed": ["lib/l10n/app_de.arb", "lib/features/beans/l10n/de.arb"]}
     assert not any(item.rule == "l10n_generated_edited" for item in l10n_findings(style, merged_run))
-    # Findings 39/55: the generated localizations edited by hand are red too, naming the merge.
+    # The generated localizations edited by hand are red too, naming the merge.
     by_hand = [item for item in l10n_findings(style, {**facts, "changed": ["lib/l10n/app_localizations_de.dart"]})
                if item.rule == "l10n_generated_edited"]
     assert [(item.path, item.severity) for item in by_hand] == [("lib/l10n/app_localizations_de.dart", "error")]
@@ -245,8 +241,6 @@ def test_translations_live_per_feature_keys_are_unique_and_the_merged_file_is_ne
 
 
 def test_a_missing_tool_warns_with_how_to_install_it_unless_the_profile_makes_it_red():
-    """A formatter / linter that is not installed is a warning with the install command for the
-    device's OS; missing_tool: error makes it red; problems a present tool finds stay red."""
     from app.services.code_style.tool_check import tool_findings
 
     style = {"general": flat(effective({}, None)), "languages": {"python": flat(effective({}, "python"))}}
@@ -264,8 +258,6 @@ def test_a_missing_tool_warns_with_how_to_install_it_unless_the_profile_makes_it
 
 
 def test_an_app_in_a_subfolder_is_laid_out_from_its_own_root():
-    """A Flutter app in a nested folder (coffee/flutter/claude) keeps its new test
-    ``coffee/flutter/claude/test/app/x_test.dart`` inside the layout (which names ``test/**``)."""
     from app.services.code_style.check import app_relative, findings
 
     dart = flat(effective({}, "dart"))
@@ -279,7 +271,6 @@ def test_an_app_in_a_subfolder_is_laid_out_from_its_own_root():
 
 
 def test_a_function_already_over_its_limit_only_warns_unless_it_grows():
-    """A function that was 82 lines at the base and that the agent shrank to 66 must not hold the story red."""
     from app.services.code_style.check import findings
 
     style = {"general": flat(effective({}, None)), "languages": {"python": flat(effective({}, "python"))}}

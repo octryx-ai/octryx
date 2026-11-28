@@ -1,25 +1,4 @@
-"""A platform action node: a deterministic server-side step the run takes.
-
-The node names a typed action from the closed catalog (``platform/catalog``: Jira issue/comment/Work-state
-transition, branch, push, pull request, CI status, the change plan drafted from a phase's test contract) or one
-governed tool. Either way the call runs through the
-registry dispatch (tool approval gate, capability class, named-connection routing, audit) on the server; no model
-is involved. The result routes the run (``succeeded`` / ``failed``; CI status also ``running``).
-
-A failed action records its failure class (``action_failures.record_failure``): the definition's ``failed`` exit may
-lead to a pause node that lets the requester retry a recoverable failure.
-
-A tool the approval gate holds does not count as failed: the run **waits** (``awaiting_tool_approval``) for the
-approval in its chat session; once granted the action runs again and consumes the grant, once rejected the step
-routes ``failed``, and an expired approval pauses the run.
-
-**Idempotency**: an action runs at most once per pass through its node. Its result is recorded under the
-idempotency key ``<node id>#<entry>`` (``context.action_ledger``); activating the same pass again (a granted
-approval decided twice, a replayed event) returns the recorded route without calling the platform. Concurrent
-callers are serialised by the run claim (``records.lock_run``); a loop's next pass is a new key. A step whose work
-commits on its own (the Knowledge sync) releases the claim explicitly and leases its pass (``external_step``): a
-second activation meanwhile is ``action_in_flight``, and its result is recorded only if the run did not move.
-"""
+"""A platform action node: a deterministic server-side step the run takes."""
 
 from __future__ import annotations
 
@@ -51,7 +30,6 @@ def _anchor(run: WorkflowRun) -> dict[str, str]:
 
 
 def render_arguments(value: Any, anchor: dict[str, str]) -> Any:
-    """Fill ``{ticket_key}``-style run facts into string arguments; nothing else is interpreted."""
     if isinstance(value, str):
         names = {name for _text, name, _spec, _conv in string.Formatter().parse(value) if name}
         return value.format_map(anchor) if names else value
@@ -64,7 +42,6 @@ def render_arguments(value: Any, anchor: dict[str, str]) -> Any:
 
 async def _typed(db: AsyncSession, run: WorkflowRun, key: str, params: dict[str, Any],
                  node: PhasedNode | None = None) -> tuple[ToolOutcome, str]:
-    """``(outcome, route)`` of a typed action (``WAIT``: a runtime prepares its folder and reports)."""
     from .documentation.s1_graph import is_s1_action, run_s1_action
 
     if is_s1_action(key):
@@ -94,7 +71,7 @@ async def _typed(db: AsyncSession, run: WorkflowRun, key: str, params: dict[str,
     if key in (catalog.PUBLISH_SPEC, catalog.PUBLISH_FEATURE):
         from .documentation.auto_pages import HANDLERS
 
-        return await HANDLERS[key](db, run, params)  # its own route: succeeded, failed or skipped
+        return await HANDLERS[key](db, run, params)
     if key == catalog.PIPELINE_RUN:
         from .pipeline import start as start_pipeline
 
@@ -118,7 +95,7 @@ async def _typed(db: AsyncSession, run: WorkflowRun, key: str, params: dict[str,
         return await prepare_workspace(db, run, node)
     from .pipeline_head import guard
 
-    refused = await guard(db, run, key, node)  # a push / pull request only for the pipeline's green tree
+    refused = await guard(db, run, key, node)
     if refused is not None:
         return refused
     handler = {
@@ -131,7 +108,7 @@ async def _typed(db: AsyncSession, run: WorkflowRun, key: str, params: dict[str,
     if outcome.failure_class == CLASS_NEEDS_FIX:
         from .ci_return import CI_RETURN
 
-        return outcome, CI_RETURN  # the engine returns through the ``ci.failed`` loop edge (``ci_return``)
+        return outcome, CI_RETURN
     return outcome, SUCCEEDED if outcome.ok else FAILED
 
 
@@ -140,19 +117,15 @@ async def _perform(db: AsyncSession, run: WorkflowRun, node: PhasedNode, key: st
         return await _typed(db, run, key, dict(node.config.get("params") or {}), node)
     tool = str(node.config.get("tool") or "").strip()
     arguments = render_arguments(dict(node.config.get("arguments") or {}), _anchor(run))
-    # A free ``tool`` step names any tool: it keeps needing the project's explicit allow for a high-risk tool;
-    # only typed catalog actions count as allowed by the published workflow (review of).
+    # A free tool step still needs the project's explicit allow for a high-risk tool; only typed catalog actions are
+    # allowed by the published workflow.
     outcome = await dispatch_tool(db, run, tool, arguments,
                                   capability_class=catalog.action_class(node.config), typed_action=False)
     return outcome, (SUCCEEDED if outcome.ok else FAILED)
 
 
 def _raised(run: WorkflowRun, node: PhasedNode, label: str, error: Exception) -> ToolOutcome:
-    """A step that raised is a failed step with its reason: the run follows its ``failed`` route (the action-failure
-    pause offers "Retry the step"), never stays ``running``.
-
-    Without this, an exception inside ``scm.create_branch`` crashed the
-    request (500) and left the run ``running`` at ``branch`` with no further event; only abort was left."""
+    # A raised step must follow its failed route, never leave the run running.
     from .platform.dispatch import class_of_exception
 
     logger.exception("workflow_run.platform_action_raised",
@@ -161,11 +134,6 @@ def _raised(run: WorkflowRun, node: PhasedNode, label: str, error: Exception) ->
 
 
 async def action_skipped(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> None:
-    """What a skipped step's action still owes the steps after it (``size_classes.skip_nodes``).
-
-    Example: the bug flow's reproduce check, on success, confirms the submitted
-    reproduction as the tests the next gate judges; skipped, it left that gate without confirmed tests and the run
-    looped back twice and paused. A skipped reproduce check confirms the reproduction the same way."""
     if str(node.config.get("action") or "") == catalog.HANDS_ON_RUN:
         from .hands_on.step import skipped as hands_on_skipped
 
@@ -173,7 +141,6 @@ async def action_skipped(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -
 
 
 async def run_platform_action(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> str:
-    """The node's route value, or :data:`WAIT` while a tool approval is pending."""
     from .engine_context import _set_context
     from .external_step import pass_key
 
@@ -187,7 +154,7 @@ async def run_platform_action(db: AsyncSession, run: WorkflowRun, node: PhasedNo
     label = key or str(node.config.get("tool") or "").strip()
     from .deferred_action import defer, is_deferred
 
-    if is_deferred(key):  # clone/fetch of the working copy: after the request commits (``deferred_action``)
+    if is_deferred(key):
         await defer(db, run, node, key, actor_id=None)
         return WAIT
     try:
@@ -197,10 +164,10 @@ async def run_platform_action(db: AsyncSession, run: WorkflowRun, node: PhasedNo
     except Exception as error:  # noqa: BLE001 - recorded as the step's failure below, never swallowed
         outcome, route = _raised(run, node, label, error), FAILED
     if route == WAIT and run.status == STATUS_PAUSED:
-        return WAIT  # the step paused the run itself (``pipeline_head``) and recorded why
+        return WAIT
     if route == WAIT:
         record_event(db, run, EVENT_WAITING, node_id=node.id, detail={"action": label, **outcome.result})
-        return WAIT  # routed when the runtime reports (``workspace.preparation.record_report``)
+        return WAIT
     if outcome.state == APPROVAL_PENDING:
         run.status, run.waiting_kind = STATUS_WAITING, WAITING_TOOL_APPROVAL
         run.context = {**dict(run.context or {}), "last_approval_id": outcome.approval_id}
@@ -226,7 +193,6 @@ async def run_platform_action(db: AsyncSession, run: WorkflowRun, node: PhasedNo
     return route
 
 
-# A typed action on request (``octryx/actions``: an octryx-claude session asks the platform to act).
 typed_action = _typed
 
 __all__ = ["WAIT", "render_arguments", "run_platform_action", "typed_action"]

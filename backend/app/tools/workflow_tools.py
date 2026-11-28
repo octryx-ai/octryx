@@ -1,13 +1,4 @@
-"""Workflow catalog tools: the model proposes a published workflow, the user starts it.
-
-``list_available_workflows`` lists the Workspace's published phased workflows; ``start_workflow``
-and ``select_workflow`` (the system-prompt catalog's meta tool) answer with the explicit state of a
-key. A workflow never runs inside a chat turn: it starts as a workflow run for a Work item after
-the user's confirmation.
-
-Governance note: the tools are ``built_in`` with ``risk="read"`` and no approval requirement:
-they change nothing.
-"""
+"""Workflow catalog tools: the model proposes a published workflow, the user starts it."""
 
 from __future__ import annotations
 
@@ -28,12 +19,6 @@ _KEYLESS_SELECT_WORKFLOW_COUNTER_KEY = "keyless_select_workflow_calls"
 
 
 def _count_keyless_select_workflow_calls(context: ToolContext) -> int:
-    """Key-less select_workflow attempts already made in this turn.
-
-    The counter lives in the shared turn context snapshot (same place the
-    other per-turn audit markers use), so the answer can escalate instead of
-    repeating an identical error the model just retries.
-    """
     snapshot = context.turn_context_snapshot
     if not isinstance(snapshot, dict):
         return 0
@@ -43,7 +28,6 @@ def _count_keyless_select_workflow_calls(context: ToolContext) -> int:
 
 
 def _user_selected_no_workflow(context: ToolContext) -> bool:
-    """The user chose "No workflow" for this turn (``workflow_key: none``); the model may not override it."""
     from ..services.workflow_routing.proposal_states import WORKFLOW_PROPOSAL_KEY
     from ..services.workflow_routing.workflow_selection import ROUTING_RESOLUTION_KEY
 
@@ -100,14 +84,7 @@ class StartWorkflowTool:
 
 
 class SelectWorkflowTool:
-    """Model-side choice of a published workflow from the workflow catalog by ``workflow_key``.
-
-    This is the meta tool behind the system-prompt workflow catalog (Claude-Code-style progressive
-    disclosure). It resolves through the exact same path as the user's composer selection
-    (``resolve_explicit_workflow_selection``). A published workflow never runs inside a chat
-    turn: the answer is ``needs_confirmation`` (``workflow_run_required``), and the user starts
-    the workflow as a run for a Work item. After the user chose "No workflow" it chooses nothing.
-    """
+    """Model-side choice of a published workflow from the workflow catalog by ``workflow_key``."""
 
     name = "select_workflow"
     description = (

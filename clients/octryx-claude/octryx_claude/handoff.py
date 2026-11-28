@@ -1,19 +1,5 @@
-"""The handoff routine and ``resume`` (root freeze 3c). No model call, no seat allowance.
-
-Shared by ``/handoff`` (UserPromptSubmit hook), ``octryx-claude handoff`` (terminal) and the automatic trigger
-(``handoff_now``). It talks only to the agent gateway's handoff control plane with the user's gateway login:
-
-1. **Item** (``/handoff/prepare``): the key, ``--all``, the session's work item, its claims, or a new item.
-2. **Work state** (``work_state``): the WIP branch per item, without touching the user's tree. The branch is
-   pushed only under ``push: branch`` to a registered repository; otherwise, or when the push fails, a git bundle
-   is uploaded (secret-scanned server-side; a refusal stops that item's handoff with a clear message).
-   ``push: off`` hands over the document only.
-3. **Handoff document** (``/handoff/commit``): the git facts and ``--note``; the server adds the rest.
-4. **Takeover** per the Workspace policy; the routine polls a pending takeover for up to ``poll_seconds``.
-
-:func:`run_resume` fetches the branch (or downloads and verifies the bundle), checks the exact WIP commit out in a
-new worktree ``../octryx-<KEY>`` and returns the opening context for the session (the handoff, never a transcript).
-"""
+"""The handoff routine and ``resume``: no model call, no seat allowance.
+It talks only to the agent gateway's handoff control plane with the user's gateway login."""
 
 from __future__ import annotations
 

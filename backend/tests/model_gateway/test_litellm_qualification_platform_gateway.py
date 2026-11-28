@@ -33,11 +33,9 @@ from tests.model_gateway.litellm_qualification_support import (
     qualification_section,
 )
 
-# --- Shared data-platform gateway (cluster-internal) ------------------------
-#
-# The shape owner decided for non-prod: Octryx uses the data platform's
+# For non-prod, Octryx uses the data platform's
 # shared LiteLLM over plain http inside the cluster (Cilium WireGuard node
-# encryption, Cilium policy admitting only the OE api), and that gateway keeps
+# encryption, Cilium policy admitting only the Octryx api), and that gateway keeps
 # the key's identity in its own spend logs.
 
 PLATFORM_HOST = "litellm.gateway.svc.cluster.local"
@@ -95,8 +93,6 @@ async def test_the_platform_gateway_qualification_records_transport_and_key_rete
 
 
 async def test_an_attested_cluster_internal_transport_does_not_hold_the_live_gate_open() -> None:
-    """Not a fixture shape, so not a blocker — but never reported as verified TLS."""
-
     report = build_qualification_report(
         config=platform_config(),
         evidence_origin=EVIDENCE_ORIGIN_EXTERNAL_LIVE,

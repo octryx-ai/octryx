@@ -1,13 +1,4 @@
-"""Transport trust boundary: the environment gets no vote.
-
-``client.py`` runs httpx with ``trust_env=False``, which removes ambient
-``HTTP_PROXY``/``HTTPS_PROXY``/``ALL_PROXY``/``NO_PROXY``/``SSL_CERT_FILE``/
-``SSL_CERT_DIR``/``.netrc`` inheritance. These suites prove the governed
-replacement: an explicit private CA bundle, an explicit optional proxy, the
-least-privilege network path derived from both, and a fail-closed readiness state
-for every malformed input. Nothing here echoes a path, a URL, or an OpenSSL
-message.
-"""
+"""Transport trust boundary: the environment gets no vote."""
 
 from __future__ import annotations
 
@@ -45,9 +36,6 @@ def private_key_pem() -> bytes:
     )
 
 
-# --- TLS trust ---------------------------------------------------------------
-
-
 def test_a_private_ca_bundle_trusts_only_the_configured_certificates(tmp_path) -> None:
     bundle = private_ca_bundle(tmp_path)
     resolution = resolve(BASE_URL, gateway_section(tls={"mode": "private_ca_bundle", "ca_bundle_path": str(bundle)}))
@@ -70,8 +58,6 @@ def test_a_private_ca_bundle_trusts_only_the_configured_certificates(tmp_path) -
 
 
 def test_ambient_ssl_cert_variables_do_not_change_the_trust_store(tmp_path, monkeypatch) -> None:
-    """``SSL_CERT_FILE``/``SSL_CERT_DIR`` must not contribute a single certificate."""
-
     bundle = private_ca_bundle(tmp_path)
     # A second, unrelated CA the ambient variables point at. If any of them were
     # consulted, the trust store below would hold two certificates, not one.
@@ -87,8 +73,6 @@ def test_ambient_ssl_cert_variables_do_not_change_the_trust_store(tmp_path, monk
 
 
 def test_a_replaced_bundle_is_validated_again(tmp_path) -> None:
-    """The validation cache is keyed by filesystem identity, not by path alone."""
-
     bundle = private_ca_bundle(tmp_path)
     section = gateway_section(tls={"mode": "private_ca_bundle", "ca_bundle_path": str(bundle)})
     first = resolve(BASE_URL, section).policy.tls.bundle_sha256
@@ -107,13 +91,6 @@ def test_a_replaced_bundle_is_validated_again(tmp_path) -> None:
 
 
 def test_the_public_bundle_mode_also_needs_an_explicit_path(tmp_path) -> None:
-    """Neither trust mode inherits a bundle from the environment or a library.
-
-    A library-shipped default (``certifi``) would be an implicit trust store that
-    changes on dependency upgrade without its recorded digest ever being reviewed,
-    so ``public_ca_bundle`` is validated exactly like the private mode.
-    """
-
     missing_path = resolve(BASE_URL, gateway_section(tls={"mode": "public_ca_bundle"}))
     assert missing_path.policy is None
     assert missing_path.denial_reason == TLS_DENIAL_BUNDLE_PATH_MISSING
@@ -131,13 +108,6 @@ def test_the_public_bundle_mode_also_needs_an_explicit_path(tmp_path) -> None:
 
 
 def test_the_trust_store_is_built_from_the_validated_bytes_not_from_the_path(tmp_path) -> None:
-    """Replacing the bundle between validation and trust load must not swap trust.
-
-    Validation and trust load use the same bytes: with two independent reads,
-    whatever replaced the bundle in between would become the trust store while the
-    recorded ``tls_ca_bundle_sha256`` described the bytes that had been checked.
-    """
-
     bundle = private_ca_bundle(tmp_path)
     policy = resolve(
         BASE_URL, gateway_section(tls={"mode": "private_ca_bundle", "ca_bundle_path": str(bundle)})
@@ -145,7 +115,6 @@ def test_the_trust_store_is_built_from_the_validated_bytes_not_from_the_path(tmp
     assert policy is not None
     validated_digest = policy.tls.bundle_sha256
 
-    # The attacker's CA now sits at the validated path, under the validated name.
     write_ca_bundle(bundle, common_name="Replacement CA")
     assert hashlib.sha256(bundle.read_bytes()).hexdigest() != validated_digest
 
@@ -156,14 +125,6 @@ def test_the_trust_store_is_built_from_the_validated_bytes_not_from_the_path(tmp
 
 
 def test_material_that_no_longer_matches_the_validated_digest_is_refused(tmp_path) -> None:
-    """The digest is the contract even without the cache to fall back on.
-
-    A policy can outlive the process-local context cache (a worker restart, a
-    policy carried across one). The path is then re-read, but only material that
-    still hashes to the validated digest is loaded — anything else is a fixed
-    denial, never a silent trust swap.
-    """
-
     bundle = private_ca_bundle(tmp_path)
     stale = TlsTrustPolicy(TLS_MODE_PRIVATE_CA_BUNDLE, str(bundle), 1, "0" * 64)
 
@@ -172,7 +133,6 @@ def test_material_that_no_longer_matches_the_validated_digest_is_refused(tmp_pat
 
     assert excinfo.value.gateway_state == GATEWAY_STATE_CONFIGURATION_INVALID
     assert excinfo.value.denial_reason == TLS_DENIAL_BUNDLE_MATERIAL_CHANGED
-    # No path, and no OpenSSL text.
     assert str(bundle) not in str(excinfo.value)
 
 
@@ -190,8 +150,6 @@ def test_a_bundle_that_became_a_credential_store_is_refused_on_reload(tmp_path) 
 
 
 def test_an_incomplete_certificate_block_is_not_a_certificate(tmp_path) -> None:
-    """A truncated bundle is "no certificate", not a silently shorter trust store."""
-
     bundle = private_ca_bundle(tmp_path)
     complete = bundle.read_text()
     bundle.write_text(complete[: complete.index("-----END CERTIFICATE-----")])
@@ -205,8 +163,6 @@ def test_an_incomplete_certificate_block_is_not_a_certificate(tmp_path) -> None:
 
 
 def test_a_bundle_holding_a_private_key_is_refused(tmp_path) -> None:
-    """A trust store must not double as a credential store."""
-
     bundle = private_ca_bundle(tmp_path, name="mixed.pem")
     bundle.write_bytes(bundle.read_bytes() + private_key_pem())
 
@@ -216,8 +172,6 @@ def test_a_bundle_holding_a_private_key_is_refused(tmp_path) -> None:
     assert resolution.denial_reason == TLS_DENIAL_BUNDLE_CONTAINS_PRIVATE_KEY
 
 
-# --- Bounded CA bundle reads -------------------------------------------------
-#
 # The bundle is read twice in the lifetime of a policy: once at validation and
 # once on the reload path, when a context outlives its cache. Both reads must be
 # bounded and must touch a regular file only — a ``stat``-then-``read`` pair is
@@ -226,8 +180,6 @@ def test_a_bundle_holding_a_private_key_is_refused(tmp_path) -> None:
 
 
 def test_a_fifo_at_the_bundle_path_is_refused_instead_of_read(tmp_path) -> None:
-    """A FIFO has no size to bound and an open that can block forever."""
-
     fifo = tmp_path / "ca.pem"
     os.mkfifo(fifo)
 
@@ -240,12 +192,6 @@ def test_a_fifo_at_the_bundle_path_is_refused_instead_of_read(tmp_path) -> None:
 
 
 def test_a_bundle_path_that_became_a_fifo_is_refused_on_reload(tmp_path) -> None:
-    """The reload path has no earlier ``is_file`` to lean on, so it checks itself.
-
-    Without the descriptor-level check this call would open the FIFO and hang
-    until a writer appeared, with no size bound on what it then read.
-    """
-
     bundle = private_ca_bundle(tmp_path)
     policy = resolve(
         BASE_URL, gateway_section(tls={"mode": "private_ca_bundle", "ca_bundle_path": str(bundle)})
@@ -263,13 +209,6 @@ def test_a_bundle_path_that_became_a_fifo_is_refused_on_reload(tmp_path) -> None
 
 
 def test_a_bundle_larger_than_the_bound_is_never_read_whole(tmp_path) -> None:
-    """The read stops one chunk past the bound, whatever the file claims.
-
-    Asserted through the reload path, because that is the one with no prior
-    ``stat``: the descriptor's own ``fstat`` bounds it, and the read loop bounds
-    it again in case the file grew after that.
-    """
-
     oversized = tmp_path / "oversized.pem"
     oversized.write_bytes(b"-----BEGIN CERTIFICATE-----\n" + b"a" * MAX_CA_BUNDLE_BYTES)
     stale = TlsTrustPolicy(TLS_MODE_PRIVATE_CA_BUNDLE, str(oversized), 1, "0" * 64)

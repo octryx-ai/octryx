@@ -9,9 +9,10 @@ from app.services.workflow_checks.urls import added_lines, distinct_urls
 from app.services.workflow_runs.octryx.research import RESEARCH_NOTE, with_research
 from app.time_utils import utc_now
 from tests.research_phases_support import SOURCES, _draft_definition, _list, _patch
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_support import _bound_run, _call
 
-# --- the checks -----------------------------------------------------------------------------------------------------
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _outcome(check: dict, evidence: TurnEvidence) -> tuple[str, str]:
@@ -25,7 +26,7 @@ def test_evidence_count_over_the_web_tools_fails_without_searches_and_passes_wit
     check = with_research(_draft_definition()["nodes"][1]["config"], 3)["workflow_contract"]["checks"][0]
     assert _outcome(check, TurnEvidence(tools=[ToolUse("read_workspace_file", True)]))[0] == "failed"
     two = [ToolUse("web_search", True), ToolUse("web_fetch", True), ToolUse("web_fetch", False)]
-    assert _outcome(check, TurnEvidence(tools=two)) == ("failed", "2 of 3 evidence calls")  # a failed call is none
+    assert _outcome(check, TurnEvidence(tools=two)) == ("failed", "2 of 3 evidence calls")
     assert _outcome(check, TurnEvidence(tools=[*two, ToolUse("web_search", True)]))[0] == "passed"
 
 
@@ -37,7 +38,6 @@ def test_urls_cited_counts_distinct_http_urls_in_what_the_phase_wrote():
     assert _outcome(check, TurnEvidence(written_files={"SPEC.md": text}))[0] == "passed"
     assert _outcome(check, TurnEvidence(written_files={"SPEC.md": f"{SOURCES[0]} {SOURCES[0]}"})) == (
         "failed", "1 of 3 distinct source URLs cited in SPEC.md")
-    # ``path``: only the named file counts; without any written file the answer does.
     scoped = {**check, "params": {"min_count": 3, "path": "**/SPEC.md"}}
     assert _outcome(scoped, TurnEvidence(written_files={"coffee/SPEC.md": text}))[0] == "passed"
     assert _outcome(scoped, TurnEvidence(written_files={"notes.md": text}))[0] == "failed"
@@ -63,9 +63,6 @@ def test_the_written_text_is_the_added_lines_per_file_of_the_change_or_the_platf
 
 
 def test_claude_codes_own_web_tools_count_when_the_hook_and_the_gateway_recorded_them():
-    """The platform's web_search / web_fetch can fail ``transport`` where egress is restricted, so research runs on
-    the device: Claude Code's own WebSearch / WebFetch leave from the device and count as the same evidence, under
-    the same conditions as a native read."""
     from app.models import ToolCall
     from app.services.agent_gateway.contract import (
         EXECUTION_OUTCOME_SUCCEEDED,
@@ -95,7 +92,6 @@ def test_claude_codes_own_web_tools_count_when_the_hook_and_the_gateway_recorded
 
 @pytest.mark.asyncio
 async def test_a_failing_connection_to_the_search_provider_or_a_page_is_tried_again(monkeypatch):
-    """Intermittent ``transport`` / "All connection attempts failed"."""
     import httpx
 
     from app.services.web_search import providers
@@ -126,7 +122,7 @@ async def test_a_failing_connection_to_the_search_provider_or_a_page_is_tried_ag
     with pytest.raises(providers.SearchProviderError, match="transport"):
         await providers._post(client, "https://search.test/q", headers={}, payload={})
     answers = iter([httpx.Response(401)])
-    with pytest.raises(providers.SearchProviderError, match="unauthorized"):  # a refusal is not retried
+    with pytest.raises(providers.SearchProviderError, match="unauthorized"):
         await providers._post(client, "https://search.test/q", headers={}, payload={})
 
     pages = iter([httpx.ConnectError("All connection attempts failed"),
@@ -158,23 +154,19 @@ async def test_a_failing_connection_to_the_search_provider_or_a_page_is_tried_ag
 
 
 def test_a_web_call_that_found_nothing_is_no_evidence():
-    """Every platform web_search answers ``unavailable`` / ``transport``; the check must not count the calls (the MCP
-    call itself succeeds) while the spec cites URLs from the model's memory."""
     from app.services.observability.knowledge_metrics import web_result_ok
 
     assert web_result_ok("web_search", {"excerpt": '{"state": "ok", "results": [{"url": "u"}], "count": 1}'})
     assert not web_result_ok("web_search", {"excerpt": '{"state": "unavailable", "reason": "transport"}'})
-    assert not web_result_ok("web_search", {"excerpt": '{"state":"ok","results":[],"count":0}'})  # no hits
+    assert not web_result_ok("web_search", {"excerpt": '{"state":"ok","results":[],"count":0}'})
     assert not web_result_ok("web_search", {})
     assert web_result_ok("web_fetch", {"excerpt": '{"url": "https://coffee.example", "title": "SCA", "content": "x"}'})
     assert not web_result_ok("web_fetch", {"excerpt": '{"error": "Fetch failed: All connection attempts failed"}'})
     assert not web_result_ok("web_fetch", {"excerpt": '{"state": "denied", "reason": "source_blocked"}'})
-    assert web_result_ok("read_workspace_file", {})  # only the web tools are read this way
+    assert web_result_ok("read_workspace_file", {})
 
 
 def test_codex_hosted_searches_from_the_reported_answer_count_as_web_search():
-    """Research runs on the device. Codex's hosted search (a research phase on the seat) is recorded
-    from the answer the platform admitted and the device reported; a completed one is web_search evidence."""
     import json as _json
 
     from app.services.model_gateway.inbound.anthropic_stream import Observation
@@ -190,7 +182,7 @@ def test_codex_hosted_searches_from_the_reported_answer_count_as_web_search():
     observe_responses_body(observation, {"output": items, "usage": {}})
     assert [(item["id"], item["status"]) for item in observation.hosted_searches] == [("ws_1", "completed"),
                                                                                      ("ws_2", "failed")]
-    assert observation.tool_uses == [] and observation.text == "done"  # no tool call of the conversation
+    assert observation.tool_uses == [] and observation.text == "done"
     streamed = Observation()
     observer = CodexSeatObserver(streamed)
     event = {"type": "response.output_item.done", "item": items[0]}
@@ -207,9 +199,6 @@ def test_codex_hosted_searches_from_the_reported_answer_count_as_web_search():
 
 @pytest.mark.asyncio
 async def test_the_workspaces_knowledge_counts_as_research_and_its_citations_as_sources(db, monkeypatch):
-    """Knowledge first, then web search: a knowledge search with hits is research evidence (one
-    without hits is not), a cite_as link to the platform counts as a cited source also on a host without a dot, and
-    every phase that may search the knowledge is told to ask it first."""
     from types import SimpleNamespace
 
     from app.config import get_settings
@@ -229,6 +218,6 @@ async def test_the_workspaces_knowledge_counts_as_research_and_its_citations_as_
     assert distinct_urls(cited) == ["http://localhost:24260/knowledge/x"]
 
     run, gateway, _key, workspace_id = await _bound_run(db, _draft_definition())
-    assert "knowledge_first" not in (await session_contract(db, gateway))["phase"]  # no knowledge_search offered
-    await _list(db, workspace_id, [f"{run.workflow_key}.draft"])  # researching: knowledge_search is offered
+    assert "knowledge_first" not in (await session_contract(db, gateway))["phase"]
+    await _list(db, workspace_id, [f"{run.workflow_key}.draft"])
     assert (await session_contract(db, gateway))["phase"]["knowledge_first"] == run_text("contract.knowledge_first")

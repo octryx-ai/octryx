@@ -1,14 +1,5 @@
-"""Managed consumer of durable Knowledge projection obligations.
-
-The worker owns only lifecycle and polling. Claim fencing, lease renewal, retry,
-dead-letter and schema activation remain inside :class:`EvidenceProjector` and
-the outbox modules. Shutdown is deliberately non-cancelling: setting the stop
-event prevents the next claim, while the active projector turn is allowed to
-commit its fenced transition and close its database session.
-
-The worker runs one slice of a due source-sync structured-graph build per tick; manually requested
-builds run in the structured build runner, whose lifecycle this worker owns.
-"""
+"""Managed consumer of durable Knowledge projection obligations. Shutdown never cancels: the active turn commits its
+fenced transition first."""
 
 from __future__ import annotations
 
@@ -43,8 +34,6 @@ WORKER_NAME = "knowledge_projection_worker"
 
 
 class KnowledgeProjectionWorker:
-    """Poll and drain a fixed number of due projection entries per tick."""
-
     def __init__(
         self,
         session_factory: async_sessionmaker[AsyncSession],
@@ -101,7 +90,6 @@ class KnowledgeProjectionWorker:
                 self._task = None
 
     async def run_tick(self) -> int:
-        """Drain at most one fixed batch and persist only safe aggregate state."""
         started_at = utc_now()
         try:
             runtime = self._runtime_provider()

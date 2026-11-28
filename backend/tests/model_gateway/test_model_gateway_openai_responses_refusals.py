@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.models import TurnTrace
 from app.services.oauth_provider.tokens import DEFAULT_RESOURCE_AUDIENCE
+from tests.content_security.gateway_route_support import configure
 from tests.model_gateway.inbound_gateway_support import gateway_setup  # noqa: F401 - fixture
 from tests.model_gateway.model_gateway_openai_responses_support import ROUTE, _body, responses_setup  # noqa: F401
 
@@ -40,8 +41,10 @@ async def test_a_served_model_outside_the_alias_is_refused_before_anything_is_fo
 
 async def test_a_secret_in_the_newest_turn_is_refused_before_dispatch(client, db, responses_setup):  # noqa: F811
     fake, build = responses_setup
+    headers = await build()
+    await configure(db, headers["X-Octryx-Workspace"], "secrets", "refuse")  # the default masks
 
-    response = await client.post(ROUTE, json=_body(newest=f"use {AWS_KEY_LOOKALIKE}"), headers=await build())
+    response = await client.post(ROUTE, json=_body(newest=f"use {AWS_KEY_LOOKALIKE}"), headers=headers)
 
     _assert_refused(response, 400, "secret_detected_in_prompt", "invalid_request_error")
     assert AWS_KEY_LOOKALIKE not in response.text
@@ -49,13 +52,15 @@ async def test_a_secret_in_the_newest_turn_is_refused_before_dispatch(client, db
     assert (await db.execute(select(TurnTrace))).scalars().all() == []
 
 
-async def test_a_secret_in_a_tool_output_is_refused_too(client, responses_setup):  # noqa: F811
+async def test_a_secret_in_a_tool_output_is_refused_too(client, db, responses_setup):  # noqa: F811
     fake, build = responses_setup
+    headers = await build()
+    await configure(db, headers["X-Octryx-Workspace"], "secrets", "refuse")
     body = _body()
     body["input"] = body["input"][:4]
     body["input"][3]["output"] = [{"type": "input_text", "text": f"key {AWS_KEY_LOOKALIKE}"}]
 
-    response = await client.post(ROUTE, json=body, headers=await build())
+    response = await client.post(ROUTE, json=body, headers=headers)
 
     _assert_refused(response, 400, "secret_detected_in_prompt", "invalid_request_error")
     assert fake.requests == []

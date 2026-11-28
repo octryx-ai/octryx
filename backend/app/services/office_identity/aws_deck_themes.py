@@ -1,10 +1,4 @@
-"""The closed theme catalog of the AWS deck planner.
-
-AWS node types map to slide themes through a fixed catalog, and knowledge
-facts are routed to a theme through a closed keyword vocabulary — no fuzzy
-score and no model. Anything the catalog does not know is kept visible in a
-tail bucket instead of being guessed into a theme.
-"""
+"""The closed theme catalog of the AWS deck planner."""
 
 from __future__ import annotations
 
@@ -102,11 +96,6 @@ CATALOGUED_TYPES = frozenset(node_type for _, types in THEME_CATALOG for node_ty
 
 
 def theme_buckets(node_counts: dict[str, int]) -> list[tuple[str, list[tuple[str, int]]]]:
-    """Split counted node types into the fixed themes, in catalog order.
-
-    The tail bucket ("further") keeps every type the catalog does not know, so
-    nothing silently disappears from the deck.
-    """
     buckets: list[tuple[str, list[tuple[str, int]]]] = []
     for theme, types in THEME_CATALOG:
         found = [(node_type, node_counts[node_type]) for node_type in types if node_type in node_counts]
@@ -181,13 +170,6 @@ _TOKEN_SPLIT = str.maketrans({ch: " " for ch in ".,;:!?()[]{}\"'„“”/\\"})
 
 
 def classify_fact_topic(statement: str) -> str:
-    """The single theme key a knowledge fact belongs to, or ``""``.
-
-    Tokenises the statement and returns a topic key only when its words hit
-    exactly one theme's keyword set. Zero matches or a tie both yield ``""`` —
-    the fact then stays on the context slide rather than being guessed onto a
-    theme.
-    """
     tokens = {token for token in str(statement or "").lower().translate(_TOKEN_SPLIT).split() if token}
     if not tokens:
         return ""

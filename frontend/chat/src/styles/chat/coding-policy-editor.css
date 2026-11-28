@@ -19,7 +19,7 @@
 .coding-policy-editor__field span {
   color: var(--muted);
   font-size: var(--ds-font-size-small, 0.74rem);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .coding-policy-editor__field input,
@@ -84,7 +84,7 @@
 .coding-policy-outcome > span {
   flex: 0 0 auto;
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-transform: uppercase;
 }
 

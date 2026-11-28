@@ -1,11 +1,5 @@
-"""octryx-claude follows the run contract.
-
-A launcher session bound to a run sees contract v2; PreToolUse decides by the run's current phase (class, tools,
-path rules incl. the confirmed tests, pause and wait, no SCM client, the platform pushes); Stop submits evidence
-and only the server advances; platform actions run on the server; a device job's session binds to the run its
-job carries. The end-to-end case runs Workflow C's fix phase from a simulated octryx session: the confirmed test
-cannot be edited and the run pauses at n.
-"""
+"""octryx-claude follows the run contract: PreToolUse decides by the run's current phase, Stop submits
+evidence, and only the server advances."""
 
 from __future__ import annotations
 
@@ -19,6 +13,7 @@ from app.services.workflow_runs.octryx.stop import run_stop
 from app.services.workflow_runs.records import active_run_for_session
 from app.time_utils import utc_now
 from tests.phased_workflow_fixtures import publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_support import (  # noqa: F401
     CONFIRMED,
     ROOT,
@@ -29,6 +24,8 @@ from tests.workflow_run_octryx_support import (  # noqa: F401
     _hook,
     _server_pipeline,
 )
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.mark.asyncio
@@ -111,7 +108,6 @@ async def test_stop_submits_evidence_and_only_the_server_advances(db):
 
 @pytest.mark.asyncio
 async def test_a_phase_that_stops_twice_on_the_same_checks_with_nothing_done_pauses(db):
-    """Fail fast (weak models, few tokens): no tool call between two identical stops."""
     run, gateway, key, workspace_id = await _bound_run(db)
     first = await run_stop(db, session=gateway, hook_input={}, tool_calls=[], test_prefixes=(("pytest",),))
     assert first["state"] == "blocked"

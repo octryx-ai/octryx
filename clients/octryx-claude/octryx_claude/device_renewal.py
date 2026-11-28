@@ -1,15 +1,4 @@
-"""Renew the device credential with the device key (D1): the background service never needs a human login.
-
-The device grant's refresh token rotates on every refresh; one lost on the way (a platform restart mid-refresh)
-is a replay on the next refresh and the platform kills the grant, and the grant ends after 90 days anyway. Then
-the service signs ``octryx-device-renew:v1:{device_id}:{issued_at}`` with ``device-key.pem`` and posts it to
-``/api/v1/devices/self/renew``; the platform checks the registered key and that the device is not revoked, and
-answers with a new device credential, stored like the one ``device enable`` wrote.
-
-Failures are fixed ``TokenUnavailableError`` codes: ``device_revoked`` (enable the device again),
-``renewal_rejected`` (needs login: a foreign or missing key, an inactive owner), ``renewal_stale`` (a clock off
-by more than five minutes; retried) and ``platform_unreachable``.
-"""
+"""Renew the device credential with the device key: the background service never needs a human login."""
 
 from __future__ import annotations
 
@@ -59,9 +48,6 @@ _RENEW_LOCK = threading.Lock()
 
 def renew_credential(state: LocalState, *, http: httpx.Client, clock: Callable[[], float] = time.time,
                      recheck: bool = False) -> None:
-    """Replace the device credential through a key-signed renewal; raises ``TokenUnavailableError``.
-
-    ``recheck``: ask the platform although ``revoked`` is persisted (that flag is what is being verified)."""
     with _RENEW_LOCK:
         _renew_credential(state, http=http, clock=clock, recheck=recheck)
 
@@ -109,19 +95,9 @@ def _renew_credential(state: LocalState, *, http: httpx.Client, clock: Callable[
         device_state.save_device(state, current)
 
 
+# A revoke signal can be transient (a refresh replay during a redeploy ends the grant, not the device):
+# only the key-signed renewal's ``device_revoked`` is a revocation.
 def confirm_revocation(state: LocalState, *, http: httpx.Client, recheck: bool = False) -> str:
-    """The platform's authoritative answer to a revoke signal, asked before the device persists ``revoked``.
-
-    A channel close 4410 or a ``device_revoked`` answer can be transient: during a redeploy a refresh replay ends
-    the device *grant* and the channel's recheck closes as ``revoke`` although the device itself is active. The
-    key-signed renewal checks the registered key and the device's own status, so only its ``device_revoked`` is a
-    revocation (``revoked``). A successful renewal means the device is active and holds a new credential
-    (``active``); a refused one needs a login (``needs_login``); anything else (unreachable, 5xx, a clock off) is
-    ``unconfirmed`` and never revokes.
-
-    ``recheck``: the same question for a ``revoked`` already persisted: an
-    active answer clears it, so a false positive never strands an active device.
-    """
     try:
         renew_credential(state, http=http, recheck=recheck)
     except TokenUnavailableError as exc:

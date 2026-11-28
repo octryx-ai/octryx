@@ -1,28 +1,4 @@
-"""Relay of LiteLLM's OpenAI Responses answers to the client (the ``/openai`` route for Codex).
-
-The counterpart of ``anthropic_stream`` for the Responses event stream, with the same contract:
-
-- before anything is forwarded the served model is checked: ``response.created`` must come first (data-less
-  or unparsable events such as ``[DONE]`` may precede it) and its ``response.model`` must be the admitted model
-  group or one of the alias' declared ``served_model_ids``; anything else is a refusal while the client has
-  received nothing. An upstream that names the model only later (llama.cpp's server: only in
-  ``response.completed``) has its events held until one names it, then checked the same way, then released;
-- every event that carries a ``response`` object (``created``, ``in_progress``, ``completed``, ``incomplete``,
-  ``failed``) is re-encoded with ``response.model`` set to the alias, so the model group is never shown; all
-  other events are forwarded with the bytes they arrived with;
-- an upstream ``error`` or ``response.failed`` is replaced by a fixed gateway ``response.failed`` event whose
-  ``code`` is one of a few retry-relevant OpenAI codes (else ``server_error``); the upstream message never
-  reaches the client.
-
-Observed for usage and transcript (``Observation`` keeps the Anthropic usage keys, so ``usage_cost`` and
-``record_gateway_call`` work unchanged): ``response.completed``/``incomplete`` usage, mapped as
-``input_tokens = input_tokens - cached_tokens``, ``cache_read_input_tokens = cached_tokens``, ``output_tokens``
-(reasoning tokens are part of OpenAI's ``output_tokens``); a bounded copy of the assistant text
-(``response.output_text.delta``, or ``.done`` when the upstream sends no deltas); and finished
-``function_call`` / ``custom_tool_call`` / ``local_shell_call`` output items as tool uses. The stop reason is
-``tool_use`` when the answer called a tool, else ``end_turn``; ``max_tokens`` for an answer cut at
-``max_output_tokens``.
-"""
+"""Relay of LiteLLM's OpenAI Responses answers to the client (the /openai route for Codex)."""
 
 from __future__ import annotations
 
@@ -69,6 +45,7 @@ from .responses_events import (
     gateway_failed_event,
     kept_code,
 )
+from .responses_lifecycle import lifecycle_events
 from .responses_namespaces import NamespaceMap
 from .sse_framing import split_sse_event, sse_event_fields
 
@@ -80,11 +57,12 @@ KEEPALIVE_COMMENT = b": keepalive\n\n"
 
 
 class ResponsesSseRelay:
-    """Incremental relay of one streamed Responses answer (see the module doc)."""
-
     _PARSED = frozenset({EVENT_CREATED, "response.in_progress", EVENT_COMPLETED, EVENT_INCOMPLETE, EVENT_FAILED,
                          EVENT_ERROR, EVENT_TEXT_DELTA, EVENT_TEXT_DONE, EVENT_ITEM_DONE, EVENT_ITEM_ADDED,
                          EVENT_ARGUMENTS_DONE})
+    # LiteLLM fakes the stream of a model its catalog does not know (every route added in Admin › Models): the full
+    # answer as text deltas, then response.completed, with no response.created and no output items.
+    _FAKED_STREAM_START = frozenset({EVENT_TEXT_DELTA, EVENT_COMPLETED})
 
     def __init__(self, *, entry: AliasEntry, observation: Observation, names: NamespaceMap | None = None):
         self._entry = entry
@@ -101,6 +79,7 @@ class ResponsesSseRelay:
         self._deferred_created: Mapping[str, Any] | None = None
         self._held: list[tuple[str, Mapping[str, Any], bytes]] = []
         self._held_bytes = 0
+        self._faked = False
 
     @property
     def verified(self) -> bool:
@@ -121,6 +100,8 @@ class ResponsesSseRelay:
         out = self._handle(raw) if raw.strip() else []
         if self._deferred_created is not None and not self.verified:
             raise RelayRefused(GATEWAY_STATE_FALLBACK_VIOLATION, REASON_MODEL_NOT_ADMITTED)  # no event named one
+        if self._faked:
+            raise RelayRefused(GATEWAY_STATE_RESPONSE_CONTRACT_VIOLATION, REASON_MISSING_RESPONSE_CREATED)
         return out
 
     def _handle(self, raw: bytes) -> list[bytes]:
@@ -134,6 +115,8 @@ class ResponsesSseRelay:
             if isinstance(payload, Mapping) and isinstance(payload.get("type"), str):
                 name = payload["type"]  # the data's own type decides (Codex reads only the data)
         payload = payload if isinstance(payload, Mapping) else {}
+        if self._faked:
+            return self._faked_stream(name, payload, raw)
         if self._deferred_created is not None and not self.verified:
             return self._hold(name, payload, raw)
         if not self.verified:
@@ -147,6 +130,9 @@ class ResponsesSseRelay:
                 code = _upstream_code(payload)
                 raise RelayRefused(GATEWAY_STATE_UNAVAILABLE, REASON_UPSTREAM_STREAM_ERROR,
                                    upstream_error_type=_ERROR_TYPE_FOR_CODE.get(code, ERROR_TYPE_API))
+            if name in self._FAKED_STREAM_START:
+                self._faked = True
+                return self._faked_stream(name, payload, raw)
             if name != EVENT_CREATED:
                 raise RelayRefused(GATEWAY_STATE_RESPONSE_CONTRACT_VIOLATION, REASON_MISSING_RESPONSE_CREATED)
             response = payload.get("response")
@@ -157,8 +143,8 @@ class ResponsesSseRelay:
             return [*pending, self._created(payload)]
         return [self._observe(name, payload, raw)]
 
+    # An upstream that names the model only later (llama.cpp: in response.completed) has its events held until one does.
     def _hold(self, name: str, payload: Mapping[str, Any], raw: bytes) -> list[bytes]:
-        """An event after a ``response.created`` without a model: held until one names the model."""
         response = payload.get("response")
         model = response.get("model") if isinstance(response, Mapping) else None
         if name in (EVENT_ERROR, EVENT_FAILED) and not model:
@@ -179,6 +165,24 @@ class ResponsesSseRelay:
         held, self._held = self._held, []
         out += [self._observe(held_name, held_payload, held_raw) for held_name, held_payload, held_raw in held]
         return out
+
+    # Held until response.completed carries the whole answer; its lifecycle is then built from it.
+    def _faked_stream(self, name: str, payload: Mapping[str, Any], raw: bytes) -> list[bytes]:
+        if name in (EVENT_ERROR, EVENT_FAILED):
+            code = _upstream_code(payload)
+            raise RelayRefused(GATEWAY_STATE_UNAVAILABLE, REASON_UPSTREAM_STREAM_ERROR,
+                               upstream_error_type=_ERROR_TYPE_FOR_CODE.get(code, ERROR_TYPE_API))
+        response = payload.get("response")
+        if name != EVENT_COMPLETED or not isinstance(response, Mapping):
+            self._held_bytes += len(raw)
+            if self._held_bytes > MAX_HELD_BYTES:
+                raise RelayRefused(GATEWAY_STATE_RESPONSE_CONTRACT_VIOLATION, REASON_EVENT_TOO_LARGE)
+            return []
+        self._faked = False
+        created, *events = lifecycle_events(name, response)
+        pending, self._pending = self._pending, []
+        out = [*pending, self._created(created)]
+        return out + [self._observe(event["type"], event, _encode(event["type"], event)) for event in events]
 
     def _created(self, payload: Mapping[str, Any]) -> bytes:
         response = payload.get("response")
@@ -223,8 +227,6 @@ class ResponsesSseRelay:
 
 def relay_json_response(entry: AliasEntry, body: Any, observation: Observation,
                         names: NamespaceMap | None = None) -> dict[str, Any]:
-    """Non-streaming: check and rewrite the model, observe usage, text and tool calls; with ``names`` the calls of
-    flattened namespace tools get their namespace back."""
     if not isinstance(body, Mapping):
         raise RelayRefused(GATEWAY_STATE_RESPONSE_CONTRACT_VIOLATION, REASON_RESPONSE_NOT_JSON)
     observation.usage.update(anthropic_usage(body.get("usage")))

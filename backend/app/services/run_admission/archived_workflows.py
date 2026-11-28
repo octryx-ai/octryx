@@ -1,8 +1,4 @@
-"""``denied: workflow_archived`` for a phased workflow an admin archived or switched off.
-
-A key that names no published workflow but an archived or inactive phased flow is refused as archived, never
-answered ``unknown_key``: the caller learns the workflow exists and does not run now.
-"""
+"""``denied: workflow_archived`` for a phased workflow an admin archived or switched off."""
 
 from __future__ import annotations
 
@@ -28,6 +24,5 @@ async def is_archived_workflow_key(db: AsyncSession, key: str, *, project_id: st
 
 
 def archived_workflow_resolution(base: dict[str, Any], workflow_key: str) -> dict[str, Any]:
-    """The explicit selection's answer for an archived key (the execution profile maps it to ``denied``)."""
     return {**base, "status": WORKFLOW_ARCHIVED, "workflow_key": workflow_key,
             "unmatched_reason": MESSAGES[WORKFLOW_ARCHIVED], "denial": WORKFLOW_ARCHIVED}

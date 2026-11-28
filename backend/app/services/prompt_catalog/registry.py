@@ -1,19 +1,4 @@
-"""The closed registry of prompt catalog keys.
-
-Two kinds of keys:
-
-* **static** keys, declared by the seed modules (``seeds/``), which are the only code copy
-  of their texts and are written into the database by the seed step;
-* **dynamic** keys whose seed is code that already exists elsewhere: the built-in tool
-  descriptions (``tool_catalog``, seeded by the tool definitions) and the Knowledge MCP tool
-  descriptions (``mcp_descriptions``, seeded by the server's registrations). They are built
-  lazily on first use (their sources import this package) and are not written into the
-  database; the code is their last precedence level.
-
-A key exists only when one of these declares it. The admin API, the seed step and the
-resolver all read this registry, so a template for an unknown key can be neither created
-nor resolved. Building it renders nothing and needs no database.
-"""
+"""The closed registry of prompt catalog keys."""
 
 from __future__ import annotations
 
@@ -34,7 +19,6 @@ def _indexed(specs, into: dict[str, PromptKeySpec]) -> None:
 
 @lru_cache(maxsize=1)
 def static_prompt_key_registry() -> Mapping[str, PromptKeySpec]:
-    """The seed-module keys only (safe at import time; the seed step writes these)."""
     specs: dict[str, PromptKeySpec] = {}
     _indexed(all_seed_specs(), specs)
     return MappingProxyType(specs)

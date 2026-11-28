@@ -22,7 +22,6 @@ def _phase(kind: str, instructions: str, *, inputs=(), research=False) -> dict:
 
 
 def specification_definition() -> dict:
-    """Return a fresh, non-published definition. No engineering/external-action/handoff nodes."""
     phase_specs = [
         ("idea", "idea_frame", "Clarify the idea, scope and explicit uncertainty. Retain stable IDs. "
          "Do not invent source facts. Open questions prevent readiness.", (), False),
@@ -81,7 +80,6 @@ def specification_definition() -> dict:
          "max_iterations": 2},
         {"id": "accepted", "source": "confirm-spec", "target": "done", "when": "confirmed"},
     ])
-    # Every human card advances only on an explicit confirmation.
     for edge in edges:
         if edge["source"] in {"confirm-idea", "confirm-plan"} and "when" not in edge:
             edge["when"] = "confirmed"

@@ -1,9 +1,5 @@
-"""Golden sets for retrieval evaluation.
-
-A golden set names its corpus sources and a list of questions. Each question states which source
-must be cited and a short passage that the cited span must contain. That is how a hit is judged
-correct: the right source *and* the right place in it, not only a plausible title.
-"""
+"""Golden sets for retrieval evaluation. A hit is correct only when it cites the expected source and contains the
+expected passage."""
 
 from __future__ import annotations
 
@@ -43,7 +39,6 @@ class GoldenSet:
 
 
 def load_golden_set(name: str) -> GoldenSet:
-    """Load and validate ``golden/<name>.json``; every query must name a declared source."""
     raw = json.loads((GOLDEN_DIR / f"{name}.json").read_text(encoding="utf-8"))
     sources = {
         key: GoldenSource(

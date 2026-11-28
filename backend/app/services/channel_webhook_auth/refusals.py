@@ -1,19 +1,4 @@
-"""The explicit refusal states of an inbound channel webhook.
-
-* ``channel_webhook_unauthenticated`` (401): the channel's authentication header is missing.
-* ``channel_webhook_signature_invalid`` (401): the token or signature does not verify: wrong
-  signature, issuer or audience, expired, stale timestamp, unknown signing key, or a token that
-  is not bound to the request it came with.
-* ``channel_webhook_auth_not_configured`` (403): the channel type has no inbound authentication
-  scheme, or the channel lacks the setting its scheme needs (Teams ``app_id``, Slack
-  ``signing_secret``).
-* ``channel_webhook_signing_keys_unavailable`` (503): the published signing keys could not be
-  fetched; nothing is accepted without them.
-* ``channel_webhook_payload_invalid`` (400): an authenticated body that is not a JSON object.
-
-``reason`` is a fixed, input-free token for the log only; tokens, signatures and bodies are never
-logged or echoed.
-"""
+"""The explicit refusal states of an inbound channel webhook."""
 
 from __future__ import annotations
 

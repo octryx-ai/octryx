@@ -1,14 +1,4 @@
-"""The scanned segments of a platform model request (an OpenAI-style chat: the governed driver, the provider wrapper).
-
-What is new on a call is scanned: the system prompt and the newest turn (everything after the last assistant
-message: the user's text, tool results, inline system texts, documents). Earlier turns were scanned when they
-were new; a conversation that already contained a category carries it as ``principal.sensitive``.
-
-Content the scan cannot read — an image, a base64 document — is an unreadable segment and makes the scan
-incomplete; policies decide what an incomplete scan means. Content of any other shape (an unknown block type, a
-non-text block field, content that is neither text nor a block list) is scanned as its JSON text, so nothing in
-a message escapes the scan. (The inbound gateway reads its forwarded bodies whole: ``gateway``.)
-"""
+"""The scanned segments of a platform model request (an OpenAI-style chat)."""
 
 from __future__ import annotations
 
@@ -23,8 +13,8 @@ from ..content_detection.vocabulary import SOURCE_DOCUMENT, SOURCE_PROMPT, SOURC
 MEDIA_BLOCK_TYPES = frozenset({"image", "image_url", "input_image", "file"})
 
 
+# An unknown shape is scanned as its JSON text, so nothing in a message escapes the scan.
 def _serialized(value: Any) -> dict[str, Any]:
-    """A shape the scan does not know, as a text block of its JSON."""
     return {"type": "text", "text": json.dumps(value, ensure_ascii=False, default=str)}
 
 
@@ -64,8 +54,8 @@ def _last_assistant(messages: list[Any]) -> int:
     return -1
 
 
+# The system messages and the newest turn: earlier turns were scanned when new and carry on as principal.sensitive.
 def chat_segments(messages: list[Mapping[str, Any]]) -> list[Segment]:
-    """An OpenAI-style chat request (the platform's governed driver): system messages and the newest turn."""
     segments: list[Segment] = []
     last = _last_assistant(messages)
     for index, message in enumerate(messages):

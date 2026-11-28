@@ -21,10 +21,7 @@ _MAX_DESCRIPTION_CHARS = 2400
 
 
 def merge_descriptions(existing: str, incoming: str) -> str:
-    """LightRAG-style description accumulation: an entity seen in several sources
-    keeps ALL distinct description fragments instead of last-write-wins. The
-    merged text is capped; ``resummarize_node_description`` compacts it with the
-    governed summarize runtime when it overflows."""
+    """LightRAG-style description accumulation: keep every distinct fragment instead of last-write-wins, capped."""
     existing = str(existing or "").strip()
     incoming = str(incoming or "").strip()
     if not incoming:

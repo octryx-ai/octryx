@@ -1,14 +1,4 @@
-"""Real entities for the policy builder's pickers and their names.
-
-``GET …/catalog/entities`` lists, bounded and searchable (``q`` over id and name, ``limit`` per type):
-Workspaces (with classification), users, platform roles and active identity groups (with member counts),
-named connections (id, name, connector, Workspace or global scope, bound scopes), tools as objects (connector
-family, risk, whether a call can change data or read logs) and model aliases (with their data-policy class).
-
-Policies store ids (Cedar ``Workspace::"<id>"``, ``User::"<id>"``, connection ids); roles and groups are
-stored by name (``principals`` builds ``Role::"<name>"``). :class:`NameIndex` resolves ids back to names for the
-list sentences; an id that no longer exists stays visible as unknown instead of disappearing.
-"""
+"""Real entities for the policy builder's pickers and their names."""
 
 from __future__ import annotations
 
@@ -133,7 +123,6 @@ def family_label(family: str) -> str:
 async def list_entities(
     db: AsyncSession, *, types: Iterable[str] | None = None, query: str = "", limit: int = DEFAULT_LIMIT
 ) -> dict[str, Any]:
-    """``{type: [items], "limit": n}`` for the requested types (default: all). Unknown types are ignored."""
     wanted = [item for item in (types or ENTITY_TYPES) if item in ENTITY_TYPES]
     needle = str(query or "").strip().lower()[:100]
     size = max(1, min(int(limit), MAX_LIMIT))
@@ -158,8 +147,6 @@ async def list_entities(
 
 @dataclass(frozen=True, slots=True)
 class NameIndex:
-    """Names for the ids a policy stores; ``None`` for an id that does not exist (any more)."""
-
     workspaces: Mapping[str, str] = field(default_factory=dict)
     users: Mapping[str, str] = field(default_factory=dict)
     connections: Mapping[str, tuple[str, str]] = field(default_factory=dict)
@@ -171,11 +158,9 @@ class NameIndex:
         return self.users.get(user_id)
 
     def group(self, name: str) -> str:
-        """Groups are stored by name; the public view (``policy_links``) hides it."""
         return name
 
     def connection(self, connection_id: str) -> tuple[str, str] | None:
-        """``(name, connector)``; the unnamed default entry is ``("default", "")``."""
         if connection_id == DEFAULT_CONNECTION:
             return DEFAULT_CONNECTION, ""
         return self.connections.get(connection_id)

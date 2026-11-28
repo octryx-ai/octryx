@@ -1,12 +1,4 @@
-"""The run list without the runs' big JSON (loading every run whole made ``GET /workflow-runs?view=work`` take 75 s).
-
-A list row needs a run's columns, two small parts of its context (``stop`` for the row, ``size_class`` for the graph's
-step titles) and, per run, its main session and responsible person. A run's ``context`` carries the device change's
-patches (megabytes), the last test runs with their output and every phase's facts, and ``gate_results`` every gate's
-check details. So the list reads only the columns it shows plus the two context parts (one query), the main sessions and
-the responsible people in one query each, and pages by ``updated_at`` (``before``) instead of growing with the
-installation.
-"""
+"""The run list without the runs' big JSON columns, which are too slow to load for every row."""
 
 from __future__ import annotations
 
@@ -21,19 +13,18 @@ from ...models import User, WorkflowRun, WorkflowRunSession
 
 #: Never in a list: the big JSON columns (a run's page reads them, one run at a time).
 HEAVY_COLUMNS = frozenset({"context", "gate_results"})
-#: The parts of ``context`` a list row reads.
 CONTEXT_PARTS = ("stop", "size_class", "sample_bundle", "routing")
 
 
 def light_query(query: Any) -> Any:
-    """``query`` (a ``select(WorkflowRun)`` with its filters) reading only the list's columns and context parts."""
-    columns = [column for column in WorkflowRun.__table__.columns if column.name not in HEAVY_COLUMNS]
+    # The mapped attributes, not the table's columns: the Workspace filter attaches to the mapped entity only.
+    columns = [getattr(WorkflowRun, prop.key).label(prop.columns[0].name)
+               for prop in WorkflowRun.__mapper__.column_attrs if prop.columns[0].name not in HEAVY_COLUMNS]
     parts = [WorkflowRun.context[name].label(f"context_{name}") for name in CONTEXT_PARTS]
     return query.with_only_columns(*columns, *parts)
 
 
 def light_runs(rows: list[Any]) -> list[SimpleNamespace]:
-    """Read-only run views for the list: every listed column, and ``context`` with only its listed parts."""
     names = [column.name for column in WorkflowRun.__table__.columns if column.name not in HEAVY_COLUMNS]
     runs = []
     for row in rows:
@@ -46,7 +37,6 @@ def light_runs(rows: list[Any]) -> list[SimpleNamespace]:
 
 
 async def main_sessions(db: AsyncSession, run_ids: list[str]) -> dict[str, str]:
-    """``run id -> main session`` (the newest active ``main`` link), in one query."""
     from .records import ROLE_MAIN
 
     if not run_ids:
@@ -62,8 +52,6 @@ async def main_sessions(db: AsyncSession, run_ids: list[str]) -> dict[str, str]:
 
 
 async def workflow_titles(db: AsyncSession, runs: list[Any]) -> dict[str, str | None]:
-    """``run id -> the workflow's title`` (its definition's name; the Workspace's own one before the shipped one), in
-    one query (deriving it from the key gave titles like "Pr review bot")."""
     from ...models import FlowDefinition
 
     keys = sorted({str(run.workflow_key) for run in runs if run.workflow_key})
@@ -79,7 +67,6 @@ async def workflow_titles(db: AsyncSession, runs: list[Any]) -> dict[str, str | 
 
 
 async def responsible_views(db: AsyncSession, runs: list[Any]) -> dict[str, dict[str, Any] | None]:
-    """``run id -> {user_id, display_name, source}`` as ``responsible.responsible_view`` says, in one query."""
     ids = sorted({str(run.responsible_user_id) for run in runs if run.responsible_user_id})
     people = {row.id: (row.display_name or row.username) for row in (await db.execute(
         select(User.id, User.display_name, User.username).where(User.id.in_(ids)))).all()} if ids else {}
@@ -88,7 +75,6 @@ async def responsible_views(db: AsyncSession, runs: list[Any]) -> dict[str, dict
 
 
 def before_filter(query: Any, before: str | None) -> Any:
-    """The page after a cursor: runs updated before ``before`` (ISO time); unchanged without one."""
     if not before:
         return query
     try:

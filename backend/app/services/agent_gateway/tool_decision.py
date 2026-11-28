@@ -1,30 +1,4 @@
-"""The one PreToolUse decision of a governed Claude Code session (``POST sessions/tool-check``).
-
-The checks run in a fixed order. The first denial wins and is recorded as a ``denied_by_policy``
-ToolCall:
-
-1. **self-protection** (``self_protection.py``, code-owned): tool calls reaching for the launcher's
-   credentials or the platform's control endpoints; then, for a seat analysis session only, the fixed
-   analysis tool set (``analysis_tools.py``);
-2. **workflow confirmation** (``confirmation.py``): ``workflow_confirm`` gets ``ask`` with a
-   one-time ticket, but only with a valid hook proof; a run decision (``workflow_decide``,
-   ``decision_confirmation.py``) the same way, after its node, action and payload hash were checked;
-3. **Workspace tool rules** (``tool_check.py``): the Workspace policy's command and path rules; the Cedar policy
-   engine evaluates the same question: compared in shadow mode, and in enforce mode a published Cedar
-   policy can deny on top (``cedar_policy_denied``, the policy id as ``rule_id``);
-4. **session capability** (``capability.py``): read_only unless a change workflow is confirmed, and
-   changes only inside the bound repository root. On the owner's own device a ``capability_read_only`` denial
-   becomes ``ask`` (the owner's chat approval confirms the change, ``devices/chat_confirmation``) when the
-   Workspace's ``device_runs.chat_approvals_confirm_changes`` is on.
-
-Anything that passes all four is ``allow``. The hook then prints nothing, so Claude Code's own
-permission flow still applies.
-
-A session bound to a **workflow run** replaces steps 4 and the selected
-workflow's tool check by the run's decision (``workflow_runs/octryx/tool_policy``): the current phase's class,
-tools and path rules, the run's pause or wait, no SCM or Jira client, push only in deliver. Its answer carries
-the refreshed run contract (``workflow_run``).
-"""
+"""The one PreToolUse decision of a governed session (``POST sessions/tool-check``): the first denial wins."""
 
 from __future__ import annotations
 
@@ -74,10 +48,6 @@ EVENT_ALLOWED_BY_DEFAULT = "tool_allowed_by_default"
 
 async def _announce_denial(db: AsyncSession, session: Session, hook_input: dict[str, Any],
                            decision: ToolDecision, *, source: str = "") -> Any:
-    """Where people see a refusal and its one-click fix: the run's timeline
-    (``tool_denied``, at most :data:`MAX_DEFAULT_EVENTS` per run) and the device turn's chat stream
-    (``device_job_event`` ``tool_denied``, the job found by its Claude Code session, which is the gateway session
-    key)."""
     from sqlalchemy import func, select  # noqa: PLC0415
 
     from ...models import DeviceJob, WorkflowRunEvent  # noqa: PLC0415
@@ -99,10 +69,13 @@ async def _announce_denial(db: AsyncSession, session: Session, hook_input: dict[
         if count < MAX_DEFAULT_EVENTS:
             record_event(db, run, EVENT_DENIED, node_id=run.current_node_id,
                          detail={**detail, "session_id": session.id})
+        from ..workflow_runs.octryx.plan_scope_rule import pause_for_approval  # noqa: PLC0415
         from ..workflow_runs.refusals import react  # noqa: PLC0415
         from ..workflow_runs.states import STATUS_RUNNING  # noqa: PLC0415
 
-        if run.status == STATUS_RUNNING and not source:  # the phase's refusals rule (workflow data, top-10 #5)
+        if await pause_for_approval(db, run, decision):
+            pass  # a person approves the plan or the path at the run's pause
+        elif run.status == STATUS_RUNNING and not source:  # the phase's refusals rule (workflow data)
             await react(db, run, tool=detail["tool"], reason=decision.reason, tool_input=tool_input,
                         message=decision.message)
     key = str((session.metadata_ or {}).get("gateway_session_key") or "")
@@ -123,9 +96,6 @@ async def _announce_denial(db: AsyncSession, session: Session, hook_input: dict[
 
 async def _allowed_by_default(db: AsyncSession, session: Session, hook_input: dict[str, Any],
                               decision: ToolDecision) -> dict:
-    """An allow only a Workspace default gave (allow by default, block as an admin option), logged
-    where people look: the run's timeline (``tool_allowed_by_default``, at most :data:`MAX_DEFAULT_EVENTS` per run),
-    or the session's own count outside a run. No ToolCall row: the call's own row comes with its result."""
     from sqlalchemy import func, select  # noqa: PLC0415
     from sqlalchemy.orm.attributes import flag_modified  # noqa: PLC0415
 
@@ -158,16 +128,11 @@ async def _allowed_by_default(db: AsyncSession, session: Session, hook_input: di
 async def _cedar_tool_rules(
     session: Session, policy: GatewayPolicy, hook_input: dict[str, Any], decision: ToolDecision
 ) -> ToolDecision:
-    """The Cedar policy engine's evaluation of the tool rules.
-
-    Shadow mode: compared and recorded, ``decision`` returned unchanged. Enforce mode: a Cedar denial of a call the
-    tool rules allow becomes the answer, naming the deciding policies and the decision-log record. The principal is
-    loaded in its own session, never on the request's: a failed statement there must not abort the caller's transaction.
-    """
     await maintain_policy_runtime()
     if current_runtime().mode == MODE_OFF:
         return decision
     try:
+        # Its own session: a failed statement there must not abort the caller's transaction.
         principal, records = await load_principal_isolated(session.user_id, session_id=session.id,
                                                            metadata=session.metadata_)
     except Exception:  # noqa: BLE001 - like an unavailable engine: the tool rules decide
@@ -196,7 +161,6 @@ async def decide_tool_check(
     db: AsyncSession, *, session: Session, session_key: str, policy: GatewayPolicy, hook_input: dict[str, Any],
     grant_id: str | None = None,
 ) -> dict[str, Any]:
-    """The tool-check answer for one PreToolUse; flushes the denial or ticket rows (the route commits)."""
     protected = self_protection_decision(hook_input, state_root=launcher_state_root(session))
     if protected is not None:
         return await _denied(db, session, hook_input, protected)

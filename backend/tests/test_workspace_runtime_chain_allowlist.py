@@ -3,18 +3,12 @@
 from types import SimpleNamespace
 from typing import Any
 
-import httpx
 import pytest
 
 import app.services.session.turn_runtime_selection as selection_module
-from app.agent.core.runtime.runtime_admission_contract import RUNTIME_ADMISSION_DENIED_STATUS
-from app.agent.core.runtime.runtime_errors import RUNTIME_ERROR_RUNTIME_NOT_ALLOWED
-from app.agent.engine.runtime._engine_runtime_fallback import _chat_with_runtime_fallback
 from app.services.model_selection.snapshot import SelectionSnapshot, scope_from_view
 from app.services.session.turn_refusals import TurnRefusalState, TurnRefusedError
 from app.services.session.turn_runtime_selection import RuntimeChoice, resolve_turn_runtime
-from app.services.workspace_composition.runtime_chain_admission import apply_workspace_runtime_allowlist
-from tests.model_gateway.conftest import MESSAGES, RecordingRuntimeFactory, backup_runtime
 
 
 def _view(mode: str, *runtime_target_ids: str) -> dict[str, Any]:
@@ -33,60 +27,14 @@ def _view(mode: str, *runtime_target_ids: str) -> dict[str, Any]:
 SELECTED_T2 = _view("selected_only", "t2")
 
 
-def _runtime(name: str, target_id: str, priority: int) -> dict[str, Any]:
-    return backup_runtime(provider_name=name, model=f"{name}-model", target_id=target_id, priority=priority)
 
 
-async def _run_chain(runtimes: list[dict[str, Any]], factory: RecordingRuntimeFactory):
-    return await _chat_with_runtime_fallback(
-        runtimes,
-        messages=MESSAGES,
-        tools=None,
-        get_provider_func=factory,
-        retry_policy={"max_retries": 0, "pause_seconds": 0, "fallback_mode": "all_runtimes"},
-    )
 
 
-@pytest.mark.asyncio
-async def test_a_disallowed_first_runtime_is_skipped_and_the_allowed_one_answers() -> None:
-    chain = apply_workspace_runtime_allowlist([_runtime("other", "t1", 1), _runtime("backup", "t2", 2)], SELECTED_T2)
-    factory = RecordingRuntimeFactory(forbidden=("other",))
-
-    _response, used_runtime, attempts = await _run_chain(chain, factory)
-
-    assert factory.constructed == ["backup"]
-    assert used_runtime["target_id"] == "t2"
-    denied = [item for item in attempts if item.get("status") == RUNTIME_ADMISSION_DENIED_STATUS]
-    assert [item["target_id"] for item in denied] == ["t1"]
-    assert denied[0]["error_class"] == RUNTIME_ERROR_RUNTIME_NOT_ALLOWED
-    assert denied[0]["dispatched"] is False
 
 
-@pytest.mark.asyncio
-async def test_fallback_never_reaches_a_runtime_the_workspace_does_not_allow() -> None:
-    # The allowed start runtime times out; the next target in the platform order is not allowed.
-    chain = apply_workspace_runtime_allowlist([_runtime("backup", "t2", 1), _runtime("other", "t3", 2)], SELECTED_T2)
-    factory = RecordingRuntimeFactory(
-        failures={"backup": httpx.ReadTimeout("timed out")}, forbidden=("other",)
-    )
-
-    with pytest.raises(RuntimeError) as excinfo:
-        await _run_chain(chain, factory)
-
-    assert "other" not in factory.constructed
-    classes = {item.get("target_id"): item.get("error_class") for item in excinfo.value.runtime_attempts}
-    assert classes["t3"] == RUNTIME_ERROR_RUNTIME_NOT_ALLOWED
 
 
-def test_all_installed_and_environment_runtimes() -> None:
-    chain = [_runtime("other", "t1", 1), _runtime("env", "", 2)]
-    # all_installed (and no view at all) leaves the chain untouched.
-    assert apply_workspace_runtime_allowlist(chain, _view("all_installed")) == chain
-    assert apply_workspace_runtime_allowlist(chain, None) == chain
-    # selected_only refuses the environment runtime too: it is on no Workspace list.
-    refused = apply_workspace_runtime_allowlist(chain, _view("selected_only", "t1"))
-    assert "admission_denial" not in refused[0]
-    assert refused[1]["admission_denial"]["error_class"] == RUNTIME_ERROR_RUNTIME_NOT_ALLOWED
 
 
 def _target(target_id: str):

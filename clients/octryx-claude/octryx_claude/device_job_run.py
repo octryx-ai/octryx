@@ -17,6 +17,7 @@ from . import (
     device_files,
     device_service,
     device_state,
+    engine_state,
     install_layout,
     token_profile,
     transcript_upload,
@@ -25,6 +26,7 @@ from . import (
     work_git,
 )
 from .codex_driver import CodexDriver, runs_codex
+from .context_pack import with_context_pack
 from .device_job_offers import LOCAL_PREFIX
 from .device_outbox import OutboxFullError
 from .device_sdk import DriverStartError, DriverUnavailableError
@@ -40,15 +42,12 @@ Emit = Callable[[dict[str, Any]], Awaitable[None]]
 
 
 def notify_takeover(profile: str, folder: str) -> None:
-    """A macOS notification for a turn the phone runs here. Best effort; never raises."""
     from .mac_notify import notify  # noqa: PLC0415 - shows as "Octryx", not "Script Editor"
 
     notify("Octryx", f"Your phone continues a Claude Code session ({profile}) in {os.path.basename(folder) or folder}")
 
 
 def with_pipeline_red(state: LocalState, prepared: Any, prompt: str) -> str:
-    """A red pipeline this turn ran before its agent: the failed commands, test ids and output end go straight into
-    the prompt, so the session never has to look for them in the contract."""
     from .pipeline import RED_FILE  # noqa: PLC0415
 
     key = getattr(prepared, "session_key", "")
@@ -65,17 +64,8 @@ def with_pipeline_red(state: LocalState, prepared: Any, prompt: str) -> str:
 
 
 def session_shim(executable: str | None = None) -> Path:
-    """The launcher a device session's hooks call: always the code that runs the device. Settings and hooks of one
-    session must come from the same code.
-
-    - a device run from a checkout writes the session's settings, so its hooks call the checkout's launcher, never
-      the installed one;
-    - an installation in its own ``OCTRYX_CLAUDE_HOME`` calls its own launcher, never ``~/.local/bin/octryx-claude``
-      (the person's main installation, possibly another version).
-
-    The order is this checkout's launcher, else this installation's ``venvs/current`` script (a venv's python
-    resolves to ``venvs/<version>``; ``current`` lets a self-update reach the next hook call), else this venv's own
-    script, else the installed shim."""
+    # Settings and hooks of one session must come from the same code; ``current`` lets a self-update reach the
+    # next hook call.
     checkout = install_layout.CHECKOUT_SHIM
     if checkout.is_file():
         return checkout
@@ -87,7 +77,6 @@ def session_shim(executable: str | None = None) -> Path:
 
 
 async def extend_prepared(state: LocalState, prepared: PreparedSession, offer: dict[str, Any]) -> None:
-    """What the offer adds to the prepared session: its browser, its options and its run's settings."""
     if offer.get("browser") is True and offer.get("workflow_run"):
         from . import browser_mcp  # noqa: PLC0415
 
@@ -105,6 +94,7 @@ async def extend_prepared(state: LocalState, prepared: PreparedSession, offer: d
                           lean=bool(offer.get("workflow_run")) or offer.get("lean") is True,
                           workflow_run=bool(offer.get("workflow_run")),
                           subagents=offer.get("subagents") is True,
+                          model_context_window=int(offer.get("model_context_window") or 0),
                           # The run turn's built-in tools and prompt texts (data).
                           builtin_tools=list(offer.get("builtin_tools") or []),
                           system_prompt=str(offer.get("system_prompt") or ""),
@@ -127,9 +117,8 @@ async def extend_prepared(state: LocalState, prepared: PreparedSession, offer: d
 
 class TurnRunner:
     async def _after_clean_up(self, job_id: str) -> None:
-        """The platform offers a job's next turn as soon as it hears ``turn_finished``, while the device may still clean
-        up after the last one; refusing it ``device_job_busy`` would pause the run. Such an offer waits for the
-        clean-up, at most :data:`CLEAN_UP_WAIT_SECONDS`; a turn that is still working is refused ``device_job_busy``."""
+        # The platform offers the next turn on turn_finished while clean-up may still run; refusing it would pause
+        # the run.
         turn = self.turns.get(job_id)
         if turn is None or not turn.finished or turn.task is None or turn.task.done():
             return
@@ -185,6 +174,7 @@ class TurnRunner:
             if offer["profile"].startswith(LOCAL_PREFIX):  # the Mac sees every remote turn
                 notify_takeover(offer["profile"][len(LOCAL_PREFIX):], offer["folder"])
             self._suggest_route(offer, emit)  # measured alongside, never waited for
+            await engine_state.before_turn(self.state, prepared, offer, job_id=turn.job_id)
             # The turn's full transcript, only when the Workspace switched it on.
             uploads = transcript_upload.start_for_turn(prepared, offer)
             result = await self._drive(turn, offer, prepared, emit)
@@ -194,6 +184,8 @@ class TurnRunner:
                 result["status"] = turn.stop_reason
             await self._report_usage(prepared, offer, result, started, emit)
             await self._report_work(prepared, offer, started, emit)
+            await engine_state.after_turn(self.state, prepared, offer, result, job_id=turn.job_id,
+                                          turn_id=turn.turn_id)
             turn.finished = True
             await self._send(turn.job_id, "turn_finished", {"turn_id": turn.turn_id, **result})
         except OutboxFullError:
@@ -209,13 +201,18 @@ class TurnRunner:
             await self._end_turn(turn, prepared, uploads, emit)
 
     async def _drive(self, turn: Turn, offer: dict[str, Any], prepared: PreparedSession, emit: Emit) -> dict:
-        """The driver's run of the turn, bounded by the turn's time limit; the audit upload runs alongside."""
 
         async def decide(tool: str, tool_input: dict[str, Any]) -> tuple[str, str]:
             return await self._decide(turn, tool, tool_input)
 
+        if turn.stop_reason:
+            return {"status": turn.stop_reason}
+
         uploader = self._start_audit_upload(prepared, offer)
         offer["prompt"] = with_pipeline_red(self.state, prepared, offer["prompt"])
+        offer["prompt"], pack = await asyncio.to_thread(with_context_pack, self.state.root, offer, prepared.session_key)
+        if pack is not None:
+            await emit(pack)
         if offer.get("workflow_run"):
             # Every process of the run turn carries this mark; what still listens after it is stopped below.
             prepared.env[turn_processes.MARK_ENV] = turn_processes.new_mark()

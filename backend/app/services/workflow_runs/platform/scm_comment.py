@@ -1,9 +1,4 @@
-"""``scm.comment``: post a run text (a review verdict and its findings, ...) on the run's pull request.
-
-The pull request is the run's own (``run.pull_request``) or else the open pull request of the run's branch (Review &
-PR checks out a branch it did not open). Bitbucket (Server/Data Center and Cloud) has a comment tool
-(``add_bitbucket_pull_request_comment``); for GitHub and GitLab the step fails and says so — never a silent skip.
-"""
+"""``scm.comment``: post a run text (a review verdict and its findings, ...) on the run's pull request."""
 
 from __future__ import annotations
 

@@ -1,10 +1,4 @@
-"""Theme conformance of the text a slide actually carries.
-
-Only *explicitly set* typefaces and colours can be off brand: an inherited
-value is the theme by definition, so silence here means the slide is taking the
-template's own styling. Split out of ``slide_gate`` because this is the one
-check that reasons about the theme rather than about geometry.
-"""
+"""Theme conformance of the text a slide actually carries."""
 
 from __future__ import annotations
 
@@ -66,8 +60,6 @@ def check_brand(
 
 
 def _run_violations(run: Any, fonts: set[str], colors: set[str]) -> list[str]:
-    """Only *explicitly set* values can be off brand; inherited values are the
-    theme by definition."""
     details: list[str] = []
     name = getattr(run.font, "name", None)
     if name and fonts and str(name).strip() not in fonts | _THEME_FONT_ALIASES:

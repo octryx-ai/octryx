@@ -1,18 +1,4 @@
-"""Structured shell parsing: a command split into simple-command segments with their redirections.
-
-The analyzers tokenize a command with ``shlex`` (``helpers._command_text_and_tokens``). A gate that
-must know *what each part of a compound command does* needs one step more: the tokens split at the
-shell's control operators (``;``, ``&&``, ``||``, ``|``, ``&``, newlines, subshell parentheses and
-command substitution), and each segment's output redirections separated from its words.
-
-This is a shell lexer (``shlex`` in POSIX mode with the shell's punctuation characters), not a
-pattern match over free text. It is deliberately conservative:
-
-- a quoted operator loses its quoting (``echo '>' x``), so it is read as an operator; a gate that
-  uses this errs towards refusing, never towards allowing;
-- a command that cannot be tokenized (unbalanced quotes) returns ``None``, so the caller decides
-  explicitly what an unparseable command means.
-"""
+"""Structured shell parsing: a command split into simple-command segments with their redirections."""
 
 from __future__ import annotations
 
@@ -25,8 +11,6 @@ _REDIRECT_CHARS = frozenset("<>")
 
 @dataclass(frozen=True, slots=True)
 class CommandSegment:
-    """One simple command: its words (argv) and the file targets of its output redirections."""
-
     words: tuple[str, ...]
     output_targets: tuple[str, ...] = ()
     # The files a ``<`` redirection reads (not ``<<``/``<<<``: their word is a delimiter or a string).
@@ -73,10 +57,6 @@ def _segment(tokens: list[str]) -> CommandSegment:
 
 
 def shell_command_segments(command: str | list[str]) -> list[CommandSegment] | None:
-    """The simple-command segments of ``command``; ``None`` when it cannot be tokenized.
-
-    An argv list (a tool that runs without a shell) is exactly one segment.
-    """
     if isinstance(command, list):
         words = tuple(str(part) for part in command)
         return [CommandSegment(words=words)] if words else []

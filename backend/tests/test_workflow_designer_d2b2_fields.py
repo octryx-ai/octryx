@@ -12,7 +12,10 @@ from app.services.workflow_runs.records import start_run
 from app.services.workflow_runs.work_item_fields import work_item_fields
 from tests.knowledge_evidence_seed_support import seed_workspace
 from tests.phased_workflow_fixtures import admin_user, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_designer_d2b2_support import _codes, _edge, _outcome
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def field_definition(*, field: str = "type", operator: str = "is", value=None, edges: list[dict] | None = None):

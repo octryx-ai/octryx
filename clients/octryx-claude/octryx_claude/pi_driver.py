@@ -1,19 +1,4 @@
-"""A device turn on the pi coding agent instead of Claude Code (try it once with the pi agent).
-
-Octryx AI should run an existing harness and make onboarding easy, not be a harness of its own. pi
-(``@mariozechner/pi-coding-agent``) is a deliberately small one: read, bash, edit and write, no sub-agents, no MCP, no
-permission prompts. This driver runs one chat turn of a device job on it, with the same interface as ``SdkDriver``:
-
-- the model goes through the platform's gateway like a Claude Code turn: ``models.json`` in a per-session pi config
-  directory names the gateway (Anthropic Messages API), the session headers and the device's ``apiKeyHelper`` command
-  as the key, so no credential is written to disk;
-- pi's JSON event stream (``--mode json``) becomes the chat's job events (text, tool use and result, usage);
-- the pi session id is the turn's ``claude_session_id``, so the next turn of the thread continues it.
-
-pi has no permission hook: the platform's PreToolUse decisions, the Workspace's deny/ask rules and the sandbox do not
-apply. It is therefore opt-in per device (``harness.json``, ``{"harness": "pi"}``), only for chat turns on the
-governed profile, never for a workflow run's own turn (its phase checks need the platform's hooks).
-"""
+"""A device turn on the pi coding agent instead of Claude Code, with the same interface as ``SdkDriver``."""
 
 from __future__ import annotations
 
@@ -36,7 +21,6 @@ LINE_LIMIT = 8 * 1024 * 1024
 
 
 def chosen_harness(state_root: Path) -> dict[str, Any]:
-    """The device's harness choice (``harness.json`` in the state directory); ``{}`` means Claude Code."""
     try:
         value = json.loads((Path(state_root) / HARNESS_FILE).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -65,7 +49,6 @@ def _headers(env: dict[str, str]) -> dict[str, str]:
 
 
 def models_config(env: dict[str, str], *, model: str, key_command: str, context_window: int) -> dict[str, Any]:
-    """pi's ``models.json``: one provider, the platform's gateway; the key is the device's helper command."""
     return {"providers": {PI_PROVIDER: {
         "baseUrl": str(env.get("ANTHROPIC_BASE_URL") or ""),
         "api": "anthropic-messages",
@@ -114,7 +97,6 @@ class Usage:
 
 
 def map_event(event: dict[str, Any], usage: Usage, last: dict[str, str]) -> list[dict[str, Any]]:
-    """One pi JSON event → the job events the chat sees."""
     kind = event.get("type")
     if kind == "session" and event.get("id"):
         return [{"kind": "session", "claude_session_id": str(event["id"])}]
@@ -149,8 +131,6 @@ def map_event(event: dict[str, Any], usage: Usage, last: dict[str, str]) -> list
 
 
 class PiDriver:
-    """Runs one turn on pi; ``interrupt``/``disconnect`` may be called from another task while it runs."""
-
     def __init__(self, state_root: Path, choice: dict[str, Any]) -> None:
         self.state_root = Path(state_root)
         self.choice = choice
@@ -183,7 +163,6 @@ class PiDriver:
 
     async def run_turn(self, prepared: Any, *, cwd: str, prompt: str, resume: str | None, fork: bool = False,
                        decide: Any = None, emit: Any) -> dict[str, Any]:
-        """Run the prompt to its end; returns ``{status, result_text, cost_usd, usage, claude_session_id}``."""
         config_dir, sessions = self._config_dir(prepared)
         env = {**os.environ, **{key: value for key, value in prepared.env.items() if value != ""},
                "PI_CODING_AGENT_DIR": str(config_dir)}

@@ -1,12 +1,4 @@
-"""A platform action never leaves its run silently ``running``.
-
-A platform action records a result or offers a retry. The test covers:
-
-- the branch create is idempotent: an existing empty branch is adopted through the real Bitbucket Cloud tools, and
-  the provider's refusal body is in the log;
-- an exception inside a platform action is the step's recorded failure: the run pauses with "Retry the step";
-- a run whose action request died (``running`` at a platform action without a result) offers "Retry the step".
-"""
+"""A platform action never leaves its run silently ``running``."""
 
 from __future__ import annotations
 
@@ -25,15 +17,16 @@ from app.services.workflow_runs.platform.dispatch import read_outcome
 from app.time_utils import utc_now
 from tests.bitbucket_cloud_workflow_support import _cloud_workspace
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_platform_actions import _run as start
 from tests.workflow_run_succession_support import BRANCH, Tools, _git, _origin, _remote_branch
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 MAIN = "a" * 40
 
 
 class Cloud:
-    """Bitbucket Cloud as a run sees it: the repository and main answer, the branch create says it exists."""
-
     def __init__(self) -> None:
         self.calls: list[tuple[str, str]] = []
 
@@ -74,13 +67,13 @@ async def test_an_existing_empty_branch_on_bitbucket_cloud_is_adopted_and_the_re
     real_dispatch = dispatch_module.dispatch_tool
 
     async def dispatch(db, run, tool, arguments, **kwargs):
-        if tool == "prepare_bitbucket_repository":  # the clone: a local origin that has the branch at main
+        if tool == "prepare_bitbucket_repository":
             return read_outcome({"local_path": str(work), "base_branch": "main"})
         return await real_dispatch(db, run, tool, arguments, **kwargs)
 
     monkeypatch.setattr(scm, "dispatch_tool", dispatch)
     workspace_id, item = await _cloud_item(db)
-    _remote_branch(seed, work, "feature/CHEF-14-hello-kitchen")  # the crashed first run's branch, never recorded
+    _remote_branch(seed, work, "feature/CHEF-14-hello-kitchen")
 
     with caplog.at_level(logging.WARNING):
         run = await start(db, BRANCH, project_id=workspace_id, repository="bitbucket:acme/payments",
@@ -140,7 +133,6 @@ async def test_a_run_whose_action_request_died_offers_retry_the_step(db, monkeyp
     db.add(item)
     await db.flush()
     run = await start(db, BRANCH, repository="github:acme/payments", work_item_id=item.id)
-    # What the crashed request left (committed mid-action): running at ``branch``, its pass without a result.
     entry = 2
     run.status, run.current_node_id, run.branch, run.waiting_kind = "running", "branch", None, None
     run.context = {key: value for key, value in run.context.items() if key not in ("action_ledger", "local_path", "branch_created")}
@@ -156,5 +148,5 @@ async def test_a_run_whose_action_request_died_offers_retry_the_step(db, monkeyp
 
     await perform_action(db, run, user=admin, body={"action": "retry_step"})
     assert (run.status, run.branch) == ("waiting", "feature/BRD-10-add-a-slugify-function")
-    assert tools.tools().count("create_github_branch") == 2  # the step really ran again (a new pass)
+    assert tools.tools().count("create_github_branch") == 2
     assert "retry_step" not in keys(await available_actions(db, run, access="write", user=admin))

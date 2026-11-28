@@ -33,8 +33,6 @@ from tests.model_gateway.litellm_evidence_field_grammar_support import (
 
 
 def test_the_identifier_grammar_admits_real_naming_and_refuses_real_tokens() -> None:
-    """The grammar pinned directly, on both sides."""
-
     for admitted in (
         *TARGET_IDENTIFIERS,
         "octryx-general",
@@ -50,7 +48,6 @@ def test_the_identifier_grammar_admits_real_naming_and_refuses_real_tokens() -> 
         assert is_identifier_shaped(admitted) is True, admitted
 
     for refused in (
-        # A credential prefix at the start of the value or after a separator.
         REAL_KEY,
         GITLAB_TOKEN,
         SLACK_TOKEN,
@@ -63,7 +60,6 @@ def test_the_identifier_grammar_admits_real_naming_and_refuses_real_tokens() -> 
         ("xdesk-li" + "ve-4eC39HqLyjWDarjtT1zdp7dc"),
         ("desk-sk-li" + "ve-4eC39HqLyjWDarjtT1zdp7dc"),
         ("task-sk-li" + "ve-4eC39HqLyjWDarjtT1zdp7dc"),
-        # A named secret marker.
         "aws_secret_access_key",
         # Characters the grammar excludes, which is what keeps every remaining
         # redaction rule structurally unable to match an admitted value.
@@ -85,8 +81,6 @@ def test_the_identifier_grammar_admits_real_naming_and_refuses_real_tokens() -> 
 
 
 def test_each_identifier_evidence_key_has_its_own_closed_value_grammar() -> None:
-    """A field name never grants a generic identifier-shaped exemption."""
-
     digest = "d0390ac57ade4f1e9b2c8d7a6f5e4d3c2b1a09876543210fedcba9876543210f"
     assertions = (
         ("alias", TARGET_ALIAS, True),
@@ -129,8 +123,6 @@ def test_the_request_path_grammar_admits_only_bounded_absolute_paths() -> None:
 
 
 def test_only_operator_supplied_fields_have_a_grammar() -> None:
-    """The exemption stays where the defect is: no backend code inherits one."""
-
     for operator_field in (
         "alias",
         "model_group",
@@ -162,14 +154,6 @@ def test_only_operator_supplied_fields_have_a_grammar() -> None:
 
 
 def test_no_backend_owned_gateway_code_is_itself_secret_shaped() -> None:
-    """The backend's closed codes keep the generic scan, so none may trip it.
-
-    This is what makes "only operator-supplied fields get a grammar" safe: if a
-    future denial code, mode or reason ever contained a credential-prefix
-    substring, it would be refused at write time — so it fails here instead,
-    where it is one rename away from being fixed.
-    """
-
     checked = 0
     for module_info in pkgutil.iter_modules(litellm_package.__path__):
         module = importlib.import_module(f"{litellm_package.__name__}.{module_info.name}")

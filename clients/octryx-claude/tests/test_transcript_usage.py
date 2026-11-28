@@ -1,6 +1,4 @@
-"""Every turn reports the tokens it used, read from its transcripts, so the platform can price it: a turn without
-``claude -p``'s result (follow-up) and one with it, whose ``total_cost_usd`` is the session's running total
-."""
+"""Every turn reports the tokens it used, read from its transcripts, so the platform can price it."""
 
 from __future__ import annotations
 

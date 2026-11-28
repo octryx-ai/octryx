@@ -1,8 +1,4 @@
-"""The ``UserPromptExpansion`` hook (usage): a typed slash command is recorded by name, never blocked.
-
-Only ``command_name`` and ``command_source`` are sent — never the prompt or the arguments. Any failure is silent:
-usage reporting must never stand between the user and their command.
-"""
+"""The ``UserPromptExpansion`` hook (usage): a typed slash command is recorded by name, never blocked."""
 
 from __future__ import annotations
 

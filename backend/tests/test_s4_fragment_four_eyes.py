@@ -1,10 +1,4 @@
-"""S4.2, D-S4-4: an API-authored fragment version is published by a second admin; a shipped seed is exempt.
-
-The decision is the platform's one four-eyes rule (``governance.four_eyes.decide_four_eyes``): the author is
-refused (409 ``fragment_four_eyes``) unless the platform approval rule allows a single admin, and then the
-self-approval is audited. Only the fragment seeder's marker exempts a version, and the API never lets an author set
-it — neither on create nor through a draft of a seeded fragment.
-"""
+"""S4.2, D-S4-4: an API-authored fragment version is published by a second admin; a shipped seed is exempt."""
 
 from __future__ import annotations
 
@@ -51,8 +45,7 @@ async def test_the_author_cannot_publish_their_own_fragment_and_a_second_admin_c
 @pytest.mark.asyncio
 async def test_the_platform_single_admin_rule_lets_the_author_publish_and_is_audited(db):
     author = await make_admin(db)
-    await set_system_config_value(db, key=APPROVAL_RULE_CONFIG_KEY, value="single_admin",
-                                  record_prompt_revision=False)
+    await set_system_config_value(db, key=APPROVAL_RULE_CONFIG_KEY, value="single_admin")
     created = await create(db, author, unique_key("s4-probe-confirm"), probe_fragment())
     version_id = created["versions"][0]["id"]
 
@@ -74,7 +67,6 @@ async def test_a_seeded_fragment_is_exempt(db):
     await publish(db, version_id, seeder)
     assert (await version_row(db, version_id)).status == "published"
 
-    # An admin's draft of the seeded fragment is no seed: its author does not publish it alone.
     saved = await save_flow_draft(db, flow_id=created["id"], current_user=seeder, payload={
         "expected_latest_version_id": version_id, "definition": probe_fragment(label="Edited"), "name": "seed"})
     draft = max(saved["versions"], key=lambda item: item["version"])

@@ -1,12 +1,4 @@
-"""A device phase turn that keeps asking for approvals nobody gives pauses its run.
-
-On a device, a tool the phase needs (an edit, a shell command) becomes an approval only the device owner can answer;
-unanswered, it is denied after ``device_runs.approval_timeout_s`` and the agent asks again at once. Without a person
-this would repeat without any bound (e.g. three denials in a row, and the run stays ``running``). So when the
-platform's continuation turn of the current pass asks for approval again after :data:`MAX_REFUSED_APPROVALS`
-approvals of this pass were denied or expired, the turn is stopped and the run pauses ``approval_timeout``:
-Continue runs the phase again (after the owner pre-allowed what it needs), Abort ends it.
-"""
+"""A device phase turn that keeps asking for approvals nobody gives pauses its run."""
 
 from __future__ import annotations
 
@@ -24,7 +16,6 @@ CODE = "device_approvals_unanswered"
 
 
 async def approval_requested(db: AsyncSession, job: DeviceJob) -> bool:
-    """A new approval of ``job`` was requested; ``True`` when the run paused and the turn was stopped."""
     from ...devices.jobs import request_stop
     from ..limits import pause_run
     from ..records import WorkflowRunError, active_run_for_session, lock_run

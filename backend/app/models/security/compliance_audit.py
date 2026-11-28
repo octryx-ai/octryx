@@ -1,11 +1,4 @@
-"""Compliance Audit Export and Evidence Records.
-
-Provides:
-  - ComplianceAuditRecord: structured, exportable audit events for approvals,
-    publish decisions, eval gates, policy changes, connector access, etc.
-  - EvidencePackage: exportable bundle of audit records for a compliance review
-    window, with redaction metadata.
-"""
+"""Compliance Audit Export and Evidence Records."""
 
 from __future__ import annotations
 
@@ -15,14 +8,13 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Strin
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
 def uuid_pk() -> str:
     return str(uuid.uuid4())
 
-
-# ── Audit event type constants ───────────────────────────────────────────────
 
 AUDIT_APPROVAL = "approval"
 AUDIT_PUBLISH_DECISION = "publish_decision"
@@ -43,7 +35,6 @@ ALL_AUDIT_EVENT_TYPES = frozenset({
     AUDIT_USER_ACCESS, AUDIT_ADMIN_CHANGE,
 })
 
-# Outcomes
 OUTCOME_APPROVED = "approved"
 OUTCOME_REJECTED = "rejected"
 OUTCOME_BLOCKED = "blocked"
@@ -51,18 +42,14 @@ OUTCOME_ALLOWED = "allowed"
 OUTCOME_ESCALATED = "escalated"
 OUTCOME_REDACTED = "redacted"
 
-# Evidence package status
 EVIDENCE_STATUS_DRAFT = "draft"
 EVIDENCE_STATUS_SEALED = "sealed"
 EVIDENCE_STATUS_EXPORTED = "exported"
 
 
-class ComplianceAuditRecord(Base):
-    """Structured compliance audit event.
-
-    Every record captures who did what, on which resource, with what outcome,
-    and carries redaction metadata so exports remain safe.
-    """
+class ComplianceAuditRecord(WorkspaceBound, Base):
+    """A structured compliance audit event: who did what on which resource, with what outcome."""
+    __workspace_owners__ = {"session_id": "sessions"}
 
     __tablename__ = "compliance_audit_records"
     __table_args__ = (
@@ -83,13 +70,10 @@ class ComplianceAuditRecord(Base):
     resource_name = Column(String(220), nullable=True)
     # Structured payload — may be redacted on export
     details = Column(JSON, default=dict)
-    # Redaction
     contains_sensitive = Column(Boolean, nullable=False, default=False)
     redacted_fields = Column(JSON, default=list)  # list of field paths redacted
-    # Classification
     classification_level = Column(String(30), nullable=True)
     data_classification_tag_id = Column(String(36), nullable=True)
-    # Optional links
     session_id = Column(String(36), nullable=True)
     incident_id = Column(String(100), nullable=True)
     request_id = Column(String(64), nullable=True)
@@ -99,11 +83,8 @@ class ComplianceAuditRecord(Base):
     actor = relationship("User")
 
 
-class EvidencePackage(Base):
-    """Exportable bundle of ComplianceAuditRecord rows for a review window.
-
-    A sealed package can be exported as JSON or CSV.
-    """
+class EvidencePackage(WorkspaceBound, Base):
+    """Exportable bundle of ComplianceAuditRecord rows for a review window."""
 
     __tablename__ = "evidence_packages"
     __table_args__ = (
@@ -116,17 +97,13 @@ class EvidencePackage(Base):
     name = Column(String(220), nullable=False)
     description = Column(Text, nullable=True)
     status = Column(String(20), nullable=False, default=EVIDENCE_STATUS_DRAFT)
-    # Period
     period_from = Column(DateTime, nullable=True)
     period_to = Column(DateTime, nullable=True)
-    # Filter used to build the package
     filter_event_types = Column(JSON, default=list)
     filter_resource_types = Column(JSON, default=list)
-    # Counts and metadata
     record_count = Column(String(20), nullable=True)
     redacted_count = Column(String(20), nullable=True)
     export_format = Column(String(20), nullable=True)  # json | csv
-    # Audit
     created_by = Column(String(36), ForeignKey("users.id"), nullable=True)
     sealed_at = Column(DateTime, nullable=True)
     exported_at = Column(DateTime, nullable=True)

@@ -1,17 +1,4 @@
-"""The run's test history: per-test results from chat, octryx-claude and CI.
-
-Every test run a governed turn, the octryx gateway or CI reports is appended to ``context.tests.runs`` (the newest
-20 are kept). When the confirmed tests are seen red by their role — every new test failing on an assertion, every
-regression test passing (``test_roles``) — the run remembers it (``red_seen``): "green" then means red first, then
-green. A gate reads this history (``gate_fields``), never the agent's word.
-
-**Content snapshot**: when a person confirms the tests, the content hash of each confirmed test's file
-is recorded (``context.confirmed_test_files``, resolved in the run's working copy). Every gate re-reads the files: a
-confirmed test whose file changed, disappeared or names no file cannot count as intact or green — rewriting the
-reproduction (``assert True``) after red never turns the run green. Phases with ``protect_confirmed_tests`` also
-refuse writes to these files (``path_rules``) unless they are formatting only (``format_only``): the snapshot also
-keeps the confirmed Python file's syntax-tree fingerprint (``ast_sha256``), so a reformatted file stays intact.
-"""
+"""The run's test history: per-test results from chat, octryx-claude and CI."""
 
 from __future__ import annotations
 
@@ -40,18 +27,14 @@ def confirmed_tests(run: WorkflowRun) -> list[str]:
 
 
 def confirmed_by(run: Any) -> str:
-    """Who bound the confirmed tests (``confirm_tests`` records it): ``person`` or ``run``; ``person`` before any
-    confirmation."""
     return str(dict(getattr(run, "context", None) or {}).get(CONFIRMED_BY_KEY) or "person")
 
 
 def confirmed_test_roles(run: WorkflowRun) -> dict[str, str]:
-    """Each confirmed test's role (``test_roles``, recorded by ``confirm_tests``); empty before a confirmation."""
     return {str(key): str(value) for key, value in dict(dict(run.context or {}).get(ROLES_CONTEXT_KEY) or {}).items()}
 
 
 def record_test_run(run: WorkflowRun, test_run: dict[str, Any], *, node_id: str | None = None) -> None:
-    """Append a test run, its results keyed by canonical id as far as the run's files resolve them."""
     tests = _tests(run)
     entry = resolve_entry({**test_run, "node_id": node_id, "at": utc_now().isoformat()}, resolver_for(run))
     tests["runs"] = [*(tests.get("runs") or []), entry][-MAX_RUNS:]
@@ -88,7 +71,6 @@ def _slice_board(run: WorkflowRun) -> list[dict[str, Any]] | None:
 
 
 def ci_state_of_head(context: dict[str, Any]) -> str | None:
-    """The recorded CI state, only when it is the result for the commit the run pushed last."""
     ci = dict(context.get("ci") or {})
     head = str(context.get("head_sha") or "")
     if head and str(ci.get("sha") or "") != head:
@@ -101,9 +83,6 @@ CONFIRMED_BY_KEY = "confirmed_tests_by"
 
 def confirm_tests(run: WorkflowRun, test_ids: list[str], *, symptom: str | None = None,
                   roles: dict[str, str] | None = None, by: str = "person") -> None:
-    """A confirmed test contract or reproduction names the tests the gates judge from now on, with their roles;
-    ``by``: a ``person`` confirmed them, or the ``run`` bound its own reproduction (a size class that skips the
-    confirmation)."""
     context = dict(run.context or {})
     context[CONFIRMED_BY_KEY] = by
     context["confirmed_tests"] = list(dict.fromkeys(normalize(item) for item in test_ids if normalize(item)))
@@ -112,7 +91,7 @@ def confirm_tests(run: WorkflowRun, test_ids: list[str], *, symptom: str | None 
     if symptom:
         context["reproduction_symptom"] = symptom
     tests = dict(context.get("tests") or {})
-    tests.pop(RED_ON_BASE_PENDING, None)  # a confirmation of its own judges its red again
+    tests.pop(RED_ON_BASE_PENDING, None)
     run.context = context
     runs = recorded_runs(run)
     # The run that showed them is the red evidence when it already has them failing on an assertion.
@@ -122,7 +101,6 @@ def confirm_tests(run: WorkflowRun, test_ids: list[str], *, symptom: str | None 
 
 
 def test_file_of(test_id: str) -> str | None:
-    """The file a canonical test id names, else ``None`` (``test_ids.file_of``)."""
     return file_of(normalize(test_id))
 
 
@@ -134,7 +112,6 @@ def _digest(path: Path) -> str | None:
 
 
 async def working_copy_root(db: Any, run: WorkflowRun) -> Path | None:
-    """Where the run's tests run: its repository working copy, else its chat session's workspace."""
     local_path = str(dict(run.context or {}).get("local_path") or "")
     if local_path:
         return Path(local_path).resolve()
@@ -159,10 +136,6 @@ async def device_run(db: Any, run: WorkflowRun) -> bool:
 
 
 async def snapshot_confirmed_tests(db: Any, run: WorkflowRun) -> None:
-    """Record the content hash of every confirmed test's file at the moment a person confirmed it.
-
-    A run an octryx-claude session works on has its working copy on the device: the files are marked ``device``
-    and the launcher's first report is their baseline (``octryx/facts``)."""
     if await device_run(db, run):
         run.context = {**dict(run.context or {}), "confirmed_test_files": {
             test_id: {"file": test_file_of(test_id), "path": None, "sha256": None, "device": True}
@@ -182,7 +155,6 @@ async def snapshot_confirmed_tests(db: Any, run: WorkflowRun) -> None:
 
 
 def confirmed_test_drift(run: WorkflowRun) -> list[str]:
-    """Why a confirmed test's content can no longer be trusted (empty: unchanged since its confirmation)."""
     confirmed = confirmed_tests(run)
     if not confirmed:
         return []
@@ -212,9 +184,7 @@ def confirmed_test_drift(run: WorkflowRun) -> list[str]:
 
 
 def confirmed_baseline_intact(run: WorkflowRun, path: Path) -> bool:
-    """Whether the current content of the confirmed test file ``path`` is provably the confirmed one: its bytes
-    match the confirmed hash, or its syntax tree matches the fingerprint taken at confirmation. Unprovable is
-    ``False``."""
+    # Unprovable is False.
     entries = [dict(entry or {}) for entry in dict(dict(run.context or {}).get("confirmed_test_files") or {}).values()
                if isinstance(entry, dict) and entry.get("path") and Path(entry["path"]).resolve() == path.resolve()]
     return bool(entries) and all(
@@ -224,10 +194,7 @@ def confirmed_baseline_intact(run: WorkflowRun, path: Path) -> bool:
 
 async def record_turn_test_runs(db: Any, run: WorkflowRun, test_runs: list[dict[str, Any]], *,
                                 node_id: str | None) -> None:
-    """A phase turn's test runs; when the confirmed tests are first seen red, their content is fixed then.
-
-    Tests written after the contract was confirmed (Feature delivery's tests-first phase) exist only from here on:
-    their snapshot is taken at the first red run, so no later change can make them pass instead of the code."""
+    # Snapshot at the first red run, so no later change can make the tests pass instead of the code.
     before = bool(_tests(run).get("red_seen"))
     for test_run in test_runs:
         record_test_run(run, test_run, node_id=node_id)
@@ -246,7 +213,6 @@ def _last_run_red(run: WorkflowRun) -> bool:
 
 
 async def _tests_first_phase(db: Any, run: WorkflowRun, node_id: str | None) -> bool:
-    """Whether ``node_id`` is the phase a ``tests_red`` gate judges (its ``phase``, else its direct source)."""
     from .graph import NODE_GATE, graph_for_run
 
     if not node_id:

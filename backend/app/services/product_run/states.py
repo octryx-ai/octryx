@@ -1,14 +1,4 @@
-"""Closed Product Run lifecycle: legal transitions and end reasons.
-
-The vocabulary lives on the model (``app.models.runtime.product_run``); this
-module decides which moves between those states are legal, which end reason may
-accompany each move, and which execution-gate facts a gate decision carries.
-Nothing here performs I/O.
-
-``completed`` and ``verifying`` are reserved for a verification contract: the
-database accepts them, no transition reaches them. A finished turn ends at best
-as ``finished_unverified``.
-"""
+"""Closed Product Run lifecycle: legal transitions and end reasons."""
 
 from __future__ import annotations
 
@@ -163,12 +153,10 @@ _GATE_FACT_RULES: MappingProxyType[str | None, tuple[str | None, str]] = Mapping
 
 
 def is_legal_transition(from_state: str, to_state: str) -> bool:
-    """Return whether ``from_state`` may move to ``to_state``."""
     return to_state in LEGAL_TRANSITIONS.get(from_state, frozenset())
 
 
 def is_legal_end_reason(from_state: str, to_state: str, end_reason: str | None) -> bool:
-    """Terminal moves need a reason that produces ``to_state`` from ``from_state``; others take none."""
     if to_state in TERMINAL_STATES:
         rule = END_REASON_RULES.get(end_reason) if end_reason is not None else None
         return rule is not None and rule[0] == to_state and from_state in rule[1]
@@ -176,12 +164,10 @@ def is_legal_end_reason(from_state: str, to_state: str, end_reason: str | None) 
 
 
 def requires_gate_facts(from_state: str, to_state: str) -> bool:
-    """Gate facts belong to, and only to, the gate's decision on a requested attempt."""
     return from_state == RUN_STATE_REQUESTED and to_state in GATE_DECIDED_STATES
 
 
 def gate_facts_match(end_reason: str | None, status: str, decision_source: str) -> bool:
-    """Return whether the gate's status and source are the ones this decision implies."""
     if end_reason not in _GATE_FACT_RULES:
         return False
     expected_status, expected_source = _GATE_FACT_RULES[end_reason]

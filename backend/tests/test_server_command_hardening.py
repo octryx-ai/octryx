@@ -1,14 +1,5 @@
-"""What a server command can reach besides its classification.
-
-- layer 3: git in a server command runs nothing a working copy configures — a hook planted directly as a file does
-  not run on ``git commit``, a planted ``core.fsmonitor`` does not run on ``git status`` (``execute_with_runtime``,
-  the platform's ``safe_git``), whatever the classifier said;
-- the environment: a server shell sees none of the API's secrets (database URL, JWT secret, IRSA role), also when the
-  caller spreads ``os.environ`` into ``env``;
-- the file tools: a write into ``.git/`` is refused, a read outside the workspace (``/proc/1/environ``) too;
-- the audit: a refused and an executed command each leave exactly one ``audit_log`` row with the masked command and
-  never its output; without a place to write the row the command does not run.
-"""
+"""What a server command can reach besides its classification: no working-copy git hooks or fsmonitor, none
+of the API's secrets, no ``.git/`` writes, and exactly one masked audit row per command."""
 
 from __future__ import annotations
 
@@ -121,8 +112,6 @@ async def test_file_tools_never_write_git_internals_nor_read_outside_the_workspa
         result = await ReadWorkspaceFileTool().execute({"path": path}, context)
         assert "error" in result and "content" not in result, path
 
-
-# --- audit ------------------------------------------------------------------------------------------------------------
 
 async def _rows(db) -> list[AuditLog]:
     return list((await db.execute(select(AuditLog).where(AuditLog.resource_type == "server_command")

@@ -228,7 +228,6 @@ async def decide_change_plan(
 def _validated_decision(
     plan: WorkChangePlan, payload: dict[str, Any]
 ) -> tuple[str, str | None, list[str], list[str]]:
-    """Return action, reason, required changes and human-verified criteria, or raise the refusal."""
     action = str(payload.get("action") or "").strip().lower()
     if action not in PLAN_DECISIONS:
         raise HTTPException(status_code=422, detail="action must be approve, reject, or request_clarification")

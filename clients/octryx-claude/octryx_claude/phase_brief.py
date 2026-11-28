@@ -1,11 +1,5 @@
-"""The phase's compact run contract in the turn's context, once per contract digest (``UserPromptSubmit``).
-
-A turn that has to start with ``workflow_run_status`` pays a tool round and a large answer (which can land in a
-file under the launcher's protected home that the agent may not read). The launcher already holds the contract, so it
-hands the model the same compact view the
-tool answers by default (the platform's ``workflow_runs/octryx/compact_view``, paths from ``detail_paths``), plus the
-code style's brief for the agent once per session while it stays the same.
-"""
+"""The phase's compact run contract in the turn's context, once per contract digest.
+It saves a ``workflow_run_status`` round whose large answer may land where the agent cannot read it."""
 
 from __future__ import annotations
 
@@ -47,8 +41,7 @@ def _without_brief(view: dict[str, Any]) -> dict[str, Any]:
 
 
 def _with_rules(phase: dict[str, Any], text: str) -> str:
-    """The platform's phase brief (``phase.brief``, its catalog lines) first, then the compact JSON; a JSON that no
-    longer fits is left out whole (a cut JSON reads as broken), never the brief."""
+    # A cut JSON reads as broken, so it is left out whole; the brief always stays.
     brief = str(phase.get("brief") or "").strip()
     if not brief:
         return text
@@ -57,7 +50,6 @@ def _with_rules(phase: dict[str, Any], text: str) -> str:
 
 
 def phase_brief(state: LocalState, session_key: str, contract: dict[str, Any] | None) -> str:
-    """The brief when the contract (or the style) changed since it was last shown; ``""`` otherwise."""
     phase = contract.get("phase") if isinstance(contract, dict) else None
     if not isinstance(phase, dict) or not contract.get("detail_paths"):
         return ""  # no phase, or a platform without the compact view: the agent reads workflow_run_status
@@ -83,7 +75,6 @@ MAP_SHOWN_FILE = "code-map-shown.json"
 
 def code_map_once(state: LocalState, session_key: str, contract: dict[str, Any] | None, root: str,
                   head: str, style_head: str = "") -> str:
-    """The app's code map (``code_map``) once per session and app; ``""`` after that or without one."""
     from .code_map import code_map
 
     if not isinstance(contract, dict) or not isinstance(contract.get("phase"), dict):

@@ -1,8 +1,5 @@
 import { readJson } from "../../utils/adminPanelHelpers";
 
-// The skill catalog admin API (backend `api/routes/skill_catalog_*.py`): platform admins only. Refusals keep
-// their HTTP status and fixed code on the error (readJson); skillCatalogModel.refusalText turns them into a sentence.
-
 export const SKILL_CATALOG_PATH = "/api/v1/admin/skill-catalog";
 
 const url = (path: string) => `${SKILL_CATALOG_PATH}${path}`;
@@ -24,11 +21,9 @@ function query(filters: Record<string, string | number | undefined>): string {
   return text ? `?${text}` : "";
 }
 
-// Catalog list and detail
 export const loadSkills = (filters: Record<string, string | undefined> = {}) => readJson<unknown>(url(`/skills${query(filters)}`));
 export const loadSkill = (skillId: string) => readJson<unknown>(url(`/skills/${id(skillId)}`));
 export const createSkill = (body: unknown) => post("/skills", body);
-/** Continue the open draft or start one from the published version. */
 export const editSkill = (skillId: string) => post(`/skills/${id(skillId)}/edit`);
 export const loadVersion = (skillId: string, version: number) => readJson<unknown>(url(`/skills/${id(skillId)}/versions/${version}`));
 /** Save the draft; `etag` is the digest the editor started from (409 `skill_draft_conflict` when it changed). */
@@ -46,7 +41,6 @@ export const publishVersion = (skillId: string, version: number, approvalId: str
   post(`/skills/${id(skillId)}/versions/${version}/publish`, selfApprove ? { self_approve: true } : { governance_approval_id: approvalId });
 export const retireVersion = (skillId: string, version: number) => post(`/skills/${id(skillId)}/versions/${version}/retire`);
 export const rollbackVersion = (skillId: string, version: number) => post(`/skills/${id(skillId)}/versions/${version}/rollback`);
-/** The governance approval a submit opened; decided by another platform admin through the approvals API. */
 export const approveReview = (approvalId: string) =>
   readJson<unknown>(`/api/v1/approvals/${id(approvalId)}/approve`, { method: "POST", body: JSON.stringify({ reason: "Skill version reviewed" }) });
 export const rejectReview = (approvalId: string, reason: string) =>
@@ -55,7 +49,6 @@ export const saveTags = (skillId: string, tags: string[]) => send(`/skills/${id(
 export const loadSkillWorkspaces = (skillId: string) => readJson<unknown>(url(`/skills/${id(skillId)}/workspaces`));
 export const loadSkillUsage = (skillId: string, days = 30) => readJson<unknown>(url(`/skills/${id(skillId)}/usage${query({ days })}`));
 
-// Upstream
 export const checkUpstream = (skillId: string) => post(`/skills/${id(skillId)}/upstream/check`);
 /** `path` only when the tracked folder is gone and the admin picked the new one. */
 export const updateFromUpstream = (skillId: string, path?: string) => post(`/skills/${id(skillId)}/upstream/update`, path ? { path } : {});
@@ -64,7 +57,6 @@ export const saveTracking = (skillId: string, trackingMode: "pinned" | "follow")
 export const checkSource = (sourceId: string) => post(`/sources/${id(sourceId)}/check`);
 export const checkAllSources = () => post("/sources/check-all");
 
-// Import
 export const inspectSource = (body: unknown) => post("/import/inspect", body);
 export const importFromGit = (body: unknown) => post("/import/git", body);
 export function importUpload(file: File, categoryId: string, tags: string[]): Promise<unknown> {
@@ -76,22 +68,18 @@ export function importUpload(file: File, categoryId: string, tags: string[]): Pr
   return readJson<unknown>(url("/import/upload"), { method: "POST", body: form, headers: { Accept: "application/json" } });
 }
 
-// Sources and settings
 export const loadSources = () => readJson<unknown>(url("/sources"));
 export const saveSource = (sourceId: string, body: unknown) => send(`/sources/${id(sourceId)}`, "PATCH", body);
 export const saveSettings = (body: unknown) => send("/settings", "PUT", body);
 
-// Categories
 export const loadCategories = () => readJson<unknown>(url("/categories"));
 export const createCategory = (body: unknown) => post("/categories", body);
 export const saveCategory = (categoryId: string, body: unknown) => send(`/categories/${id(categoryId)}`, "PATCH", body);
 export const archiveCategory = (categoryId: string) => post(`/categories/${id(categoryId)}/archive`);
 export const restoreCategory = (categoryId: string) => post(`/categories/${id(categoryId)}/restore`);
 
-// Usage
 export const loadUsage = (days = 30) => readJson<unknown>(url(`/usage${query({ days })}`));
 
-// Workspace → Skills
 export const loadAssignment = (projectId: string) => readJson<unknown>(url(`/workspaces/${id(projectId)}/skills`));
 export const saveAssignment = (projectId: string, body: unknown, etag: string) =>
   send(`/workspaces/${id(projectId)}/skills`, "PUT", body, etag);

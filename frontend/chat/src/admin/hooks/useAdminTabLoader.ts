@@ -6,11 +6,7 @@ import type { UseAdminTabLoaderArgs } from "./useAdminTabLoader.types";
 
 type LoadCounter = { current: number };
 
-/**
- * Loads one tab's data. Only the latest load ends the loading state or reports an error: switching tabs while an
- * earlier load still runs must not end the new tab's loading early (an empty "0/0 · No
- * workspaces yet" while its list is still loading).
- */
+/** Only the latest load ends the loading state, so switching tabs never ends the new tab's loading early. */
 export async function runTabLoad(counter: LoadCounter, tab: AdminTab, args: UseAdminTabLoaderArgs) {
   const { setLoadingTab, setTabError } = args;
   const load = ++counter.current;

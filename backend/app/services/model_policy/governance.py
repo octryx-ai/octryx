@@ -1,25 +1,4 @@
-"""Governance approvals and audit for registry publication.
-
-Reuses the platform ``Approval`` row, the same pattern as routing-policy
-publication (``services/workflow_routing_policies._resolve_routing_policy_
-governance_approval``):
-
-* submitting a revision for review creates a ``pending`` approval whose
-  ``action`` binds the kind, the revision id **and** its digest;
-* the approval is decided through the existing approvals API (by someone else,
-  unless the platform approval rule allows self-approval);
-* publish accepts only an ``approved`` approval with exactly that action, and
-  only when the platform's single four-eyes decision
-  (``services/governance/four_eyes.decide_four_eyes``) approves it. A
-  self-approval is never reimplemented here: its audit row is added to the
-  publish transaction.
-
-Because the digest is part of the action, an approval can never be carried over
-to different content. The approvals API lets any authenticated user decide an
-approval that is not tied to a session, so publish additionally requires the
-approver to hold the ``admin`` or ``owner`` role in the Workspace
-(``approver_not_authorized`` otherwise).
-"""
+"""Governance approvals and audit for registry publication."""
 
 from __future__ import annotations
 
@@ -43,8 +22,6 @@ def publish_approval_action(kind: str, revision_id: str, digest: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class ApprovalGate:
-    """Outcome of checking one governance approval for one publication."""
-
     status: str
     approval_id: str | None
     requested_by: str | None = None
@@ -107,7 +84,8 @@ async def check_publish_approval(
             return ApprovalGate("approver_not_authorized", approval.id, approval.requested_by, approval.approved_by)
         # Same transaction as the publish that relies on it (no-op unless self-approved).
         record_self_approval_audit(
-            db, decision, resource_type=f"{kind}_revision", resource_id=revision_id, approval_id=approval.id
+            db, decision, resource_type=f"{kind}_revision", resource_id=revision_id, approval_id=approval.id,
+            project_id=workspace_id,
         )
     return ApprovalGate(
         decision.status,
@@ -120,15 +98,16 @@ async def check_publish_approval(
 
 
 async def record_audit(
-    db: AsyncSession, *, user_id: str, action: str, resource_type: str, resource_id: str, details: dict[str, Any]
+    db: AsyncSession, *, user_id: str, action: str, resource_type: str, resource_id: str, project_id: str | None,
+    details: dict[str, Any],
 ) -> None:
-    """Append one audit row; ``details`` carries identifiers and closed values only."""
     db.add(
         AuditLog(
             user_id=user_id,
             action=action,
             resource_type=resource_type,
             resource_id=resource_id,
+            project_id=project_id,
             details=details,
         )
     )

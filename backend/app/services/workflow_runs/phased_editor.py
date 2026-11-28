@@ -1,10 +1,4 @@
-"""The editor of a workflow that runs in phases.
-
-The phased graph is stored on the flow storage; this module serves its editor view and writes edits as a new
-draft flow version through the flow draft service (same validation, optimistic base check and audit as the
-flow builder). A phase opens in the Steps canvas: its inline definition is shown as a steps graph
-(``phase_steps_graph``) and validated on preview and save (``phase_validation``).
-"""
+"""The editor of a workflow that runs in phases."""
 
 from __future__ import annotations
 
@@ -63,14 +57,12 @@ def _node_summary(node: Any) -> dict[str, Any]:
         summary.update(capability_class=contract.get("capability_class"),
                        steps=len(contract.get("source_steps") or []), checks=len(contract.get("checks") or []),
                        path_rules=list(dict(contract.get("path_rules") or {}).get("write") or []))
-    # The data flow: what a phase submits and reads, what a confirmation shows, what a child gets.
     for key in ("agent", "outcome", "subject", "question", "tool", "workflow_key", "conditions", "source", "options",
                 "action", "output", "inputs", "shows", "handoff"):
         if key in node.config:
             summary[key] = copy.deepcopy(node.config[key])
     if node.kind == "gate":
         summary["checks"] = len(node.config.get("checks") or [])
-    # The designer's side panel explains the node in words and keeps its raw settings under "Details".
     summary["config"] = copy.deepcopy(node.config)
     return summary
 
@@ -106,13 +98,10 @@ async def phased_view(db: AsyncSession, flow_id: str, *, user_id: str | None = N
         "edges": [{"id": edge.id, "source": edge.source, "target": edge.target, "kind": edge.kind, "when": edge.when,
                    "max_iterations": edge.max_iterations, "title": edge.title} for edge in graph.edges],
         "validation_report": validate_phased_definition(definition),
-        # Where the designer draws each box and the boxes grouped by hand (UI metadata only; canvas_layout).
         "layout": _layout_view(definition, frozenset(graph.nodes)),
-        # The stored definition as it is: the designer edits it and saves it whole as a new draft.
         "definition": copy.deepcopy(definition),
         # Built from fragments: its structure is changed in the fragments, the designer moves boxes only.
         "composite": composite,
-        # Four eyes: "awaiting_approval" once the author asked for publishing, "approved" once published.
         "review_state": str(dict(dict(version.publish_metadata or {}).get("review") or {}).get("state") or "") or None,
         # Four eyes for this viewer (computed on the server): the author sees Publish disabled with the reason.
         **permission,
@@ -138,7 +127,6 @@ def _requires_approval(name: str) -> bool:
 
 
 async def phase_graph_view(db: AsyncSession, flow_id: str, node_id: str) -> dict[str, Any]:
-    """The Steps canvas body for one phase (its steps graph, plus the phase's identity)."""
     flow, version = await _flow_and_version(db, flow_id)
     definition = dict(version.definition_json or {})
     payload = _phase_payload(definition, node_id)
@@ -201,7 +189,6 @@ def _require_base(version: FlowDefinitionVersion, body: dict[str, Any]) -> None:
 async def save_phase_graph(
     db: AsyncSession, flow_id: str, node_id: str, *, user: User, body: dict[str, Any]
 ) -> dict[str, Any]:
-    """A new draft flow version with the phase's steps and checks from the graph."""
     flow, version = await _flow_and_version(db, flow_id)
     _require_base(version, body)
     if node_id in fragment_origin_nodes(version):
@@ -216,17 +203,14 @@ async def save_phase_graph(
 
 
 async def save_phased_layout(db: AsyncSession, flow_id: str, *, user: User, body: dict[str, Any]) -> dict[str, Any]:
-    """A new draft version that differs from the latest only in where the designer draws the boxes.
-
-    Never publishes: a published workflow keeps running its published version until someone publishes the draft.
-    """
+    # Never publishes: a published workflow keeps running its version until someone publishes the draft.
     flow, version = await _flow_and_version(db, flow_id)
     _require_base(version, body)
     definition = dict(version.definition_json or {})
     nodes = frozenset(parse_phased_definition(definition).nodes)
     positions = clean_positions(body.get("positions"), nodes)
     if positions == layout_positions(definition, nodes):
-        return await phased_view(db, flow_id, user_id=user.id)  # nothing moved: no new version
+        return await phased_view(db, flow_id, user_id=user.id)
     block = composition_of(version)
     # A composite is saved as its source (same pins); the compiler copies the layout block through unchanged.
     source = pinned_source(block) if block is not None else definition
@@ -234,7 +218,6 @@ async def save_phased_layout(db: AsyncSession, flow_id: str, *, user: User, body
     return await phased_view(db, flow_id, user_id=user.id)
 
 
-# The definition a new workflow starts with (designer): a Start and an End, connected; everything else by hand.
 def starter_definition() -> dict[str, Any]:
     return {
         EXECUTION_KIND_KEY: EXECUTION_KIND_PHASED,
@@ -252,7 +235,6 @@ def _new_key(title: str) -> str:
 
 
 async def create_phased_workflow(db: AsyncSession, *, user: User, body: dict[str, Any]) -> dict[str, Any]:
-    """A new workflow that runs in phases, as a draft: Start → End. Never published here."""
     from ..flow_definitions import create_flow_definition
 
     title = str(body.get("title") or "").strip()[:220] or "New workflow"
@@ -266,8 +248,6 @@ async def create_phased_workflow(db: AsyncSession, *, user: User, body: dict[str
 async def save_phased_definition(
     db: AsyncSession, flow_id: str, *, user: User, body: dict[str, Any]
 ) -> dict[str, Any]:
-    """The designer's whole definition as a new draft version. A draft may be invalid: it is stored with its
-    validation report; publishing and starting a run still need a valid version."""
     flow, version = await _flow_and_version(db, flow_id)
     _require_base(version, body)
     if composition_of(version) is not None and body.get("detach") is not True:

@@ -1,12 +1,4 @@
-"""The tools the launcher brings, pinned: data only (the served wheel carries Python files only).
-
-Everything the platform needs comes with the launcher, installed into the launcher's own
-environment, never system-wide. ``pip``: a dependency of the launcher package (pyproject.toml pins the same
-version, a test keeps them equal); ``playwright``: a browser Playwright downloads for its pinned version;
-``download``: a release archive checked against its sha256 and unpacked into ``<state>/tools/bin``; the
-download and the unpacked binary may be at most ``max_bytes`` each. Versions are at least two weeks old when
-pinned. The device reports ``{id: version}`` of what it has (``tools.inventory``).
-"""
+"""The tools the launcher brings, pinned: data only (the served wheel carries Python files only)."""
 
 from __future__ import annotations
 
@@ -14,8 +6,7 @@ TOOLS: tuple[dict, ...] = (
     {"id": "ast-grep", "source": "pip", "package": "ast-grep-cli", "version": "0.51.0", "bin": "ast-grep",
      "version_args": ["--version"]},
     {"id": "playwright", "source": "pip", "package": "playwright", "version": "1.64.1"},
-    # The platform's Python code style (code_style built_in.json: ``ruff format``, ``ruff check``), the backend's
-    # version (backend/uv.lock), never the device's global ruff.
+    # The backend's ruff version (backend/uv.lock), never the device's global ruff.
     {"id": "ruff", "source": "pip", "package": "ruff", "version": "0.15.7", "bin": "ruff",
      "version_args": ["--version"]},
     {"id": "chromium", "source": "playwright", "browser": "chromium", "version": "1.64.1"},
@@ -27,9 +18,8 @@ TOOLS: tuple[dict, ...] = (
          "darwin_x64": "dfe101a4db2255fc85120ac7f3d25e4342c3c20cf749f2c20a18081af1952709",
          "linux_arm64": "e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080",
          "linux_x64": "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"}},
-    # SAST: opengrep (LGPL-2.1), the binary only; the rules come from the platform
-    # as data, from sources whose licence allows passing them on (never the Semgrep registry's). The release
-    # publishes Sigstore signatures, no checksum file: the sha256 are of the release assets, taken when pinned.
+    # opengrep (LGPL-2.1) binary only; its rules come from the platform. The release publishes no checksum file:
+    # the sha256 are of the release assets, taken when pinned.
     {"id": "opengrep", "source": "download", "archive": "raw", "version": "1.33.1", "bin": "opengrep",
      "version_args": ["--version"], "max_bytes": 64_000_000,  # the largest asset is 49.8 MB
      "url": "https://github.com/opengrep/opengrep/releases/download/v{version}/opengrep_{platform}",

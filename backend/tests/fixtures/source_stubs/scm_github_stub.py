@@ -1,18 +1,4 @@
-"""A GitHub REST stub over local bare git repositories, for workflow-run acceptance (S9).
-
-Each ``owner/repo`` is the bare repository ``<REPOS_ROOT>/<owner>/<repo>.git`` (the platform pushes there through a
-``file://`` clone base). It answers what the governed GitHub tools of a run call:
-
-- ``GET /repos/{o}/{r}`` (default branch), ``GET /repos/{o}/{r}/git/ref/heads/{branch}`` (its commit),
-  ``POST /repos/{o}/{r}/git/refs`` (create a branch in the bare repository);
-- ``POST /repos/{o}/{r}/pulls`` (open a PR whose head branch exists), ``POST .../pulls/{n}/requested_reviewers``,
-  ``GET .../pulls/{n}`` (state; :func:`merge` marks a PR merged the way a person merging it would);
-- ``GET /repos/{o}/{r}/actions/runs`` (the Actions runs :func:`report_run` recorded, newest first — CI reporting a
-  result for a commit);
-- ``GET .../actions/runs/{id}/jobs`` (one job with the run's state), ``GET .../actions/runs/{id}/artifacts`` and
-  ``GET .../actions/artifacts/{id}/zip`` (the files a run uploaded,
-  e.g. its JUnit test report; the zip answers ``bytes``, every other answer is JSON).
-"""
+"""A GitHub REST stub over local bare git repositories, for workflow-run acceptance (S9)."""
 
 from __future__ import annotations
 
@@ -60,8 +46,6 @@ def merge(owner: str, repo: str, number: int) -> dict:
 
 def report_run(owner: str, repo: str, *, name: str, head_sha: str, conclusion: str | None,
                artifacts: dict[str, dict[str, str]] | None = None) -> dict:
-    """CI finished (``conclusion``) or is still running (``None``) a workflow for a commit; ``artifacts`` are the
-    files it uploaded (``{artifact name: {path in the zip: content}}``)."""
     run = {"id": 1000 + sum(len(items) for items in RUNS.values()), "name": name, "head_sha": head_sha,
            "status": "completed" if conclusion else "in_progress", "conclusion": conclusion,
            "head_branch": "", "html_url": f"https://scm.stub.test/{owner}/{repo}/actions"}

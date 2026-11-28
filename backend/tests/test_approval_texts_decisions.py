@@ -1,10 +1,4 @@
-"""Approval texts follow-ups: Decisions, details without the subtitle, plan writes.
-
-The approval card reads "Run a command on the Octryx server", but Observability → Decisions showed
-"Approve tool execution for run_cli_command" and "execution_gate: needs_configuration"; the card's details repeated
-its subtitle; and the single writes of a write plan were still titled "Execute tool …". One formatter
-(``approval/presentation``) now words all three, new and stored alike, and the codes stay as their own fields.
-"""
+"""Approval texts: Decisions, details without the subtitle, plan writes, all worded by one formatter."""
 
 from __future__ import annotations
 
@@ -14,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.agent.core.runtime.trace_runtime import persist_turn_trace
+from app.agent.runtime.trace_runtime import persist_turn_trace
 from app.models import ChangePreview
 from app.services.approval.decision_texts import decision_rule_text
 from app.services.approval.presentation import approval_texts, readable_plan
@@ -26,8 +20,8 @@ from app.services.trace_gate_outcome import gate_outcome_marker
 from app.tools import write_plan_tool
 from tests.chat_write_plan_support import chat, writes  # noqa: F401 - fixtures
 from tests.observability_support import admin_user, call_as, session_for, workspace
-from tests.test_approvals_409_texts_push import SERVER_TITLE, TOOL_RULE, _pending, _team_workspace
-from tests.test_chat_write_plan import EPIC, _propose
+from tests.services.governance.test_approvals_409_texts_push import SERVER_TITLE, TOOL_RULE, _pending, _team_workspace
+from tests.services.runtime.test_chat_write_plan import EPIC, _propose
 
 NOT_SET_UP = "The execution check stopped the turn because something it needs is not set up"
 
@@ -37,9 +31,6 @@ def _clean_buffer():
     clear_decision_buffer()
     yield
     clear_decision_buffer()
-
-
-# ---- Decisions: what and rule in words, the codes kept ---------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -96,9 +87,6 @@ def test_decision_rules_in_words(code, text):
     assert decision_rule_text(code) == text
 
 
-# ---- details never repeat the subtitle --------------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_a_new_gate_preview_does_not_repeat_its_subtitle_in_the_details(db):
     project, owner, _member = await _team_workspace(db)
@@ -114,9 +102,6 @@ def test_a_preview_drops_the_subtitle_line_and_the_sentence_inside_a_line():
     assert approval_texts(stored)["details"] == ["It changes data", "command: npm test"]
 
 
-# ---- single writes of a write plan ----------------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_a_new_plan_titles_each_write_in_words(db, chat, writes, monkeypatch):  # noqa: F811
     _user, _session, context = chat
@@ -124,7 +109,7 @@ async def test_a_new_plan_titles_each_write_in_words(db, chat, writes, monkeypat
     async def untitled_own_preview(tool_name, params, routed_context):
         return {}
 
-    monkeypatch.setattr("app.services.tool_approval_previews._routed_tool_preview", untitled_own_preview)
+    monkeypatch.setattr("app.services.tool_approval.previews._routed_tool_preview", untitled_own_preview)
     held = await _propose(context, ("create_jira_ticket", EPIC),
                           ("add_jira_comment", {"ticket_id": "CHEF-1", "comment": "Plan confirmed"}))
     preview = json.loads((await db.get(ChangePreview, held["change_preview_id"])).preview_json)
@@ -155,7 +140,6 @@ def test_a_stored_plan_is_served_with_readable_write_titles():
 
 
 def test_policy_sentences_name_what_is_missing():
-    """Say what is missing, not only that something holds the call."""
     from app.services.approval.decision_texts import decision_rule_text
 
     assert "verification checks must pass" in decision_rule_text("coding_delivery_gate")

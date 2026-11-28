@@ -24,13 +24,11 @@ from .contract import (
     REASON_DEVICE_PROFILES_INVALID,
 )
 
-SERVICE_KINDS = ("launchd", "systemd", "wsl-task", "foreground")
+SERVICE_KINDS = ("launchd", "systemd", "wsl-task", "foreground", "runner")
 _VERSION = re.compile(r"^[A-Za-z0-9][A-Za-z0-9.+_-]{0,39}$")
 
 
 class DeviceRegistryError(ValueError):
-    """A refused registry change; ``reason`` is a fixed code from ``contract``."""
-
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
@@ -44,7 +42,6 @@ def normalize_name(value: Any) -> str:
 
 
 def normalize_folders(value: Any) -> list[str]:
-    """Absolute, normalized POSIX paths (WSL2 paths on Windows); ``~`` is expanded on the device."""
     if not isinstance(value, list) or len(value) > MAX_FOLDERS:
         raise DeviceRegistryError(REASON_DEVICE_FOLDERS_INVALID)
     folders: list[str] = []

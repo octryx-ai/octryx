@@ -10,6 +10,9 @@ import pytest
 
 from app.services.workflow_runs.review.model import ReviewAnswer, ReviewUsage
 from app.services.workflow_runs.review.pipeline_needs import PIPELINE_NEEDS_RULE, declared
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _pipeline(file: str) -> dict:

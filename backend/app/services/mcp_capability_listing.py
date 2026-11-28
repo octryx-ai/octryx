@@ -1,9 +1,4 @@
-"""Governed MCP capability discovery (``list_mcp_server_tools``).
-
-Discovery shows exactly what dispatch would admit: the same workspace resolution, capability index
-and approval subject as :mod:`.mcp_capability_gate`, so a listed capability and a dispatched one can
-never disagree.
-"""
+"""Governed MCP capability discovery (``list_mcp_server_tools``). Discovery shows exactly what dispatch would admit."""
 
 from __future__ import annotations
 
@@ -17,15 +12,13 @@ from .mcp_capability_decisions import (
     decide_mcp_capability,
 )
 from .mcp_capability_gate import McpCapabilityRef, _approval_subject, _unverifiable_context_decision
-from .mcp_capability_policy import load_mcp_capability_index
+from .mcp_governance.capability_policy import load_mcp_capability_index
 from .mcp_workspace_context import resolve_workspace_context
-from .tool_approval_rules import tool_approval_requirement
+from .tool_approval.rules import tool_approval_requirement
 
 
 @dataclass(frozen=True, slots=True)
 class McpCapabilityListing:
-    """The governed discovery answer: visible capabilities, or a named denial."""
-
     visible: tuple[tuple[Any, McpCapabilityDecision, bool], ...] = ()
     blocked_result: dict[str, Any] | None = None
     blocked_reason: str | None = None
@@ -37,16 +30,7 @@ async def governed_mcp_capability_listing(
     server_name: str,
     tools: list[Any],
 ) -> McpCapabilityListing:
-    """Return the dispatch-visible capabilities, or an explicit blocked result.
-
-    A context whose workspace (or database session) cannot be verified is not
-    answered with an empty success: discovery returns the same named, auditable
-    denial dispatch would return, so ``connected=true`` with zero capabilities can
-    only ever mean "this server exposes nothing this workspace may use".
-
-    The approval flag is evaluated against the capability subject itself, which is
-    the narrower of the two policy identities a dispatch can match.
-    """
+    # An unverifiable context gets the same named denial dispatch would return, never an empty success.
     resolution = resolve_workspace_context(context)
     if context.db is None or not resolution.resolved:
         decision = _unverifiable_context_decision(context, resolution, server_name=server_name, tool_name="")

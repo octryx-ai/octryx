@@ -1,6 +1,5 @@
-"""The PostToolUse hook command (``hooks.run_post_tool_use``): reports that a tool actually ran
-(``POST /sessions/tool-executed``), relays a changed run contract, and in a session that decides on the device spools
-the evidence for the next batch instead. Observational: prints context only, never blocks."""
+"""The PostToolUse hook command: reports that a tool ran and relays a changed run contract.
+Observational: prints context only, never blocks."""
 
 from __future__ import annotations
 

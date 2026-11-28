@@ -1,9 +1,4 @@
-"""Graph extractors: source-type adapters that map Bronze snapshots into the graph.
-
-Deterministic adapters for structured/semi-structured sources (records, AWS,
-Terraform, database schema, code) and an LLM extractor for prose. All consume
-already-fetched data — connectors own fetching; extractors own understanding.
-"""
+"""Graph extractors: source-type adapters that map Bronze snapshots into the graph."""
 
 from .code_graph import ingest_code_graph_record
 from .common import slugify

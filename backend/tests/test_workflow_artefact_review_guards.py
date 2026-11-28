@@ -11,8 +11,11 @@ from app.models import WorkflowRunEvent
 from app.models.project.knowledge_evidence import KnowledgeSourceHead
 from app.services.workflow_runs.phase_outputs import output_hash
 from app.services.workflow_runs.review.runner import run_due_reviews
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_artefact_review_support import CHANGES, PASS, prepared
 from tests.workflow_run_review_support import ScriptedReviewer
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.mark.asyncio

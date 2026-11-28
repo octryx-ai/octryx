@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { AdminCorpIdentityListResponse, AdminOfficeTemplateEntry, AdminRuntime, AdminRuntimeSettings, AdminToolResultCompressor, AdminToolResultCompressionLog } from "../types/adminPanelTypes.runtimeCorp";
+import type { AdminCorpIdentityListResponse, AdminOfficeTemplateEntry, AdminRuntime, AdminRuntimeSettings } from "../types/adminPanelTypes.runtimeCorp";
 import type { AdminProvider } from "../types/adminPanelTypes.usersProviders";
 
 type ReadJsonFn = <T>(input: RequestInfo, init?: RequestInit) => Promise<T>;
@@ -10,24 +10,6 @@ type LoadRuntimesTabDataArgs = {
   setProviders: Dispatch<SetStateAction<AdminProvider[]>>;
   setRuntimes: Dispatch<SetStateAction<AdminRuntime[]>>;
   setRuntimeSettings: Dispatch<SetStateAction<AdminRuntimeSettings>>;
-  setToolResultCompressors: Dispatch<
-    SetStateAction<AdminToolResultCompressor[]>
-  >;
-  setToolResultCompressionLogs: Dispatch<
-    SetStateAction<AdminToolResultCompressionLog[]>
-  >;
-  setToolResultCompressorDrafts: Dispatch<
-    SetStateAction<
-      Record<
-        string,
-        {
-          strategy: string;
-          config: Record<string, unknown>;
-          is_active: boolean;
-        }
-      >
-    >
-  >;
   setRuntimeGlobalOutputDraft: Dispatch<SetStateAction<string>>;
   setRuntimeDefaultModelDraft: Dispatch<SetStateAction<string>>;
   setRuntimeAuthOidcOnlyDraft: Dispatch<SetStateAction<boolean>>;
@@ -58,8 +40,6 @@ type LoadRuntimesTabDataArgs = {
   setRuntimeLlmSecurityReviewThresholdDraft: Dispatch<SetStateAction<string>>;
   setRuntimeLlmSecurityDenyThresholdDraft: Dispatch<SetStateAction<string>>;
   setRuntimeSecurityAnalyzerChainDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeDefaultCompletionDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeExtendedCompletionDraft: Dispatch<SetStateAction<string>>;
   setRuntimeApproxCharsDraft: Dispatch<SetStateAction<string>>;
   setRuntimeTraceMaxStringDraft: Dispatch<SetStateAction<string>>;
   setRuntimeTraceMaxListDraft: Dispatch<SetStateAction<string>>;
@@ -68,11 +48,6 @@ type LoadRuntimesTabDataArgs = {
   setRuntimeRequestTimeoutDraft: Dispatch<SetStateAction<string>>;
   setRuntimeSessionCostLimitDraft: Dispatch<SetStateAction<string>>;
   setRuntimeRequestCostLimitDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeCacheTtlDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeToolsCacheTtlDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeToolPlannerTraceCallEnabled: Dispatch<SetStateAction<boolean>>;
-  setRuntimeToolPlannerMaxTokensDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeToolPlannerTimeoutDraft: Dispatch<SetStateAction<string>>;
 };
 
 type RuntimeSettingsDraftArgs = Omit<
@@ -84,12 +59,6 @@ function fetchRuntimesTabData(readJson: ReadJsonFn, providers: AdminProvider[]) 
   return Promise.all([
     readJson<AdminRuntime[]>("/admin/chat/api/panel/runtimes"),
     readJson<AdminRuntimeSettings>("/admin/chat/api/panel/runtime-settings"),
-    readJson<AdminToolResultCompressor[]>(
-      "/admin/chat/api/panel/tool-result-compressors",
-    ),
-    readJson<AdminToolResultCompressionLog[]>(
-      "/admin/chat/api/panel/tool-result-compression-log?limit=12",
-    ),
     providers.length === 0
       ? readJson<AdminProvider[]>("/admin/chat/api/panel/providers")
       : Promise.resolve(null),
@@ -97,29 +66,6 @@ function fetchRuntimesTabData(readJson: ReadJsonFn, providers: AdminProvider[]) 
       "/admin/chat/api/panel/corp-identities",
     ),
   ]);
-}
-
-function applyCompressorState(
-  args: RuntimeSettingsDraftArgs,
-  settings: AdminRuntimeSettings,
-  compressorData: AdminToolResultCompressor[],
-  compressionLogData: AdminToolResultCompressionLog[],
-) {
-  args.setRuntimeSettings(settings);
-  args.setToolResultCompressors(compressorData);
-  args.setToolResultCompressionLogs(compressionLogData);
-  args.setToolResultCompressorDrafts(
-    Object.fromEntries(
-      compressorData.map((item) => [
-        item.tool_name,
-        {
-          strategy: item.strategy,
-          config: item.config || {},
-          is_active: item.is_active,
-        },
-      ]),
-    ),
-  );
 }
 
 function applyWorkspaceDrafts(args: RuntimeSettingsDraftArgs, settings: AdminRuntimeSettings) {
@@ -174,7 +120,7 @@ function applyWorkspaceDrafts(args: RuntimeSettingsDraftArgs, settings: AdminRun
   );
 }
 
-function applySecurityAndCompletionDrafts(args: RuntimeSettingsDraftArgs, settings: AdminRuntimeSettings) {
+function applySecurityAndTraceDrafts(args: RuntimeSettingsDraftArgs, settings: AdminRuntimeSettings) {
   args.setRuntimeLlmSecurityTimeoutDraft(
     String(settings.llm_security_analyzer_timeout_seconds ?? 8),
   );
@@ -186,12 +132,6 @@ function applySecurityAndCompletionDrafts(args: RuntimeSettingsDraftArgs, settin
   );
   args.setRuntimeSecurityAnalyzerChainDraft(
     (settings.security_analyzer_chain || []).join(", "),
-  );
-  args.setRuntimeDefaultCompletionDraft(
-    String(settings.default_completion_tokens ?? 4096),
-  );
-  args.setRuntimeExtendedCompletionDraft(
-    String(settings.extended_completion_tokens ?? 8192),
   );
   args.setRuntimeApproxCharsDraft(
     String(settings.approx_chars_per_token ?? 4),
@@ -220,37 +160,20 @@ function applyLimitDrafts(args: RuntimeSettingsDraftArgs, settings: AdminRuntime
   args.setRuntimeRequestCostLimitDraft(
     String(settings.agent_request_cost_limit_usd ?? 1.5),
   );
-  args.setRuntimeCacheTtlDraft(
-    String(settings.llm_cache_ttl_seconds ?? 300),
-  );
-  args.setRuntimeToolsCacheTtlDraft(
-    String(settings.llm_cache_tools_ttl_seconds ?? 120),
-  );
-  args.setRuntimeToolPlannerTraceCallEnabled(
-    Boolean(settings.llm_tool_planner_trace_call_enabled),
-  );
-  args.setRuntimeToolPlannerMaxTokensDraft(
-    String(settings.llm_tool_planner_max_tokens ?? 900),
-  );
-  args.setRuntimeToolPlannerTimeoutDraft(
-    String(settings.llm_tool_planner_timeout_seconds ?? 30),
-  );
 }
 
 export async function loadRuntimesTabData(args: LoadRuntimesTabDataArgs) {
   const [
     runtimeData,
     runtimeSettingsData,
-    compressorData,
-    compressionLogData,
     providerData,
     corpIdentityData,
   ] = await fetchRuntimesTabData(args.readJson, args.providers);
   args.setRuntimes(runtimeData);
-  applyCompressorState(args, runtimeSettingsData, compressorData, compressionLogData);
+  args.setRuntimeSettings(runtimeSettingsData);
   applyWorkspaceDrafts(args, runtimeSettingsData);
   await args.applyCorpIdentityListPayload(corpIdentityData);
-  applySecurityAndCompletionDrafts(args, runtimeSettingsData);
+  applySecurityAndTraceDrafts(args, runtimeSettingsData);
   applyLimitDrafts(args, runtimeSettingsData);
   if (providerData) args.setProviders(providerData);
 }

@@ -1,6 +1,5 @@
-"""A Python app whose declared test command is ``python -m unittest`` runs its tests for the Stop as well
-(when the runners in stacks.json know pytest only, an agent that runs the declared `python -m unittest` by Bash, 1 red
-as wanted, still hears "tool_called run_test_suite: The test suite ran" from the reproduce check until it gives up)."""
+"""A Python app whose declared test command is ``python -m unittest`` runs its tests for the Stop as well,
+although the runners in stacks.json know pytest only."""
 
 from __future__ import annotations
 
@@ -47,15 +46,13 @@ def test_the_declared_unittest_command_is_a_test_suite_run_with_its_exit_code_an
                     ".venv/bin/python -m unittest tests.test_cart"):
         evidence = phase_evidence([_bash(command, VERBOSE, 1)], since=None, test_prefixes=prefixes_of(None))
         suite = [use for use in evidence.tools if use.name == "run_test_suite"]
-        assert suite and suite[0].succeeded, command  # "the test suite ran", red as the reproduction wants
+        assert suite and suite[0].succeeded, command
         assert suite[0].result["exit_code"] == 1 and "Ran 5 tests" in suite[0].result["stdout"]
 
 
 def test_unittest_s_summary_line_is_no_failed_test_of_its_own():
-    """`FAILED (failures=1)` is unittest's summary, not pytest's `FAILED <test id>` (a test named "(failures=1)")."""
     parsed = parse(VERBOSE)
     assert "(failures=1)" not in parsed.results
-    # The traceback names the test file, so the failing test resolves.
     assert parsed.results["tests/test_cart.py::CartTest::test_total_rounds_down"]["outcome"] == "failed"
 
 

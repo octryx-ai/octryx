@@ -2,8 +2,8 @@ apiVersion: v2
 name: octryx
 description: Octryx AI, the layer above your coding agents (API with web UI, optional PostgreSQL)
 type: application
-version: 0.0.1-alpha
-appVersion: "0.0.1-alpha"
+version: 0.0.2-alpha
+appVersion: "0.0.2-alpha"
 keywords:
   - agent
   - automation

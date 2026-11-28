@@ -1,5 +1,3 @@
-"""Shared fake connection, fake platform and handshake helpers for the device channel tests."""
-
 from __future__ import annotations
 
 import asyncio
@@ -41,7 +39,6 @@ class FakeConnection:
 
 
 class FakePlatform:
-    """Each connect attempt takes the next scripted outcome: a ChannelClosedError or a FakeConnection."""
 
     def __init__(self, *outcomes) -> None:
         self.outcomes = list(outcomes)

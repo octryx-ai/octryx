@@ -36,7 +36,6 @@ def apply_font(runs: list[Any], props: dict[str, Any]) -> None:
 
 
 def set_paragraph_text(paragraph: Any, text: str) -> None:
-    """Replace one paragraph's text in its first run (its formatting stays); breaks and fields go."""
     element = paragraph._p
     for child in list(element):
         if child.tag.rsplit("}", 1)[-1] in {"br", "fld"}:
@@ -51,8 +50,6 @@ def set_paragraph_text(paragraph: Any, text: str) -> None:
 
 
 def set_text(text_frame: Any, text: str) -> None:
-    """Replace the text, one paragraph per line; added lines copy the last paragraph, so bullets and
-    levels continue the template's own formatting."""
     lines = str(text).split("\n")
     for extra in list(text_frame.paragraphs)[len(lines):]:
         extra._p.getparent().remove(extra._p)

@@ -1,8 +1,3 @@
-// A chat's write plan waiting for the person: one confirmation per
-// request. The gate's change preview (kind "write_plan") names the request, the scope the plan works in and every
-// intended write with its fields. This turns it into what the card shows on desktop and phone: the scope as labelled
-// chips grouped by system, one row per write (the action in words, the connection, the why, every field in full),
-// and the result line once decided. Pure, so both cards and their tests share it.
 import type { StatusTone } from "../../layout/StatusLabel";
 import { isRestTool, restRequestLines, restRequestView } from "./restRequestView";
 
@@ -12,14 +7,11 @@ export type WritePlanField = { key: string; label: string; value: string };
 
 export type WritePlanWrite = {
   key: string;
-  // "Create Jira ticket": the tool in words, or the tool's own preview title ("Create Epic Kitchen helper v1 in MM").
   action: string;
-  // What the write is about when the action is only the tool in words ("Kitchen helper v1", "feature/kitchen-helper").
   subject: string;
   connection: string;
   why: string;
   fields: WritePlanField[];
-  // The tool's own preview, when it has one: its summary, its lines, and before/after as written.
   summary: string;
   details: string[];
   before: string;
@@ -35,17 +27,14 @@ export type WritePlanView = {
   countLabel: string;
   scope: WritePlanScopeGroup[];
   writes: WritePlanWrite[];
-  // Amendment only: what the person already confirmed, shown collapsed.
   confirmed: WritePlanWrite[];
-  // From COLLAPSE_FROM writes on, rows start as one line each and the card offers "Expand all".
   many: boolean;
 };
 
-// From this many writes on, rows start collapsed so Approve stays reachable without long scrolling.
+// Rows start collapsed so Approve stays reachable without long scrolling.
 export const COLLAPSE_FROM = 4;
 
-// The refusal codes the gate returns to the model before a plan exists or when a write is outside it (contract §4).
-// They belong to the model's own loop and are never an error for the person.
+// These belong to the model's own loop and are never an error for the person.
 export const WRITE_PLAN_REFUSAL_CODES = new Set(["write_plan_required", "write_plan_amendment_required"]);
 
 const record = (value: unknown): Record<string, unknown> | null =>
@@ -66,7 +55,6 @@ const PROPER: Record<string, string> = {
   id: "ID",
 };
 
-/** "create_jira_ticket" -> "Create Jira ticket"; product names keep their spelling. */
 export function toolWords(tool: string): string {
   const parts = String(tool || "")
     .replace(/^mcp__.+?__/, "")
@@ -82,7 +70,6 @@ function fieldLabel(key: string): string {
   return toolWords(key);
 }
 
-// A field's value in full: text as written, a list of plain values as "a, b", anything else as indented JSON.
 function fieldValue(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value;
@@ -119,7 +106,6 @@ const SCOPE_GROUPS: Array<[string, string]> = [
   ["other", "Other"],
 ];
 
-/** The scope as chips ("Jira project MM", "Branch feature/kitchen-helper"), grouped by system, each value once. */
 export function writePlanScope(raw: unknown): WritePlanScopeGroup[] {
   const seen = new Set<string>();
   const byGroup = new Map<string, WritePlanScopeChip[]>();
@@ -145,10 +131,7 @@ export function writePlanScope(raw: unknown): WritePlanScopeGroup[] {
   }));
 }
 
-/**
- * A custom REST write (backend): the request as the server previewed it. Its raw fields (as the model wrote
- * them) are never shown; the fields are the server's masked body, the lines say where it goes and the scope.
- */
+// The model's raw fields are never shown, only the server's masked body.
 function readRestWrite(item: Record<string, unknown>, position: number): WritePlanWrite | null {
   const view = restRequestView(item);
   if (!view) return null;
@@ -207,7 +190,6 @@ export function countLabel(count: number): string {
   return `${count} ${count === 1 ? "write" : "writes"}`;
 }
 
-/** The card's view of a write plan, or null for every other approval (they keep their own card). */
 export function writePlanView(preview: Record<string, unknown> | null | undefined): WritePlanView | null {
   if (!preview || typeof preview !== "object" || preview.kind !== "write_plan") return null;
   const writes = readWrites(preview.writes);
@@ -230,15 +212,12 @@ export function writePlanView(preview: Record<string, unknown> | null | undefine
 export const WRITE_PLAN_NOTE =
   "After you confirm, these writes run without asking again. Anything outside this scope asks again.";
 
-// Who decided: the approval's decider (`approvedBy`, a user id, set for approve and reject) against the viewer.
 export type WritePlanDecider = {
   approvedBy?: string | null;
-  // The decider's name when the payload carries one (not served yet; see the PR).
   approvedByName?: string | null;
   currentUserId?: string | null;
 };
 
-/** "you" when the viewer decided, the decider's name when known, "another person" otherwise, "" when unknown. */
 export function deciderLabel(decider: WritePlanDecider = {}): string {
   const by = text(decider.approvedBy);
   const viewer = text(decider.currentUserId);
@@ -248,7 +227,6 @@ export function deciderLabel(decider: WritePlanDecider = {}): string {
   return by ? "another person" : "";
 }
 
-/** The decided card's one calm line, or null while the plan still waits for the person. */
 export function writePlanResult(
   status: string | null | undefined,
   view: Pick<WritePlanView, "amendment" | "count">,
@@ -264,7 +242,6 @@ export function writePlanResult(
   return null;
 }
 
-/** The session's active plan (contract §5) as the composer's quiet notice, or null when none is active. */
 export function writePlanNotice(writePlan: unknown): string | null {
   const plan = record(writePlan);
   if (!plan) return null;
@@ -275,7 +252,6 @@ export function writePlanNotice(writePlan: unknown): string | null {
   return ["Write plan confirmed", countLabel(writes), shown ? `scope ${shown}${more}` : ""].filter(Boolean).join(" · ");
 }
 
-/** True for a tool result that only asks the model to propose (or amend) the plan first (contract §4). */
 export function isWritePlanRefusal(result: unknown): boolean {
   const top = record(result);
   if (!top) return false;

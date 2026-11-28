@@ -1,5 +1,4 @@
-// The diagram of a phase (its steps and checks), on the flow builder's canvas: the same React Flow setup, node
-// component (FlowNode), auto-layout (layoutNodes), fit and zoom limits. The chain is the definition order, so the
+// The diagram of a phase (its steps and checks) on a React Flow canvas. The chain is the definition order, so the
 // graph is laid out, not dragged or wired: edits go through the toolbar and the step settings.
 import { useEffect, useMemo } from "react";
 import { Background, BackgroundVariant, Controls, ReactFlow, useReactFlow } from "@xyflow/react";
@@ -11,7 +10,6 @@ import { FlowNode } from "../../flowBuilder/FlowNode";
 import { canvasEdges, canvasNode, type StepsGraphNode } from "./stepsGraphModel";
 
 const nodeTypes = { flowNode: FlowNode };
-const NO_NAMES = new Map<string, string>();
 
 type StepsCanvasProps = {
   nodes: StepsGraphNode[];
@@ -25,7 +23,7 @@ export function StepsCanvas({ nodes, selectedNodeId, onNodeSelect, toolbar }: St
   const flowNodes = useMemo(() => nodes.map(canvasNode), [nodes]);
   const rfNodes = useMemo(() => {
     const positions = layoutNodes(flowNodes);
-    return flowNodes.map((node) => toRfNode(node, selectedNodeId, positions, NO_NAMES, NO_NAMES, {}));
+    return flowNodes.map((node) => toRfNode(node, selectedNodeId, positions));
   }, [flowNodes, selectedNodeId]);
   const rfEdges = useMemo(() => canvasEdges(nodes).map(toRfEdge), [nodes]);
 
@@ -33,7 +31,7 @@ export function StepsCanvas({ nodes, selectedNodeId, onNodeSelect, toolbar }: St
   const shape = nodes.map((node) => node.id).join("|");
   useEffect(() => {
     let timer = 0;
-    // After the frame and a short settle, like the flow canvas: notices above the canvas may still change its size.
+    // After the frame and a short settle: notices above the canvas may still change its size.
     const frame = window.requestAnimationFrame(() => {
       timer = window.setTimeout(() => void fitView({ ...FIT_VIEW, duration: 250 }), 50);
     });

@@ -64,7 +64,6 @@ def _normalized_rule(key: str, value: Any, path: str) -> Any:
 
 
 def _overrides_for(level: str, rules: Any, path: str) -> dict[str, Any]:
-    """The rules of one level that differ from its defaults; unknown or ill-typed rules raise."""
     if not isinstance(rules, Mapping):
         raise ClassificationPolicyError(ERROR_RULES_INVALID, path)
     default = default_rules(level).to_dict()
@@ -85,7 +84,6 @@ def _overrides_for(level: str, rules: Any, path: str) -> dict[str, Any]:
 
 
 def normalize_policy_levels(levels: Any) -> dict[str, dict[str, Any]]:
-    """``[{level, rules}]`` → the stored overrides ``{level: {rule: value}}``; raises ``ClassificationPolicyError``."""
     if not isinstance(levels, list):
         raise ClassificationPolicyError(ERROR_LEVELS_INVALID, "levels")
     overrides: dict[str, dict[str, Any]] = {}
@@ -107,7 +105,6 @@ def normalize_policy_levels(levels: Any) -> dict[str, dict[str, Any]]:
 
 
 def _decoded(raw: str | None) -> tuple[str, dict[str, Any], str | None]:
-    """``(state, overrides, updated_by)`` of a stored value; anything unreadable is ``invalid``."""
     if raw is None:
         return STATE_DEFAULT, {}, None
     try:

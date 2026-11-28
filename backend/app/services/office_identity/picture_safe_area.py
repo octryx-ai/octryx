@@ -1,17 +1,4 @@
-"""Where a picture may go on a slide whose brand must stay visible.
-
-A template's full-bleed picture slots are slide-sized on purpose — they are
-built for decorative photographs, not for diagrams that have to coexist with a
-title, a footer and a logo. Rather than refuse those layouts (which would throw
-away the only large picture areas the template has), the composer places the
-image inside the **safe area**: the part of the slot that no title or chrome
-placeholder occupies.
-
-Every number here comes from the template. The safe area is the picture slot
-shrunk by the template's own gutter and cut back at the title and chrome bands;
-nothing is invented, and if the template leaves no usable area the caller is
-told so instead of being handed a guess.
-"""
+"""Where a picture may go on a slide whose brand must stay visible."""
 
 from __future__ import annotations
 
@@ -32,12 +19,6 @@ BAND_WIDTH_RATIO = 0.8
 
 
 def template_margin_emu(layouts: list[dict[str, Any]]) -> int:
-    """The gutter the template's own layouts start their content at.
-
-    Each layout contributes its smallest positive left offset; the most common
-    of those values is the template's canonical margin (ties resolve to the
-    smaller value, so the result is deterministic).
-    """
     per_layout: Counter[int] = Counter()
     for layout in layouts:
         offsets = [
@@ -71,8 +52,6 @@ def _rect_of(slot: dict[str, Any]) -> tuple[int, int, int, int] | None:
 def protected_slots(
     layout: dict[str, Any], occupied_idx: set[int]
 ) -> list[dict[str, Any]]:
-    """Placeholders a picture must not cover: the title, the chrome row, and
-    any other slot this slide actually fills."""
     protected: list[dict[str, Any]] = []
     for slot in _all_slots(layout):
         role = str(slot.get("role") or "")
@@ -88,12 +67,6 @@ def safe_picture_rect(
     margin: int,
     occupied_idx: set[int] | None = None,
 ) -> dict[str, int] | None:
-    """The largest band of ``picture_slot`` that leaves the brand visible.
-
-    Returns ``None`` when the slot has no usable geometry or the protected
-    placeholders leave nothing behind — the caller then keeps the template slot
-    and the gate reports what that costs.
-    """
     slot_rect = _rect_of(picture_slot)
     if slot_rect is None:
         return None
@@ -131,14 +104,6 @@ def safe_picture_rect(
 
 
 def gutter_inset(picture_slot: dict[str, Any], margin: int) -> dict[str, int] | None:
-    """The picture slot pulled in by the template's gutter on every side.
-
-    A diagram carries content right up to its own border, so it needs the
-    breathing room a photograph brings with it — otherwise a box ends up glued
-    to the slide edge wherever the template's slot bleeds off the page. This is
-    a property of the *image content*, which is why the caller decides it from
-    ``image_role`` rather than from the layout.
-    """
     rect = _rect_of(picture_slot)
     if rect is None:
         return None
@@ -159,9 +124,6 @@ def gutter_inset(picture_slot: dict[str, Any], margin: int) -> dict[str, int] | 
 
 
 def _backdrop_slots(layout: dict[str, Any]) -> list[dict[str, Any]]:
-    """Placeholders that paint a surface. Picture and media slots are excluded
-    on purpose: the whole question is whether the title survives *without* the
-    picture that sits behind it in the template."""
     return [
         slot
         for slot in _all_slots(layout)
@@ -170,18 +132,6 @@ def _backdrop_slots(layout: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def has_title_backdrop(layout: dict[str, Any]) -> bool:
-    """Whether the title stays legible once the picture is inset away from it.
-
-    Evidence, in order: the layout paints its own slide background; the title
-    placeholder carries its own fill (the "title bar" pattern); or another
-    painting placeholder covers the title rectangle.
-
-    This is not cosmetic. Two full-screen picture layouts can have identical
-    placeholder geometry, one with a filled title bar and one without; only
-    the title's own fill separates them, and rendering proves the difference —
-    an unfilled light title is light text on the light master background, i.e.
-    invisible, as soon as the picture moves out from under it.
-    """
     if layout.get("has_background"):
         return True
     titles = [slot for slot in _all_slots(layout) if str(slot.get("role")) == "title"]
@@ -195,15 +145,6 @@ def has_title_backdrop(layout: dict[str, Any]) -> bool:
 
 
 def title_is_legible(layout: dict[str, Any]) -> bool:
-    """Would a plain titled slide on this layout show its title at all?
-
-    Same evidence as the gate's ``title_illegible`` check, asked *before* the
-    layout is chosen rather than after the deck is written. An agenda layout
-    whose title is a light colour designed for a coloured panel the layout does
-    not paint is the live case: using it for a plain agenda slide yields
-    a slide with an invisible heading. A planner that knows the answer up front
-    simply picks another layout of the same shape.
-    """
     if has_title_backdrop(layout):
         return True
     titles = [slot for slot in _all_slots(layout) if str(slot.get("role")) == "title"]

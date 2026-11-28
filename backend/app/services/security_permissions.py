@@ -15,7 +15,7 @@ async def user_has_permission(db: AsyncSession, user_id: str, *, resource: str, 
         .where(UserRole.user_id == user_id)
     )
     role_names = {str(row[0]) for row in role_rows.all()}
-    # VULN-28 fix: exact match only — "superadmin" / "admin_viewer" must not bypass checks
+    # Exact match only: "superadmin" / "admin_viewer" must not bypass checks.
     if "admin" in {rn.strip().lower() for rn in role_names}:
         return True
 

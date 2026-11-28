@@ -1,8 +1,6 @@
 import type { WorkChangePlanStatus } from "./workChangePlanTypes";
 
-// Cross-item Change Plan list, `GET /api/v1/secure-work/change-plans`. A row is a plan
-// summary, not a Work Item: `work_item` carries only identifying fields, so the detail always loads
-// the full Work Item by id before it opens (never this summary cast to a WorkItem).
+// `work_item` carries only identifying fields, so the detail always loads the full Work Item by id.
 export type WorkChangePlanSummaryWorkItem = {
   id: string;
   source_key: string;
@@ -16,12 +14,10 @@ export type WorkChangePlanSummary = {
   id: string;
   work_item_id: string;
   version: number;
-  // Persisted status, shown verbatim; a value outside the known set is still shown as it is.
   status: WorkChangePlanStatus | string;
   title: string;
   workflow_id: string | null;
   supersedes_plan_id: string | null;
-  // Set only for LLM work plans; null means the plan has no recorded type.
   plan_type: string | null;
   open_questions_count: number;
   acceptance_criteria_count: number;
@@ -39,7 +35,6 @@ export type WorkChangePlanSummary = {
 export type WorkChangePlanList = {
   items: WorkChangePlanSummary[];
   next_cursor: string | null;
-  // Counts over the authorized scope before the status/queue filter and the cursor.
   status_counts: Record<string, number>;
 };
 
@@ -48,7 +43,6 @@ export type WorkChangePlanListQuery = {
   queue?: "review";
   statuses?: string[];
   includeSuperseded?: boolean;
-  // One Workspace (the Work header); empty: every Workspace the caller may see.
   projectId?: string;
   limit?: number;
   cursor?: string | null;

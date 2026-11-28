@@ -1,14 +1,4 @@
-"""Liveness leases of the platform processes that own running turns (runtime robustness R1).
-
-A chat turn runs as an in-process task of exactly one platform process (API or
-worker). When that process dies, nothing it owned can settle itself, so every
-process holds one lease row here and renews it on a fixed heartbeat. A running
-session or Product Run Attempt whose owning process has no unexpired lease is
-owned by nobody and is settled explicitly as ``interrupted_by_restart``.
-
-The row carries only the random per-boot process id and database-clock instants:
-no host name, no PID, no free text.
-"""
+"""Liveness leases of the platform processes that own running turns."""
 
 from __future__ import annotations
 

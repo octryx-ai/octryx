@@ -1,14 +1,4 @@
-"""The hourly pull request sync of the review bot (webhook and sync, per repository).
-
-For every Workspace repository whose bot ``trigger`` is ``sync`` or ``both``, the open pull requests are read with
-their head commits through the governed ``list_*_pull_request_heads`` tool on the repository's connection, as the
-Workspace's bot user. Each head goes through the same start as a webhook (``starter.start_review``): a head a
-webhook already started is ``already_reviewed``, so a repository on ``both`` is reviewed once per push and the sync
-only catches what a webhook missed (a delivery lost, the bot switched on after the pull request was opened).
-
-A repository whose read fails is logged and counted; the next repositories still sync. Runs every hour from the
-worker (``worker``) and once at its start.
-"""
+"""The hourly pull request sync of the review bot (webhook and sync, per repository)."""
 
 from __future__ import annotations
 
@@ -29,8 +19,6 @@ logger = logging.getLogger(__name__)
 
 
 async def tool_context(db: AsyncSession, project_id: str, user_id: str, *, capability: str = "read_only") -> Any:
-    """The governed tool context of the Workspace's bot user: ``read_only`` to list, ``deliver`` to answer a
-    command (``comment_poll``)."""
     from ...tools.context import ToolContext
     from ..project.service import get_project_config
     from ..run_capability.declared import SOURCE_FLOW_DEFINITION, declared_run_capability
@@ -43,7 +31,6 @@ async def tool_context(db: AsyncSession, project_id: str, user_id: str, *, capab
 
 
 def head_event(repository: str, pr: dict[str, Any]) -> PullRequestEvent | None:
-    """One listed pull request as the event a webhook would have sent."""
     number, sha, source = str(pr.get("number") or ""), str(pr.get("head_sha") or ""), str(pr.get("source_branch") or "")
     if not number or not source:
         return None
@@ -58,8 +45,6 @@ def head_event(repository: str, pr: dict[str, Any]) -> PullRequestEvent | None:
 
 async def sync_repository(db: AsyncSession, record: CodeRepository, *, start: Any = None,
                           reasons: dict[str, int] | None = None) -> dict[str, int]:
-    """Start the bot for every open pull request head of one repository; the outcomes counted, and in ``reasons``
-    (when given) the skipped heads by reason (``draft``, ``fork``, ``bot_off``, ``no_head``, ...)."""
     repository = repository_of(record)
     counted: dict[str, int] = {}
     if not repository or not settings_of(record).on_sync():
@@ -93,7 +78,6 @@ async def sync_repository(db: AsyncSession, record: CodeRepository, *, start: An
 
 
 async def sync_all(db: AsyncSession) -> dict[str, int]:
-    """One pass over every repository that syncs; a failing repository never stops the others."""
     records = (await db.execute(select(CodeRepository).where(
         CodeRepository.is_active.is_(True), CodeRepository.project_id.is_not(None)))).scalars().all()
     totals: dict[str, int] = {}

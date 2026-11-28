@@ -22,7 +22,6 @@ _HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 
 
 def line_floor(style: Any) -> int:
-    """The smallest ``max_line_length`` of the style (general or any language); 0 = no limit."""
     if not isinstance(style, dict):
         return 0
     limits = [dict(style.get("general") or {}).get("max_line_length")]
@@ -32,7 +31,6 @@ def line_floor(style: Any) -> int:
 
 
 def _added_lines(diff: str) -> dict[str, set[int]]:
-    """``{path: line numbers}`` a ``-U0`` diff adds."""
     added: dict[str, set[int]] = {}
     current = ""
     for line in diff.splitlines():
@@ -45,14 +43,12 @@ def _added_lines(diff: str) -> dict[str, set[int]]:
 
 
 def _long_lines(name: str, text: str, floor: int, added: set[int] | None) -> list[list[Any]]:
-    """``[[path, line, length]]`` of the added lines longer than ``floor`` (all lines of a new file), longest first."""
     found = [[name, number, len(line)] for number, line in enumerate(text.splitlines(), 1)
              if len(line) > floor and (added is None or number in added) and LONG_LINE_MARKER not in line]
     return sorted(found, key=lambda item: -item[2])[:MAX_LONG_LINES_PER_FILE]
 
 
 def _python_functions(text: str) -> list[tuple[str, int]]:
-    """``(qualified name, lines)`` of every function and method in a Python source; ``[]`` when it does not parse."""
     import ast
 
     try:
@@ -73,8 +69,6 @@ def _python_functions(text: str) -> list[tuple[str, int]]:
 
 
 def sizes(root: Path, base: str, long_line_floor: int = 0) -> dict[str, Any]:
-    """Lines of every added or modified text file against ``base`` (untracked included) and, for Python, the length
-    of each function of at least ``REPORTED_FUNCTION_LINES`` lines: the facts for the Workspace's code limits."""
     if not _SHA.match(base or ""):
         return {}
     with tempfile.TemporaryDirectory(prefix="octryx-sizes-") as scratch:

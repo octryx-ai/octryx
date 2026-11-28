@@ -26,10 +26,7 @@ async def list_connector_watchers(
     include_inactive: bool = False,
 ) -> list[dict[str, Any]]:
     """The watchers of ``scope`` (``connector_watcher_scope``); the caller has checked a named ``project_id``."""
-    stmt = select(ConnectorWatcher)
-    condition = scope_filter(ConnectorWatcher.project_id, scope, project_id)
-    if condition is not None:
-        stmt = stmt.where(condition)
+    stmt = select(ConnectorWatcher).where(scope_filter(ConnectorWatcher.project_id, scope, project_id))
     if not include_inactive:
         stmt = stmt.where(ConnectorWatcher.is_active.is_(True))
     rows = (
@@ -61,7 +58,8 @@ async def create_connector_watcher(
             value=secret,
         )
         watcher.secret_ref = entry.id
-    db.add(_audit(current_user, "connector_watcher.created", watcher.id, {"connector_name": watcher.connector_name}))
+    db.add(_audit(current_user, "connector_watcher.created", watcher.id, {"connector_name": watcher.connector_name},
+                  project_id=watcher.project_id))
     await db.flush()
     return serialize_connector_watcher(watcher)
 
@@ -89,7 +87,8 @@ async def update_connector_watcher(
             value=secret,
         )
         watcher.secret_ref = entry.id
-    db.add(_audit(current_user, "connector_watcher.updated", watcher.id, {"connector_name": watcher.connector_name}))
+    db.add(_audit(current_user, "connector_watcher.updated", watcher.id, {"connector_name": watcher.connector_name},
+                  project_id=watcher.project_id))
     await db.flush()
     return serialize_connector_watcher(watcher)
 
@@ -151,11 +150,10 @@ async def _verify_webhook_secret(
     watcher: ConnectorWatcher,
     provided_secret: str | None,
 ) -> None:
-    webhook = dict(watcher.webhook_json or {})
-    if not watcher.secret_ref:
-        if webhook.get("require_secret"):
-            raise HTTPException(status_code=401, detail="Watcher webhook secret is required")
-        return
-    stored_secret = await get_secret_value(db, secret_id=watcher.secret_ref)
+    stored_secret = (
+        await get_secret_value(db, secret_id=watcher.secret_ref, purpose="connector_watcher.verify_webhook")
+        if watcher.secret_ref
+        else None
+    )
     if not provided_secret or not stored_secret or not secrets.compare_digest(provided_secret, stored_secret):
         raise HTTPException(status_code=401, detail="Invalid watcher webhook secret")

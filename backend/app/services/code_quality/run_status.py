@@ -1,17 +1,4 @@
-"""Closed run states of the commands the code-quality tools run (OpenRewrite, tests, linters).
-
-Every command result of ``code_quality_service._run_exec`` carries ``status``:
-
-* ``succeeded`` / ``failed``: the command ran to its exit code (0 / non-zero);
-* ``timed_out``: the deadline killed the whole process tree; ``exit_code`` is 124 and no
-  partial output is kept, so nothing of an unfinished run can pass for a result;
-* ``refused``: the platform refused the invocation before it started (an invalid Maven
-  network policy); ``error_code`` names the closed refusal code;
-* ``not_started``: the execution runtime could not start the command.
-
-Only ``succeeded`` and ``failed`` carry no ``error``: every other state sets ``error`` and
-``error_code``, which the upgrade gates read as "did not run", never as "recipes applied".
-"""
+"""Closed run states of the commands the code-quality tools run (OpenRewrite, tests, linters)."""
 
 from __future__ import annotations
 
@@ -43,7 +30,6 @@ def bounded_command_timeout(value: Any) -> int:
 
 
 def run_outcome_fields(result: dict[str, Any]) -> dict[str, Any]:
-    """``status``/``timed_out`` plus the closed error fields a tool result must pass on."""
     fields: dict[str, Any] = {
         "status": result.get("status") or (RUN_SUCCEEDED if result.get("exit_code") == 0 else RUN_FAILED),
         "timed_out": result.get("status") == RUN_TIMED_OUT,

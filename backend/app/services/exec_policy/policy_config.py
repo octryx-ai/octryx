@@ -91,17 +91,14 @@ def _clean(values: Any) -> list[str]:
 
 
 def removed_defaults(key: str, stored: list[str]) -> list[str]:
-    """The current defaults a saved list leaves out: what an admin removed on purpose."""
     return [item for item in DEFAULT_EXEC_POLICY_CONFIG[key] if item not in stored]
 
 
 def merged_allow_list(key: str, stored: list[str], removed: list[str]) -> list[str]:
-    """The stored list in its own order, then every current default it lacks that was not removed."""
     return [*stored, *(item for item in DEFAULT_EXEC_POLICY_CONFIG[key] if item not in stored and item not in removed)]
 
 
 def _allow_list(key: str, source: dict[str, Any]) -> tuple[list[str], list[str]] | None:
-    """``(effective list, removed defaults)`` of a stored allow list, or ``None`` when the row does not set it."""
     if not isinstance(source.get(key), list):
         return None
     stored = _clean(source[key])
@@ -114,7 +111,6 @@ def _allow_list(key: str, source: dict[str, Any]) -> tuple[list[str], list[str]]
 
 
 def with_removed_defaults(config: dict[str, Any]) -> dict[str, Any]:
-    """A config to store: each allow list it sets also names the defaults it leaves out (explicit removals)."""
     stored = dict(config)
     for key in DEFAULT_ALLOW_KEYS:
         if isinstance(stored.get(key), list):

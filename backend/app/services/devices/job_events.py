@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import DeviceJob, DeviceJobApproval, DeviceJobEvent, Message
 from ...time_utils import utc_now
+from ..secret_masking import masked
 from .job_approvals import _approval_requested
 from .job_state import (
     DEFAULT_APPROVAL_TIMEOUT_S,
@@ -55,12 +56,13 @@ async def _turn_finished(db: AsyncSession, job: DeviceJob, body: dict[str, Any])
                          idempotency_key=device_answer_key(job))
         db.add(answer)
         await _bind_refusals(db, job, answer)
+        from .device_turn_results import attach_turn_results
+
+        await db.flush()
+        await attach_turn_results(db, job, answer)  # a diagram the platform made for this turn
 
 
 async def _bind_refusals(db: AsyncSession, job: DeviceJob, answer: Message) -> None:
-    """The platform's refusals of this turn's tool calls belong to its answer (shown with the
-    message's tool steps, not only in the trace): the device session's unbound ``denied_by_policy`` rows. The device
-    session is the gateway session whose key is the job's Claude Code session."""
     from ...models import Session, ToolCall  # noqa: PLC0415
     from ..agent_gateway.contract import TOOL_CALL_STATUS_DENIED  # noqa: PLC0415
 
@@ -82,9 +84,6 @@ async def _bind_refusals(db: AsyncSession, job: DeviceJob, answer: Message) -> N
 
 async def _continue_run(db: AsyncSession, job: DeviceJob, *, failed: bool = False, said: str = "",
                         rejected: bool = False, seat_rate_limits: Any = None) -> None:
-    """The run's next phase, left pending while this job's turn was busy; a failed phase turn pauses the run.
-    ``said``: what the device's model answered on a failed turn (a usage limit names its reset), shown in the pause.
-    ``rejected``: the device refused the turn before any agent started (``job_rejected``)."""
     from ..workflow_runs.octryx.continuation import continue_after_device_turn
 
     await db.flush()
@@ -109,6 +108,7 @@ LAUNCHER_STEPS_DONE = frozenset({PIPELINE_DONE, WORK_GIT_DONE})
 
 async def _job_accepted(db: AsyncSession, job: DeviceJob) -> None:
     job.status, job.turn_state, job.disconnected_at = STATUS_RUNNING, "accepted", None
+    await _gateway_refusal(db, job, clear=True)
     from .deferred_turn_message import release  # noqa: PLC0415 - a continuation's prompt reaches the chat now
 
     await release(db, job)
@@ -151,7 +151,28 @@ async def _approval_request(db: AsyncSession, job: DeviceJob, body: dict[str, An
     return published
 
 
+async def _gateway_refusal(db: AsyncSession, job: DeviceJob, *, clear: bool = False) -> str:
+    from ...models import Session
+    from ..model_gateway.inbound.refusal_note import clear_refusal, turn_refusal
+
+    session = await db.get(Session, job.session_id) if job.session_id else None
+    if session is None:
+        return ""
+    if clear:
+        clear_refusal(session)
+        return ""
+    return turn_refusal(session, job.turn_id or "")
+
+
 async def _turn_finished_event(db: AsyncSession, job: DeviceJob, message_type: str, body: dict[str, Any]) -> None:
+    if str(body.get("status") or "") not in ("", "success") and (refused := await _gateway_refusal(db, job)):
+        from ..model_gateway.inbound.refusal_note import GENERIC_ENGINE_ERRORS
+
+        if str(body.get("reason") or body.get("error") or "") in GENERIC_ENGINE_ERRORS:
+            # The engine says only that its connection failed; the gateway knows why it refused this turn's calls.
+            body = {**body, "reason": refused, "engine_error": body.get("error")}
+        else:  # the device's own code wins (a restart, a stop, a limit): the gateway's reason is added beside it
+            body = {**body, "gateway_reason": refused}
     # The platform prices the turn's own usage; the device's cumulative figure is information only (``turn_cost``).
     reported_model = body.get("model") if isinstance(body.get("model"), str) else ""
     body = await price_turn(db, body, model=(reported_model or job.model or job.turn_model or "").strip())
@@ -187,7 +208,6 @@ async def _job_failed(db: AsyncSession, job: DeviceJob, message_type: str, body:
 
 async def apply_event(db: AsyncSession, job: DeviceJob, message_type: str, body: dict[str, Any], *,
                       limits: dict[str, Any]) -> dict[str, Any]:
-    """Apply one stored device event to the job; returns what the chat should see."""
     turn_matches = str(body.get("turn_id") or "") == (job.turn_id or "")
     published: dict[str, Any] = {}
     if message_type == "job_accepted" and turn_matches:
@@ -219,7 +239,7 @@ async def apply_event(db: AsyncSession, job: DeviceJob, message_type: str, body:
 
 async def store_event(db: AsyncSession, job: DeviceJob, seq: int, message_type: str,
                       body: dict[str, Any]) -> DeviceJobEvent:
-    event = DeviceJobEvent(job_id=job.id, seq=seq, type=message_type[:40], body=bounded_body(body))
+    event = DeviceJobEvent(job_id=job.id, seq=seq, type=message_type[:40], body=bounded_body(masked(body)))
     db.add(event)
     job.last_event_seq = seq
     await db.flush()

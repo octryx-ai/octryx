@@ -40,8 +40,6 @@ def _command_key(command: Any) -> str:
 
 @dataclass(frozen=True, slots=True)
 class _Call:
-    """An exec occurrence in the platform's names: ``Bash`` + command, a patch + paths, or a tool + input."""
-
     tool: str
     command: str = ""
     paths: tuple[str, ...] = ()
@@ -71,7 +69,6 @@ def _occurrence_call(occurrence: ExecOccurrence) -> _Call | None:
 
 
 def _hook_key(hook: ToolCall) -> tuple[str, str, str] | None:
-    """``(kind, value, cwd)`` of what the hook reported, comparable with :func:`_slot_matches`."""
     recorded = _parameters(hook).get(EXEC_CALL_KEY)
     if not isinstance(recorded, Mapping):
         return None

@@ -1,10 +1,4 @@
-"""Resource-server-side verification of platform-issued OAuth access tokens.
-
-Used by the MCP server (and future OAuth-protected surfaces) to turn a
-Bearer JWT into an authenticated context. The grant is re-checked on every
-verification so revoking a grant cuts access immediately, without waiting
-for the short-lived access token to expire.
-"""
+"""Resource-server-side verification of platform-issued OAuth access tokens."""
 
 from __future__ import annotations
 
@@ -30,12 +24,7 @@ class OAuthResourceContext:
 
 
 def acceptable_mcp_audiences(*, mount_path: str, streamable_path: str) -> set[str]:
-    """Audiences accepted by the MCP resource server.
-
-    The default audience plus the local resource URLs. Deployments behind a
-    public hostname must extend this via configuration (follow-up: explicit
-    `oauth_resource_url` setting) — unknown audiences stay rejected.
-    """
+    """Audiences accepted by the MCP resource server."""
     settings = get_settings()
     resource_suffix = f"{mount_path}{streamable_path}"
     return {

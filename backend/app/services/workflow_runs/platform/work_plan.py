@@ -1,12 +1,4 @@
-"""``work.draft_change_plan``: the run's Work item gets its change plan from the submitted test contract.
-
-A server step of the definition: the clarify phase submitted the contract (``phase_outputs``), this
-step drafts the plan through ``secure_work/plans/run_plan`` for the run's requester — only for the run's own Work
-item in the run's Workspace — and records which plan (id, version, hash) the run drafted, so the confirmation shows
-exactly that plan. An earlier, ended run's still-open plan of the same contract is adopted (``adopted_from_run``);
-a decided plan never is. Failed with its reason when there is no contract, no Work item, or the item is another
-Workspace's.
-"""
+"""``work.draft_change_plan``: the run's Work item gets its change plan from the submitted test contract."""
 
 from __future__ import annotations
 
@@ -44,7 +36,7 @@ async def draft_change_plan(db: AsyncSession, run: WorkflowRun) -> ToolOutcome:
                "test_contract_version": envelope.get("version")}
     drafted_by = str(dict(plan.evidence_json or {}).get("workflow_run_id") or "")
     if drafted_by and drafted_by != run.id:
-        drafted["adopted_from_run"] = drafted_by  # the same contract's open plan of an earlier run (succession)
+        drafted["adopted_from_run"] = drafted_by
     run.context = {**dict(run.context or {}), DRAFTED_PLAN_KEY: drafted}
     return ToolOutcome(SUCCEEDED, {"change_plan_id": plan.id, "version": plan.version, "status": plan.status})
 

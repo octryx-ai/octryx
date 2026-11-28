@@ -33,7 +33,7 @@ type CodeRepositoryFormProps = {
 
 const PROVIDER_OPTIONS: FieldOption[] = [["local", "Local"], ["github", "GitHub"], ["bitbucket", "Bitbucket"]];
 const INDEX_OPTIONS: FieldOption[] = [["auto", "Auto"], ["zoekt", "Zoekt"], ["ripgrep", "Ripgrep fallback"]];
-const SEMANTIC_OPTIONS: FieldOption[] = [["auto", "Auto"], ["scip", "SCIP"], ["regex", "Regex fallback"]];
+const SEMANTIC_OPTIONS: FieldOption[] = [["auto", "Auto"], ["lsp", "LSP"], ["regex", "Regex fallback"]];
 const STRUCTURE_OPTIONS: FieldOption[] = [["auto", "Auto"], ["tree-sitter", "Tree-sitter"], ["regex", "Regex fallback"]];
 const GRAPH_OPTIONS: FieldOption[] = [["disabled", "Disabled"], ["auto", "Auto"], ["code_graph", "Native graph"]];
 
@@ -89,9 +89,8 @@ export function CodeRepositoryForm(props: CodeRepositoryFormProps) {
         onToggle={() => setProjectCodeRepositoryActive((value) => !value)}
       />
       <div className="admin-form-help">
-        Recommended production path: Zoekt for search, SCIP for semantic
-        navigation, Tree-sitter for structure fallback and native code graph
-        context.
+        Recommended production path: Zoekt for search, Tree-sitter for
+        structure and the native code graph for context.
       </div>
       <div className="admin-panel__form-actions">
         <button

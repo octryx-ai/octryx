@@ -1,10 +1,4 @@
-"""A turn held for a workflow confirmation ends its Product Run attempt explicitly.
-
-``requested`` -> ``needs_approval`` / ``awaiting_workflow_confirmation`` (no more
-``gate_decision_unmapped``). Revision ``a2c4e6f8b0d1`` adds the end reason to the three CHECK
-constraints reversibly and refuses its downgrade while a row records it; on SQLite and, when
-``OCTRYX_TEST_POSTGRES_URL`` is set, PostgreSQL.
-"""
+"""A turn held for a workflow confirmation ends its Product Run attempt explicitly."""
 
 from __future__ import annotations
 

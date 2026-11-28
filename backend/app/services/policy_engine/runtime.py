@@ -1,22 +1,4 @@
-"""The process-wide policy-engine snapshot: the instance mode and the published custom policies.
-
-The enforcement points that consult Cedar are partly synchronous (``ProjectModelAdmission.decide``,
-``classification_tool_decision``), so they read this snapshot instead of the database. The async enforcement
-points call :func:`maintain_policy_runtime`, which reloads the snapshot when it is older than
-:data:`REFRESH_SECONDS` and flushes the buffered decision-log records. Both use their own database session, so a
-policy-engine failure can never touch the caller's transaction.
-
-Mode (``system_config`` key :data:`MODE_CONFIG_KEY`): ``off`` | ``shadow`` | ``enforce``; no row is ``shadow``,
-and so is an unreadable value (shadow never changes a decision). Until the first load the snapshot is the
-default: shadow, no custom policies.
-
-A published custom set that no longer parses (a schema change after publishing) is ``custom_invalid``. It does
-not deny everything: the enforcement points evaluate the baseline alone, so the custom policies fall back to
-shadow (they are not applied) in every mode. The change to an invalid set is an alert: logged as an error and
-audited (:data:`AUDIT_CUSTOM_SET_INVALID`, actor: the admin who published the set) once per process and set; the
-status view shows it and counts the fallback decisions per point (``shadow.custom_fallback_counters``); enforce
-readiness refuses (``custom_set_invalid``) until a valid version is published.
-"""
+"""The process-wide policy-engine snapshot: the instance mode and the published custom policies."""
 
 from __future__ import annotations
 
@@ -110,7 +92,6 @@ async def published_version(db: AsyncSession) -> PolicySetVersion | None:
 
 
 async def _draft_fields(db: AsyncSession, published_digest: str | None) -> dict:
-    """The newest draft or version in review that parses and differs from the published set, else nothing."""
     stmt = (select(PolicySetVersion)
             .where(PolicySetVersion.state.in_([REVISION_STATE_DRAFT, REVISION_STATE_IN_REVIEW]))
             .order_by(PolicySetVersion.version.desc()).limit(1))
@@ -128,7 +109,6 @@ async def _draft_fields(db: AsyncSession, published_digest: str | None) -> dict:
 
 
 async def alias_approvals(db: AsyncSession) -> dict[str, frozenset[str]]:
-    """The approved content categories per gateway alias, from the active LiteLLM gateway providers."""
     from ..model_gateway.litellm.alias_catalog import admitted_alias_entries
     from ..model_gateway.litellm.runtime_admission import LITELLM_GATEWAY_DRIVER
 
@@ -147,7 +127,7 @@ async def load_policy_runtime(db: AsyncSession) -> PolicyRuntime:
     from ..data_classification.levels import refresh_level_registry
 
     await refresh_level_registry(db)  # the classification levels the generated policies and ranks use
-    from ..tool_approval_policy import refresh_platform_default
+    from ..tool_approval.policy import refresh_platform_default
 
     await refresh_platform_default(db)  # the tool-approval platform default the synchronous gate reads
     from app.services.knowledge.projection.workspace_classification_values import instance_default_for
@@ -191,7 +171,6 @@ async def refresh_policy_runtime(db: AsyncSession) -> PolicyRuntime:
 
 
 async def _alert_custom_set_invalid(runtime: PolicyRuntime) -> None:
-    """Log and audit (own session) that the published set no longer parses and is not applied. Never raises."""
     from ...db import core as db_core
 
     logger.error("policy_engine_custom_set_invalid version=%s mode=%s: custom policies fall back to shadow",
@@ -223,10 +202,6 @@ _maintaining = False
 
 
 async def maintain_policy_runtime(*, force: bool = False) -> None:
-    """Reload a stale snapshot and flush buffered decision records, each in its own session. Never raises.
-
-    Returns at once, on the current snapshot, while another maintenance runs in this process, ``force`` too (an
-    admin change reloads through :func:`refresh_policy_runtime` on its own session, not through here)."""
     global _maintaining
     if _maintaining:
         return
@@ -258,7 +233,6 @@ async def _maintain(*, force: bool) -> None:
 
 
 async def _flush_draft_impact(db_core) -> None:
-    """Write the draft-shadow buckets and, on the hourly schedule, prune them by the decision-log retention."""
     from .decision_log import retention_days
     from .draft_shadow import draft_prune_due, flush_draft_impact, pending_buckets
 

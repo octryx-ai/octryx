@@ -1,5 +1,3 @@
-// JSON pointer (RFC 6901) helpers over plain JSON values; all updates are immutable.
-
 export function escapePointerSegment(segment: string): string {
   return segment.replace(/~/g, "~0").replace(/\//g, "~1");
 }
@@ -59,10 +57,7 @@ function setIn(container: unknown, segments: string[], next: unknown): unknown {
   return copy;
 }
 
-/**
- * Immutable update at `pointer`. `undefined` removes the key (or array item);
- * missing intermediate objects are created only when a value is written.
- */
+// Missing intermediate objects are created only when a value is written.
 export function setAtPointer(
   value: Record<string, unknown>,
   pointer: string,
@@ -73,7 +68,6 @@ export function setAtPointer(
   return setIn(value, segments, next) as Record<string, unknown>;
 }
 
-/** Stable DOM id for the field at `pointer` ("/loop/maxIterations" -> "<prefix>-root-loop-maxIterations"). */
 export function fieldDomId(prefix: string, pointer: string): string {
   const parts = splitPointer(pointer).map((segment) => segment.replace(/[^A-Za-z0-9_-]/g, (char) => `_${char.charCodeAt(0).toString(16)}`));
   return [prefix, "root", ...parts].join("-");

@@ -1,6 +1,5 @@
-"""Maintenance metrics: findings per check with their outcome, rule violations
-that reached main, a finished run's cost / duration / sessions by size class against reference runs. Counted at the
-event in this process; a run's cost is summed when its usage rows are inserted, never selected at its end."""
+"""Maintenance metrics: findings per check, rule violations on main, run cost/duration/sessions by size class.
+Counted at the event in this process; a run's cost is summed when its usage rows are inserted."""
 
 from __future__ import annotations
 
@@ -79,7 +78,6 @@ def test_the_reference_runs_are_data_by_kind():
     assert _series("octryx_run_reference", **plain, measure="duration_seconds") == 73
     assert _series("octryx_run_reference", workflow="bug-fix-reproduction", size_class="S", kind="light_measured",
                    measure="cost_usd") == 0.92
-    # Only references measured on a shipped workflow are exported.
     assert {labels[0] for labels in maintenance_metrics.REFERENCE.series} == {"bug-fix-reproduction"}
 
 
@@ -129,7 +127,7 @@ async def test_a_finished_runs_cost_comes_from_its_inserted_usage_without_a_sele
         await db.commit()
     finally:
         event.remove(engine, "before_cursor_execute", seen)
-    assert any(re.search(r"\bUPDATE workflow_runs\b", text, re.I) for text in statements)  # the listener saw the end
+    assert any(re.search(r"\bUPDATE workflow_runs\b", text, re.I) for text in statements)
     assert not [text for text in statements if re.search(r"\bFROM (usage_events|sessions)\b", text, re.I)]
 
     text = (await call_as(client, "GET", "/metrics", admin)).text
@@ -145,11 +143,9 @@ async def test_a_finished_runs_cost_comes_from_its_inserted_usage_without_a_sele
 
 @pytest.mark.asyncio
 async def test_a_bug_in_delivered_work_is_an_escaped_defect_once(db):
-    """Point 3 of the plan: the bug flow's intake names the work item the bug is about; delivered by a completed
-    platform run of another workflow, it is an escaped defect (counted from the event)."""
     from app.services.secure_work.platform_items import create_platform_work_item
     from app.services.workflow_runs.bugs.escaped import EVENT_ESCAPED, record_escape
-    from tests.test_platform_work_items import _admin_and_project
+    from tests.services.secure_work.test_platform_work_items import _admin_and_project
 
     admin, project = await _admin_and_project(db)
     story = await create_platform_work_item(db, current_user=admin, project_id=project.id, title="S1 navigation",
@@ -173,7 +169,7 @@ async def test_a_bug_in_delivered_work_is_an_escaped_defect_once(db):
     escaped_module.record_event = lambda db, run, kind, **kw: recorded.append((kind, kw["detail"]))
     try:
         assert await record_escape(db, run, bug) == {"key": story.source_key, "origin_workflow": "story-delivery"}
-        assert await record_escape(db, run, bug) is None  # once per run
+        assert await record_escape(db, run, bug) is None
         other = WorkflowRun(project_id=project.id, workflow_kind="phased", workflow_key="bug-fix-reproduction",
                             title="c", requested_by=admin.id, work_item_id=unrelated.id, context={})
         assert await record_escape(db, other, unrelated) is None

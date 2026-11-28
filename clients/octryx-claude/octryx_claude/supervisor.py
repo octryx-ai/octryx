@@ -1,19 +1,5 @@
-"""The supervisor: the launcher stays alive as claude's parent instead of exec-ing it.
-
-It holds the session's hook key in memory (see ``signer``), spawns claude as a child
-with inherited stdio in the same process group and exits with the child's exit code
-(``128 + signum`` for a signal death).
-
-Signals:
-
-- SIGINT and SIGQUIT: the terminal delivers them to the whole foreground process group,
-  so claude receives them itself; the supervisor ignores them. A no-op handler is used
-  instead of ``SIG_IGN`` because an ignored disposition would be inherited by claude.
-- SIGTERM and SIGHUP: forwarded to claude.
-- Job control: SIGTSTP does not stop the supervisor directly. When claude stops
-  (``waitpid`` with ``WUNTRACED``) the supervisor stops itself with SIGSTOP, so the
-  shell sees the job as stopped; on resume it sends SIGCONT to claude.
-"""
+"""The supervisor: the launcher stays claude's parent so it can hold the session's hook key in memory.
+SIGINT/SIGQUIT reach claude from the terminal, SIGTERM/SIGHUP are forwarded, job-control stops mirrored."""
 
 from __future__ import annotations
 
@@ -28,6 +14,7 @@ _IGNORED = (signal.SIGINT, signal.SIGQUIT, signal.SIGTSTP)
 _FORWARDED = (signal.SIGTERM, signal.SIGHUP)
 
 
+# A no-op handler, not SIG_IGN: an ignored disposition would be inherited by claude.
 def _ignore(signum: int, frame: Any) -> None:
     return None
 
@@ -79,7 +66,6 @@ def _wait(child: subprocess.Popen[bytes]) -> int:
 
 
 def supervise(argv: Sequence[str], env: Mapping[str, str]) -> int:
-    """Run claude as a child and return its exit code. Raises ``OSError`` if it cannot start."""
     holder: dict[str, int] = {}
     previous = _install(lambda: holder.get("pid"))
     try:

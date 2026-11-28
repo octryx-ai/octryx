@@ -1,14 +1,4 @@
-"""Mirror a catalog row into its gateway alias entry.
-
-The Model catalog is where an admin edits a gateway model; the alias entry in
-``config_json.litellm_gateway.aliases`` stays what the gateway admission, Cedar entities (``resource.approved_for``)
-and the inbound model listing read. After every catalog save of a gateway row these alias keys are rewritten from
-the row: ``display_name``, ``capabilities.tools`` / ``capabilities.vision`` (the other alias capabilities stay),
-``data_policy_class`` (removed when the model is not cleared, so the alias is refused) and
-``approved_data_categories`` (removed when empty). Connection keys (``model_group``, ``context_limit``,
-``served_model_ids``) belong to the Providers page and are never touched here, except when "Add to catalog"
-creates the alias for a gateway model that has none.
-"""
+"""Mirror a catalog row into its gateway alias entry."""
 
 from __future__ import annotations
 
@@ -64,7 +54,6 @@ def _governed_fields(entry: dict[str, Any], model: LLMModel) -> dict[str, Any]:
 
 
 def mirror_into_alias(provider: LLMProvider, model: LLMModel) -> bool:
-    """Rewrite the governed alias keys from the row; ``False`` when the gateway has no alias for it."""
     entries = alias_entries(provider)
     if model.model_id not in entries or not isinstance(entries[model.model_id], dict):
         return False
@@ -79,7 +68,6 @@ def write_alias_cost(provider: LLMProvider, alias: str, cost: dict[str, Any]) ->
 
 
 def create_alias(provider: LLMProvider, model: LLMModel) -> None:
-    """"Add to catalog" for a gateway model without an alias: the alias is the model id, routed to the same group."""
     entry: dict[str, Any] = {"model_group": model.model_id}
     if model.context_length and model.context_length > 0:
         entry["context_limit"] = int(model.context_length)

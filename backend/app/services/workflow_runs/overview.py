@@ -18,7 +18,6 @@ async def workflows_overview(
     db: AsyncSession, *, project_id: str | None = None, include_inactive: bool = False
 ) -> dict[str, Any]:
     flows = await load_flows(db, project_id=project_id, include_inactive=include_inactive)
-    # Only the workspaces the listed workflows belong to.
     project_ids = {flow.project_id for flow in flows if flow.project_id}
     names = (
         dict((await db.execute(select(Project.id, Project.name).where(Project.id.in_(project_ids)))).all())

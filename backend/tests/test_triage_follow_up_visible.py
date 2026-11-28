@@ -1,9 +1,4 @@
-"""A triage whose follow-up workflow did not start is visible, not silent.
-
-With only a model key and no device, a bug's triage runs on the server and its follow-up (a fix that builds and
-tests) is refused with ``server_build_not_allowed``. The refusal is recorded on the triage run, and the run card
-(``routing``) and a work item's runs (``follow_up_failed``) carry it, and the message says how to get a device.
-"""
+"""A triage whose follow-up workflow did not start is visible, not silent."""
 
 from __future__ import annotations
 

@@ -1,9 +1,4 @@
-"""octryx run UX: the next phase continues on the device without a manual prompt.
-
-A run whose chat thread runs on a device gets a device job turn when it enters a phase (a decision moved it): at once
-when the thread's job is free, else when the busy turn finishes. A paused run, an older pass and a server thread
-never start one.
-"""
+"""octryx run UX: the next phase continues on the device without a manual prompt."""
 
 from __future__ import annotations
 
@@ -17,7 +12,10 @@ from app.services.devices.job_offer import offer_body
 from app.services.devices.jobs import start_turn
 from app.services.workflow_runs.limits import pause_run
 from app.services.workflow_runs.octryx.continuation_marker import CONTEXT_KEY
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import FOLDER, _confirm, _device_run, _hub, _jobs  # noqa: F401
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.mark.asyncio
@@ -38,7 +36,7 @@ async def test_a_busy_turn_hands_over_when_it_finishes_and_a_paused_run_never_co
                             session_id=thread.id, workspace_id=thread.project_id, folder=FOLDER, profile="governed",
                             prompt="the turn still running")
     await _confirm(db, run, admin)
-    assert run.context[CONTEXT_KEY]["state"] == "pending" and busy.turn_count == 1  # nothing interrupts the turn
+    assert run.context[CONTEXT_KEY]["state"] == "pending" and busy.turn_count == 1
     await apply_event(db, busy, "turn_finished", {"turn_id": busy.turn_id, "status": "success"}, limits={})
     assert busy.status == "offered" and busy.turn_count == 2 and "phase 'Work'" in busy.turn_prompt
     assert run.context[CONTEXT_KEY]["state"] == "started"
@@ -54,10 +52,13 @@ async def test_a_busy_turn_hands_over_when_it_finishes_and_a_paused_run_never_co
 
 
 @pytest.mark.asyncio
-async def test_a_server_thread_gets_no_device_turn(db):
+async def test_a_thread_without_a_device_runs_its_phase_on_the_pool(db):
+    from tests.scripted_pool_support import RUNNER_ID
+
     admin, _device, thread, run = await _device_run(db, on_device=False)
     await _confirm(db, run, admin)
-    assert run.current_node_id == "work" and await _jobs(db, thread) == [] and CONTEXT_KEY not in run.context
+    [job] = await _jobs(db, thread)
+    assert run.current_node_id == "work" and job.device_id == RUNNER_ID and run.context[CONTEXT_KEY]["state"] == "started"
 
 
 @pytest.mark.asyncio
@@ -74,13 +75,13 @@ async def test_a_failed_turn_hands_over_too_and_the_turn_is_marked_as_the_platfo
     jobs = await _jobs(db, thread)
     assert run.context[CONTEXT_KEY]["state"] == "started" and any(job.status == "offered" for job in jobs)
     platform = select(Message).where(Message.session_id == thread.id, Message.idempotency_key.like(f"{PROVENANCE}:%"))
-    assert (await db.execute(platform)).scalars().all() == []  # offered, not started: nothing in the chat yet
+    assert (await db.execute(platform)).scalars().all() == []
     offered_job = next(job for job in jobs if job.status == "offered")
     await apply_event(db, offered_job, "job_accepted", {"turn_id": offered_job.turn_id}, limits={})
     [message] = (await db.execute(platform)).scalars()
-    assert "phase 'Work'" in message.content  # the platform's prompt, marked as such, once its turn starts
+    assert "phase 'Work'" in message.content
     offered = db.sync_session.info.get("workflow_continuation_offered")
-    assert offered and offered[-1][1]["eventType"] == "turn_offered"  # published to the open chat after commit
+    assert offered and offered[-1][1]["eventType"] == "turn_offered"
 
 
 @pytest.mark.asyncio
@@ -100,7 +101,7 @@ async def test_an_offline_device_holds_the_run_waiting_for_device_with_the_turn_
     from app.services.workflow_runs.octryx.contract import run_contract
 
     admin, device, thread, run = await _device_run(db)
-    device_hub.clear()  # the device went offline
+    device_hub.clear()
     await _confirm(db, run, admin)
     assert (run.status, run.waiting_kind, run.current_node_id) == ("waiting", "waiting_for_device", "work")
     assert run.context[CONTEXT_KEY]["state"] == "pending" and await _jobs(db, thread) == []
@@ -123,8 +124,6 @@ async def test_a_failed_phase_turn_pauses_the_run_instead_of_leaving_it_running(
 
 @pytest.mark.asyncio
 async def test_a_temporary_model_service_error_runs_the_phase_once_more_by_itself(db):
-    """"API Error: 503 no available server" during a deploy must not pause the run for a person at once. The pass
-    waits briefly, runs once more in its own session, and only a second failure pauses."""
     from datetime import timedelta
 
     from app.services.workflow_runs.runtime_target.device_wait import REASON_MODEL_RETRY, resume_for_device
@@ -141,18 +140,18 @@ async def test_a_temporary_model_service_error_runs_the_phase_once_more_by_itsel
     waiting = run.node_state["waiting"]
     assert (run.status, run.waiting_kind, waiting["reason"]) == ("waiting", "waiting_for_device", REASON_MODEL_RETRY)
     assert run.context[CONTEXT_KEY]["state"] == "pending" and job.turn_count == 1
-    assert await resume_for_device(db, device.id) == []  # the short backoff first
+    assert await resume_for_device(db, device.id) == []
 
     run.node_state = {**run.node_state, "waiting": {**waiting, "retry_after": (
         utc_now() - timedelta(seconds=1)).isoformat()}}
     assert await resume_for_device(db, device.id) == [run.id]
     assert run.status == "running" and job.status == "offered" and job.turn_count == 2
-    assert offer_body(job, limits={})["resume_session_id"] == "claude-work-pass"  # the same session goes on
+    assert offer_body(job, limits={})["resume_session_id"] == "claude-work-pass"
     assert "temporary error" in job.turn_prompt and "workflow_run_status" not in job.turn_prompt
 
     await apply_event(db, job, "turn_finished", {"turn_id": job.turn_id, "status": "error",
                                                  "result_text": "API Error: 529 overloaded"}, limits={})
-    assert (run.status, run.pause_reason) == ("paused", "turn_failed")  # one retry, then a person decides
+    assert (run.status, run.pause_reason) == ("paused", "turn_failed")
 
 
 def test_only_model_service_and_gateway_errors_count_as_temporary():
@@ -163,6 +162,5 @@ def test_only_model_service_and_gateway_errors_count_as_temporary():
         assert is_transient_failure("error", said), said
     assert is_transient_failure("api_error_504", "")
     assert not is_transient_failure("error", "The test file can't be created.")
-    # A launcher restart or a stalled turn gets its one retry in the same session too.
     assert is_transient_failure("service_restarted", "") and is_transient_failure("turn_stalled", "")
     assert not is_transient_failure("error", "You've hit your weekly limit · resets Nov 13 at 11am")

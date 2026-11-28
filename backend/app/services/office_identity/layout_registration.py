@@ -1,11 +1,4 @@
-"""Register generated ``slideLayout`` parts in a PowerPoint package.
-
-Registration is complete or it does not happen: the new part, its relationship
-file, the ``[Content_Types].xml`` override, the master relationship and the
-master's ``sldLayoutIdLst`` entry are all written in one pass. Identifiers are
-derived from the package (``max + 1``), so the same input always produces the
-same output bytes.
-"""
+"""Register generated ``slideLayout`` parts in a PowerPoint package."""
 
 from __future__ import annotations
 
@@ -120,7 +113,6 @@ def _add_layout(
     spec: LayoutSpec,
     layout_part: str,
 ) -> GeneratedLayout:
-    """Author one layout part from ``spec`` and register it with its master."""
     donor_xml = payloads.get(spec.donor_part)
     if donor_xml is None:
         raise ValueError(f"donor layout part missing: {spec.donor_part}")
@@ -170,12 +162,6 @@ def _write_package(
 
 
 def add_layouts(source: Path, output: Path, specs: list[LayoutSpec]) -> list[GeneratedLayout]:
-    """Write ``source`` to ``output`` with ``specs`` added as real layouts.
-
-    ``source`` is never modified. Every part that is not affected is copied
-    verbatim, including its zip metadata, so the derivative differs from the
-    original only in the parts that had to change.
-    """
     if not specs:
         raise ValueError("add_layouts requires at least one layout spec")
     source = Path(source)

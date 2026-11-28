@@ -1,11 +1,4 @@
-"""Workspace backup & restore: the history and the platform-wide skills.
-
-- **History** — every Workspace backup (``admin_config_backup`` export) and restore (``admin_config_backup`` import),
-  newest first, with who, when, which Workspace and the outcome. Read from the job tables; nothing new is stored.
-- **Skills are platform-wide.** A backup carries the active catalog skills, but a restore never overwrites an existing
-  skill silently: a skill that already exists is *kept* unless the restore asks to overwrite skills explicitly
-  (``overwrite_skills``); new skills land as catalog drafts. The summary names what was created, kept and overwritten.
-"""
+"""Workspace backup & restore: the history and the platform-wide skills."""
 
 from __future__ import annotations
 
@@ -24,7 +17,6 @@ BACKUP_TYPE = "admin_config_backup"
 async def restore_skill_rows(
     db: AsyncSession, *, current_user: User, rows: list[Any], overwrite_skills: bool
 ) -> tuple[int, int, list[str], dict[str, list[str]]]:
-    """Restore the backup's skills: create missing ones, keep or (explicitly) overwrite existing ones."""
     outcome: dict[str, list[str]] = {"skills_created": [], "skills_kept": [], "skills_overwritten": []}
     errors: list[str] = []
     success = failed = 0

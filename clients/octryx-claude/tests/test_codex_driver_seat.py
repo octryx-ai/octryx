@@ -1,17 +1,14 @@
-"""A Codex seat session: the person's login, its status and limits, research search and rollout windows."""
-
 from __future__ import annotations
 
 import asyncio
 import tomllib
 
 from octryx_claude import codex_config, codex_driver
-from tests.codex_driver_support import _fake_codex, _prepared
+from tests.codex_appserver_fake import fake_appserver
+from tests.codex_driver_support import _prepared, _stop_replay
 
 
 def test_a_seat_session_uses_the_persons_login_through_the_platforms_seat_route(tmp_path):
-    """Codex seat (variant A): the provider is the platform's seat route with Codex's own ChatGPT login; the login
-    is a link to the seat home's auth.json (never a copy) and the seat credential stays in the process env."""
     from octryx_claude import codex_seat
 
     state = tmp_path / "state"
@@ -79,12 +76,14 @@ def test_the_device_reports_the_codex_seat_login_from_the_exit_code_only_and_cac
     codex_seat._reported.clear()
 
 
-def test_a_codex_seat_at_its_usage_limit_reports_the_fixed_code_not_the_text(tmp_path):
-    """Coordinator: the platform reads a seat's limit from structured signals only."""
-    limited = _fake_codex(tmp_path / "bin", [
-        {"type": "thread.started", "thread_id": "t"},
-        {"type": "item.completed", "item": {"id": "a", "type": "agent_message", "text": "I hit a rate limit earlier."}},
-        {"type": "turn.failed", "error": {"message": "You've hit your usage limit. Try again in 2 hours."}}])
+def test_a_codex_seat_at_its_usage_limit_reports_the_fixed_code_not_the_text(tmp_path, monkeypatch):
+    from octryx_claude import plain_driver
+
+    monkeypatch.setattr(plain_driver, "judged_stop", _stop_replay((None, True)))
+    limited = fake_appserver(tmp_path / "bin", turns=[[
+        {"notify": "item/completed", "params": {"item": {"id": "a", "type": "agentMessage",
+                                                         "text": "I hit a rate limit earlier."}}},
+        {"status": "failed", "error": {"message": "You've hit your usage limit. Try again in 2 hours."}}]])
 
     async def emit(_event):
         return None
@@ -92,53 +91,25 @@ def test_a_codex_seat_at_its_usage_limit_reports_the_fixed_code_not_the_text(tmp
     result = asyncio.run(codex_driver.CodexDriver(str(limited)).run_turn(
         _prepared(tmp_path), cwd=str(tmp_path), prompt="x", resume=None, emit=emit))
     assert (result["status"], result["error"]) == ("error", "usage_limit")
-    from octryx_claude.seat_status import codex_limit_code
-
-    assert codex_limit_code({"type": "error", "message": "exceeded retry limit, last status: 429 Too Many Requests"}) \
-        == "rate_limit"
-    assert codex_limit_code({"type": "turn.failed", "error": {"message": "upstream rate limit words"}}) == ""
-    assert codex_limit_code({"type": "item.completed", "message": "You've hit your usage limit"}) == ""
 
 
-def test_a_research_phase_on_the_seat_searches_at_the_provider_and_nothing_else_does(tmp_path):
-    """The platform's web tools may not leave the server (egress allowlist), so research runs on the device. A turn
-    with the web (the offer's ``web``) on the person's seat turns Codex's hosted web search on (the
-    call leaves from this device through the seat proxy); a governed session or a turn without the web keeps it off."""
-    def web_search(sub: str, **extra) -> str:
+def test_no_turn_searches_at_the_provider_not_even_a_research_phase_on_the_seat(tmp_path):
+    def config(sub: str, **extra) -> dict:
         prepared = _prepared(tmp_path / sub)
         prepared.extra.update(extra)
         home = codex_driver.prepare_home(prepared, sandboxed=False)
-        return tomllib.loads((home / "config.toml").read_text())["web_search"]
-
-    assert web_search("governed", web=True) == "disabled"  # company models refuse the tool type
-    seat = {"codex_seat": True, "state_root": str(tmp_path / "state")}
-    (tmp_path / "state").mkdir()
-    assert web_search("seat-web", web=True, **seat) == "live"
-    assert web_search("seat-other", **seat) == "disabled"
-    assert web_search("seat-truthy", web="true", **seat) == "disabled"  # only exactly true
-    assert web_search("seat-web-off", web=False, **seat) == "disabled"
-
-
-def test_a_research_phase_on_the_device_seat_offers_codexs_standalone_search(tmp_path):
-    """The gpt-6 models are Responses Lite; Codex offers web.run for a custom provider only with
-    supports_standalone_web_search, and sends it to <base_url>/alpha/search, which only the device's proxy serves."""
-    def provider(sub: str, *, seat_proxy: str = "", **extra) -> dict:
-        prepared = _prepared(tmp_path / sub)
-        prepared.extra.update(extra)
-        home = codex_driver.prepare_home(prepared, sandboxed=False, seat_proxy=seat_proxy)
-        return tomllib.loads((home / "config.toml").read_text())["model_providers"]
+        return tomllib.loads((home / "config.toml").read_text())
 
     seat = {"codex_seat": True, "state_root": str(tmp_path / "state")}
     (tmp_path / "state").mkdir()
-    proxied = provider("research", seat_proxy="http://127.0.0.1:5555", web=True, **seat)["octryx_seat"]
-    assert proxied["supports_standalone_web_search"] is True and proxied["base_url"] == "http://127.0.0.1:5555"
-    assert "supports_standalone_web_search" not in provider("plain", seat_proxy="http://127.0.0.1:5556",
-                                                            **seat)["octryx_seat"]
-    assert "supports_standalone_web_search" not in provider("relay", web=True, **seat)["octryx_seat"]
+    assert config("governed", web=True)["web_search"] == "disabled"  # company models refuse the tool type
+    research = config("seat-web", web=True, **seat)
+    assert research["web_search"] == "disabled"  # web access only through the platform's web tools
+    assert "supports_standalone_web_search" not in research["model_providers"]["octryx_seat"]
+    assert config("seat-other", **seat)["web_search"] == "disabled"
 
 
 def test_the_seats_windows_are_read_from_the_threads_rollout(tmp_path):
-    """``codex exec --json`` names no reset; the rollout's token_count does."""
     import json as _json
 
     day = tmp_path / "2026" / "11" / "16"

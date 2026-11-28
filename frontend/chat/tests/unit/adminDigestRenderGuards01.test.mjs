@@ -99,7 +99,7 @@ const WORKFLOWS_OVERVIEW = {
   usage_window_days: 14,
   flows: [
     { flow_id: "fl-1", key: "intake", title: "Intake", status: "draft", node_count: 4, execution_kind: "phased" },
-    { flow_id: "fl-2", key: "bugfix", title: "Bug fix", status: "published", version: 2, used: 3, node_count: 3, execution_kind: "flow" },
+    { flow_id: "fl-2", key: "bugfix", title: "Bug fix", status: "published", version: 2, used: 3, node_count: 3, execution_kind: "phased" },
   ],
 };
 
@@ -109,11 +109,12 @@ test("workflows list: toolbar, filters, rows and the designer start page", async
   await tick();
   assert.equal(byId(view.root, "workflow-active-hint").length, 1);
   const button = (label) => view.root.findAll((node) => node.type === "button" && text(node) === label)[0];
-  assert.ok(button("New flow"));
+  assert.ok(button("New workflow"));
+  assert.equal(button("New flow"), undefined);
   await act(async () => button("Filters").props.onClick());
   assert.match(text(view.root), /Bug fix/);
   assert.match(text(view.root), /Intake/);
-  assert.equal(digest(view), "e73526ea6de0256e39e5ff7a75fc0d110bc84ea9ac439d92b34f704a8196c306");
+  assert.equal(digest(view), "e69536942e5da228e32cc440674f66912a268b107c76a89bd4b29c7ffb65dffb");
 
   const designer = await mount("admin/components/agentsWorkflows/workflows/WorkflowsPage.tsx", "WorkflowsPage", { view: "designer", readJson });
   assert.equal(byId(designer.root, "designer").length, 1);
@@ -127,26 +128,22 @@ const SETUP_OPTIONS = {
   workflows: [{ key: "bugfix", title: "Bug fix", capability: "code_change" }],
 };
 const SETUP = {
-  runtime: "chat", summary: { capability: { class: "code_change" }, workflow_key: "bugfix", profile_status: "ready" },
+  runtime: "octryx_claude", summary: { capability: { class: "code_change" }, workflow_key: "bugfix", profile_status: "ready" },
   parts: [
     { id: "system", title: "System prompt", source: { label: "Prompts", tab: "prompts" }, version: "v3", enforced: "guidance", tokens: 120 },
     { id: "workflow", title: "Workflow", source: { label: "Bug fix" }, enforced: "enforced", tokens: 40 },
   ],
   budget: { total: 160, limit: 1000, groups: [{ key: "prompt", label: "Prompt", tokens: 120 }, { key: "wf", label: "Workflow", tokens: 40 }] },
-  turn: { trace_id: "abcd1234" }, comparison: { matches: false, changed: 2, same: 1, keys: [] },
 };
 
-test("effective setup: the pickers, the parts, the summary, the budget and the compare drawer", async () => {
+test("effective setup: the pickers, the parts, the summary and the budget", async () => {
   const srv = server((call) => ({ status: 200, body: call.url.includes("/options") ? SETUP_OPTIONS : SETUP }));
   const view = await mount("admin/components/agentsWorkflows/effectiveSetup/EffectiveSetupPage.tsx", "EffectiveSetupPage", {},
     { globals: { fetch: srv.fetch } });
   await tick();
   assert.equal(byId(view.root, "effective-setup-parts")[0].findAll((node) => node.type === "details").length, 2);
-  assert.match(text(view.root), /2 text\(s\) changed since turn abcd…/);
-  assert.equal(digest(view), "67fe877c9922bcb04b8c563b3953396d4f59196aec03999b4ea615953e17af1b");
-  await act(async () => view.root.find((node) => node.type === "button" && text(node) === "Compare with a past turn").props.onClick());
-  assert.match(text(view.root), /Session ID/);
-  assert.equal(digest(view), "71a6270cdb9d1c5705e77969de17ae22244fe46b5440d96db59fea3cd27c47ca");
+  assert.match(text(view.root), /octryx-claude \(Claude Code\)/);
+  assert.equal(digest(view), "63c611f93924afe7165ac8304c637e31e914c697805893685031f0f11a9fb051");
 });
 
 // --- Inbound webhooks -----------------------------------------------------------------------------------------------

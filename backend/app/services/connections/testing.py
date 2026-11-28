@@ -1,12 +1,4 @@
-"""``POST /api/v1/admin/connections/{id}/test``: ``{state, state_reason, tested_at, checks}``.
-
-The access check is the named connection's test (``connector_test_service.run_connector_connection_test`` on the
-connection's own resolved unit, its allowlist narrowed to its bound keys, the descriptor's runtime guard first so a
-test never falls back to a host or platform credential). ``checks[0]`` is always ``use: "access"``; each active
-linked use follows (its scope within the connection's keys). The outcome is kept: ``state`` (``ok`` | ``failing``),
-``state_reason`` (one sentence when failing), ``last_tested_at`` and ``last_test`` (what the named-connection view
-shows). A secret is never part of a result, a log line or the audit.
-"""
+"""``POST /api/v1/admin/connections/{id}/test``: ``{state, state_reason, tested_at, checks}``."""
 
 from __future__ import annotations
 

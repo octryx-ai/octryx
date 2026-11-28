@@ -21,10 +21,6 @@ from ...time_utils import utc_now
 
 
 def _unfenced(title: str, body: str | None, payload: dict[str, object] | None):
-    """Subject, body and payload of an outbound delivery (email, Teams, Slack, webhook) without fence markers.
-
-    The fence is for a model's input only; a notification that carries a fenced ticket summary or
-    an agent's output must reach the channel as the text itself, rendered templates included."""
     from ..content_security.knowledge_fence import unfenced_result
 
     return unfenced_result(title), unfenced_result(body), unfenced_result(payload)
@@ -33,7 +29,6 @@ def _unfenced(title: str, body: str | None, payload: dict[str, object] | None):
 async def _active_subscriptions(
     db: AsyncSession, notification_type: str, *scope: Any
 ) -> Sequence[NotificationSubscription]:
-    """Active subscriptions to ``notification_type`` (or to every type) within ``scope``."""
     return (
         (
             await db.execute(
@@ -63,7 +58,6 @@ def _delivery_context(
     project: Project | None,
     project_id: str | None,
 ) -> dict[str, Any]:
-    """What a template renders: the notification, its payload, the user and the project."""
     event_payload = payload if isinstance(payload, dict) else {}
     return {
         "notification": {
@@ -93,7 +87,6 @@ async def _delivery_row(
     title: str,
     body: str | None,
 ) -> NotificationDeliveryLog:
-    """The delivery of one subscription, rendered with its template (a failed render is stored as failed)."""
     template = await select_template(
         db,
         event_type=notification_type,

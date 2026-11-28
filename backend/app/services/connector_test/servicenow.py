@@ -1,20 +1,14 @@
-"""The ServiceNow connection test: the Table API, or each configured Scripted REST endpoint.
-
-The credential is the connector's (``services/servicenow_auth.py``); a token failure answers its closed code.
-With the Table API one ``incident`` record is read. With ``servicenow_api_style=scripted`` the first page
-(``sysparm_limit=1``) of every configured endpoint is read and reported per endpoint: ``ok`` with its
-``total``, or a closed code (HTTP status, empty answer, unexpected shape). No body, value or token is kept.
-"""
+"""The ServiceNow connection test: the Table API, or each configured Scripted REST endpoint."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from app.services.atlassian_auth_modes import AtlassianAuthConfigError
+from app.services.connector_auth.atlassian_modes import AtlassianAuthConfigError
 
-from ..oidc_client_credentials import OidcTokenError
+from ..connector_auth.oidc_client_credentials import OidcTokenError
+from ..connector_auth.servicenow import resolve_servicenow_auth, validate_servicenow_auth_config
 from ..outbound_egress import CONNECTION_SERVICENOW, egress_transport
-from ..servicenow_auth import resolve_servicenow_auth, validate_servicenow_auth_config
 from ..servicenow_scripted import ScriptedEndpointError, scripted_api
 from ..servicenow_scripted_fetch import fetch_records
 from .failure import connection_success, http_status_failure

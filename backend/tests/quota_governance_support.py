@@ -16,7 +16,6 @@ def _uid() -> str:
 
 
 async def _make_policy(db: AsyncSession, *, name: str = "test-policy", **kwargs) -> BudgetPolicy:
-    """Directly insert a BudgetPolicy bypassing service validation for test fixtures."""
     policy = BudgetPolicy(
         id=_uid(),
         name=name,

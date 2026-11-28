@@ -33,7 +33,7 @@
   background: none;
   color: var(--text);
   font: inherit;
-  font-weight: 500;
+  font-weight: var(--ds-weight-medium);
   cursor: pointer;
 }
 
@@ -95,7 +95,7 @@
 .run-bar__title {
   color: var(--highlight);
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 /* Counters and provenance in one muted line, separated by dots. */

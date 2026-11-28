@@ -1,25 +1,4 @@
-"""Desired-state reconciliation, fenced acknowledgements and guarded fires.
-
-Runs only inside the process that actually schedules (``TaskScheduler.start``, the platform worker
-or a single local process with background workers). API-only processes never start it, so they
-never register jobs or take the lease; their reload/remove calls only *request* a reconcile, which
-is a no-op there.
-
-* **Ownership.** :mod:`.owner_lease`. Without the lease the process registers no job.
-* **Reconcile.** Reads every Scheduler row and every Task with a schedule, derives the desired jobs
-  by content fingerprint, leaves unchanged jobs untouched, (re)registers changed ones and removes
-  jobs whose row is paused, deleted, unscheduled or no longer valid. Then, in one fenced
-  transaction, it upserts what it applied under its epoch and deletes acknowledgements of anything
-  no longer registered. A refused fence drops every local job.
-* **Guarded fire.** The APScheduler callback. Queue-backend availability (external I/O) is decided
-  first, outside any lock. Then one transaction: fence ``FOR SHARE`` → the Scheduler (or Task) row
-  ``FOR UPDATE`` → the target Task ``FOR SHARE`` → insert the TaskRun and queue entry → record the
-  next run → commit. A pause, edit or delete that commits first makes the waiting fire re-read and
-  skip; a fire that locked first commits its run, and the change applies to later fires. Raw Redis
-  pushes happen only after commit. A pause or delete stops new schedule enqueues only; nothing
-  already queued or running is cancelled. No exactly-once promise: occurrence identity is,
-  dispatcher claims.
-"""
+"""Desired-state reconciliation, fenced acknowledgements and guarded fires."""
 
 from __future__ import annotations
 
@@ -156,7 +135,6 @@ class SchedulerCoordinator:
             logger.warning("scheduler_owner_release_failed", extra={"error_type": type(exc).__name__})
 
     def _sessions(self):
-        """The registrar's current async session factory (tests and probes may replace it)."""
         return self._registrar._get_session_factory()
 
     async def _run(self) -> None:
@@ -362,7 +340,6 @@ class SchedulerCoordinator:
         return payload
 
     async def _record_next_run(self, db, key: str, epoch: int) -> None:
-        """Inside the admitted fire transaction: the job's next run is already the following occurrence."""
         job = self._registrar._get_registered_job(key)
         row = await db.get(SchedulerJobApplication, key)
         if job is None or row is None or row.owner_epoch != epoch:

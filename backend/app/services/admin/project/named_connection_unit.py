@@ -1,10 +1,4 @@
-"""The connection unit of a named connection, as its connector's descriptor declares it.
-
-The same rules as the Workspace's own connection (``connection_unit.py``) for every connector type: only
-the unit's non-secret fields are returned, a typed secret is taken only from the request, a mode switch
-drops the previous mode's principal and secret ref (connectors with an auth mode), and a unit is complete
-only as the descriptor's ``complete`` check says. Every message names fields and fixed codes only.
-"""
+"""The connection unit of a named connection, as its connector's descriptor declares it."""
 
 from __future__ import annotations
 
@@ -36,7 +30,6 @@ def secret_status(tool: str, config: dict[str, Any]) -> dict[str, bool]:
 
 
 def _value(kind: str, value: Any) -> Any:
-    """A payload value in its field's form; ``None`` removes the field."""
     if kind == "bool":
         if isinstance(value, bool):
             return value
@@ -54,7 +47,6 @@ def _value(kind: str, value: Any) -> Any:
 
 
 def proposed_unit(tool: str, stored: dict[str, Any], payload: dict[str, Any]) -> dict[str, Any]:
-    """The stored unit with the payload's non-secret fields applied (empty removes)."""
     descriptor = require_descriptor(tool)
     kinds = _kinds(descriptor)
     proposed = dict(stored)
@@ -69,12 +61,10 @@ def proposed_unit(tool: str, stored: dict[str, Any], payload: dict[str, Any]) ->
 
 
 def one_credential_unit(tool: str, stored: dict[str, Any], proposed: dict[str, Any]) -> dict[str, Any]:
-    """A connector with an auth mode drops the fields the new mode does not read; others keep the unit."""
     return _mode_switch(tool, stored, proposed) if auth_mode_fields(tool) else proposed
 
 
 def kept_secret_view(tool: str, stored: dict[str, Any], proposed: dict[str, Any]) -> dict[str, Any]:
-    """``stored`` without the secrets (refs or plaintext) the proposal does not keep."""
     names = require_descriptor(tool).secret_fields
     secrets = {*names, *(secret_ref_field_name(name) for name in names)}
     return {key: value for key, value in stored.items() if key not in secrets or key in proposed}
@@ -89,8 +79,6 @@ def typed_secrets(tool: str, payload: dict[str, Any]) -> dict[str, str]:
 
 
 def preset_fields_of(tool: str, config: dict[str, Any]) -> dict[str, Any]:
-    """The part of ``config`` the preset's validator checks: its fields and secret refs, except the fields the
-    descriptor types itself (yes/no, lists: read by their kind in :func:`proposed_unit`)."""
     preset = TOOL_CONFIG_PRESETS.get(tool, {})
     secrets = preset.get("secret_fields") or ()
     known = {*(preset.get("fields") or ()), *(secret_ref_field_name(name) for name in secrets)}
@@ -99,7 +87,6 @@ def preset_fields_of(tool: str, config: dict[str, Any]) -> dict[str, Any]:
 
 
 def require_complete_unit(tool: str, effective: dict[str, Any]) -> None:
-    """The descriptor's completeness check; an incomplete unit is a 422 with the check's fixed code."""
     try:
         require_descriptor(tool).complete(effective)
     except UnitIncompleteError as exc:

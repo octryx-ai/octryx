@@ -1,8 +1,5 @@
-"""Session workspace sync helpers.
-
-The local workspace remains authoritative for execution. Sync helpers mirror
-selected local changes into the configured durable workspace storage.
-"""
+"""Session workspace sync helpers. The local workspace stays authoritative for execution; these mirror selected changes
+into durable storage."""
 
 from __future__ import annotations
 

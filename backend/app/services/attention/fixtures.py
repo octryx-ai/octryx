@@ -1,13 +1,4 @@
-"""Acceptance fixtures for the companion: a question, a gate, a problem and a finished run in a test Workspace.
-
-Only where the deployment sets ``OCTRYX_ENABLE_TEST_FIXTURES=true`` (otherwise the endpoint answers 404),
-for an admin, and never with the production runtime profile. The runs use a tiny published workflow without agent phases
-(``companion-fixture``: start → "Go on?" confirmation → done), so answering them never starts a model turn:
-confirming finishes the run, Continue on the paused one brings it back to the confirmation, Abort ends it. Every
-fixture is titled "[companion fixture]" and the generation is audited. A "running" fixture stands in a phase
-(``companion-fixture-running``, target terminal, ``context.fixture``) without any model turn, also after a handover
-(``server_continuation`` never drives a fixture run); a stub member (no password login) receives handovers.
-"""
+"""Acceptance fixtures for the companion: a question, a gate, a problem and a finished run in a test Workspace."""
 
 from __future__ import annotations
 
@@ -80,7 +71,6 @@ async def _ensure_workflow(db: AsyncSession, admin: User, key: str = FIXTURE_KEY
 
 
 async def _member(db: AsyncSession, workspace_id: str) -> User:
-    """A stub second member of the Workspace (no password login), the receiver for handover acceptance."""
     import secrets
 
     from ...models import UserProject
@@ -149,26 +139,28 @@ async def generate(db: AsyncSession, admin: User, *, workspace_id: str) -> dict[
 
 
 async def member_handover_response(db: AsyncSession, admin: User, *, run_id: str, action: str) -> dict[str, Any]:
-    """Accept or decline, as the stub fixture member, a handover addressed to that member (acceptance only)."""
-    from ...models import WorkflowRun
+    from ...models import SessionHandover, WorkflowRun
     from ..admin.governance.admin_access_service import is_global_admin
-    from ..workflow_runs.run_handover import accept_handover, decline_handover, handover
+    from ..session.handovers import decline, serialize_handover, take
 
     if not await is_global_admin(db, admin.id):
         raise FixtureError("admin_only")
     member = (await db.execute(select(User).where(User.username == MEMBER_USERNAME))).scalar_one_or_none()
     run = await db.get(WorkflowRun, run_id) if run_id else None
-    if member is None or run is None or handover(run).get("to") != member.id:
+    row = (await db.execute(select(SessionHandover).where(
+        SessionHandover.run_id == run_id, SessionHandover.status == "pending",
+        SessionHandover.to_user_id == (member.id if member is not None else None)))).scalars().first()
+    if member is None or run is None or row is None:
         raise FixtureError("not_a_fixture_handover")  # never answers for a real person
     if action == "accept":
-        result = await accept_handover(db, run, user=member)
+        result = await take(db, row.id, user=member)
     elif action == "decline":
-        await decline_handover(db, run, user=member, reason="declined by the companion fixture member")
-        result = handover(run)
+        result = serialize_handover(await decline(db, row.id, user=member,
+                                                  reason="declined by the companion fixture member"))
     else:
         raise FixtureError("invalid_action")
     db.add(AuditLog(user_id=admin.id, action="attention.fixture_handover_response", resource_type="workflow_run",
-                    resource_id=run.id, details={"action": action, "member": member.id}))
+                    resource_id=run.id, project_id=run.project_id, details={"action": action, "member": member.id}))
     await db.flush()
     return {"handover": result, "owner": member.id if action == "accept" else run.requested_by}
 

@@ -1,14 +1,4 @@
-"""The work item fields a condition can compare (D2b2, decision ``check: "field"``).
-
-A decision with ``{"check": "field", "field", "operator", "value"}`` routes ``yes`` or ``no`` on one field of the
-run's work item (``WorkItem``), or on the run's own test result. This module is the one list of those fields: the
-designer catalog offers it (``workItemFields``), the validation refuses anything else, the engine reads the value
-(``conditions``).
-
-Kinds and their operators: ``enum`` and ``text`` compare whole values (``is`` / ``is_not``; text also
-``contains``), ``list`` holds one of its entries (``contains``), ``number`` compares (``is``, ``is_not``,
-``greater_than``, ``less_than``). Text comparisons ignore case and surrounding spaces.
-"""
+"""The work item fields a field condition of a decision can compare."""
 
 from __future__ import annotations
 
@@ -30,7 +20,6 @@ OPERATORS_BY_KIND: dict[str, tuple[str, ...]] = {
 }
 TEST_RESULT = "test_result"
 TEST_PASSED, TEST_FAILED = "passed", "failed"
-# How many distinct values an enum offers from the data (the catalog's ``values``).
 MAX_ENUM_VALUES = 50
 
 
@@ -51,7 +40,6 @@ WORK_ITEM_FIELDS: tuple[WorkItemField, ...] = (
     WorkItemField("labels", "Labels", KIND_LIST, "labels_json"),
     WorkItemField("components", "Components", KIND_LIST, "components_json"),
     WorkItemField("assignee", "Assignee", KIND_TEXT, "assignee"),
-    # The newest test run the run recorded (``test_runs``): all green, or not.
     WorkItemField(TEST_RESULT, "Test result", KIND_ENUM, None, (TEST_PASSED, TEST_FAILED)),
 )
 FIELDS_BY_KEY = {field.key: field for field in WORK_ITEM_FIELDS}
@@ -70,10 +58,6 @@ async def _column_values(db: AsyncSession, column: Any, project_id: str | None) 
 
 
 async def work_item_fields(db: AsyncSession | None = None, *, project_id: str | None = None) -> list[dict[str, Any]]:
-    """The catalog's ``workItemFields``: ``[{key, label, kind, values?}]``.
-
-    An enum lists the distinct values the Workspace's work items have (with ``db``), so the designer offers what
-    exists; without data it offers none and the designer takes free text."""
     fields: list[dict[str, Any]] = []
     for field in WORK_ITEM_FIELDS:
         entry: dict[str, Any] = {"key": field.key, "label": field.label, "kind": field.kind}
@@ -94,7 +78,6 @@ def _test_result(run: WorkflowRun) -> str | None:
 
 
 def field_value(field: WorkItemField, run: WorkflowRun, item: WorkItem | None) -> Any:
-    """The field's current value for ``run`` (``None`` when it has none)."""
     if field.key == TEST_RESULT:
         return _test_result(run)
     return getattr(item, field.column, None) if item is not None and field.column else None
@@ -114,7 +97,6 @@ def _number(value: Any) -> float | None:
 
 
 def compare(field: WorkItemField, operator: str, actual: Any, expected: Any) -> bool:
-    """Whether ``actual`` meets ``operator expected``; a missing value meets only ``is_not``."""
     if field.kind == KIND_LIST:
         entries = actual if isinstance(actual, list) else []
         return operator == "contains" and _fold(expected) in {_fold(entry) for entry in entries}

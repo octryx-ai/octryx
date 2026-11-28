@@ -68,7 +68,7 @@
   max-width: min(100%, 28rem);
   min-height: 1.5rem;
   padding: 0.125rem 0.25rem 0.125rem 0.25rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   border: 1px solid color-mix(in srgb, var(--accent) 24%, transparent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--text);
@@ -80,11 +80,11 @@
   justify-content: center;
   width: 1.125rem;
   height: 1.125rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: color-mix(in srgb, var(--accent) 16%, transparent);
   color: var(--accent-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .composer-agent-chip__label {
@@ -94,7 +94,7 @@
   white-space: nowrap;
   padding-right: 0.25rem;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .composer-agent-chip__remove {
@@ -104,11 +104,11 @@
   width: 1.45rem;
   height: 1.45rem;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-strong);
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   line-height: 1;
 }
 

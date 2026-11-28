@@ -33,14 +33,14 @@
   align-items: center;
   justify-content: center;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   flex-shrink: 0;
   color: var(--muted);
 }
 
 .step-item__type {
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   min-width: 4.5rem;
   padding-top: 0.1rem;
   text-transform: uppercase;
@@ -55,7 +55,7 @@
 }
 
 .step-item__name {
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--text);
 }
 
@@ -134,7 +134,7 @@
 .step-form__eyebrow {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -142,7 +142,7 @@
 .step-form__title {
   color: var(--text);
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   margin-top: 0.12rem;
 }
 
@@ -159,10 +159,10 @@
 .runtime-item__tag {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   color: var(--accent-strong);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   padding: 0.25rem 0.5rem;
   font-size: var(--ds-text-2xs);
-  font-weight: 500;
+  font-weight: var(--ds-weight-medium);
   border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent);
 }
 

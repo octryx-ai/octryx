@@ -1,16 +1,5 @@
-"""Team delivery made fast.
-
-What slows a team run down:
-- a re-plan after a red pipeline re-runs every item when the coordinator rewords the merged ones;
-- system tests that wait for every other item run alone at the end;
-- a red pipeline always costs a coordinator turn and a full re-plan;
-- an item blocks on contract sections the coordinator cited but never wrote;
-- with four device slots the main thread keeps one, so the fourth item waits.
-
-Pinned here: test items start at once, a red pipeline reopens only the items that own what failed, the coordinator's
-Stop holds back a plan whose items cite missing contract sections, and the run's main-thread platform turns take no
-device slot.
-"""
+"""Team delivery made fast: test items start at once, a red pipeline reopens only the owning items, plans
+citing missing contract sections are held back, and main-thread platform turns take no device slot."""
 
 from __future__ import annotations
 
@@ -20,8 +9,11 @@ import pytest
 
 from app.services.workflow_runs.teamwork import contract_gate, fixes
 from app.services.workflow_runs.teamwork.plan import validate_plan
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.teamwork_engine_support import fake, finish_item, items_of  # noqa: F401  (``fake`` is a fixture)
 from tests.test_team_delivery import _story_at_work, actions  # noqa: F401  (``actions`` is a fixture)
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 ROLES = {"backend": {}, "frontend": {}, "test": {"starts_at_once": True}}
 
@@ -31,8 +23,6 @@ def _item(key: str, role: str = "backend", *, depends_on=None, paths=None, appen
             "paths": [*(paths or [f"{key}/**"]), f"tests/test_{key}.py"], "appends_to": appends_to or [],
             "instructions": f"Build {key}.", "proofs": [f"tests/test_{key}.py::test_{key}"]}
 
-
-# --- a red pipeline becomes fix items ------------------------------------------------------------------------------
 
 UI_OUTPUT = """============================= test session starts ==============================
 tests/test_ui.py::test_ui FAILED
@@ -61,15 +51,7 @@ def _split(*keys: str) -> dict:
                   "status": "merged", "iteration": 1, "session_id": f"s-{key}"} for key in keys}
 
 
-async def _red_pipeline(db, run, red: dict) -> None:
-    from app.services.workflow_runs.engine import resolve_current_node
 
-    assert run.current_node_id == "pipeline"
-    run.context = {**run.context, "pipeline": red}
-    await resolve_current_node(db, run, "failed", actor_id=None)
-
-
-# --- the contract gate ----------------------------------------------------------------------------------------------
 
 CONTRACT = """# CHEF-9 Search
 
@@ -96,11 +78,7 @@ def _run_with_plan(instructions: str) -> SimpleNamespace:
     return SimpleNamespace(context={"outputs": {"work_plan": {"record": record, "version": 1}}})
 
 
-# --- test items write their tests from the contract while the others build -------------------------------------
-
-
 def test_a_test_item_never_waits_for_the_items_it_tests():
-    """System tests that depend on all other items run alone after the last merge; test items start at once."""
     api, ui = _item("api"), _item("ui", "frontend")
     waiting = _item("system", "test", depends_on=["api", "ui"], paths=["tests/system/**"])
     _record, problems = validate_plan({"items": [api, ui, waiting]}, roles=ROLES)
@@ -147,47 +125,8 @@ def test_only_the_items_with_a_fix_run_again():
     assert (split["ui"]["status"], split["ui"]["iteration"]) == ("merged", 1)
 
 
-@pytest.mark.asyncio
-async def test_a_red_pipeline_reopens_only_the_owning_item_and_goes_back_to_the_pipeline(db, fake, actions):  # noqa: F811
-    """The whole loop on the seed: red → the team node → api alone runs again with the failure → merged → the
-    pipeline once more; ui is never started again and no coordinator turn happens."""
-    from app.services.workflow_runs.graph import graph_for_run
-    from app.services.workflow_runs.phase_marker import RUN_PHASE_CONTRACT_KEY
-    from app.services.workflow_runs.teamwork.item_definition import item_definition
-
-    run, _session, _plan = await _story_at_work(db, fake)
-    for name in ("api", "ui"):
-        await finish_item(db, run, name)
-    started_before = list(fake.started)
-    await _red_pipeline(db, run, _red())
-
-    assert run.current_node_id == "work"
-    items = items_of(run)
-    assert (items["api"]["status"], items["api"]["iteration"]) == ("running", 2)
-    assert (items["ui"]["status"], items["ui"]["iteration"]) == ("merged", 1)
-    assert [name for name, _ in fake.started[len(started_before):]] == ["api"]
-    node = (await graph_for_run(db, run)).nodes["work"]
-    facts = item_definition(run, node, items["api"])["workflow_contract"][RUN_PHASE_CONTRACT_KEY]
-    assert facts["pipeline_fix"]["failures"][0]["what"].startswith("tests/test_ui.py::test_ui failed")
-    assert "This item was sent back to you: the CI pipeline on the merged story is red in your part" in " ".join(
-        facts["findings"])
-
-    await finish_item(db, run, "api")
-    assert run.current_node_id == "pipeline" and actions[-1] == "pipeline.run"
-    assert run.loop_counters["e-pipeline-red"]["used"] == 1
 
 
-@pytest.mark.asyncio
-async def test_a_red_pipeline_no_item_owns_goes_to_the_coordinator(db, fake, actions):  # noqa: F811
-    run, _session, _plan = await _story_at_work(db, fake)
-    for name in ("api", "ui"):
-        await finish_item(db, run, name)
-    await _red_pipeline(db, run, _red(failed=("tests/legacy/test_old.py::test_x",), output="E   assert 1 == 2\n"))
-    assert run.current_node_id == "plan"
-    lines = [entry["description"] for entry in run.gate_results["work"]["results"]]
-    assert lines == ["The CI pipeline is red and no item owns it: tests/legacy/test_old.py::test_x failed in "
-                     "python -m pytest -v and no item owns its test or the code it names"]
-    assert {key: item["status"] for key, item in items_of(run).items()} == {"api": "merged", "ui": "merged"}
 
 
 def test_the_sections_an_item_cites_are_read_from_its_instructions():
@@ -199,7 +138,6 @@ def test_the_sections_an_item_cites_are_read_from_its_instructions():
 
 
 def test_the_coordinators_stop_holds_a_plan_whose_items_cite_missing_contract_sections():
-    """An item must not block on contract sections the coordinator cited but never wrote."""
     run = _run_with_plan("Build corpus.py per contract 2.1, 3.1 and 5.")
     result = contract_gate.contract_gap_result(run, {"patch": _patch(CONTRACT)})
     assert result.blocking and result.outcome == "failed"

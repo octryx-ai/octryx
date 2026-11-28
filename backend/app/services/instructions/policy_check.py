@@ -1,23 +1,4 @@
-"""The "forbidden by Policy" finding of an instruction: deterministic, no model.
-
-For every registered tool the instruction's body names (exact name, connector tools included; ``conflicts.named_tools``)
-the effective policy of the instruction's scope decides whether the agent could ever call it:
-
-- the **tool policy deny lists**: the effective project configuration (platform tool configs merged with the
-  Workspace's ``tool_policy`` / ``blocked_tools`` / deny patterns, ``tool_access_policy``); for a global instruction
-  only the platform part;
-- **Cedar**: the published policy set (baseline + custom policies) for the tool-call action, asked as the test bench
-  asks it (``points.tool_query``) for representative principals: a synthetic member without platform roles (the
-  lowest role) and, for a Workspace, one principal per distinct role/group set of its members (for a global
-  instruction, one per platform role). The tool is forbidden only when Cedar denies **every** one of them.
-
-The approval policy is not a source: it only decides which calls need a person's approval (``require_for_tools``),
-it never forbids one, and it has no block list.
-
-Each forbidden tool yields one ``tool_forbidden_by_policy`` finding naming the tool and the policy that forbids it
-(the deny rule, or the deciding Cedar policy id and its text). Like every finding it blocks submit and publish
-until the submitter accepts it.
-"""
+"""The "forbidden by Policy" finding of an instruction: deterministic, no model."""
 
 from __future__ import annotations
 
@@ -46,7 +27,6 @@ def _deny_list_reason(tool: str, project_config: dict[str, Any]) -> dict[str, st
 
 
 async def _role_sets(db: AsyncSession, instruction: Instruction) -> list[tuple[tuple[str, ...], tuple[str, ...]]]:
-    """The representative principals: no roles first (the lowest), then the scope's distinct role/group sets."""
     from ..policy_engine.principals import user_roles_and_groups
 
     sets: list[tuple[tuple[str, ...], tuple[str, ...]]] = [((), ())]
@@ -68,7 +48,6 @@ async def _role_sets(db: AsyncSession, instruction: Instruction) -> list[tuple[t
 async def _cedar_reason(
     tool: str, section: dict[str, Any], custom: str, role_sets: list[tuple[tuple[str, ...], tuple[str, ...]]],
 ) -> dict[str, str] | None:
-    """The deciding Cedar policy when every representative principal is denied the tool; ``None`` otherwise."""
     from ..policy_engine.engine import compile_policy_set, evaluate
     from ..policy_engine.entities import principal_entities
     from ..policy_engine.points import tool_query
@@ -91,7 +70,6 @@ async def _cedar_reason(
 
 
 async def forbidden_tool_findings(db: AsyncSession, instruction: Instruction, tools: list[str]) -> list[dict[str, Any]]:
-    """One finding per named tool the scope's effective policy forbids (see the module docstring)."""
     if not tools:
         return []
     from ..classification_tool_policy import CLASSIFICATION_TOOL_POLICY_KEY

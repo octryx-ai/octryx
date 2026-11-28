@@ -1,28 +1,5 @@
-"""Read-only connector tools on the Knowledge MCP (Confluence, Jira, ServiceNow, Kubernetes, AWS), chat gates.
-
-Each tool runs the **same chat tool class** (``tools/confluence.py``, ``tools/jira_impl``,
-``tools/connectors/servicenow.py``), so its result is the chat's, field for field. An MCP call has no
-turn configuration, so the gates the chat's registry dispatch applies (``tools/registry.
-_run_governed_tool_checks``) are re-applied here, in that order, on the project config a chat turn
-of this user in this Workspace would build (``mcp_extra_scope.chat_tool_project_config``):
-
-1. the connection Workspace, authorized for the user (``not_found`` otherwise);
-2. the project tool policy, including connector policies' ``disabled_tools``
-   (``denied`` / ``tool_denied_by_project_policy``);
-3. the connector activation (``tools/visibility.connector_activation_decision``): an explicit
-   deactivation is ``denied`` / ``connector_not_active``; a Workspace without the connector's
-   configuration is ``needs_configuration`` / ``connector_not_configured``;
-4. the project approval policy: a read the Workspace requires an approval for is ``denied`` /
-   ``approval_required`` (approvals are granted in the platform, not over MCP).
-
-The connection credentials come from that same config, exactly as in the chat: the Workspace's tool
-configuration and its connector-owned fields, nothing more. Only tools whose definition metadata is
-``risk: read`` without state mutation are served; a write tool is refused at import time.
-
-The Kubernetes and AWS reads (``mcp_infra_tools``) go through the same wrapper; Kubernetes,
-a built-in in the chat, gets an explicit activation over MCP, both need Workspace-owned credentials (never the
-platform host's, unless an admin opted an AWS entry in), and their results carry ``content_is_data``.
-"""
+"""Read-only connector tools on the Knowledge MCP (Confluence, Jira, ServiceNow, Kubernetes, AWS), chat gates. Each runs
+the same chat tool class behind the chat's dispatch gates."""
 
 from __future__ import annotations
 
@@ -66,7 +43,7 @@ from .named_connections.route_planner import plan_route
 from .named_connections.tool_routing import routed_execute
 from .policy_engine.request_principal import policy_principal_scope
 from .tool_access_policy import tool_project_policy_decision
-from .tool_approval_rules import tool_approval_requirement
+from .tool_approval.rules import tool_approval_requirement
 
 CONNECTOR_NOT_ACTIVE = "connector_not_active"
 CONNECTOR_NOT_CONFIGURED = "connector_not_configured"
@@ -111,17 +88,14 @@ _CREDENTIAL_REFUSALS = {
 
 
 def require_read_only(tool_name: str) -> None:
-    """Refuse to serve a connector tool over MCP unless its metadata says it only reads."""
+    # Only a connector tool whose metadata says it only reads is served over MCP.
     metadata = get_tool_definition_metadata(tool_name)
     if metadata.risk != "read" or metadata.mutates_state or metadata.change_only:
         raise ValueError(f"MCP connector tools must be read-only: {tool_name}")
 
 
 class McpConnectorReadTool:
-    """One chat connector read tool behind the chat's dispatch gates, on the Workspace's own config."""
-
     def __init__(self, tool: Any, *, connector: str | None = None, activation=None, data_notice: bool = False) -> None:
-        """``connector``/``activation``: an MCP-only gate (Kubernetes, a built-in in the chat; AWS credentials)."""
         self.name = str(tool.name)
         metadata = get_tool_definition_metadata(self.name)
         if not (metadata.owner_type == "connector" and metadata.connector) and not (connector and activation):

@@ -25,7 +25,6 @@ def _turn(project: Project, user: User, session: ChatSession, *, origin: str, mi
 
 @pytest.mark.asyncio
 async def test_t17_latest_run_is_the_workflow_run_not_the_chat_turn(db: AsyncSession, auth_user: User) -> None:
-    """T17 "Summarise my latest workflow run": the newest run was the asking chat's own turn."""
     project = Project(name=f"run-list-{uuid.uuid4().hex[:10]}", config={}, is_active=True)
     db.add(project)
     await db.flush()
@@ -52,7 +51,7 @@ async def test_t17_latest_run_is_the_workflow_run_not_the_chat_turn(db: AsyncSes
 
     assert [run["id"] for run in listed["workflow_runs"]] == [newest.id, older.id]
     assert listed["workflow_runs"][0]["started_by_you"] is True
-    assert [run["id"] for run in listed["runs"]] == [scheduled.id]  # another session's chat turn is never summarised as "the last run"
+    assert [run["id"] for run in listed["runs"]] == [scheduled.id]
     everything = await mcp_product_run_list(db, caller=caller, user=auth_user, workspace_id=project.id,
                                             arguments={"include_chat_turns": True})
     assert [run["id"] for run in everything["runs"]] == [own.id, child.id, elsewhere.id, scheduled.id]

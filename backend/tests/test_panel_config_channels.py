@@ -3,12 +3,12 @@
 import pytest
 from sqlalchemy import select
 
-from app.agent.engine import (
-    AgentEvent,
-)
 from app.models import Message, Project, Session, User
 from app.services.auth import hash_password
 from tests.conftest import ADMIN_PASSWORD
+from tests.scripted_pool_support import scripted_turns  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_turns")
 
 
 @pytest.mark.asyncio
@@ -163,20 +163,13 @@ async def test_channel_router_titles_new_channel_session_from_first_message(db):
 
 @pytest.mark.asyncio
 @pytest.mark.asyncio
-async def test_channel_router_persists_user_message_and_passes_project_to_agent(db, monkeypatch):
+async def test_channel_router_persists_user_message_and_passes_project_to_agent(db, monkeypatch, scripted_turns):  # noqa: F811
     from app.services.channel_router_runtime import ChannelMessageRouter
 
     admin = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
     project = (await db.execute(select(Project).where(Project.name == "acme-orders"))).scalar_one()
 
-    captured: dict[str, object] = {}
-
-    async def fake_run_agent(*, session_id, user_message, user_id, project_id, agent_type, db, **kwargs):
-        captured["project_id"] = project_id
-        captured["user_message"] = user_message
-        yield AgentEvent(role="assistant", content="Knowledge map answer")
-
-    monkeypatch.setattr("app.agent.engine.run_agent", fake_run_agent)
+    scripted_turns["default"] = "Knowledge map answer"
 
     class DummyPlugin:
         plugin_id = "msteams"
@@ -242,5 +235,5 @@ async def test_channel_router_persists_user_message_and_passes_project_to_agent(
     )
     assert len(user_messages) == 1
     assert user_messages[0].content == "Erkläre mir report-builder"
-    assert captured["project_id"] == project.id
-    assert captured["user_message"] == "Erkläre mir report-builder"
+    assert scripted_turns["calls"][-1]["project_id"] == project.id
+    assert scripted_turns["calls"][-1]["prompt"] == "Erkläre mir report-builder"

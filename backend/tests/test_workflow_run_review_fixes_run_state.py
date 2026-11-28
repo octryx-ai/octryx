@@ -20,11 +20,14 @@ from app.services.workflow_runs.platform_actions import run_platform_action
 from app.services.workflow_runs.records import WorkflowRunError, main_session_id, new_chat_session, start_run
 from tests.phased_workflow_fixtures import admin_user, phase_turn, phased_definition, publish_phased, run_workspace
 from tests.policy_engine_support import make_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_hitl import CONFIRM_ROUTES, contract_definition, drafted_plan, reach_contract
 from tests.test_workflow_run_hitl import _definition as hitl_definition
 from tests.test_workflow_run_platform_actions import FakeTools
 from tests.test_workflow_run_platform_actions import _definition as action_definition
 from tests.workflow_run_review_fixes_support import _item
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _calls(child_key: str) -> dict:
@@ -42,7 +45,6 @@ def _calls(child_key: str) -> dict:
 
 @pytest.mark.asyncio
 async def test_a_changed_payload_is_rebuilt_at_decision_time_and_the_decision_hashes_the_taken_over_criteria(db):
-    """Finding 6: the drafted plan changed while the run waits refreshes the payload; confirm needs the new one."""
     admin = await admin_user(db)
     item = await _item(db, None)
     key = await publish_phased(db, contract_definition())
@@ -73,7 +75,6 @@ async def test_a_changed_payload_is_rebuilt_at_decision_time_and_the_decision_ha
 
 @pytest.mark.asyncio
 async def test_a_second_decision_re_reads_the_run_and_a_stale_turn_report_changes_nothing(db):
-    """Finding 3: whoever comes second decides against the current state; an old pass never reports."""
     admin = await admin_user(db)
     advance = {"id": "go", "type": "user_confirmation", "label": "Go", "config": {"subject": "advance"}}
     key = await publish_phased(db, hitl_definition(advance, CONFIRM_ROUTES))
@@ -108,7 +109,6 @@ async def test_a_second_decision_re_reads_the_run_and_a_stale_turn_report_change
 
 @pytest.mark.asyncio
 async def test_a_platform_action_runs_once_per_pass_and_a_repeated_approval_hook_never_reruns_it(db, monkeypatch):
-    """Part-2 re-check: idempotency key per pass; the approval hook acts once."""
     admin = await admin_user(db)
     approval = Approval(requested_by=admin.id, action="Approve tool execution for add_jira_comment", status="pending")
     db.add(approval)
@@ -135,8 +135,6 @@ async def test_a_platform_action_runs_once_per_pass_and_a_repeated_approval_hook
 
 @pytest.mark.asyncio
 async def test_budget_overrides_are_clamped_and_plan_changes_are_bounded(db):
-    """Findings 5 and 8: an override never exceeds the ceiling; only an admin goes past a ceiling-less key;
-    the plan changes at most the loop ceiling's times."""
     admin = await admin_user(db)
     requester = await db.get(User, await make_user(db, admin=False))
     definition = {**phased_definition(max_iterations=1), "budget": {"tool_calls": 10}}
@@ -168,7 +166,6 @@ async def test_budget_overrides_are_clamped_and_plan_changes_are_bounded(db):
 
 @pytest.mark.asyncio
 async def test_sub_workflows_never_start_themselves_and_a_finished_child_leaves_no_stale_link(db):
-    """Finding 9."""
     admin = await admin_user(db)
     own = f"self-{uuid.uuid4().hex[:6]}"
     await publish_phased(db, _calls(own), key=own)
@@ -190,8 +187,6 @@ async def test_sub_workflows_never_start_themselves_and_a_finished_child_leaves_
 
 @pytest.mark.asyncio
 async def test_continuing_after_a_budget_pause_in_a_phase_starts_a_new_turn(db, monkeypatch):
-    """Continued after budget_limit, the device runs must not stand "running" in their fix phase: the budget has
-    stopped the phase's sessions and "stay" alone only sets the status."""
     import app.services.workflow_runs.engine as engine
 
     admin = await admin_user(db)
@@ -214,7 +209,6 @@ async def test_continuing_after_a_budget_pause_in_a_phase_starts_a_new_turn(db, 
 
 @pytest.mark.asyncio
 async def test_a_run_action_with_an_unknown_field_is_refused(client, auth_headers):
-    """A continue that sends its hint as "note" (the field is "reason") is not silently dropped."""
     refused = await client.post("/api/v1/workflow-runs/no-such-run/actions", headers=auth_headers,
                                 json={"action": "continue", "k": 2, "note": "put it into its own module"})
     assert refused.status_code == 422 and "note" in refused.text
@@ -222,8 +216,6 @@ async def test_a_run_action_with_an_unknown_field_is_refused(client, auth_header
 
 @pytest.mark.asyncio
 async def test_change_plan_hands_the_persons_reason_to_the_re_entered_phase(db):
-    """Back to reproduce to correct an existing test that asserted the bug; the reason
-    must reach the phase (po_answers), as it does for continue."""
     admin = await admin_user(db)
     key = await publish_phased(db, phased_definition(max_iterations=1))
     item = await _item(db, None)

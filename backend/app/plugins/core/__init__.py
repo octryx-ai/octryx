@@ -15,14 +15,12 @@ from .manager import (
     load_plugins,
     reload_plugins,
 )
-from .registry import PluginRegistry
 
 __all__ = [
     "BasePlugin",
     "ChannelPlugin",
     "PluginMetadata",
     "PluginToolDefinition",
-    "PluginRegistry",
     "PLUGIN_INSTANCES",
     "disable_plugin",
     "enable_plugin",

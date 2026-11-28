@@ -57,8 +57,16 @@ async def _ensure_anonymous_audit_user(db) -> None:
 _UUID_SEGMENT = re.compile(r"/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}(?=/|$)")
 
 
+# The route parameters that name a Workspace: a generic row of a Workspace route belongs to that Workspace.
+_WORKSPACE_PATH_PARAMS = ("project_id", "workspace_id")
+
+
+def _route_workspace(request: Request) -> str | None:
+    params = request.path_params
+    return next((str(params[name]) for name in _WORKSPACE_PATH_PARAMS if params.get(name)), None)
+
+
 def _route_action(request: Request) -> str:
-    """``METHOD /path/{id}``: identifiers stay in ``details.path``, never in the action name."""
     return f"{request.method} {_UUID_SEGMENT.sub('/{id}', request.url.path)}"
 
 
@@ -91,6 +99,7 @@ async def audit_middleware(request: Request, call_next):
                     user_id=log_user_id,
                     action=_route_action(request),
                     resource_type="api",
+                    project_id=_route_workspace(request),
                     ip_address=effective_client_address(request),
                     details={"status_code": response.status_code, "request_id": request_id or "",
                              "path": request.url.path},

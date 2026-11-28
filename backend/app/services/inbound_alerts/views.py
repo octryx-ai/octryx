@@ -1,13 +1,8 @@
-"""What the Webhooks → Inbound page shows, in words.
-
-A webhook card: source and logo key, Workspace, the Action it starts and where its result goes,
-state (Active · Needs setup · Paused), the last alert in words and this week's counts. The drawer
-adds the trigger URL path, the safe defaults and the recent alerts with their outcome. No secret,
-no raw id beyond what links need.
-"""
+"""What the Webhooks → Inbound page shows, in words."""
 
 from __future__ import annotations
 
+from collections.abc import Set
 from datetime import timedelta
 from typing import Any
 
@@ -152,10 +147,12 @@ async def serialize_webhook(db: AsyncSession, webhook: Webhook) -> dict[str, Any
     }
 
 
-async def list_events(db: AsyncSession, *, webhook_id: str | None = None, limit: int = 20) -> list[dict]:
+async def list_events(db: AsyncSession, *, hidden: Set[str], webhook_id: str | None = None,
+                      limit: int = 20) -> list[dict]:
     query = (
         select(WebhookEvent, Webhook.name, Webhook.source_type)
         .join(Webhook, Webhook.id == WebhookEvent.webhook_id)
+        .where(Webhook.project_id.is_(None) | Webhook.project_id.not_in(hidden))
         .order_by(WebhookEvent.received_at.desc())
         .limit(max(1, min(limit, 100)))
     )

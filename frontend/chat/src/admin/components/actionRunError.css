@@ -30,7 +30,7 @@
 }
 
 .action-run-error__summary {
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .action-run-error__guidance {

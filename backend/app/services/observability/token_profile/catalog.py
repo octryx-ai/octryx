@@ -1,8 +1,4 @@
-"""The token profile's data: categories, the characters per token and the savings rules (``token_rules.json``).
-
-Rules and thresholds are data, not code: the engine (``rules``) only computes facts and
-evaluates a rule's ``match``/``when`` against them; a new rule or another threshold is a change to the JSON.
-"""
+"""The token profile's data: categories, the characters per token and the savings rules (``token_rules.json``)."""
 
 from __future__ import annotations
 
@@ -24,7 +20,6 @@ def chars_per_token() -> int:
 
 
 def tokens_of(chars: int) -> int:
-    """An estimate of the tokens of ``chars`` characters of text (the API does not count a tool result alone)."""
     return (max(chars, 0) + chars_per_token() - 1) // chars_per_token()
 
 

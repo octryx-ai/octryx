@@ -1,11 +1,5 @@
-"""The requester as the pull request's author (the connection signs in as them), on every SCM.
-
-- the PR tool sets no reviewer for them, mentions them in the description (the SCM's own mention form) and answers
-  ``reviewer_skipped: requester_is_author``; other reviewers stay; with a separate (bot) account on the connection the
-  requester is a reviewer (GitHub, GitLab, Bitbucket Server/Data Center, Bitbucket Cloud);
-- the run records it (run, pull request, run event), the run card says what to do with a link, the Inbox lists it
-  while the run waits for the merge; the merge watch is unchanged.
-"""
+"""The requester as the pull request's author on every SCM: no self-review, a mention instead, and the run,
+run card and Inbox say so."""
 
 from __future__ import annotations
 
@@ -16,12 +10,17 @@ import app.tools.bitbucket_impl._bitbucket_pull_requests as bitbucket_prs
 import app.tools.connectors.github_pull_requests as github_prs
 import app.tools.connectors.gitlab_merge_requests as gitlab_mrs
 from app.models import UserLinkedAccount, WorkflowRunEvent
+from app.services.ai_marking import MARKER_PREFIX, MarkingFacts, marker_line
+from app.services.ai_marking_tools import mark_fields
 from app.services.workflow_runs.attention import inbox_items
 from app.services.workflow_runs.run_notices import reviewer_notice
 from app.tools.context import ToolContext
 from app.tools.scm_requester_rule import REQUESTER_IS_AUTHOR, apply_requester_rule
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_platform_actions import FakeTools, _item, _repository, _run
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 CONTEXT_CONFIG = {"github_url": "https://scm.test/api/v3", "gitlab_url": "https://gl.test",
                   "bitbucket_url": "https://bb.test", "bitbucket_username": "Admin-SCM", "bitbucket_token": "t"}
@@ -42,15 +41,17 @@ async def test_github_gitlab_and_bitbucket_server_skip_the_requester_who_is_the_
     await _requester_case(monkeypatch, author)
 
 
-async def test_new_pull_requests_carry_the_ai_marker_after_the_requester_mention(monkeypatch):
-    """EU AI Act Art. 50(2): a PR an agent turn opens says it was written by AI (model of the turn)."""
-    created = await _requester_case(monkeypatch, "admin-scm", turn_model="claude-haiku-5-5")
+# The registry marks the arguments before the tool adds the mention, so the line follows the agent's own text.
+async def test_new_pull_requests_carry_the_ai_marker_once_before_the_requester_mention(monkeypatch):
+    facts = MarkingFacts(responsible="Run Owner", model="claude-haiku-5-5")
+    created = await _requester_case(monkeypatch, "admin-scm", facts=facts)
     for text in created.values():
-        assert text.endswith("\n\n— Written by AI (octryx · claude-haiku-5-5).")
-        assert text.index("Requested by @admin-scm") < text.index("Written by AI")
+        assert text.startswith(f"PAY-1\n\n{marker_line(facts)}")
+        assert text.count(MARKER_PREFIX) == 1
+        assert text.index(MARKER_PREFIX) < text.index("Requested by @admin-scm")
 
 
-async def _requester_case(monkeypatch, author: str, *, turn_model: str | None = None) -> dict[str, str]:
+async def _requester_case(monkeypatch, author: str, *, facts: MarkingFacts | None = None) -> dict[str, str]:
     sent: dict[str, list] = {"github": [], "gitlab": [], "bitbucket": []}
 
     async def github_http(method, url, **kwargs):
@@ -95,15 +96,17 @@ async def _requester_case(monkeypatch, author: str, *, turn_model: str | None = 
     monkeypatch.setattr(pr_delivery, "reviewer_contract_for_bitbucket_pr_tool", contract)
     bot = author == "bot"
     context = ToolContext(user_id="u", project_ids=["p"], roles=[], session_id="s",
-                          project_config={**CONTEXT_CONFIG, **({"bitbucket_username": "bot"} if bot else {})},
-                          turn_model=turn_model)
+                          project_config={**CONTEXT_CONFIG, **({"bitbucket_username": "bot"} if bot else {})})
     args = {"title": "t", "from_branch": "b", "to_branch": "main", "reviewers": ["admin-scm", "lead"],
             "requester": "admin-scm", "description": "PAY-1"}
 
-    github = await github_prs.CreateGitHubPullRequestTool().execute({**args, "repository": "acme/payments"}, context)
-    gitlab = await gitlab_mrs.CreateGitLabMergeRequestTool().execute({**args, "project": "acme/payments"}, context)
+    github = await github_prs.CreateGitHubPullRequestTool().execute(
+        mark_fields("create_github_pull_request", {**args, "repository": "acme/payments"}, facts), context)
+    gitlab = await gitlab_mrs.CreateGitLabMergeRequestTool().execute(
+        mark_fields("create_gitlab_merge_request", {**args, "project": "acme/payments"}, facts), context)
     bitbucket = await bitbucket_prs.CreateBitbucketPullRequest().execute(
-        {**args, "project_key": "PAY", "repo_slug": "payments"}, context)
+        mark_fields("create_bitbucket_pull_request", {**args, "project_key": "PAY", "repo_slug": "payments"}, facts),
+        context)
 
     created = {"github": next(body for url, body in sent["github"] if url.endswith("/pulls"))["body"],
                "gitlab": next(body for url, body in sent["gitlab"] if url.endswith("/merge_requests"))["description"],
@@ -111,7 +114,7 @@ async def _requester_case(monkeypatch, author: str, *, turn_model: str | None = 
     requested = {"github": next(body for url, body in sent["github"] if url.endswith("/requested_reviewers")),
                  "gitlab": next(body for url, body in sent["gitlab"] if url.endswith("/merge_requests")),
                  "bitbucket": sent["bitbucket"][0][1]}
-    if turn_model:
+    if facts is not None:
         return created
     if bot:
         assert [github.get("reviewer_skipped"), gitlab.get("reviewer_skipped"), bitbucket.get("reviewer_skipped")] == [

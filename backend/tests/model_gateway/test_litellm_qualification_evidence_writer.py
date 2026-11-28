@@ -34,13 +34,6 @@ from tests.model_gateway.litellm_qualification_support import full_report
 
 
 async def test_the_evidence_writer_refuses_a_symlinked_evidence_root(tmp_path) -> None:
-    """``evidence`` as a symlink must not relocate the write.
-
-    Resolving only the evidence root is exactly what this exploits: the resolved
-    target then sits faithfully inside its own resolved parent while both have left
-    the repository. Nothing may be written, not even the directory.
-    """
-
     report = await full_report(evidence_origin=EVIDENCE_ORIGIN_LOCAL_FIXTURE)
     repo_root = tmp_path / "repo"
     repo_root.mkdir(parents=True)
@@ -52,7 +45,6 @@ async def test_the_evidence_writer_refuses_a_symlinked_evidence_root(tmp_path) -
         write_qualification_evidence(report, repo_root=repo_root, slug="issue-825", filename="local-contract")
 
     assert excinfo.value.denial_reason == EVIDENCE_DENIAL_PATH_OUTSIDE_ALLOWLIST
-    # Zero writes: no file, and no directory created on the way out either.
     assert list(outside.iterdir()) == []
 
 
@@ -73,12 +65,6 @@ async def test_the_evidence_writer_refuses_a_symlinked_slug_directory(tmp_path) 
 
 
 async def test_a_repository_reached_through_a_symlinked_parent_still_writes(tmp_path) -> None:
-    """The canonical-location check must not break a legitimately linked checkout.
-
-    Worktrees live on mounted volumes and ``/tmp`` is itself a symlink on macOS, so
-    the repository root is resolved on both sides of the comparison.
-    """
-
     report = await full_report(evidence_origin=EVIDENCE_ORIGIN_LOCAL_FIXTURE)
     real_repo = tmp_path / "real-repo"
     real_repo.mkdir(parents=True)

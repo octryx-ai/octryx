@@ -1,9 +1,4 @@
-"""An interactive session drops the platform server's "needs authentication" mark too.
-
-Claude Code skips an MCP server it marked as needing authentication for about 15 minutes. The launcher authenticates
-the platform server itself, so before a device turn it removes that mark (``mcp_auth_cache``); a plain
-``octryx-claude`` session did not, and after one 401 the person's next sessions ran without the platform tools.
-"""
+"""An interactive session drops the platform server's "needs authentication" mark too."""
 
 from __future__ import annotations
 

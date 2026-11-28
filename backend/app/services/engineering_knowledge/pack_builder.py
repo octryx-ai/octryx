@@ -1,9 +1,4 @@
-"""Build a review-first Engineering Knowledge Pack draft from an explicit, structured request.
-
-The request (stack and exact versions) comes from :mod:`.pack_build_request`; nothing here reads
-prompt text. Row helpers, item creation, manifest artifacts and the quality gate live in the
-``pack_builder_*`` modules; this module keeps the build flow and the names other code imports.
-"""
+"""Build a review-first Engineering Knowledge Pack draft from an explicit, structured request."""
 
 from __future__ import annotations
 
@@ -65,12 +60,7 @@ async def build_engineering_knowledge_pack_draft(
     created_by_user_id: str | None = None,
     max_download_bytes: int = DEFAULT_MAX_DOWNLOAD_BYTES,
 ) -> EngineeringKnowledgePackBuildResult:
-    """Build a review-first draft for an explicit, structured ``request``.
-
-    ``request`` comes from :func:`.pack_build_request.pack_build_request_from_fields`; a
-    ``not_requested`` request is the caller's to answer and never reaches this function.
-    ``trigger`` names the explicit caller (``agent_tool``, ``admin_api``, ``workflow``).
-    """
+    """Build a review-first draft for an explicit, structured ``request``."""
     if not request.is_pack_build_request:
         raise ValueError("build_engineering_knowledge_pack_draft requires an explicit pack build request")
     build_run = _new_build_run(

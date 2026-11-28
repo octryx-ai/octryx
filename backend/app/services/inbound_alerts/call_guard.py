@@ -1,13 +1,4 @@
-"""Guards on the public trigger before any alert is decided (automation review fixes).
-
-* **Replay store**: an accepted call's delivery key is remembered; the same key again within the
-  window is a replay and starts nothing (``rejected_replay``). Keys older than an hour are pruned.
-* **Throttled rejection log**: refused calls (bad signature, missing or stale timestamp, replay) are
-  recorded as at most one row per webhook, outcome and minute, with a counter, so forged traffic
-  cannot fill the table or push real alerts out of "latest alerts".
-* **Request limit**: at most ``MAX_CALLS_PER_MINUTE`` calls per webhook and client address per minute
-  (in process); more get 429 and leave no row.
-"""
+"""Guards on the public trigger before any alert is decided (automation review fixes)."""
 
 from __future__ import annotations
 
@@ -40,7 +31,6 @@ _calls: dict[tuple[str, str], deque[float]] = defaultdict(deque)
 
 
 def allow_call(webhook_id: str, client: str, now: float | None = None) -> bool:
-    """Sliding one-minute window per webhook and client address."""
     current = now if now is not None else time.monotonic()
     window = _calls[(webhook_id, client)]
     while window and current - window[0] > 60:
@@ -74,7 +64,6 @@ async def record_rejection(db: AsyncSession, webhook: Webhook, *, outcome: str, 
 
 
 async def claim_delivery_key(db: AsyncSession, webhook_id: str, key: str) -> bool:
-    """``True`` when the key is new (and is now remembered); ``False`` for a replay within the window."""
     now = utc_now()
     window_start = now - timedelta(seconds=TIMESTAMP_TOLERANCE_SECONDS)
     await db.execute(delete(WebhookDeliveryKey).where(WebhookDeliveryKey.seen_at < now - KEY_RETENTION))
@@ -99,7 +88,6 @@ async def claim_delivery_key(db: AsyncSession, webhook_id: str, key: str) -> boo
 
 
 async def release_delivery_key(db: AsyncSession, webhook_id: str, key: str) -> None:
-    """Forget a key whose call could not be queued, so the sender's retry is not taken for a replay."""
     await db.execute(
         delete(WebhookDeliveryKey).where(WebhookDeliveryKey.webhook_id == webhook_id,
                                          WebhookDeliveryKey.delivery_key == key)

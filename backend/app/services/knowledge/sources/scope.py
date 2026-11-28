@@ -1,9 +1,5 @@
-"""Validate the products and the subject version a revision is about.
-
-Product keys are short, lower-case slugs (``acme-orders``, ``data-platform``, ``spring-boot``);
-versions are short tokens (``4.0``, ``2.3.1``, ``2026.1-rc2``). Both are data the platform stores and
-filters on, so anything else is refused rather than cleaned up.
-"""
+"""Validate the products and the subject version a revision is about. Anything else is refused rather than cleaned
+up."""
 
 from __future__ import annotations
 
@@ -17,7 +13,6 @@ _VERSION = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._+-]{0,39}$")
 
 
 def normalize_products(raw: object) -> tuple[str, ...]:
-    """A comma-separated string or a list of product keys, deduplicated in order; ``()`` when empty."""
     if raw is None:
         return ()
     if type(raw) is str:

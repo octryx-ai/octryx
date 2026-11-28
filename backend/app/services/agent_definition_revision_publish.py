@@ -1,7 +1,5 @@
-"""Validation verdicts and publication of Agent Definition revisions.
-
-Both functions change revision rows only, never the live aggregate.
-"""
+"""Validation verdicts and publication of Agent Definition revisions. Both change revision rows only, never the live
+aggregate."""
 
 from __future__ import annotations
 
@@ -23,11 +21,7 @@ from .agent_definition_validation_issues import ValidationResult
 async def validate_revision(
     db: AsyncSession, *, revision: AgentDefinitionRevision
 ) -> ValidationResult:
-    """Validate a revision and record the verdict.
-
-    A published revision is immutable, so its stored verdict is left untouched
-    and the freshly computed result is returned for inspection only.
-    """
+    # A published revision is immutable: its stored verdict is never overwritten.
     result = await validate_definition_snapshot(db, revision.snapshot)
     if revision.status != REVISION_STATUS_PUBLISHED:
         revision.validation = result.as_dict()
@@ -39,11 +33,6 @@ async def validate_revision(
 async def publish_revision(
     db: AsyncSession, *, revision: AgentDefinitionRevision, published_by: str
 ) -> AgentDefinitionRevision:
-    """Publish a revision after re-validating its snapshot.
-
-    Earlier published revisions stay ``published`` so restore has a history to
-    choose from; the highest-numbered published revision is the current one.
-    """
     if revision.status == REVISION_STATUS_PUBLISHED:
         raise HTTPException(status_code=409, detail=ALREADY_PUBLISHED_DETAIL)
     result = await validate_definition_snapshot(db, revision.snapshot)

@@ -1,25 +1,4 @@
-"""A red pipeline after the team's work becomes targeted fix items, not a full re-plan (a full re-plan is
-slow).
-
-Without this, a pipeline red for one item's files sent the loop back
-to the
-coordinator (2:09 for a new plan), and the new plan re-ran all five items (6:50). So the pipeline's ``failed`` loop
-goes back to the ``parallel_work`` node itself, and :func:`assign` reopens only the items that own what failed:
-
-- a task without a passing proof test (``unproven``: ``"<item> (<proof>: <outcome>; ...)"``) goes to that item;
-- a failing test goes to the item whose paths cover the failing code: a file of another item that the test's own
-  failure output names (the traceback of a system test points into the screen it drives), else the owner of the test
-  file itself;
-- a red command without a failing test (a collection or import error) goes to the owners of the files its output
-  names.
-
-The review's findings take the same way (:func:`assign_review`): the product owner's ``decisions`` node, revising
-automatically on a high finding, goes back to the team node, and each finding goes to the item owning the file it
-names. A person's own answer there still goes to the coordinator.
-
-What no item owns goes back to the coordinator (``replan``) with the pipeline's failure. A fix item that
-blocks or fails also routes ``replan`` (the scheduler's rule): only then does the coordinator plan again.
-"""
+"""A red pipeline after the team's work becomes targeted fix items, not a full re-plan (a full re-plan is slow)."""
 
 from __future__ import annotations
 
@@ -48,7 +27,6 @@ def _owners(items: dict[str, dict[str, Any]], path: str) -> list[str]:
 
 
 def _repo_owners(items: dict[str, dict[str, Any]], named: str) -> list[str]:
-    """The owners of a file named in output, absolute or relative: the longest tail of its path that an item owns."""
     parts = [part for part in named.replace("\\", "/").split("/") if part not in ("", ".")]
     for start in range(len(parts)):
         owners = _owners(items, "/".join(parts[start:]))
@@ -64,7 +42,6 @@ def _is_test_file(path: str) -> bool:
 
 
 def _code_owners(items: dict[str, dict[str, Any]], text: str) -> list[str]:
-    """The items owning the non-test files ``text`` names, in the order they appear."""
     found: list[str] = []
     for named in _FILE.findall(text or ""):
         if _is_test_file(named) or "site-packages/" in named or named.startswith(("/usr/", "/opt/")):
@@ -74,7 +51,6 @@ def _code_owners(items: dict[str, dict[str, Any]], text: str) -> list[str]:
 
 
 def sections(output: str) -> dict[str, str]:
-    """pytest's failure sections of ``output`` by their header (``test_name`` or ``Class.test_name[param]``)."""
     found: dict[str, str] = {}
     headers = list(_SECTION.finditer(output or ""))
     for index, header in enumerate(headers):
@@ -92,7 +68,6 @@ def _section_of(test_id: str, found: dict[str, str]) -> str:
 
 
 def assign(items: dict[str, dict[str, Any]], red: dict[str, Any]) -> tuple[dict[str, list[dict[str, str]]], list[str]]:
-    """``(fixes, unassigned)``: per item what it fixes (``{"what", "output"}``), and the failures no item owns."""
     fixes: dict[str, list[dict[str, str]]] = {}
     unassigned: list[str] = []
 
@@ -138,11 +113,6 @@ def assign(items: dict[str, dict[str, Any]], red: dict[str, Any]) -> tuple[dict[
 
 def assign_review(items: dict[str, dict[str, Any]],
                   findings: list[Any]) -> tuple[dict[str, list[dict[str, str]]], list[str]]:
-    """The review's findings by the item that owns the file each names (``file:line [severity] fix``); the ones no
-    item owns. Otherwise three high findings (flat cards instead of the
-    gradient,
-    a missing icon circle, a toast in the wrong language) each went through a coordinator round, about 10 minutes for
-    2-minute fixes."""
     fixes: dict[str, list[dict[str, str]]] = {}
     unassigned: list[str] = []
     for finding in findings:
@@ -157,8 +127,7 @@ def assign_review(items: dict[str, dict[str, Any]],
 
 def reopen_for_fixes(items: dict[str, dict[str, Any]], fixes: dict[str, list[dict[str, str]]], *,
                      source: str = "pipeline") -> dict[str, dict[str, Any]]:
-    """The split with each item that has a fix back at ``pending`` (its next iteration, its own session resumed,
-    ``fix`` naming exactly what failed). Items without a fix stay as they are: merged work is never built again."""
+    # Merged work is never built again.
     reason = REASON if source == "pipeline" else REVIEW_REASON
     split = {key: dict(value) for key, value in items.items()}
     for key, entries in fixes.items():

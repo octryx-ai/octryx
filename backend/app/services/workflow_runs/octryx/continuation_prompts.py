@@ -27,7 +27,7 @@ def _prompt(run: WorkflowRun, node: PhasedNode, *, resumed: bool = False, retry:
         # this turn only ever reads this after a red test, in the building phase's session (``_following_phase``).
         # The bug flow's reproduce check uses the same action, but there red is the expected result, not a failure.
         return run_text("hands_on_red", phase=then.title, run_id=run.id)
-    if node.kind != NODE_PHASE:  # ``workspace.prepare``: the launcher prepares the folder before the agent starts
+    if node.kind != NODE_PHASE:
         return run_text("continue_prepared", workflow_key=run.workflow_key, step=node.title or node.id,
                         read_contract=read_contract(run))
     from .gate_failure import back_prompt
@@ -43,8 +43,6 @@ def _prompt(run: WorkflowRun, node: PhasedNode, *, resumed: bool = False, retry:
 
 
 def _change_plan_note(run: WorkflowRun, node: PhasedNode) -> str:
-    """Why a later phase's refusals rule sent the run back to ``node`` (``context.change_plan_reason``), once; ``""``
-    otherwise (``run.changed.change_plan``)."""
     reason = dict(dict(getattr(run, "context", None) or {}).get("change_plan_reason") or {})
     if not reason or reason.get("shown") or node.kind != NODE_PHASE:
         return ""
@@ -54,13 +52,11 @@ def _change_plan_note(run: WorkflowRun, node: PhasedNode) -> str:
 
 
 def _pipeline_red_prompt(run: WorkflowRun, phase: PhasedNode) -> str:
-    """The prompt of a pipeline turn that resumes the building phase's session. The launcher runs the pipeline before
-    the agent starts and starts no agent when it is green, so the agent only ever reads this after a red pipeline."""
+    # The launcher starts no agent when the pipeline is green, so this prompt is only read after a red pipeline.
     return run_text("pipeline_red", phase=phase.title, run_id=run.id)
 
 
 def read_contract(run: WorkflowRun) -> str:
-    """The sentence that sends the agent to its own run contract (``run.read_contract``)."""
     return run_text("read_contract", run_id=run.id)
 
 
@@ -75,33 +71,24 @@ def _phase_facts(run: WorkflowRun, node: PhasedNode) -> dict:
 
 
 def _what_changed(run: WorkflowRun, node: PhasedNode) -> str:
-    """What the platform sends the phase back for, named by the contract fields that carry it."""
     facts = _phase_facts(run, node)
     changed = [run_text(f"changed.{name}") for name in CHANGED_FIELDS if facts.get(name)]
     if note := _change_plan_note(run, node):
         changed.insert(0, note)
     from .gate_failure import current
 
-    if (found := current(run, node.id)) is not None:  # the failed gate first (``octryx.gate_failure``)
+    if (found := current(run, node.id)) is not None:
         changed.insert(0, run_text("changed.gate_failed", gate=found.get("gate") or "",
                                    failed=found.get("failed") or ""))
     return "; ".join(changed) or run_text("changed.none")
 
 
 def _epic_prompt(run: WorkflowRun, node: PhasedNode) -> str:
-    """The prompt of a phase that resumes its session of the epic's previous story: a new story, same epic."""
     return run_text("epic_next_story", phase=node.title, workflow_key=run.workflow_key, run_id=run.id,
                     read_contract=read_contract(run))
 
 
 async def plain_story_prompt(db: AsyncSession, run: WorkflowRun, node: PhasedNode, *, epic: bool) -> str:
-    """The first prompt of a plain story session (``config.brief: "plain"``, epic-delivery): the story itself, the
-    declared test commands and the brief, like plain Claude Code's prompt (the story file plus three sentences,
-    ~2.7K characters). ``""`` for any other phase.
-
-    Without it every story started with "call workflow_run_status first", a 12K
-    character contract the session read before any work; the contract stays available for a pipeline failure or review
-    findings, which come back as their own short prompts (:func:`_resumed_prompt`)."""
     from ..phase_contract import phase_definition
     from ..workspace.spec import environment_for_run
     from .contract import _work_item, environment_file_note, plain_brief
@@ -120,10 +107,6 @@ async def plain_story_prompt(db: AsyncSession, run: WorkflowRun, node: PhasedNod
 
 
 def _resumed_prompt(run: WorkflowRun, node: PhasedNode, *, retry: bool) -> str:
-    """The prompt of a pass that resumes the phase's own session: short, it names only what changed.
-
-    Starting every pass fresh spent 15-54 calls re-orienting (workflow_run_status
-    25 times, SPEC.md 7 times, 189 Reads against 6 in a plain Claude Code session of the same story)."""
     if retry:
         return run_text("resumed_retry", phase=node.title, run_id=run.id)
     import json
@@ -133,7 +116,5 @@ def _resumed_prompt(run: WorkflowRun, node: PhasedNode, *, retry: bool) -> str:
     prompt = run_text("resumed", phase=node.title, run_id=run.id, what_changed=_what_changed(run, node))
     if not details:
         return run_text("resumed.ask", resumed=prompt)
-    # The changed fields themselves, whole, instead of a status call: otherwise each resumed
-    # pass first fetched the whole contract again (18-25K characters, ~7-10K tokens, task list and rules it already
-    # had) into a session that was already at 100-160K, so every call of the pass ran above Haiku's 100K price tier.
+    # The changed fields themselves, whole: a status call would fetch the whole contract again into a large session.
     return run_text("resumed.details", resumed=prompt, details=json.dumps(details, ensure_ascii=False, indent=1))

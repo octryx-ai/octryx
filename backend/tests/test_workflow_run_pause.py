@@ -1,9 +1,4 @@
-"""Loop limits and budgets pause a run; continue +k, change the plan or abort.
-
-The end-to-end case drives a small phased workflow through the HTTP API and the real turn-end checks guard:
-its loop pauses at n, a +k beyond the platform ceiling is refused, +k within it resumes the loop, and the run
-ends with its outcome.
-"""
+"""Loop limits and budgets pause a run; continue +k, change the plan or abort."""
 
 from __future__ import annotations
 
@@ -19,6 +14,9 @@ from app.services.observability.overview_read_model import _waiting_items
 from app.services.workflow_runs.binding import run_turn_resolution
 from app.time_utils import utc_now
 from tests.phased_workflow_fixtures import admin_user, phase_turn, phased_definition, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 async def _turn(db, session_id: str, tools: list[str]):
@@ -29,7 +27,6 @@ async def _turn(db, session_id: str, tools: list[str]):
 
 
 async def _start_body(db, key: str, item: WorkItem | None = None) -> dict:
-    """The start request: a run starts in a Workspace (the item's, else a fresh one)."""
     workspace_id = await run_workspace(db, await admin_user(db), item.id if item else None)
     return {"workflow_key": key, "project_id": workspace_id, **({"work_item_id": item.id} if item else {})}
 
@@ -46,11 +43,10 @@ async def test_a_loop_pauses_at_n_and_resumes_with_k_more_iterations(client, aut
     started = (await client.post("/api/v1/workflow-runs", headers=auth_headers, json=await _start_body(db, key))).json()
     run_id, session_id = started["run"]["id"], started["session_id"]
 
-    await _turn(db, session_id, ["knowledge_search"])  # gate fails, loop 1 of 1
-    await _turn(db, session_id, ["knowledge_search"])  # gate fails, the loop is at its limit
+    await _turn(db, session_id, ["knowledge_search"])
+    await _turn(db, session_id, ["knowledge_search"])
     paused = await _view(client, auth_headers, run_id)
     assert (paused["status"], paused["pause_reason"]) == ("paused", "loop_limit")
-    # Controls audit: the catalog's text, with the next step.
     assert paused["pause"]["detail"].startswith("'Rework' reached its limit: the work went back 1 of 1 times. Next:")
     keys = {action["key"]: action for action in paused["actions"]}
     assert keys["continue"]["input"] == {"name": "k", "kind": "number", "min": 1, "max": 1, "default": 1,
@@ -70,7 +66,7 @@ async def test_a_loop_pauses_at_n_and_resumes_with_k_more_iterations(client, aut
     assert (run["status"], run["current_node"]["id"], run["node_state"]["iteration"]) == ("running", "work", 3)
     assert run["loops"] == [{"edge_id": "rework", "title": "Rework", "used": 2, "limit": 2}]
 
-    await _turn(db, session_id, ["knowledge_search", "knowledge_read"])  # the gate passes
+    await _turn(db, session_id, ["knowledge_search", "knowledge_read"])
     done = await _view(client, auth_headers, run_id)
     assert (done["status"], done["outcome"]) == ("completed", "done")
     decisions = (await db.execute(select(WorkflowRunDecision).where(WorkflowRunDecision.run_id == run_id))).scalars()
@@ -110,7 +106,7 @@ async def test_a_budget_pauses_the_run_and_more_budget_lets_the_phase_result_cou
                                 json={"action": "continue", "k": 1})
     run = resumed.json()["run"]
     assert run["limits"]["budget"]["tool_calls"] == 4
-    assert (run["status"], run["outcome"]) == ("completed", "done")  # the passed phase went on to the gate
+    assert (run["status"], run["outcome"]) == ("completed", "done")
 
 
 @pytest.mark.asyncio
@@ -126,11 +122,11 @@ async def test_change_plan_restarts_the_plan_phase_and_abort_stops_the_run(clien
     assert changed["loops"][0]["used"] == 0
 
     admin = await admin_user(db)
-    attention = [item["title"] for item in await _waiting_items(db, utc_now())]
+    attention = [item["title"] for item in await _waiting_items(db, utc_now(), admin.id)]
     assert not any("paused" in title for title in attention)
     for _ in range(2):
         await _turn(db, session_id, ["knowledge_search"])
-    attention = [item["title"] for item in await _waiting_items(db, utc_now())]
+    attention = [item["title"] for item in await _waiting_items(db, utc_now(), admin.id)]
     assert any("workflow run(s) paused" in title for title in attention)
     inbox = await personal_inbox(db, admin)
     assert any(item["kind"] == "workflow_run_paused" and item["id"] == run_id for item in inbox["waiting"])
@@ -157,8 +153,6 @@ async def test_only_a_platform_admin_changes_the_ceiling(client, auth_headers, d
 
 @pytest.mark.asyncio
 async def test_a_story_without_its_own_budget_runs_on_its_epics_budget(client, auth_headers, db):
-    """Stories split from an epic after its budget was set get the epic's budget, not the default. A story inherits
-    each budget key it does not set from its parent (or epic)."""
     from app.models import WorkflowRun
     from app.services.workflow_runs.octryx.model_guard import run_budget
 
@@ -185,7 +179,7 @@ async def test_a_story_without_its_own_budget_runs_on_its_epics_budget(client, a
         return run_budget(await db.get(WorkflowRun, run["id"]))
 
     assert await budget_of(story) == 15.0  # not the 4 $ default
-    assert await budget_of(own) == 5.0  # its own key wins
+    assert await budget_of(own) == 5.0
 
 
 @pytest.mark.asyncio

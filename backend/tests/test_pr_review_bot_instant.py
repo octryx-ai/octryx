@@ -1,11 +1,5 @@
-"""PR review bot, the instant trigger: a pull request Octryx opened, or a commit Octryx pushed onto one, is
-reviewed at once, without a webhook and without waiting for the hourly sync.
-
-- the step records a ``pr_head_ready`` run event (an outbox row), only for an open pull request of a run that is not
-  the bot's own;
-- the worker's tick starts the review from those events: once per head, never for a pull request that is no longer
-  open, never on a repository whose bot is off.
-"""
+"""PR review bot, the instant trigger: a pull request Octryx opened, or a commit Octryx pushed onto one,
+is reviewed at once, without a webhook and without waiting for the hourly sync."""
 
 from __future__ import annotations
 
@@ -82,20 +76,20 @@ async def test_a_new_head_is_reviewed_at_the_next_tick_once(db, monkeypatch):
     db.add(run)
     await db.flush()
     instant.head_ready(db, run)
-    instant.head_ready(db, run)  # two events of one pull request: one listing, one start
+    instant.head_ready(db, run)
     await db.commit()
     cursor = instant.Cursor()
     assert await instant.start_due(db, cursor) == {"started": 1}
     assert started == [("feature/PAY-1-totals", "octryx_pr")] and calls == ["list_github_pull_request_heads"]
-    assert await instant.start_due(db, cursor) == {}  # nothing new: no listing either
+    assert await instant.start_due(db, cursor) == {}
     assert len(calls) == 1
-    instant.head_ready(db, run)  # the same head again (a repeated step): reviewed already
+    instant.head_ready(db, run)
     await db.commit()
     assert await instant.start_due(db, cursor) == {"already_reviewed": 1} and len(started) == 1
 
 
 async def test_a_closed_pull_request_or_a_repository_without_the_bot_starts_nothing(db, monkeypatch):
-    project_id, record, _hook = await _workspace(db, trigger="webhook")  # any trigger switches it on
+    project_id, record, _hook = await _workspace(db, trigger="webhook")
     calls, started = _listing(monkeypatch, numbers=()), _starts(monkeypatch)
     run = _authoring_run(project_id)
     db.add(run)

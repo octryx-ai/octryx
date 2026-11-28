@@ -11,7 +11,7 @@ import pytest
 from app.services.agent_board import handoff_attachments
 from tests.agent_board.test_takeover_rest import Board
 from tests.agent_gateway.seat_presence_support import _gateway_headers
-from tests.knowledge_evidence_s3_support import FakeS3Client, object_store
+from tests.support.knowledge_evidence_s3_support import FakeS3Client, object_store
 
 BASE = "/api/v1/agent-gateway/handoff"
 

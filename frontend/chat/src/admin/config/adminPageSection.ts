@@ -1,7 +1,6 @@
 import type { AdminTab } from "../types/adminPanelTypes.governance";
 
-// A register to open inside an Admin page, requested by a link from elsewhere (an Advanced pointer opens
-// Models › Defaults on its Coding engine tab). The page takes it once when it mounts; plain module state, no URL.
+// Plain module state, no URL: the page takes it once when it mounts.
 let pending: { tab: AdminTab; section: string } | null = null;
 
 export function requestAdminSection(tab: AdminTab, section: string): void {

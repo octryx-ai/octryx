@@ -7,7 +7,7 @@
 .workspace-classification__heading {
   margin: 0 0 0.25rem;
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .workspace-classification__lines {
@@ -22,7 +22,7 @@
 .workspace-classification__mark {
   display: inline-block;
   width: 1.2rem;
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .workspace-classification__mark--yes {
@@ -89,7 +89,7 @@
 
 .seat-models__label {
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .seat-models__list {

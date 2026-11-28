@@ -1,10 +1,6 @@
 {
   "about": "Known raw controls per file (see designSystemControlsScan.mjs). Counts may only go down: fix a control and lower its count; a new raw control fails the guard.",
   "files": {
-    "admin/components/flowBuilder/FlowBuilderEditorParts.tsx": {
-      "count": 2,
-      "reason": "The workflow details' Close and Reject buttons, split out of AdminFlowBuilderTab: they are skinned by the `.flow-builder button` rule of the tab's root element, which the lexical scan cannot see across the component boundary."
-    },
     "admin/components/AdminChannelTargetField.tsx": {
       "count": 1,
       "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
@@ -15,10 +11,6 @@
     },
     "admin/components/AdminKnowledgeTab.tsx": {
       "count": 1,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
-    "admin/components/ScenarioFormControls.tsx": {
-      "count": 2,
       "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
     },
     "admin/components/agentsTab/AgentAdvancedFields.tsx": {
@@ -73,46 +65,6 @@
       "count": 1,
       "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
     },
-    "admin/components/flowBuilder/FlowCapabilityPanel.tsx": {
-      "count": 1,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
-    "admin/components/flowBuilder/FlowEdgeMappingEditor.tsx": {
-      "count": 1,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
-    "admin/components/flowBuilder/FlowInspectorConfigSections.tsx": {
-      "count": 1,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
-    "admin/components/flowBuilder/FlowInspectorPanel.tsx": {
-      "count": 1,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
-    "admin/components/flowBuilder/FlowQualityPanel.tsx": {
-      "count": 2,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
-    "admin/components/flowBuilder/FlowRunInputSection.tsx": {
-      "count": 1,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
-    "admin/components/flowBuilder/FlowRunPanel.tsx": {
-      "count": 1,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
-    "admin/components/flowBuilder/FlowSchemaEditors.tsx": {
-      "count": 1,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
-    "admin/components/flowBuilder/FlowTestCasesPanel.tsx": {
-      "count": 4,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
-    "admin/components/flowBuilder/FlowTracePanel.tsx": {
-      "count": 5,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
     "admin/components/policyEngine/BuilderContentPane.tsx": {
       "count": 3,
       "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
@@ -153,14 +105,6 @@
       "count": 1,
       "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
     },
-    "admin/components/providerTab/ProviderBedrockPromptCaching.tsx": {
-      "count": 1,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
-    "admin/components/providerTab/ProvidersLocalBootstrapCard.tsx": {
-      "count": 3,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
     "admin/components/researchPolicies/ResearchPolicyArchiveSection.tsx": {
       "count": 1,
       "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
@@ -171,10 +115,6 @@
     },
     "admin/components/researchPolicies/ResearchPolicySourceLimitsSection.tsx": {
       "count": 3,
-      "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
-    },
-    "admin/components/runtimeTab/RuntimeCompressionToolRow.tsx": {
-      "count": 2,
       "reason": "Pre-existing admin control without a design-system class (audit backlog); migrate to admin-panel__field / admin-panel__input / admin-panel__action-btn in its own slice."
     },
     "admin/components/scheduler/SchedulerScheduleFields.tsx": {

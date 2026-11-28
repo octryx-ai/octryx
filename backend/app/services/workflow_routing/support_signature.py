@@ -1,16 +1,4 @@
-"""Support-request error-signature classifier (the one allowed matcher).
-
-The explicit-workflow-selection plan removes every keyword-intent guess from
-routing. The single deliberate exception is this classifier: it recognizes
-**factual error signatures** in the user message (stack traces, exception
-names, timeout/error phrasings, incident wording) and classifies the turn's
-*intent* as ``support_request``. It never selects a workflow, never widens
-the toolset beyond the knowledge-style read-only path, and has its own
-config switch so operators can disable it independently of the routing mode.
-
-Config key ``support_request_signature_classifier``: ``enabled`` (default) |
-``disabled``. Unknown values report and use the default.
-"""
+"""Support-request error-signature classifier (the one allowed matcher)."""
 
 from __future__ import annotations
 
@@ -43,7 +31,6 @@ SUPPORT_REQUEST_SIGNATURE_PATTERN = re.compile(
 
 
 async def support_request_signature_enabled(db: AsyncSession | None) -> bool:
-    """Read the classifier switch; without a db handle the default applies."""
     if db is None:
         return True
     raw_value = (

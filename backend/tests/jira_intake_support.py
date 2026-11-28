@@ -1,8 +1,4 @@
-"""Jira intake fixtures through the intake's own store and runner (``jira_sync_config``, ``jira_sync``).
-
-The setup API (``/workspaces/{project_id}/intake``) stores a draft through the same store; these helpers let a test
-save any filters and options and run the sync with injected ``issues``. Each call commits, like a request would.
-"""
+"""Jira intake fixtures through the intake's own store and runner (``jira_sync_config``, ``jira_sync``)."""
 
 from __future__ import annotations
 
@@ -21,7 +17,6 @@ async def intake_user(db, username: str = "admin") -> User:
 
 
 async def create_jira_intake(db, payload: dict[str, Any], *, user: User | None = None) -> dict[str, Any]:
-    """Save a Jira intake (``connection_id`` defaults to the Workspace's default connection)."""
     created = await create_jira_sync_config(db, current_user=user or await intake_user(db),
                                             payload={"connection_id": DEFAULT_CONNECTION_NAME, **payload})
     await db.commit()
@@ -38,7 +33,6 @@ async def update_jira_intake(db, config_id: str, payload: dict[str, Any], *, use
 
 async def run_jira_intake(db, config_id: str, payload: dict[str, Any] | None = None, *, dry_run: bool = False,
                           user: User | None = None) -> dict[str, Any]:
-    """One sync (or dry run) of the intake with the given runner payload (e.g. injected ``issues``)."""
     result = await run_jira_work_item_sync(db, config_id=config_id, current_user=user or await intake_user(db),
                                            payload=payload or {}, dry_run=dry_run)
     await db.commit()

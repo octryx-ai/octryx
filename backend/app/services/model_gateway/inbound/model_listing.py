@@ -1,21 +1,4 @@
-"""The models a coding client may pick in one Workspace: ``GET /v1/models`` and the launcher picker.
-
-Two kinds of row, each marked with its ``source``:
-
-- ``company``: a Workspace alias served by the LiteLLM gateway. Listed only when a tool-carrying Messages call
-  for it would be admitted (``admission.admitted_tool_aliases``: grant, level list, Cedar ``call_model`` for
-  that alias, catalog, data policy, ``tools`` capability). Billed to the Workspace budget.
-- ``subscription``: a ``seat_models`` id of a seat session, served by the user's own Claude subscription.
-
-On the seat route a company row is offered only when the Workspace sets ``seat_allows_governed_models``, and
-under the explicit id ``company/<alias>`` (:data:`COMPANY_MODEL_PREFIX`): the same model id can be both a seat
-model and a company alias, and the id the client sends must say which one it means. Nothing is guessed from a
-model's name.
-
-The response is the Anthropic Models list shape (``data``, ``has_more``, ``first_id``, ``last_id``; each row
-``type``, ``id``, ``display_name``) plus ``description`` (Claude Code shows it under the picker row) and
-``source``. ``created_at`` is left out: the platform has no release date for an alias and does not invent one.
-"""
+"""The models a coding client may pick in one Workspace: GET /v1/models and the launcher picker."""
 
 from __future__ import annotations
 
@@ -27,6 +10,8 @@ from ..litellm.alias_catalog import AliasEntry
 
 SOURCE_COMPANY = "company"
 SOURCE_SUBSCRIPTION = "subscription"
+# A model id can be both a seat model and a company alias: the id the client sends must say which, never guessed by
+# name.
 COMPANY_MODEL_PREFIX = "company/"
 COMPANY_DESCRIPTION = "Company model through Octryx, billed to the Workspace budget"
 SUBSCRIPTION_DESCRIPTION = "Your own Claude subscription"
@@ -50,7 +35,6 @@ class PickerModel:
 
 
 def company_models(entries: Sequence[AliasEntry], *, prefixed: bool = False) -> list[PickerModel]:
-    """Company rows; ``prefixed`` is the seat route's form (``company/<alias>``, labelled as company)."""
     rows = []
     for entry in entries:
         name = entry.display_name or entry.alias
@@ -63,20 +47,16 @@ def company_models(entries: Sequence[AliasEntry], *, prefixed: bool = False) -> 
 
 
 def subscription_models(models: Sequence[str], names: Mapping[str, str] | None = None) -> list[PickerModel]:
-    """Subscription rows; ``names`` gives a row its display name (the model catalog's), else the id is shown."""
     return [PickerModel(model, (names or {}).get(model) or model, SOURCE_SUBSCRIPTION, SUBSCRIPTION_DESCRIPTION)
             for model in models]
 
 
 def seat_models(seat_model_ids: Sequence[str], entries: Sequence[AliasEntry],
                 names: Mapping[str, str] | None = None) -> list[PickerModel]:
-    """A seat session's picker: its subscription models, then the company models it is offered (the caller
-    passes none unless the Workspace opts in)."""
     return subscription_models(seat_model_ids, names) + company_models(entries, prefixed=True)
 
 
 def company_alias(model: str) -> str | None:
-    """The alias a seat-route ``company/<alias>`` id names; ``None`` for any other id or a padded alias."""
     if not model.startswith(COMPANY_MODEL_PREFIX):
         return None
     alias = model[len(COMPANY_MODEL_PREFIX):]
@@ -84,7 +64,6 @@ def company_alias(model: str) -> str | None:
 
 
 def list_page(models: Sequence[PickerModel], query: Mapping[str, str]) -> dict[str, Any] | None:
-    """One page in the Anthropic list shape for ``limit`` / ``after_id`` / ``before_id``; ``None``: bad query."""
     raw_limit = str(query.get("limit") or DEFAULT_LIST_LIMIT)
     if not raw_limit.isdigit() or not 1 <= int(raw_limit) <= MAX_LIST_LIMIT:
         return None

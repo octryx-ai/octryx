@@ -1,13 +1,4 @@
-"""The Workspace classification for the coding-agent tool check.
-
-The other enforcement points resolve the Workspace's classification for their own decision and hand it to Cedar;
-without it the gateway tool check's Workspace entity would carry only the id, and a "classification at least …"
-condition on ``run_command`` / ``read_path`` / ``write_path`` could never match. So the check resolves it the
-same way (``data_policy.source.resolve_workspace_data_classification``, project row plus the session's data policy),
-in its own database session — a failing statement must not abort the hook's transaction — and briefly cached per
-Workspace and session policy, because the check runs for every tool call. A failure is "unresolved": the
-classification conditions do not match, as without a classification; the baseline's gateway policies never read it.
-"""
+"""The Workspace classification for the coding-agent tool check."""
 
 from __future__ import annotations
 

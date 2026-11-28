@@ -1,16 +1,4 @@
-"""Workflow steps, strict or guided.
-
-A workflow's ``source_steps`` each name a tool, an evidence label, whether the step is required, and
-its ``mode``:
-
-- ``strict``: the turn cannot finish until the step's tool ran successfully. Platform chat holds the
-  answer for up to two repair reminders, then records the turn ``not_verified``; octryx-claude's Stop hook
-  blocks while it is missing.
-- ``guided``: one reminder, then the turn continues.
-
-Without an explicit ``mode`` the default follows the workflow's capability class: ``guided`` for
-``read_only``, ``strict`` for ``change`` and ``deliver``. An optional step is never checked.
-"""
+"""Workflow steps, strict or guided."""
 
 from __future__ import annotations
 
@@ -28,7 +16,6 @@ def default_step_mode(capability_class: str | None) -> str:
 
 
 def workflow_steps(contract: Any) -> list[dict[str, Any]]:
-    """``[{tool, label, required, mode}]`` with the effective mode of every declared step."""
     body = contract if isinstance(contract, Mapping) else {}
     raw = body.get("source_steps")
     default = default_step_mode(str(body.get("capability_class") or ""))
@@ -47,7 +34,6 @@ def workflow_steps(contract: Any) -> list[dict[str, Any]]:
 
 
 def step_checks(contract: Any) -> list[dict[str, Any]]:
-    """Each required step as a check: a strict step blocks, a guided one only reminds."""
     return [
         {
             "type": "tool_called",

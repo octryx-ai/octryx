@@ -153,14 +153,5 @@ export const AREA_PAGES_TAB_GROUP: AdminTabGroup = {
         </svg>
       ),
     },
-    {
-      id: "runtimeCompression",
-      label: "Tool output compression",
-      icon: (
-        <svg viewBox="0 0 24 24">
-          <path d="M8 3v5H3M16 3v5h5M8 21v-5H3M16 21v-5h5" />
-        </svg>
-      ),
-    },
   ],
 };

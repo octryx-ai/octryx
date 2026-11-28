@@ -1,20 +1,4 @@
-"""The personal Inbox.
-
-It lists what the signed-in user can decide, each with a link to the screen that owns the decision; nothing is
-decided in the Inbox itself:
-
-- tool approvals of their own sessions → the chat card (a session approval is its owner's consent and only the
-  owner can open the chat; other users' stale approvals are on Overview → Needs attention for admins);
-- governance reviews (publishing policies, skills, evaluators, strategies, routing and model policies) for a global
-  admin who is not the requester, or any requester under the single-admin rule → the publishing page;
-- approvals of their own device jobs → the chat thread of the job;
-- open clarification questions of their own sessions → the chat thread, where the reply answers it.
-
-Workspace names and usernames are loaded only for the rows listed (the bell polls this).
-
-A governance review the user requested under four-eyes waits on someone else and is listed under
-``requested_by_me``.
-"""
+"""The personal Inbox."""
 
 from __future__ import annotations
 
@@ -27,6 +11,7 @@ from ...models import Approval, ClarificationQuestion, DeviceJob, DeviceJobAppro
 from ...time_utils import ensure_utc
 from ..admin.governance.admin_access_service import is_global_admin
 from ..governance.approval_rule import APPROVAL_RULE_SINGLE_ADMIN, load_approval_rule
+from ..project.private_workspace import outside_foreign_private
 
 MAX_ITEMS = 50
 # Governance review action prefix → the admin page that publishes it.
@@ -88,7 +73,9 @@ async def _governance_review_items(
                                      Approval.task_run_id.is_(None),
                                      # A workflow run's approval is listed with the run (below).
                                      ~Approval.action.startswith("workflow_run.approval", autoescape=True))
-    if not admin:
+    if admin:
+        reviews = reviews.where(outside_foreign_private(Approval.workspace_id, user.id))
+    else:
         reviews = reviews.where(Approval.requested_by == user.id)
     review_rows = list((await db.execute(reviews.order_by(Approval.created_at.desc()).limit(MAX_ITEMS))).scalars())
     users = await _names(db, User, User.username, {approval.requested_by for approval in review_rows})

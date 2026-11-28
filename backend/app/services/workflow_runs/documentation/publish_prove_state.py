@@ -16,7 +16,6 @@ from .s1_graph import facts
 
 
 async def done_check(db: AsyncSession, run: WorkflowRun) -> ToolOutcome:
-    """``done`` only with a resolved (a) and a valid, currently bound publication proof."""
     from ....models.runtime.documentation_publication import INTENT_SENT_CONFIRMED
     from .s1_graph import latest_intent
 
@@ -55,7 +54,6 @@ async def done_check(db: AsyncSession, run: WorkflowRun) -> ToolOutcome:
 
 
 def publish_prove_view(run: WorkflowRun) -> dict[str, Any] | None:
-    """What the run card shows: the immutable published fact and, next to it, the dated (a) decisions."""
     current = facts(run)
     if not current:
         return None
@@ -77,8 +75,6 @@ def publish_prove_view(run: WorkflowRun) -> dict[str, Any] | None:
 
 
 async def inbox_items(db: AsyncSession, user_id: str) -> list[dict[str, Any]]:
-    """The Inbox entries of the publish & prove waiting kinds: the requester's pending (a), and the audience checks
-    this user is the expected principal of (they run the check signed in as themselves)."""
     from ..records import main_session_id
 
     rows = (await db.execute(select(WorkflowRun).where(

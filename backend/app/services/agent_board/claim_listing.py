@@ -22,7 +22,6 @@ async def _display_names(db: AsyncSession, user_ids: Iterable[str]) -> dict[str,
 
 
 async def list_live_claims(db: AsyncSession, project_ids: Iterable[str]) -> list[dict[str, Any]]:
-    """Live claims in ``project_ids``, newest first, in the UI shape of ``GET /agent-board/claims``."""
     ids = sorted(set(project_ids))
     if not ids:
         return []
@@ -65,7 +64,6 @@ def matches_query(query: str, *values: str | None) -> bool:
 
 
 async def work_item_rows(db: AsyncSession, project_ids: Iterable[str], keys: Iterable[str]) -> dict[str, WorkItem]:
-    """Work Items of ``project_ids`` by id and by source key."""
     wanted, ids = sorted(set(keys)), sorted(set(project_ids))
     if not wanted or not ids:
         return {}

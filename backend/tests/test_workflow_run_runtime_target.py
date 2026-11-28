@@ -1,19 +1,5 @@
-"""Where a workflow run executes is chosen at start.
-
-If the device target were only set afterwards through the run's chat thread, ``workspace.prepare`` would run on the
-Server, the device folder would never be prepared and the device's first turn would be refused (the run pausing at
-Clarify). Here the target is part of the start:
-
-- a device target: the run and its chat thread name the device, ``workspace.prepare`` offers the device a turn that
-  carries the run id, the device's preparation report routes the step (the Server prepares nothing), and the Clarify
-  turn runs on the same device;
-- a Server target behaves;
-- a foreign device, a folder outside the device's allowlist or a malformed target is refused and nothing is written;
-- an offline device holds the run ``waiting_for_device`` and the run goes on when the device connects;
-- the folder's remote is checked against the run's repository; switching the target is an explicit run action that
-  prepares the new runtime, refused while a device turn runs; a chat message on the run's thread executes where the
-  run executes or is refused.
-"""
+"""Where a workflow run executes is chosen at start, or ``workspace.prepare`` would run on the Server and
+the device's first turn would be refused."""
 
 from __future__ import annotations
 
@@ -27,6 +13,7 @@ from app.services.devices.jobs_channel import DeviceJobHandlers
 from tests.device_job_session_parity_support import GATEWAY, REMOTE, _device, _headers, _register
 from tests.devices.device_support import RecordingConnection, device_with_grant, enable_device_runs, user_named
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.server_build_lock import server_build_lock_lifted  # noqa: F401 - the switch test's server start
 from tests.workflow_acceptance_support import (  # noqa: F401 - the stubbed Jira and GitHub fixture
     _settle,
@@ -34,16 +21,11 @@ from tests.workflow_acceptance_support import (  # noqa: F401 - the stubbed Jira
     systems,
 )
 
+pytestmark = pytest.mark.usefixtures("scripted_pool")
+
 B_KEY = "feature-delivery-tdd"
 FOLDER = "/Users/dev/work/pay"
 READY = {"state": "ready", "probes": [{"what": "test: python -m pytest", "ok": True}], "setup": []}
-
-
-@pytest.fixture(autouse=True)
-def _hub():
-    device_hub.clear()
-    yield
-    device_hub.clear()
 
 
 async def _device_workspace(db, systems, *, online: bool = True):  # noqa: F811
@@ -61,6 +43,13 @@ def _target(device, **extra) -> dict:
     return {"kind": "device", "device_id": device.id, "folder": FOLDER, "profile": "governed", **extra}
 
 
+@pytest.fixture(autouse=True)
+def _hub():
+    device_hub.clear()
+    yield
+    device_hub.clear()
+
+
 async def _start(client, auth_headers, item, target) -> tuple[int, dict]:
     started = await client.post("/api/v1/workflow-runs", headers=auth_headers,
                                 json={"workflow_key": B_KEY, "work_item_id": item.id, "runtime_target": target})
@@ -73,7 +62,6 @@ async def _jobs(db, session_id: str) -> list[DeviceJob]:
 
 
 async def _device_session(client, db, project, run_id: str) -> dict:
-    """The device's job session for the run (registered with the run id its job offer carried)."""
     token = await _device(db, await admin_user(db), [FOLDER])
     headers = _headers(token, project.id, run_id)
     assert (await _register(client, headers))["status"] == 200
@@ -135,18 +123,6 @@ async def test_a_device_target_prepares_on_the_device_before_the_clarify_turn_ru
     pause = run.node_state.get("pause") or {}
     assert (run.status, pause.get("code")) == ("paused", "phase_not_finished"), (run.status, pause)
     assert run.current_node_id == "clarify" and job.status == "idle" and job.device_id == device.id
-
-
-@pytest.mark.asyncio
-async def test_a_server_target_is_refused_for_a_workflow_that_builds(client, auth_headers, db, systems):  # noqa: F811
-    """B builds and tests the repository: never on the server; nothing is written."""
-    _project, item, _device_row = await _device_workspace(db, systems)
-    for target in ({"kind": "server"}, None):  # no target is the server
-        status, body = await _start(client, auth_headers, item, target)
-        assert (status, body["detail"]["code"]) == (409, "server_build_not_allowed"), body
-        assert "not allowed on the Octryx server" in body["detail"]["message"]
-    count = await db.scalar(select(func.count()).select_from(WorkflowRun).where(WorkflowRun.work_item_id == item.id))
-    assert count == 0
 
 
 @pytest.mark.asyncio
@@ -213,8 +189,7 @@ async def test_a_folder_of_another_repository_never_counts_as_prepared(client, a
 
 @pytest.mark.asyncio
 async def test_switching_the_target_is_an_explicit_action_that_prepares_the_new_runtime(
-        client, auth_headers, db, systems, server_build_lock_lifted):  # noqa: F811
-    """The switch mechanics from a (pre-lock) server run; the lock itself: ``test_workflow_run_server_build_lock``."""
+        client, auth_headers, db, systems, server_build_lock_lifted, scripted_pool):  # noqa: F811
     from app.services.workflow_runs.runtime_target.send_guard import send_refusal
 
     _project, item, device = await _device_workspace(db, systems)
@@ -223,7 +198,10 @@ async def test_switching_the_target_is_an_explicit_action_that_prepares_the_new_
     assert (await _settle(client, auth_headers, run_id))["current_node"]["id"] == "clarify"
     # A device message on the Server run's thread is refused, not a silent switch.
     refused = await send_refusal(db, session_id=session_id, device_target=_target(device))
-    assert refused["reason"] == "runtime_target_mismatch" and "the Server" in refused["message"]
+    assert refused["reason"] == "runtime_target_mismatch" and "the server runners" in refused["message"]
+    for job in scripted_pool:  # the pool's Clarify turn ended: the switch waits for a running turn
+        job.status = "completed"
+    await db.commit()
     switched = await client.post(f"/api/v1/workflow-runs/{run_id}/actions", headers=auth_headers,
                                  json={"action": "change_runtime", "runtime_target": _target(device)})
     assert switched.status_code == 200, switched.text
@@ -233,7 +211,7 @@ async def test_switching_the_target_is_an_explicit_action_that_prepares_the_new_
     assert (prep["state"], prep["runtime"], prep["in_place"], prep["node_id"]) == ("pending", "device", True,
                                                                                     "clarify")
     assert run.context["runtime_target"]["device_id"] == device.id and run.current_node_id == "clarify"
-    [job] = await _jobs(db, session_id)  # the device continues Clarify; its launcher prepares the folder first
+    [job] = [job for job in await _jobs(db, session_id) if job.device_id == device.id]  # the device continues Clarify; its launcher prepares the folder first
     assert job.device_id == device.id and "phase 'Clarify'" in job.turn_prompt
     assert await send_refusal(db, session_id=session_id, device_target=_target(device)) is None
     assert (await send_refusal(db, session_id=session_id, device_target=None))["reason"] == "runtime_target_mismatch"
@@ -263,9 +241,6 @@ async def test_the_start_dialog_offers_the_requesters_devices_and_defaults_to_th
 @pytest.mark.asyncio
 async def test_switching_the_folder_keeps_the_runs_model_unless_the_switch_names_one(
         client, auth_headers, db, systems, monkeypatch):  # noqa: F811
-    """A folder switch without a model must not write ``model: ""`` into the target, else the device falls back to
-    Claude Code's default model instead of the chosen one.
-    """
     from app.services.devices import device_models
 
     async def admitted(_db, *, model, **_kwargs):  # this test is about the switch, not the model admission

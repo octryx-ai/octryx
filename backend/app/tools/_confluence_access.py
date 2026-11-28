@@ -2,21 +2,19 @@
 
 from typing import Any
 
-from app.services.atlassian_auth_modes import CONFLUENCE
+from app.services.connector_auth.atlassian_modes import CONFLUENCE
 
-from ..services.atlassian_auth import auth_headers, request_auth
 from ..services.confluence_pages import rules as page_rules
+from ..services.connector_auth.atlassian import auth_headers, request_auth
 from ..services.outbound_egress import CONNECTION_CONFLUENCE, egress_transport
 from .context import ToolContext
 
 
 def confluence_auth_headers(context: ToolContext) -> dict[str, str]:
-    """The ``Authorization`` header of the configured mode; empty when not configured."""
     return auth_headers(CONFLUENCE, context.project_config)
 
 
 def confluence_client(context: ToolContext, timeout: float) -> dict[str, Any]:
-    """The Confluence client options: egress transport, redirects and, for client credentials, the token auth."""
     return {
         "timeout": timeout,
         "follow_redirects": True,
@@ -55,7 +53,6 @@ def normalize_space_rules(config: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def normalize_page_rules(config: dict[str, Any]) -> list[dict[str, Any]]:
-    """The page allowlist as plain rules (``services/confluence_pages/rules.py`` owns the shape and decision)."""
     return [rule.public() for rule in page_rules.normalize_page_rules(config.get(page_rules.PAGES_FIELD))]
 
 
@@ -82,7 +79,6 @@ def page_allowed(
     space_key: str | None,
     ancestor_ids: list[str] | None = None,
 ) -> bool:
-    """The page allowlist decides when it has entries (subtrees with excludes, whole spaces); else the spaces."""
     decision = page_rules.page_decision(
         page_rules.normalize_page_rules(context.project_config.get(page_rules.PAGES_FIELD)),
         page_id=page_id,
@@ -96,12 +92,6 @@ def page_allowed(
 
 
 def complete_ancestor_ids(page: dict[str, Any]) -> list[str] | None:
-    """The page's ancestor chain only when **every** entry is a page with an id (root first), else ``None``.
-
-    A location proof (the documentation publisher's direct parent) must never filter: dropping an entry
-    without an id would promote the ancestor above it to "direct parent". ``[]`` (a valid empty list) is the space
-    root; anything not expanded, not a list, or with one unusable entry is unknown.
-    """
     ancestors = page.get("ancestors")
     if not isinstance(ancestors, list):
         return None
@@ -115,11 +105,6 @@ def complete_ancestor_ids(page: dict[str, Any]) -> list[str] | None:
 
 
 def ancestor_ids_of(page: dict[str, Any]) -> list[str] | None:
-    """The ancestor ids of a page payload expanded with ``ancestors`` (root first; ``None`` when not expanded).
-
-    ``[]`` is a top-level page; ``None`` keeps "not fetched" apart from it, so the page allowlist does not
-    grant through an entry whose excludes could lie above the page.
-    """
     ancestors = page.get("ancestors")
     if not isinstance(ancestors, list):
         return None

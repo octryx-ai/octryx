@@ -1,18 +1,4 @@
-"""In-process Cedar evaluation through ``cedarpy``.
-
-``cedarpy`` 4.12.1 (k9securityio/cedar-py, Apache-2.0) binds the Cedar 4.12 Rust engine
-with pyo3 and ships wheels for linux amd64/arm64 and macOS for CPython 3.11–3.14, so no Rust toolchain and no
-subprocess. Its pre-parsed ``PolicySet`` and ``Schema`` handles keep a decision well inside the 2 ms budget;
-the ``cedar`` CLI would cost a process start per decision, and an own pyo3 binding would be a Rust crate to
-maintain for the same API.
-
-Fail closed: a policy set that does not parse raises :class:`PolicySetInvalidError` (callers deny), and a request
-whose evaluation reports an error is denied even if Cedar answered ``Allow`` (Cedar skips an erroring policy,
-which could otherwise drop a ``forbid``). A missing engine raises :class:`PolicyEngineUnavailableError`.
-
-Compiled sets are cached by text digest, results by (set digest, request, entities): the tool listing asks
-the same question for every tool on every turn.
-"""
+"""In-process Cedar evaluation through ``cedarpy``."""
 
 from __future__ import annotations
 
@@ -33,12 +19,10 @@ RESULT_CACHE_SIZE = 4096
 
 
 class PolicyEngineUnavailableError(RuntimeError):
-    """The Cedar engine cannot be loaded in this process."""
+    pass
 
 
 class PolicySetInvalidError(ValueError):
-    """A policy set that does not parse or validate; ``errors`` are bounded messages."""
-
     def __init__(self, code: str, errors: Sequence[str] = ()) -> None:
         super().__init__(code)
         self.code = code
@@ -76,7 +60,6 @@ class EntityRef:
 
 
 def entity_value(ref: EntityRef) -> dict[str, Any]:
-    """An entity reference as an attribute or context value."""
     return {"__entity": ref.to_json()}
 
 
@@ -125,7 +108,6 @@ def _remember(cache: OrderedDict, key: Any, value: Any, limit: int) -> None:
 
 
 def compile_policy_set(text: str) -> CompiledPolicySet:
-    """The parsed set for ``text`` (cached by digest); raises :class:`PolicySetInvalidError`."""
     digest = text_digest(text)
     with _LOCK:
         cached = _SETS.get(digest)
@@ -151,7 +133,6 @@ class ValidationIssue:
 
 
 def validate_policy_text(text: str) -> list[ValidationIssue]:
-    """Schema validation of ``text``: parse and type errors, each with the policy's ``@id`` when it has one."""
     cedar = cedar_module()
     try:
         result = cedar.validate_policies(text, compiled_schema())
@@ -167,7 +148,6 @@ def _determining(result: Any) -> list[str]:
 
 
 def evaluate(compiled: CompiledPolicySet, requests: Sequence[CedarRequest], entities: Sequence[Mapping]) -> Evaluation:
-    """All requests must be allowed. Denied requests name their forbids; an error denies (fail closed)."""
     if not requests:
         return Evaluation(True, ())
     payload = [request.to_json() for request in requests]

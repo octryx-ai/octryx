@@ -1,12 +1,4 @@
-"""Deterministic extractor for ``engineering_pack_item`` bronze records.
-
-A published (human-reviewed) Engineering Knowledge Pack item becomes a
-knowledge node whose description carries the reviewed summary, with the item
-triggers as aliases (they are the retrieval keywords the pack author chose),
-version claims from ``version_scope`` ("spring_boot 4.0: ..."), and — when an
-exact alias match exists — a ``references`` edge to the technology node
-(library/product) the item is about.
-"""
+"""Deterministic extractor for ``engineering_pack_item`` bronze records."""
 
 from __future__ import annotations
 

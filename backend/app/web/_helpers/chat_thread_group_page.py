@@ -1,8 +1,4 @@
-"""One page of a chat sidebar group, and the search groups.
-
-Serves the ``/chat/api/thread-groups`` route; a search uses the same pipeline with the query
-clause, so the totals of a search group are its match counts.
-"""
+"""One page of a chat sidebar group, and the search groups."""
 
 from __future__ import annotations
 
@@ -90,7 +86,6 @@ async def build_thread_search_groups(
     query: str,
     limit: int = CHAT_THREAD_GROUP_PAGE_SIZE,
 ) -> list[dict[str, Any]]:
-    """Every Workspace with matches, its match count and the first page of matches."""
     counts = await count_chat_thread_groups(db, user=user, query=query)
     groups = [
         await build_thread_group_page(

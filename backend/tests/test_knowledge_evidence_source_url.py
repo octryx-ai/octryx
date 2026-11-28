@@ -73,27 +73,8 @@ async def test_a_citation_carries_the_revisions_source_url(db) -> None:
     assert [(item.source_title, item.source_url) for item in result.evidence] == [("Failover Runbook", PAGE)]
 
 
-def test_chat_turns_are_offered_the_evidence_search_and_told_to_link_the_source() -> None:
-    """The link only reaches a person if the model sees the tool and cites with it."""
-    from app.agent.core.context.tool_families import GOVERNED_KNOWLEDGE_TOOLS
-    from app.tools.definitions import get_all_definitions, get_tool_definition_metadata
-
-    assert get_tool_definition_metadata("knowledge_search").is_core
-    assert "knowledge_search" in GOVERNED_KNOWLEDGE_TOOLS
-    description = get_all_definitions()["knowledge_search"]["function"]["description"]
-    assert "cite_as" in description
-    assert "never invent or guess a URL" in description
 
 
-def test_the_knowledge_workflow_surface_allows_the_evidence_search() -> None:
-    """The Knowledge request family answers from the governed ledger."""
-    from app.agent.core.context.turn_tool_surface import resolve_workflow_tool_surface
-    from app.services.workflow_contracts.registry import get_workflow_definition
-
-    surface = resolve_workflow_tool_surface(workflow_id="knowledge_request", workflow_contract=None)
-    assert {"knowledge_search", "knowledge_read", "knowledge_changes", "memory_recall"} <= set(surface)
-    assert not {"knowledge_get", "list_project_knowledge"} & set(surface)
-    assert "knowledge_search" in get_workflow_definition("knowledge_request").phases[0].preferred_tools
 
 
 def _planned(calls: list[dict]) -> list[tuple[str, dict]]:

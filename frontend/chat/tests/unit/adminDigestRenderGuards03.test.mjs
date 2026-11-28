@@ -133,7 +133,7 @@ test("content security: overview and approved models tabs", async () => {
   const view = await mount("admin/components/contentSecurity/ContentSecurityPage.tsx", "ContentSecurityPage", {}, { globals: { fetch: srv.fetch } });
   await tick();
   assert.match(text(view.root), /1 content policy/);
-  assert.equal(digest(view), "7ed0e8ee54965ce7b17ec71da54cb46854c322255f2c9f6868eb86deb3260522");
+  assert.equal(digest(view), "45bdfdd8595619f2b5b90eeb72f626005e62e7a011a91665c475b5fbcd037624");
   const tab = (id) => view.root.findAll((node) => typeof node.type === "string" && node.props["data-testid"] === `subtab-${id}`)[0];
   await act(async () => tab("models").props.onClick());
   assert.equal(byId(view.root, "content-models")[0].findAllByType("tr").length, 3);
@@ -189,30 +189,6 @@ test("action card: expanded with dependencies, sorted steps and their actions; e
   assert.match(text(empty.root), /No upstream dependencies\./);
   assert.match(text(empty.root), /No steps yet\. Add one above\./);
   assert.equal(digest(empty), "284b319fc4d605f555f65d6001d5486d3ba26428afba78b648f69c6a748d2620");
-});
-
-// --- Flow router inspector ------------------------------------------------------------------------------------------
-
-test("flow router inspector: rules of every form, a kept item, the footer and the branch list", async () => {
-  const path = "admin/components/flowBuilder/FlowRouterInspector.tsx";
-  const node = {
-    id: "check", type: "router", input_schema: { amount: {}, tier: {} },
-    config: { default_route: "", routes: [
-      { route: "large", when: { field: "amount", operator: "gt", value: 100 } },
-      "not-a-rule",
-      { target: "legacy", when: { field: "tier", operator: "weird_op", value: "gold" } },
-      { route: "custom", when: { any: [{ x: 1 }] } },
-      { route: "", when: { field: "", operator: "", value: "" } },
-    ] },
-  };
-  const edges = [{ source_node_id: "check", target_node_id: "approve", condition: "route:large" }];
-  const view = await mount(path, "FlowRouterInspector", { node, edges, nodes: [node, { id: "approve", label: "Approve" }], onUpdate: noop });
-  assert.equal(byId(view.root, "router-rule").length, 5);
-  assert.match(text(view.root), /This is not a rule/);
-  assert.equal(digest(view), "c0a41d9c87539922583a14a5318ce139df9d79b2689f81f2cac2ad69f8557f06");
-  const broken = await mount(path, "FlowRouterInspector", { node: { id: "b", type: "router", config: { routes: { a: 1 } } }, onUpdate: noop });
-  assert.match(text(broken.root), /are not a list/);
-  assert.equal(digest(broken), "b1f64eadc0d2a177f647c6744c00fc95f689a235a6e068e59ea6aaa1c7a344ad");
 });
 
 // --- Channel config fields ------------------------------------------------------------------------------------------

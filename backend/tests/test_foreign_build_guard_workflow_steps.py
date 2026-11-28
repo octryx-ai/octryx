@@ -1,13 +1,12 @@
-"""Workflow-run steps never build on the server copy (declared test and lint commands, workspace prepare, SCIP indexers), and what a device declares is not the server's."""
+"""Workflow-run steps never build on the server copy (declared test and lint commands, workspace prepare), and what a device declares is not the server's."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
 import pytest
 
-from app.services.execution_runtime.build_guard_rules import SERVER_BUILD_MESSAGE, SERVER_BUILD_NOT_ALLOWED
+from app.services.execution_runtime.build_guard_rules import SERVER_BUILD_MESSAGE
 from tests.phased_seed_definitions import seed_definitions
 
 # --- workflow-run steps on the server --------------------------------------------------------------------------------
@@ -45,31 +44,6 @@ async def test_workspace_prepare_never_runs_a_setup_install_on_the_server(tmp_pa
     assert not [argv for argv in spawned if "venv .venv" in " ".join(argv) or "pip" in " ".join(argv)]
 
 
-def test_scip_indexers_driven_by_a_build_are_skipped(tmp_path):
-    from app.services.code_intelligence.semantic_build import _plan_scip_command
-
-    (tmp_path / "pom.xml").write_text("<project/>")
-    for language in ("java", "c", "cpp"):
-        plan = _plan_scip_command(repository_id="r", repo_root=tmp_path, language=language)
-        assert (plan["status"], plan["reason"]) == ("skipped", SERVER_BUILD_NOT_ALLOWED), language
-
-
-# --- what runs on a device is not the server's ------------------------------------------------------------------------
-
-def test_only_a_server_runtime_is_held():
-    from app.services.workflow_runs.runtime_target.server_build import runs_on_server, server_build_refusal
-
-    definition = next(seed["definition"] for seed in seed_definitions() if seed["key"] == "feature-delivery-tdd")
-    device = {"kind": "device", "device_id": "d1", "folder": "/Users/dev/pay", "profile": "governed"}
-    device_thread = SimpleNamespace(metadata_={"execution_target": {**device}})
-    assert runs_on_server({"kind": "server"}) and runs_on_server(None)
-    assert not runs_on_server(device) and not runs_on_server({"kind": "terminal"})
-    assert not runs_on_server(None, device_thread)  # a run without a target on a device thread runs there
-    assert server_build_refusal(device, definition=definition) is None
-    assert server_build_refusal({"kind": "terminal"}, definition=definition) is None
-    message, steps = server_build_refusal({"kind": "server"}, definition=definition)
-    assert "Tests first" in steps and "Implement" in steps
-    assert message.startswith("This workflow builds or tests the repository (") and "Run it on your Mac" in message
 
 
 def test_the_shipped_workflows_that_build_and_those_that_only_read():

@@ -3,22 +3,23 @@
 from __future__ import annotations
 
 import asyncio
-import logging
+import weakref
 from collections.abc import AsyncGenerator
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import DateTime, event, text
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import DateTime, Engine, event, text
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase, Session
+from sqlalchemy.pool import AsyncAdaptedQueuePool, NullPool
 
 from ..config import get_settings
+from ..services.data_access import read_filter
 from ..services.observability import agent_metrics
-from ..services.request_context import get_current_request_id, get_current_rls_user_id
 from .sqlite import SQLITE_WAL_JOURNAL_SIZE_LIMIT_BYTES, startup_db_lock
 
 settings = get_settings()
 _INIT_DB_LOCK = asyncio.Lock()
-logger = logging.getLogger(__name__)
 
 _is_sqlite = settings.database_url.startswith("sqlite")
 
@@ -42,6 +43,40 @@ async_session_factory = async_sessionmaker(
 
 class Base(DeclarativeBase):
     pass
+
+
+# A write that must commit apart from its caller (the secret-access audit row) never borrows a second connection from
+# the caller's pool: once callers hold every slot, they would all wait for each other. Its own small pool is bounded
+# too, and its holders release a slot after one short insert.
+_INDEPENDENT_POOL_SIZE = 2
+_INDEPENDENT_MAX_OVERFLOW = 2
+_independent_engines: weakref.WeakKeyDictionary[Engine, AsyncEngine] = weakref.WeakKeyDictionary()
+
+
+def independent_write_engine(engine: AsyncEngine) -> AsyncEngine:
+    independent = _independent_engines.get(engine.sync_engine)
+    if independent is not None:
+        return independent
+    sqlite = engine.dialect.name == "sqlite"
+    if isinstance(engine.pool, NullPool):
+        # A caller without a pool opens a connection per checkout, so there are no slots to exhaust.
+        pool: dict[str, Any] = {"poolclass": NullPool}
+    else:
+        pool = {"poolclass": AsyncAdaptedQueuePool, "pool_size": _INDEPENDENT_POOL_SIZE,
+                "max_overflow": _INDEPENDENT_MAX_OVERFLOW, "pool_timeout": settings.db_pool_timeout,
+                "pool_pre_ping": not sqlite}
+    independent = create_async_engine(engine.url, connect_args={"timeout": 60} if sqlite else {}, **pool)
+    _independent_engines[engine.sync_engine] = independent
+    # It lives as long as its caller's engine: a pooled connection left open would outlive the caller's dispose (at
+    # shutdown, or before a database is dropped).
+    event.listen(engine.sync_engine, "engine_disposed", _dispose_independent_engine)
+    return independent
+
+
+def _dispose_independent_engine(engine: Engine) -> None:
+    independent = _independent_engines.pop(engine, None)
+    if independent is not None:
+        independent.sync_engine.dispose()
 
 
 def _coerce_aware_datetime_to_naive_utc(value: object) -> object:
@@ -68,6 +103,7 @@ def _normalize_naive_datetime_columns(instance: object) -> None:
 
 
 agent_metrics.install()  # counts committed agent rows for /metrics (services/observability/agent_metrics.py)
+read_filter.install()
 
 
 @event.listens_for(Session, "before_flush")
@@ -92,19 +128,6 @@ if _is_sqlite:
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     async with async_session_factory() as session:
         try:
-            rls_user_id = get_current_rls_user_id()
-            if rls_user_id and not _is_sqlite:
-                try:
-                    await session.execute(
-                        text("SELECT set_config('app.current_user_id', :uid, true)"),
-                        {"uid": rls_user_id},
-                    )
-                except Exception:
-                    logger.exception(
-                        "Failed to establish RLS session context (request_id=%s)",
-                        get_current_request_id(),
-                    )
-                    raise RuntimeError("Failed to establish request data isolation")
             yield session
             await session.commit()
         except Exception:
@@ -116,8 +139,7 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 async def init_db():
     """Fill gaps only: the schema comes from ``alembic upgrade head``, which every deployment runs before the API
-    (Kubernetes: the migrate init container; octryx-docker: service ``migrate``). ``create_all`` before an upgrade is
-    not supported: a revision does not adopt a table ``create_all`` built."""
+    (Kubernetes: the migrate init container; octryx-docker: service ``migrate``)."""
     async with startup_db_lock(_INIT_DB_LOCK, is_sqlite=_is_sqlite, database_url=settings.database_url):
         from .. import models as _models  # noqa: F401
 

@@ -91,7 +91,7 @@ async def audit_mcp_knowledge_tool_call(
     transport: str = "http",
     grant_scope: dict[str, Any] | None = None,
 ) -> None:
-    """``grant_scope``: optional OAuth grant scope metadata (no tokens); omitted for other callers."""
+    # No tokens.
     record_mcp_knowledge_counter(tool_name, status_value)
     details = {
         "api_key_id": api_key_id,
@@ -112,6 +112,7 @@ async def audit_mcp_knowledge_tool_call(
             action=f"MCP knowledge tool {tool_name}",
             resource_type="mcp_knowledge",
             resource_id=str(arguments.get("project_id") or api_key_project_id or ""),
+            project_id=str(arguments.get("project_id") or api_key_project_id or "") or None,
             details=details,
         )
     )

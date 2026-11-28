@@ -1,17 +1,4 @@
-"""Deterministic post-render quality gate for AWS diagrams.
-
-Every rendered diagram is checked against measurable invariants before it is
-delivered; violations never fail silently — they are stamped into the diagram
-as a visible warning cell so the reader knows exactly what to distrust:
-
-- sibling vertices must not overlap;
-- children must fit inside their container;
-- no container may hold more nodes than a reader can scan;
-- edge density and canvas size must stay within readable bounds.
-
-The gate measures the geometry the renderer actually produced (not what it
-intended), so regressions in any layout path surface immediately.
-"""
+"""Deterministic post-render quality gate for AWS diagrams."""
 
 from __future__ import annotations
 
@@ -29,7 +16,6 @@ _WARNING_CELL_ID = "quality_gate_warning"
 
 
 def check_diagram_quality(xml: str) -> list[str]:
-    """Return human-readable invariant violations; empty means the gate passed."""
     try:
         root = ET.fromstring(f"<mxGraphModel><root>{xml}</root></mxGraphModel>")
     except ET.ParseError as exc:
@@ -72,8 +58,6 @@ def check_diagram_quality(xml: str) -> list[str]:
 
 
 def apply_quality_gate(xml: str) -> str:
-    """Stamp violations into the diagram as a visible warning cell; a clean
-    diagram passes through unchanged."""
     if not xml.strip():
         return xml
     violations = check_diagram_quality(xml)
@@ -97,8 +81,6 @@ def apply_quality_gate(xml: str) -> str:
 
 
 def _is_decorative_style(style: str) -> bool:
-    """Line/transparent overlay cells whose overlap with solid nodes is the
-    intended rendering (UML lifelines, message anchors, sequence frames)."""
     return (
         "shape=line" in style
         or "fillOpacity=0" in style

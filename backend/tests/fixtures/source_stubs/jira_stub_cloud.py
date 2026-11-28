@@ -1,23 +1,4 @@
-"""A Jira **Cloud**-shaped REST stub (API v3), next to the Server/DC stub ``jira_stub.py``.
-
-It answers the Cloud requests the platform's Jira code makes, and refuses every Server/DC-only shape, so a
-request that only works on Server/DC fails loudly here instead of passing by accident:
-
-- ``POST /rest/api/3/search/jql`` with ``{jql, fields, maxResults, nextPageToken?}``: explicit ``fields``
-  are required, pages continue by an opaque ``nextPageToken`` and end with ``isLast``; no ``total``.
-  The withdrawn ``/rest/api/{2,3}/search`` answers 410, as Jira Cloud does;
-- ``GET /rest/api/3/user/search?query=`` and ``/rest/api/3/user/assignable/search?project=&query=``:
-  people by ``accountId`` only (no ``name``); a ``username`` parameter is a 400;
-- ``GET /rest/api/3/issue/{key}`` and ``/comment``: descriptions and comment bodies are ADF documents;
-- ``POST /rest/api/3/issue``, ``PUT /rest/api/3/issue/{key}``, ``POST /rest/api/3/issue/{key}/comment``:
-  a description or comment that is not an ADF document is a 400, and so is an assignee given by ``name``;
-- ``GET /rest/api/3/project/{key}`` and ``/rest/api/3/priority`` for the create/update resolvers;
-- ``GET /rest/api/2/project/{key}/version`` (still served on Cloud, paged with ``isLast``) for the release
-  listing, and ``fixVersion = <id>`` in a ``search/jql`` query narrows the issues to that version.
-
-401 without the stub's Basic credential, 404 for anything unknown. ``handle`` is pure (the request body is a
-parameter), so tests drive it behind an ``httpx.MockTransport``. The credential protects nothing.
-"""
+"""A Jira **Cloud**-shaped REST stub (API v3), next to the Server/DC stub ``jira_stub.py``."""
 
 from __future__ import annotations
 
@@ -136,7 +117,6 @@ def _write_problem(fields: dict) -> str | None:
 
 
 def handle(method: str, target: str, authorization: str | None, body: dict | None = None) -> tuple[int, dict | list]:
-    """Answer one request: ``(status, JSON body)``. Pure, so tests can call it without a socket."""
     path, query = _query(target)
     if path == "/healthz":
         return 200, {"status": "ok"}

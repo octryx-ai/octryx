@@ -1,14 +1,4 @@
-"""Model-facing names of operation parameters, and the name each one is sent under (its wire name).
-
-Tool schema property names must match ``^[a-zA-Z0-9_.-]{1,64}$`` (OpenAI and Anthropic function schemas; a name
-outside it fails the whole tool list, not one tool). In SAP Business Accelerator Hub specs (e.g. Business
-Partner A2X), OData query options arrive as parameters named ``$select``, ``$filter``, ``$top``, ``$skip``, ``$expand``,
-``$orderby``, ``$count``/``$inlinecount``, so an imported SAP operation would break every chat it is offered in.
-
-The model sees an alias (``$filter`` -> ``filter``; when the operation already has a ``filter`` the alias is
-``odata_filter``; any other character outside the allowed set becomes ``_``), and the executor sends the value under
-the original name. A name that is already valid keeps itself, so aliasing a list twice changes nothing.
-"""
+"""Model-facing names of operation parameters, and the name each one is sent under (its wire name)."""
 
 from __future__ import annotations
 
@@ -30,7 +20,6 @@ def _fit(name: str, original: str) -> str:
 
 
 def _candidate(original: str) -> tuple[str, bool]:
-    """The alias before clash handling, and whether it came from an OData ``$`` option."""
     odata = original.startswith("$")
     stripped = original.lstrip("$") if odata else original
     cleaned = _INVALID_CHARS.sub("_", stripped).strip("_") or "param"
@@ -38,7 +27,6 @@ def _candidate(original: str) -> tuple[str, bool]:
 
 
 def model_names(wire_names: list[str]) -> dict[str, str]:
-    """``{wire name: model name}``, unique within the operation; a valid name maps to itself."""
     mapping: dict[str, str] = {}
     taken: set[str] = set()
     for name in wire_names:
@@ -61,7 +49,6 @@ def model_names(wire_names: list[str]) -> dict[str, str]:
 
 
 def alias_parameters(parameters: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Parameters stored with their model name as ``name`` and, when it differs, the original as ``wire_name``."""
     wires = [str(param.get("wire_name") or param["name"]) for param in parameters]
     mapping = model_names([str(param["name"]) for param in parameters])
     aliased = []

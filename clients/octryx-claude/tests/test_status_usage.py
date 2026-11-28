@@ -1,10 +1,4 @@
-"""The status block shows the Workspace as ``name (id)``, the user's seat allowance and daily budget (judge 4).
-
-- a stored id without a stored name is resolved through the Workspace list the launcher already reads;
-- ``usage.budget_label`` / ``usage.allowance_label``: numbers and fixed codes only, every state explicit, an
-  implausible value never shown;
-- the allowance line is hidden when the Workspace forbids seat; neither line appears when governance is not set up.
-"""
+"""The status block shows the Workspace as ``name (id)``, the user's seat allowance and daily budget."""
 
 from __future__ import annotations
 
@@ -40,8 +34,8 @@ def test_the_budget_label_for_every_state():
     assert usage.budget_label(allowed) == f"3.25 / 50.00 USD today (resets {_clock(resets)})"
     denied = _ok({"state": "denied", "reason": "gateway_daily_budget_exhausted", "limit_usd": 3, "spent_usd": 3.5})
     assert usage.budget_label(denied) == "3.50 / 3.00 USD today, used up (gateway_daily_budget_exhausted)"
-    missing = _ok({"state": "needs_configuration", "reason": "gateway_budget_not_configured", "limit_usd": None})
-    assert usage.budget_label(missing) == "not configured (gateway_budget_not_configured)"
+    missing = _ok({"state": "needs_configuration", "reason": "gateway_policy_invalid", "limit_usd": None})
+    assert usage.budget_label(missing) == "not configured (gateway_policy_invalid)"
     assert usage.budget_label(PlatformResult("refused", status_code=404)) == "unavailable (404)"
     assert usage.budget_label(PlatformResult("refused", status_code=403, state="denied",
                                              reason="workspace_not_authorized")) == (

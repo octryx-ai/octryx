@@ -1,69 +1,12 @@
 // Run: node --import ./tests/unit/register-ts.mjs --test tests/unit/adminDigestRenderGuards06.test.mjs
 //
-// Render guards for admin sections, drawers, cards and flow-builder parts whose long functions are split into smaller
-// parts: each renders with representative props, keeps its key labels and test ids, and keeps its whole rendered tree
-// (a digest of the test renderer's JSON), so the split draws exactly what the original drew. The flow templates keep
-// their whole definition (a digest of their JSON).
+// Render guards for admin sections, drawers and cards whose long functions are split into smaller parts: each renders
+// with representative props, keeps its key labels and test ids, and keeps its whole rendered tree (a digest of the test
+// renderer's JSON), so the split draws exactly what the original drew.
 import assert from "node:assert/strict";
-import crypto from "node:crypto";
 import { test } from "node:test";
 import { createElement as h } from "react";
-import { act, byId, digest, loadModule, mount, noop, text } from "./adminDigestRenderHarness.mjs";
-
-const sha = (value) => crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
-
-// --- Flow templates -------------------------------------------------------------------------------------------------
-
-const TEMPLATE_DIGESTS = [
-  "ae8bb6ef24f3af933aa97eb1261a456546619946ba322369be94a28c0f8c0273",
-  "62b51c60b24e7ff1dbc01f2125b9f1d5391871ca919a5915ddcfa8c94ba20043",
-  "ac63d8f9639d7ca616f97f1511a14278f83fceb1f69e60b381d6bc3dac21d879",
-  "7edd1d159873cdbf27d77e359eeb2e59c0c7374a17b431cb21bb4f3c2ea7a1a4",
-  "af594256c14682931318490a178582b6d7920243bef70ea43cdeb2f137320282",
-  "b82362b42548b40573188bb65eec369fbc6a31a6d9e06ccc164721673efba93c",
-  "e67aa65decb0f217ba24a3d5fc19ec821a0aa9d03bf96cf0b14782ccf62751ec",
-  "7f7193d27cdc1238d4c8161f15e5587b217030ff3b1a85b60c1e7b1935ca6482",
-];
-
-test("flow templates: every template keeps its key, nodes and metadata", () => {
-  const { FLOW_BUILDER_TEMPLATES } = loadModule("admin/components/flowBuilder/flowBuilderTemplates.ts");
-  assert.equal(FLOW_BUILDER_TEMPLATES.map((template) => template.key).slice(0, 2).join(), "person-source-evidence-research,release-analysis");
-  assert.equal(FLOW_BUILDER_TEMPLATES[0].definition.nodes.length, 7);
-  assert.equal(FLOW_BUILDER_TEMPLATES.map((template) => sha(template)).join(), TEMPLATE_DIGESTS.join());
-});
-
-// --- Flow trace panel -----------------------------------------------------------------------------------------------
-
-const TRACE = {
-  run: {
-    id: "run-1", status: "paused", flow_id: "f-1", flow_version_id: "fv-1",
-    plan: { status: "active", steps: [{ id: "s-1", status: "done", label: "Lookup", reason: "found" }, { node_id: "approve", status: "pending", required_action: "Approve" }] },
-  },
-  node_runs: [
-    { id: "nr-1", node_id: "lookup", node_type: "tool_step", status: "completed", attempt: 1, input: { q: "a" }, output: { hits: 2 },
-      evidence_summary: { items: 2 }, artifact_refs: [], duration_ms: 12, decision_trace: null, trace_refs: {}, token_usage: { total: 5 } },
-    { id: "nr-2", node_id: "approve", node_type: "approval", status: "paused", attempt: 2, input: {}, output: { approval_id: "ap-1" },
-      error: "Waiting", evidence_summary: null, artifact_refs: [{ id: "a-1" }], duration_ms: null, decision_trace: { route: "x" } },
-  ],
-};
-
-test("flow trace panel: outcome, decision buttons, plan and step rows; empty state", async () => {
-  const path = "admin/components/flowBuilder/FlowTracePanel.tsx";
-  const props = (trace, selectedNodeRunId = "nr-2") => ({
-    trace, selectedNodeRunId, running: false, onRefresh: noop, onRecoverInterrupted: noop, onResume: noop, onCancel: noop,
-    onSelectNodeRun: noop,
-  });
-  const view = await mount(path, "FlowTracePanel", props(TRACE));
-  assert.match(text(view.root), /Approve & resume/);
-  assert.match(text(view.root), /Plan state/);
-  assert.equal(view.root.findAll((node) => node.props.role === "listitem" && node.type === "button").length, 2);
-  assert.equal(digest(view), "76438df0b5026048b1e878ee39546f426e682ab758c55157c825d397017c2ac6");
-  const failed = await mount(path, "FlowTracePanel", props({ run: { ...TRACE.run, status: "failed", plan: {} }, node_runs: [{ ...TRACE.node_runs[0], status: "failed" }] }, null));
-  assert.match(text(failed.root), /Recover run/);
-  assert.equal(digest(failed), "067a619a6330d8457b9e481bcc007ee64167af1b4ad515d6659f63ad14552634");
-  const empty = await mount(path, "FlowTracePanel", props(null));
-  assert.match(text(empty.root), /No run yet/);
-});
+import { act, byId, digest, mount, noop, text } from "./adminDigestRenderHarness.mjs";
 
 // --- Policy lists ---------------------------------------------------------------------------------------------------
 

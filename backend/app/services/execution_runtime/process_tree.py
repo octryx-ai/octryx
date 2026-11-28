@@ -1,20 +1,4 @@
-"""Bounded one-shot process execution: at the deadline the whole process tree dies.
-
-A command the platform runs (a Maven or Gradle build, an OpenRewrite run, a shell command)
-starts in its own session, so it leads a new process group. At the deadline, or when the
-awaiting task is cancelled (a sub-agent group timeout, a stopped turn), that whole group is
-killed, not only the direct child:
-
-* ``process.kill()`` reaches only the direct child. A wrapper script, a forked test JVM or any
-  other descendant keeps running and keeps the stdout/stderr pipes open.
-* asyncio's ``Process.wait()`` and ``communicate()`` return only once every pipe is closed, so
-  an unbounded ``await process.communicate()`` after the kill waits on those descendants.
-* A cancelled ``wait_for`` raises ``CancelledError``, not ``TimeoutError``: without its own
-  handler the process is never killed at all and runs on unsupervised.
-
-After the kill the exit is awaited for a bounded grace period only. The result of a killed
-run is the closed fact ``timed_out``; its partial output is not kept.
-"""
+"""Bounded one-shot process execution: at the deadline the whole process tree dies."""
 
 from __future__ import annotations
 
@@ -37,12 +21,10 @@ class BoundedOutput:
 
 
 def process_group_spawn_kwargs() -> dict[str, Any]:
-    """Keyword arguments that start a child as the leader of its own process group."""
     return {"start_new_session": True} if os.name == "posix" else {}
 
 
 def kill_process_tree(process: Any, *, sig: int = signal.SIGKILL) -> None:
-    """Signal the process group the child leads (SIGKILL by default); the child alone where there is none."""
     pid = getattr(process, "pid", None)
     if os.name == "posix" and isinstance(pid, int) and pid > 0:
         try:
@@ -76,11 +58,6 @@ async def communicate_within_deadline(
     on_kill: Callable[[], Awaitable[None]] | None = None,
     grace_sec: float = KILL_EXIT_GRACE_SEC,
 ) -> BoundedOutput:
-    """``process.communicate()`` bounded by ``timeout_sec``; the tree dies at the deadline or on cancel.
-
-    ``on_kill`` releases what the process group does not contain (a container behind a
-    ``docker run`` client); it runs on both the deadline and the cancellation path.
-    """
     try:
         stdout, stderr = await asyncio.wait_for(process.communicate(), timeout=timeout_sec)
     except TimeoutError:

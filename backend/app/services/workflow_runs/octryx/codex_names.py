@@ -1,11 +1,4 @@
-"""The run contract's "tools to call" in Codex's own names (Codex as second engine).
-
-The contract tells a device model which tools to call (``phase.tools.on_device``) in Claude Code's names (``Write``,
-``Read``, ``mcp__octryx-knowledge__*``). Codex has none of them: it reads with the shell, changes files
-with ``apply_patch`` and sees the platform's MCP tools as ``mcp__octryx_knowledge__*`` (without this the model
-looks for ``write_workspace_file`` and loops). The evidence side maps Codex's calls back in the gateway
-(``model_gateway.inbound.openai_view.evidence_names``).
-"""
+"""The run contract's "tools to call" in Codex's own names (Codex as second engine)."""
 
 from __future__ import annotations
 
@@ -19,7 +12,6 @@ CODEX_MCP_PREFIX = "mcp__octryx_knowledge__"
 
 
 def codex_on_device(names: list[str]) -> list[str]:
-    """The contract's ``on_device`` list in Codex's own tool names."""
     out: list[str] = []
     for item in names:
         if item.startswith(CLAUDE_MCP_PREFIX):

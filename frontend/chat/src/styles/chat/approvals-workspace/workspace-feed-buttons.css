@@ -1,6 +1,5 @@
 /* Chat workspace buttons: plain, ghost, trace, icon action (with header tooltips), solid and icon buttons. */
 .plain-button,
-.ghost-button,
 .trace-button,
 .solid-button,
 .icon-button {
@@ -14,7 +13,6 @@
 }
 
 .plain-button:hover,
-.ghost-button:hover,
 .trace-button:hover,
 .icon-button:hover {
   background: var(--surface-overlay-hover);
@@ -32,7 +30,6 @@
   border-color: color-mix(in srgb, var(--status-error) 20%, transparent);
 }
 
-.ghost-button,
 .plain-button,
 .solid-button {
   padding: 0.75rem 1rem;
@@ -44,7 +41,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
 }
 
 .icon-action-button {
@@ -78,7 +75,7 @@
   width: auto;
   padding: 0 0.5rem;
   font-size: var(--ds-text-xs);
-  font-weight: 500;
+  font-weight: var(--ds-weight-medium);
   white-space: nowrap;
 }
 
@@ -91,11 +88,11 @@
   min-width: 1.1rem;
   height: 1.1rem;
   padding: 0 0.25rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-hover);
   color: var(--text);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   font-variant-numeric: tabular-nums;
   line-height: 1.1rem;
   text-align: center;
@@ -145,7 +142,7 @@
   color: var(--text);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   line-height: 1.2;
   white-space: nowrap;
   pointer-events: none;
@@ -165,11 +162,11 @@
   min-width: 1rem;
   height: 1rem;
   padding: 0 0.25rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--highlight);
   color: var(--bg);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   line-height: 1rem;
 }
 
@@ -179,7 +176,7 @@
   align-items: center;
   justify-content: center;
   padding: 0.1rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-strong);
   color: var(--muted);
   font-size: var(--ds-text-xs);
@@ -188,7 +185,7 @@
 .solid-button {
   background: var(--highlight);
   color: var(--bg);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .solid-button:hover {

@@ -1,6 +1,5 @@
-"""Upstream renewal — per-path change detection, moved folders, 3-way update drafts, pin/follow,
-scheduled checks. The worked example: HashiCorp's terraform-style-guide 0374056f → 4451ceca (folder moved, the
-security list moved into SECURITY.md) and the official marketplace entry that did not change."""
+"""Upstream renewal: per-path change detection, moved folders, 3-way update drafts, pin/follow, scheduled checks,
+worked on a real style-guide skill whose folder moved and a marketplace entry that did not change."""
 
 from __future__ import annotations
 
@@ -13,7 +12,6 @@ from tests.policy_engine_support import bearer, make_user
 from tests.skill_catalog.fake_git import HASHICORP, MARKET, MARKET_LATER, NEW, OFFICIAL, OLD, STYLE_NEW
 from tests.skill_catalog.support import BASE, category
 
-# Two published chat-only skills as a fixture.
 pytestmark = pytest.mark.usefixtures("chat_skills")
 
 OLD_PATH = "terraform/code-generation/skills/terraform-style-guide"
@@ -34,7 +32,6 @@ async def _publish(client, author, reviewer, skill_id, version):
 
 
 async def _customized_style_guide(client, db, author, reviewer, *, tracking="pinned") -> str:
-    """terraform-style-guide imported at 0374056f (v1) plus the two invented local lines (v2), both published."""
     terraform = (await category(db, "iac.terraform")).id
     imported = await client.post(f"{BASE}/import/git", headers=bearer(author), json={
         "url": HASHICORP, "ref": "main", "commit": OLD, "trust": "official",
@@ -147,7 +144,7 @@ async def test_the_official_marketplace_entry_is_up_to_date_although_the_reposit
     assert status["latest_commit"] == MARKET_LATER and status["compare_ref"] == "HEAD"
     assert status["update_available"] is False
     update = await client.post(f"{BASE}/skills/{skill_id}/upstream/update", headers=bearer(author))
-    assert update.json()["detail"]["code"] == "skill_draft_exists"  # the imported draft is still open
+    assert update.json()["detail"]["code"] == "skill_draft_exists"
     follow = await client.put(f"{BASE}/skills/{skill_id}/tracking", json={"tracking_mode": "follow"},
                               headers=bearer(author))
     assert follow.json()["detail"]["code"] == "skill_follow_requires_branch"
@@ -210,8 +207,8 @@ async def test_follow_lets_the_scheduled_check_create_the_draft_and_notify_the_o
     notice = (await db.execute(select(Notification).where(Notification.user_id == author))).scalars().all()
     assert any("terraform-style-guide" in item.title for item in notice)
     third = await run_scheduled_checks(db, force=True)
-    assert third["drafts"] == 0  # the open draft is not duplicated
-    assert (await run_scheduled_checks(db))["sources"] == 0  # not due again within the interval
+    assert third["drafts"] == 0
+    assert (await run_scheduled_checks(db))["sources"] == 0
 
 
 @pytest.mark.asyncio

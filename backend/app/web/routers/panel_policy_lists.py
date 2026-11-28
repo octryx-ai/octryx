@@ -1,10 +1,4 @@
-"""Admin routes of the governed policy lists: read, edit (next version) and reset to seed.
-
-``/chat/api/panel/default-tool-sets`` serves the Tool Catalog's default sets per capability class;
-``/chat/api/panel/policy-lists`` the weak coding model families, the model capability catalog, the
-diagram type options and the workflow proposal settings. A refused edit answers with the closed
-``{code, values, message}`` detail (``services/policy_lists/errors``).
-"""
+"""Admin routes of the governed policy lists: read, edit (next version) and reset to seed."""
 
 from __future__ import annotations
 

@@ -1,24 +1,5 @@
-"""``octryx-claude analyze <WORK-ITEM-KEY>``: a work item analysis on your own subscription.
-
-For a Workspace whose analysis setting is ``runner: seat``, the analysis runs here, in a seat session, instead of
-a governed server run on the platform's models:
-
-- the session always uses the ``seat`` profile. It is refused before anything starts when the Workspace forbids seat
-  (its fixed reason, classification included) or when the seat login is not ready (with the command that fixes it);
-- it is refused up front when the stored login lacks a scope the analysis needs (``work:manage`` for
-  work_item_context and the submit, ``knowledge:read`` for the knowledge tools), naming ``octryx-claude login``;
-- it registers with ``purpose: work_item_analysis`` and the item's key, so the platform pins the session to that
-  item and refuses it unless the Workspace selects the seat runner (``analysis_runner_not_seat``) and the item
-  exists;
-- its tools are fixed by the platform at the PreToolUse boundary: the read-only analysis tools (knowledge_search,
-  knowledge_read, work_item_context, the ServiceNow read tools) and ``work_item_analysis_submit``. Claude Code's
-  own tools are also switched off on the command line, so the model does not try them;
-- it runs headless (``-p``): the model researches, then submits the structured analysis, which the platform
-  checks (schema, citations against this session's tool results, secret scan) and stores as the item's analysis
-  note with a board message. Claude Code prints the outcome.
-
-    octryx-claude analyze KEY [--workspace ID|NAME]
-"""
+"""``octryx-claude analyze <KEY>``: a work item analysis in a seat session on your own subscription.
+The platform fixes its tools, checks the submitted analysis and stores it as the item's analysis note."""
 
 from __future__ import annotations
 
@@ -76,7 +57,6 @@ def add_parser(sub: argparse._SubParsersAction) -> None:
 
 
 def seat_not_ready(seat: SeatState) -> str:
-    """``""`` when the seat profile can run the analysis now, else the refusal with its fix."""
     if seat.code == seat_status.STATE_READY:
         return ""
     if seat.code == seat_status.STATE_FORBIDDEN:

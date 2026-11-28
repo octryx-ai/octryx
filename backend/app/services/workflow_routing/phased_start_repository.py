@@ -1,21 +1,4 @@
-"""The repository of a chat's phased start: on the card before Allow, and the run gets it like the Work item dialog.
-
-Without it a chat start whose request names its repository ("Repository owner/repo") ends at once, blocked:
-``scm.create_branch`` fails with "the run's repository '' is not github:…/bitbucket:…" whenever the Workspace has
-several repository records, because ``definition_of_ready.default_repository`` then finds none.
-
-:func:`repository_choice` resolves the repository in this order:
-
-1. the record the request names (``owner/repo``, or its unique slug);
-2. the Workspace's only record with a coding setup;
-3. a confirmed Definition of Ready of an existing item (``default_repository``).
-
-Otherwise the card asks for it (``required`` without ``ref``), and the start refuses until one is chosen. A run that
-works in a repository (an ``scm.*``, ``workspace.prepare`` or ``pipeline.run`` step) never starts without one.
-
-A record's run reference is ``<provider>:<owner>/<repo>`` (``scm.parse_repository``). A record registered from the
-knowledge snapshot takes its provider from its Knowledge source's remote (``bitbucket.org/octryx/kitchen-helper``).
-"""
+"""The repository of a chat's phased start: on the card before Allow, and the run gets it like the Work item dialog."""
 
 from __future__ import annotations
 
@@ -42,7 +25,6 @@ def needs_repository(definition: dict[str, Any]) -> bool:
 
 
 def _provider_of(source: KnowledgeSourceConnector | None) -> str | None:
-    """The SCM provider of a Knowledge git source: its remote's host or path, else its connector key's prefix."""
     from ..workflow_runs.platform.repo_ref import PROVIDERS
 
     if source is None:
@@ -57,7 +39,6 @@ def _provider_of(source: KnowledgeSourceConnector | None) -> str | None:
 
 
 def run_reference(repo: CodeRepository, sources: dict[str, KnowledgeSourceConnector]) -> str | None:
-    """``<provider>:<owner>/<repo>`` of a repository record, or ``None`` when no SCM provider is known."""
     from ..workflow_runs.platform.repo_ref import PROVIDERS, parse_repository, record_path
 
     provider = repo.provider if repo.provider in PROVIDERS else _provider_of(
@@ -67,7 +48,6 @@ def run_reference(repo: CodeRepository, sources: dict[str, KnowledgeSourceConnec
 
 
 async def repository_options(db: AsyncSession, project_id: str | None) -> list[dict[str, Any]]:
-    """The Workspace's active repository records a run can work in: id, name, run reference, coding setup."""
     from ..workflow_runs.platform.repo_ref import record_path
 
     if not project_id:
@@ -88,7 +68,6 @@ async def repository_options(db: AsyncSession, project_id: str | None) -> list[d
 
 
 def named_in(message: str, options: list[dict[str, Any]]) -> dict[str, Any] | None:
-    """The option the request names: its ``owner/repo`` path, else its slug when exactly one option has it."""
     text = (message or "").lower()
     by_path = [option for option in options if re.search(rf"(?<![\w/-]){re.escape(option['path'])}(?![\w/-])", text)]
     if len(by_path) == 1:
@@ -104,7 +83,6 @@ def _chosen(option: dict[str, Any], source: str) -> dict[str, Any]:
 
 async def repository_choice(db: AsyncSession, *, project_id: str | None, message: str, definition: dict[str, Any],
                             item_id: str | None) -> dict[str, Any] | None:
-    """The card's repository (see the module docstring); ``None`` for a workflow that works in no repository."""
     from ..workflow_runs.definition_of_ready import default_repository
 
     if not needs_repository(definition):
@@ -125,14 +103,12 @@ async def repository_choice(db: AsyncSession, *, project_id: str | None, message
 
 
 def choose(repository: dict[str, Any], value: str) -> dict[str, Any] | None:
-    """The card's repository after the person picked ``value`` (an option's id or reference), or ``None``."""
     option = next((option for option in repository.get("options") or []
                    if _text(value) in (option["id"], option["ref"])), None)
     return {**repository, **_chosen(option, "chosen")} if option is not None else None
 
 
 def missing_text(repository: dict[str, Any] | None) -> str | None:
-    """Why the start cannot run yet, or ``None`` when its repository is known (or it needs none)."""
     if repository is None or repository.get("ref"):
         return None
     names = ", ".join(option["name"] for option in repository.get("options") or [])

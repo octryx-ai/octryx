@@ -1,19 +1,5 @@
-"""The examination contract cannot be bypassed: a guard over every scanner use and every consumer.
-
-Guard (AST over ``backend/app`` and the launcher package, every import form resolved by
-``examination_guard_support``): the budgeted scanner's functions (``scan``, ``scan_text``, ``merge_reports``,
-``_find``) are used, and ``ScanReport`` is constructed, only by the contract (``content_detection.examination``) and
-the scanner itself; the detector finders only inside ``content_detection``; ``.unfinished`` is read only there.
-Every consumer of an examination interface — the contract, ``decision.scan_for``, the gateway's examination of the
-forwarded body and its decisions, the client tool-result dispositions, and the launcher's reading of them — is listed in
-:data:`CONSUMERS`, and each has a property case (``test_examination_contract.CASES``): a new consumer fails here
-until it has one. Membership is not enough: every result-consuming edge — each use site of a consumed interface,
-by module, enclosing definition and interface — is listed in :data:`EDGES` with the case that asserts it, so a
-second call site in an already listed module fails here too, and so does a new call of a result's own methods
-(``examination_guard_support.RESULT_METHODS``). The gateway decisions that act on the scan's findings (the
-Workspace's content handling, the client tool-result policy, the credential kinds of a refusal), the Cedar conversion
-of the findings and the final refusals have edge cases of their own (``examination_edge_cases``).
-"""
+"""The examination contract cannot be bypassed: every scanner use, consumer and result-consuming edge is listed
+with the property case that asserts it, so a new one fails here until it has one."""
 
 from __future__ import annotations
 
@@ -28,41 +14,34 @@ from tests.content_security.test_examination_contract import CASES
 BACKEND = Path(__file__).resolve().parents[2]
 ROOTS = (BACKEND / "app", BACKEND.parent / "clients" / "octryx-claude" / "octryx_claude")
 
-#: Every module that consumes examinations or their dispositions (see the module doc).
 CONSUMERS = frozenset({
-    # the contract and ``decision.scan_for``
     "app.services.content_detection.preview",
-    "app.services.content_routing.body_masking",
+    "app.services.content_security.format_chat_messages",
+    "app.services.content_security.format_request_body",
     "app.services.content_routing.chat",
     "app.services.content_routing.client_tool_results",
     "app.services.content_routing.decision",
-    "app.services.content_routing.gateway",
     "app.services.content_routing.tool_results",
     "app.services.content_security.message_trust",
     "app.services.content_security.model_call",
+    "app.services.content_security.enforcement_call",
     "app.services.content_security.model_call_fields",
     "app.services.content_security.transport",
-    # the provider wrapper's whole-request examination and its final check (I-1), and the outcomes that read the one
-    # budget (I-3) and write the one record (I-4)
     "app.services.content_detection.request_examination",
     "app.services.content_detection.final_check",
     "app.services.content_routing.gateway_outcome",
     "app.services.content_security.model_call_outbound",
     "app.services.content_security.model_call_outcome",
     "app.services.security_analyzer.content_command",
-    # the gateway's content decision (the scan of the forwarded body) and its public routes
-    "app.services.content_routing.gateway_plan",
+    "app.services.content_security.enforcement_inbound",
     "app.services.model_gateway.inbound.codex_seat",
     "app.services.model_gateway.inbound.openai_service",
     "app.services.model_gateway.inbound.seat",
-    # the indirect boundaries (Cut 10 S-04): the tool-result adapters, the gateway planners' callers and the
-    # provider base boundary
     "app.tools.result_content",
     "app.services.model_gateway.inbound.service",
     "app.services.model_gateway.inbound.seat_content",
     "app.agent.providers.base",
-    # the client tool-result dispositions: the launcher's report route and the launcher's hook
-    "app.api.routes.agent_gateway",
+    "app.api.routes.agent_gateway.agent_gateway",
     "octryx_claude.content_hooks",
     "octryx_claude.post_tool_use_hook",
 })
@@ -72,10 +51,12 @@ _CONTRACT = "app.services.content_detection.examination"
 _DECISION = "app.services.content_routing.decision"
 _CLIENT_TOOLS = "app.services.content_routing.client_tool_results"
 _GATEWAY = "app.services.content_routing.gateway"
-_SCAN = f"{_GATEWAY}.GatewayScan"
-_PLAN = "app.services.content_routing.gateway_plan"
+_BODY = "app.services.content_security.format_request_body"
+_SCAN = f"{_BODY}.GatewayScan"
+_PLAN = "app.services.content_security.enforcement_inbound"
 _TOOL_RESULTS = "app.services.content_routing.tool_results"
 _MODEL_CALL = "app.services.content_security.model_call"
+_CALL = "app.services.content_security.enforcement_call"
 _FIELDS = "app.services.content_security.model_call_fields"
 _REQUEST = "app.services.content_detection.request_examination"
 _INBOUND = "app.services.model_gateway.inbound"
@@ -90,54 +71,52 @@ _CALL_OUTCOME = "app.services.content_security.model_call_outcome"
 #: module's own case, or an edge case (``examination_edge_cases``) where the module's case does not reach the edge.
 EDGES: dict[str, str] = {
     edge("app.agent.providers.base", "_measured.measured", f"{_MODEL_CALL}.enforced_chat"): "app.agent.providers.base",
-    edge("app.api.routes.agent_gateway", "tool_executed", f"{_CLIENT_TOOLS}.launcher_tool_result"):
-        "app.api.routes.agent_gateway",
+    edge("app.api.routes.agent_gateway.agent_gateway", "tool_executed", f"{_CLIENT_TOOLS}.launcher_tool_result"):
+        "app.api.routes.agent_gateway.agent_gateway",
     edge("app.services.content_detection.preview", "preview", f"{_CONTRACT}.examine_text"):
         "app.services.content_detection.preview",
-    edge("app.services.content_routing.body_masking", "MaskRun.text", f"{_CONTRACT}.examine_text"):
-        "app.services.content_routing.body_masking",
     edge("app.services.content_routing.chat", "chat_content_decision", f"{_DECISION}.scan_for"):
         "app.services.content_routing.chat",
     edge("app.services.content_routing.chat", "chat_content_decision", f"{_DECISION}.decide_model_content"):
         "app.services.content_routing.chat",
-    edge(_CLIENT_TOOLS, "launcher_tool_result", f"{_TOOL_RESULTS}.check_tool_result"): "app.api.routes.agent_gateway",
+    edge(_CLIENT_TOOLS, "launcher_tool_result", f"{_TOOL_RESULTS}.check_tool_result"): "app.api.routes.agent_gateway.agent_gateway",
+    edge(_DECISION, "enforcement_budget", f"{_CONTRACT}.RequestBudget"): _DECISION,
     edge(_DECISION, "scan_for", f"{_CONTRACT}.compose"): _DECISION,
     edge(_DECISION, "scan_for", f"{_CONTRACT}.examine"): _DECISION,
-    edge(_GATEWAY, "scan_request", f"{_CONTRACT}.compose"): _GATEWAY,
-    edge(_GATEWAY, "_with_fields", f"{_CONTRACT}.compose"): _GATEWAY,
-    edge(_GATEWAY, "scan_request", f"{_CONTRACT}.examine"): _GATEWAY,
-    edge(_GATEWAY, "scan_request", f"{_CONTRACT}.examine", 2): _GATEWAY,
-    edge(_GATEWAY, "scan_request", f"{_CONTRACT}.examine_each"): _GATEWAY,
-    edge(_PLAN, "plan_inbound", f"{_GATEWAY}.scan_request"): _PLAN,
-    edge(_PLAN, "plan_inbound", f"{_GATEWAY}.fixed_refusal"): _PLAN,
-    edge(_PLAN, "plan_inbound", f"{_GATEWAY}.handling_refusal"): "edge:gateway_plan_actions",
-    edge(_PLAN, "plan_inbound", f"{_CLIENT_TOOLS}.client_tool_result_denial"): "edge:gateway_tool_grouping",
-    **{edge(_PLAN, "plan_inbound", f"{_SCAN}.secret_kinds", site): "edge:gateway_plan_actions" for site in (1, 2, 3, 4)},
-    # The Cedar conversion, the tool-result policy and the final refusals (C12-11).
-    edge(_PLAN, "plan_inbound", f"{_DECISION}.builtin_secret_decision"): "edge:gateway_cedar_conversion",
-    edge(_PLAN, "plan_inbound", f"{_DECISION}.decide_model_content"): "edge:gateway_cedar_conversion",
-    edge(_PLAN, "plan_inbound", f"{_GATEWAY}.content_refusal"): "edge:gateway_final_refusal_record",
-    edge(_PLAN, "plan_inbound", f"{_GATEWAY}.tool_result_refusal"): "edge:gateway_final_refusal_record",
-    # The one record of a gateway request (I-4) starts the request's one budget (I-3) at handler entry.
+    edge(_BODY, "examine_request_body", f"{_CONTRACT}.compose"): _BODY,
+    edge(_BODY, "_with_fields", f"{_CONTRACT}.compose"): _BODY,
+    edge(_BODY, "examine_request_body", f"{_CONTRACT}.examine"): _BODY,
+    edge(_PLAN, "enforce_inbound", f"{_BODY}.examine_request_body"): _PLAN,
+    edge(_PLAN, "enforce_inbound", f"{_GATEWAY}.fixed_refusal"): _PLAN,
+    edge(_PLAN, "enforce_inbound", f"{_GATEWAY}.handling_refusal"): "edge:gateway_plan_actions",
+    edge(_PLAN, "enforce_inbound", f"{_CLIENT_TOOLS}.client_tool_result_denial"): "edge:gateway_tool_grouping",
+    **{edge(_PLAN, "enforce_inbound", f"{_SCAN}.secret_kinds", site): "edge:gateway_plan_actions"
+       for site in (1, 2, 3, 4, 5, 6)},
+    edge(_PLAN, "enforce_inbound", f"{_GATEWAY}.fixed_refusal", 2): _PLAN,
+    edge(_PLAN, "_masked", f"{_BODY}.examine_request_body"): _PLAN,
+    edge(_BODY, "mask_gateway_body", f"{_REQUEST}.RequestExaminer"): _BODY,
+    edge(_PLAN, "_decided", f"{_DECISION}.decide_model_content"): "edge:gateway_cedar_conversion",
+    edge(_PLAN, "enforce_inbound", f"{_GATEWAY}.content_refusal"): "edge:gateway_final_refusal_record",
+    edge(_PLAN, "enforce_inbound", f"{_GATEWAY}.content_refusal", 2): "edge:gateway_final_refusal_record",  # remedied
+    edge(_PLAN, "enforce_inbound", f"{_GATEWAY}.tool_result_refusal"): "edge:gateway_final_refusal_record",
     edge(_OUTCOME, "GatewayOutcome", f"{_CONTRACT}.RequestBudget"): "app.services.content_routing.gateway_outcome",
-    # The final check (I-1) and the one budget (I-3) of the provider wrapper.
     edge(_FINAL, "examine_request", f"{_CONTRACT}.examine_pass"): _FINAL,
     edge(_FINAL, "examine_request", f"{_CONTRACT}.examine_pass", 2): _FINAL,
-    edge(_FINAL, "examine_request", f"{_CONTRACT}.compose"): _FINAL,  # the sent bytes' examination (C12F-03)
+    edge(_FINAL, "examine_request", f"{_CONTRACT}.compose"): _FINAL,
     edge(_REQUEST, "RequestExaminer.examine", f"{_CONTRACT}.examine", 2): _REQUEST,
-    edge(_MODEL_CALL, "_mask_output", f"{_CONTRACT}.RequestBudget"): _MODEL_CALL,
-    edge(_MODEL_CALL, "_mask_output", f"{_CONTRACT}.compose"): _MODEL_CALL,
+    edge(_CALL, "_mask_output", f"{_CONTRACT}.RequestBudget"): _CALL,
+    edge(_CALL, "_mask_output", f"{_CONTRACT}.compose"): _CALL,
     edge(_MODEL_CALL, "enforced_chat", f"{_CONTRACT}.RequestBudget"): _MODEL_CALL,
     edge(_OUTBOUND, "bound_constant", f"{_CONTRACT}.RequestBudget"): _OUTBOUND,
-    # The one record of a platform model call (I-4).
     **{edge(_CALL_OUTCOME, name, f"{_CONTRACT}.compose"): _CALL_OUTCOME
        for name in ("CallOutcome._sent", "_empty")},
     edge(_TOOL_RESULTS, "_decide", f"{_DECISION}.decide_tool_result"): _TOOL_RESULTS,
     edge(_TOOL_RESULTS, "_decide", f"{_DECISION}.scan_for"): _TOOL_RESULTS,
     edge(_TOOL_RESULTS, "_withheld.walk", f"{_CONTRACT}.examine_text"): _TOOL_RESULTS,
-    # The provider wrapper's whole-request examination (C12-01/02/05/14).
-    edge(_MODEL_CALL, "_mask_output", f"{_REQUEST}.RequestExaminer"): _MODEL_CALL,
-    edge(_MODEL_CALL, "_enforced", f"{_REQUEST}.RequestExaminer"): _MODEL_CALL,
+    edge(_CALL, "_mask_output", f"{_REQUEST}.RequestExaminer"): _CALL,
+    edge("app.services.content_security.transport", "mask_run", f"{_REQUEST}.RequestExaminer"):
+        "app.services.content_security.format_chat_messages",
+    edge(_CALL, "enforce_call", f"{_REQUEST}.RequestExaminer"): _CALL,
     edge(_REQUEST, "RequestExaminer.examine", f"{_CONTRACT}.examine"): _REQUEST,
     edge(_REQUEST, "RequestExaminer.report", f"{_CONTRACT}.compose"): _REQUEST,
     edge(_FIELDS, "RecordedRun.completion", f"{_CONTRACT}.compose"): _FIELDS,
@@ -145,11 +124,11 @@ EDGES: dict[str, str] = {
     edge(_FIELDS, "refusing", f"{_CONTRACT}.compose", 2): _FIELDS,
     edge(_FIELDS, "structure_examination", f"{_CONTRACT}.compose"): _FIELDS,
     edge(f"{_INBOUND}.codex_seat", "admit_codex_seat", f"{_SEAT_CONTENT}.seat_content_plan"): f"{_INBOUND}.codex_seat",
-    edge(f"{_INBOUND}.openai_service", "handle_responses", f"{_SERVICE}.content_plan"): f"{_INBOUND}.openai_service",
+    edge(f"{_INBOUND}.openai_service", "handle_responses", f"{_SERVICE}.governed_plan"): f"{_INBOUND}.openai_service",
     edge(f"{_INBOUND}.seat", "_admitted_seat_request", f"{_SEAT_CONTENT}.seat_content_plan"): f"{_INBOUND}.seat",
-    edge(f"{_INBOUND}.seat", "_admitted_seat_request", f"{_SEAT_CONTENT}.seat_content_plan", 2): f"{_INBOUND}.seat",
-    edge(_SEAT_CONTENT, "seat_content_plan", f"{_PLAN}.plan_inbound"): _SEAT_CONTENT,
-    edge(_SERVICE, "content_plan", f"{_PLAN}.plan_inbound"): _SERVICE,
+    edge(f"{_INBOUND}.seat", "_company_call.plan_for", f"{_SEAT_CONTENT}.seat_content_plan"): f"{_INBOUND}.seat",
+    edge(_SEAT_CONTENT, "seat_content_plan", f"{_PLAN}.enforce_inbound"): _SEAT_CONTENT,
+    edge(_SERVICE, "content_plan", f"{_PLAN}.enforce_inbound"): _SERVICE,
     edge("app.services.security_analyzer.content_command", "content_command_analyzer", f"{_CONTRACT}.examine_text"):
         "app.services.security_analyzer.content_command",
     edge("app.tools.result_content", "_content_checked", f"{_TOOL_RESULTS}.check_tool_result"):
@@ -162,8 +141,7 @@ EDGES: dict[str, str] = {
 #: Interfaces whose every edge needs its own edge case (the module's case does not assert that result's use): the
 #: decisions that act on the examination's findings never receive an unfinished one.
 EDGE_ONLY = frozenset({f"{_GATEWAY}.handling_refusal", f"{_CLIENT_TOOLS}.client_tool_result_denial",
-                       f"{_GATEWAY}.content_refusal", f"{_GATEWAY}.tool_result_refusal", f"{_SCAN}.secret_kinds",
-                       f"{_DECISION}.builtin_secret_decision"})
+                       f"{_GATEWAY}.content_refusal", f"{_GATEWAY}.tool_result_refusal", f"{_SCAN}.secret_kinds"})
 
 
 def _sources() -> dict[str, tuple[str, bool]]:
@@ -194,8 +172,6 @@ def test_every_result_consuming_edge_is_listed_with_a_case():
         interface = key.split(" -> ")[1].split(" #")[0]
         assert (interface not in EDGE_ONLY) or case in EDGE_CASES, f"{key} needs its own edge case"
 
-
-# --- the resolver finds every form (synthetic modules) -----------------------------------------------------------
 
 PACKAGE = "app.services.content_detection"
 SCANNER_SOURCE = "def scan(segments): ...\nclass ScanReport: ...\n"
@@ -235,11 +211,11 @@ def test_a_package_rebinding_is_followed_to_the_scanner():
 
 
 @pytest.mark.parametrize(("source", "consumer"), [
-    ("from app.services.content_routing.gateway import scan_request\n", True),
+    ("from app.services.content_security.format_request_body import examine_request_body\n", True),
     ("from app.services.content_routing import gateway\ngateway.handling_refusal\n", True),
     ("from app.services.content_routing import client_tool_results as c\nc.launcher_tool_result\n", True),
     ("import app.services.content_detection.examination as e\ne.examine\n", True),
-    ("from app.services.content_routing.gateway import DENIED_HINT\n", False),
+    ("from app.services.content_routing.gateway import DENIED_HINT\n", False)
 ])
 def test_a_module_using_a_consumed_interface_is_a_consumer(source, consumer):
     assert ("app.services.probe.user" in _found(user=source)["consumers"]) is consumer
@@ -286,14 +262,14 @@ def test_an_annotation_import_or_constant_is_not_a_result_consuming_edge():
     assert sites(_consumer_sources(source))["edges"] == []
 
 
-GROUPING = "app.services.content_routing.gateway.GatewayScan.secret_kinds"
-HOLDER = ("from app.services.content_routing.gateway import scan_request\n"
-          "def plan(body):\n    return scan_request(body).secret_kinds()\n")
+GROUPING = "app.services.content_security.format_request_body.GatewayScan.secret_kinds"
+HOLDER = ("from app.services.content_security.format_request_body import examine_request_body\n"
+          "def plan(body):\n    return examine_request_body(body).secret_kinds()\n")
 
 
 def test_a_result_method_called_where_the_result_is_held_is_an_edge():
-    sources = {"app.services.content_routing": ("", True),
-               "app.services.content_routing.gateway": ("def scan_request(body): ...\n", False),
+    sources = {"app.services.content_security": ("", True),
+               "app.services.content_security.format_request_body": ("def examine_request_body(body): ...\n", False),
                "app.services.probe": ("", True)}
     listed = sites({**sources, "app.services.probe.user": (HOLDER, False)})
     assert edge("app.services.probe.user", "plan", GROUPING) in listed["edges"]

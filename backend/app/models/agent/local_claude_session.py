@@ -1,10 +1,4 @@
-"""A Claude Code session outside octryx on one of the person's devices.
-
-The device's service reports the recent sessions of the Claude Code profiles the person connected there
-(``octryx profiles connect``): title, folder, last answer (redacted on the device) and when it last changed. Only
-the owner sees them (``services/devices/local_sessions``); "take over" continues one with ``resume`` as a device job
-in the owner's private Workspace. The device replaces its whole list with every report.
-"""
+"""A Claude Code session outside octryx on one of the person's devices."""
 
 from __future__ import annotations
 
@@ -13,6 +7,7 @@ import secrets
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -20,7 +15,9 @@ def local_session_pk() -> str:
     return f"lcs_{secrets.token_hex(8)}"
 
 
-class LocalClaudeSession(Base):
+class LocalClaudeSession(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"thread_session_id": "sessions"}
     __tablename__ = "local_claude_sessions"
     __table_args__ = (UniqueConstraint("device_id", "profile", "claude_session_id",
                                        name="uq_local_claude_sessions_device_profile_session"),)

@@ -1,17 +1,5 @@
-"""The device's own state for remote device sessions: registration, folders, key, pause, limits.
-
-Everything lives in the private state dir (0600 files, covered by the job sandbox's ``denyRead``):
-
-- ``device.json``      ``{device_id, name, os, base_url, folders, max_parallel_jobs, paused, revoked}``;
-- ``device-key.pem``   the Ed25519 private key; the channel ``hello`` is signed with it over a server nonce,
-                       so a copied token alone cannot impersonate the device;
-- ``device-status.json`` what the running service last said (connected, running jobs, needs_login);
-- ``logs/device.log``  the service log (rotating).
-
-The folder allowlist is the device's authority: only ``device folders add`` here (with a local confirmation)
-widens it; the platform can only narrow it. Every job folder is checked by realpath (symlinks resolved) against
-the allowlist again on the device.
-"""
+"""The device's own state for remote device sessions: registration, folders, key, pause, limits, all in
+private 0600 files of the state dir."""
 
 from __future__ import annotations
 
@@ -79,7 +67,6 @@ def write_status(state: LocalState, payload: dict[str, Any]) -> None:
 
 
 def detect_os(*, system: str | None = None, release: str | None = None, env: dict[str, str] | None = None) -> str:
-    """``macos``, ``linux`` or ``wsl2`` (Windows runs octryx-claude inside WSL2)."""
     source = os.environ if env is None else env
     name = (system or host_platform.system()).lower()
     if name == "darwin":
@@ -97,7 +84,6 @@ MIN_CONTEXT_WINDOW, MAX_CONTEXT_WINDOW = 100_000, 300_000
 
 
 def context_window(device: dict) -> int:
-    """The context size a Mac turn compacts at (``CLAUDE_CODE_AUTO_COMPACT_WINDOW``)."""
     value = device.get("context_window") if isinstance(device, dict) else None
     if type(value) is int and MIN_CONTEXT_WINDOW <= value <= MAX_CONTEXT_WINDOW:
         return value
@@ -114,7 +100,6 @@ def parallel_jobs(value: object) -> int:
 
 
 def local_folder(raw: str) -> str:
-    """An existing directory as an absolute realpath (``~`` expanded, symlinks resolved)."""
     path = Path(os.path.expanduser(str(raw or ""))).resolve()
     if not str(raw or "").strip() or not path.is_dir():
         raise DeviceStateError("folder_not_found")
@@ -122,7 +107,6 @@ def local_folder(raw: str) -> str:
 
 
 def folder_allowed(folder: str, allowlist: list[str]) -> str:
-    """The job folder's realpath when it lies inside an allowlisted folder, else ``""``."""
     try:
         real = Path(os.path.expanduser(folder)).resolve(strict=True)
     except (OSError, RuntimeError):
@@ -153,8 +137,6 @@ def protected_folder_warning(folder: str, *, os_name: str, home: Path | None = N
 
 
 def checkout_note(folder: str) -> str:
-    """A note when ``folder`` is not a git checkout: a workflow run works in a clone of its repository (fresh-install
-    test: the first run paused with device_turn_repository_not_a_git_repository on an empty folder)."""
     if (Path(folder) / ".git").exists():
         return ""
     return (f"note: {folder} is not a git checkout. A workflow run works in a clone of its repository: "
@@ -169,7 +151,6 @@ def _b64(raw: bytes) -> str:
 
 
 def generate_key(state: LocalState) -> str:
-    """A new Ed25519 key pair; the private key is written 0600, the public key returned (raw, base64url)."""
     from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
     from cryptography.hazmat.primitives.serialization import Encoding, NoEncryption, PrivateFormat, PublicFormat
 
@@ -184,7 +165,6 @@ def generate_key(state: LocalState) -> str:
 
 
 def existing_public_key(state: LocalState) -> str:
-    """The public half of the key already on disk (a pending registration's), ``""`` without one."""
     from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat, load_pem_private_key
 
     try:
@@ -195,8 +175,6 @@ def existing_public_key(state: LocalState) -> str:
 
 
 def registration_payload(name: str, public_key: str) -> bytes:
-    """Signed as ``key_proof``: a retry after a lost answer proves it is the device the platform registered
-    (server: ``registration_retry.registration_payload``, the same text)."""
     return f"octryx-device-register:v1:{name.lower()}:{public_key}".encode()
 
 
@@ -211,7 +189,6 @@ def sign(state: LocalState, data: bytes) -> str:
 
 
 def forget_device(state: LocalState) -> None:
-    """``device disable``: the key and the device credential go; the user's own login stays."""
     for name in (KEY_FILE, "device-credentials.json", STATUS_FILE):
         try:
             (state.root / name).unlink()

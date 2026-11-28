@@ -1,10 +1,4 @@
-"""A file a device job made on the person's Mac, fetched on their request (Octryx Mobile).
-
-The device lists the files a turn changed by name (a ``files`` job event); nothing leaves the Mac until the owner
-asks for one. Then a row here is ``pending`` until the channel asks the device (``sent``), and ``ready`` with the
-content once the device sent it, or ``failed`` with the device's or the platform's reason. Content is kept for a
-day (``services/devices/job_files``).
-"""
+"""A file a device job made on the person's Mac, fetched on their request (Octryx Mobile)."""
 
 from __future__ import annotations
 
@@ -13,6 +7,7 @@ import secrets
 from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, LargeBinary, String
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -20,7 +15,9 @@ def job_file_pk() -> str:
     return f"jf_{secrets.token_hex(10)}"
 
 
-class DeviceJobFile(Base):
+class DeviceJobFile(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"job_id": "device_jobs"}
     __tablename__ = "device_job_files"
     __table_args__ = (
         Index("ix_device_job_files_device_state", "device_id", "state"),

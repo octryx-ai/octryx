@@ -1,9 +1,4 @@
-"""Approval resolution orchestration.
-
-A decision is a compare-and-set on the approval row (``pending`` -> decided): of two
-concurrent deciders (two routes, a route and the timeout sweeper, two sweeps) exactly
-one wins, and only the winner applies the side effects and may resume the turn.
-"""
+"""Approval resolution orchestration."""
 
 from __future__ import annotations
 
@@ -27,11 +22,6 @@ REFUSAL_SELF_APPROVAL_NOT_ALLOWED = "self_approval_not_allowed"
 
 
 async def _require_four_eyes(db: AsyncSession, approval: Approval, *, resolved_by: str | None, status: str) -> None:
-    """A governance review (no session, no task run) is approved under the platform approval rule on every path.
-
-    The admin Approvals page therefore cannot consume a review
-    by its own requester under four-eyes. Rejecting and time limits are not approvals and are never refused here.
-    """
     if status != "approved" or resolved_by is None or approval.session_id or approval.task_run_id:
         return
     from ..governance.four_eyes import FOUR_EYES_PASSING_STATUSES, decide_four_eyes
@@ -72,7 +62,6 @@ def _append_grants(session: Session, grants_to_add: list[dict]) -> None:
 async def _apply_approved(
     db: AsyncSession, session: Session, approval: Approval, *, resolved_by: str | None
 ) -> None:
-    """An approved change preview becomes a session grant, a confirmed write plan the request's plan."""
     set_session_run_state(session, RUN_STATUS_COMPLETED, "approval_approved")
     # A confirmed chat write plan becomes the request's plan (chat_write_plan).
     await activate_confirmed_plan(db, session=session, approval_id=approval.id, confirmed_by=resolved_by)
@@ -117,10 +106,7 @@ async def decide_pending_approval(
     status: str,
     reason: str | None = None,
 ) -> Approval | None:
-    """Decide ``approval_id`` only if it is still pending; ``None`` when it is unknown or already decided.
-
-    ``resolved_by`` is ``None`` for a decision nobody made (a gate timeout).
-    """
+    """Decide ``approval_id`` only if it is still pending; ``None`` when it is unknown or already decided."""
     approval = (await db.execute(select(Approval).where(Approval.id == approval_id))).scalar_one_or_none()
     if approval is None or approval.status != "pending":
         return None

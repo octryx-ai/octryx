@@ -25,8 +25,6 @@ export const DEFAULT_RUNTIME_SETTINGS: AdminRuntimeSettings = {
   llm_security_analyzer_deny_threshold: 80,
   security_analyzer_chain: [],
   security_analyzer_options: [],
-  default_completion_tokens: 4096,
-  extended_completion_tokens: 8192,
   approx_chars_per_token: 4,
   trace_max_string: 16000,
   trace_max_list_items: 200,
@@ -45,11 +43,6 @@ export const DEFAULT_RUNTIME_SETTINGS: AdminRuntimeSettings = {
     project_session_cost_limit_usd: null,
     project_request_cost_limit_usd: null,
   },
-  llm_cache_ttl_seconds: 300,
-  llm_cache_tools_ttl_seconds: 120,
-  llm_tool_planner_trace_call_enabled: false,
-  llm_tool_planner_max_tokens: 900,
-  llm_tool_planner_timeout_seconds: 30,
 };
 
 export function createDefaultGithubConnectorRepoForm() {

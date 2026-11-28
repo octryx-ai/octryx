@@ -1,13 +1,4 @@
-"""A manual connection test of a *saved* connection is also a health check.
-
-So a card never says "Unhealthy" next to a test that just said "Connected": a test of the saved
-connection records its outcome as that connector's health (global or per Workspace), exactly like the refresh
-(``connector_health/service.py``): status, response time and the fixed summary. Only a test of the
-*global* connection also feeds the per-connector circuit breaker; a Workspace test records its own
-health only, so one Workspace's connection never opens the breaker for every Workspace. The
-breaker is keyed per connection scope and never fed by ``no_test`` (``connector_health/breaker_scope.py``).
-A test with typed, unsaved values is never recorded: it says nothing about what is saved.
-"""
+"""A manual connection test of a *saved* connection is also a health check."""
 
 from __future__ import annotations
 
@@ -31,7 +22,6 @@ async def run_recorded_connection_test(
     config: dict[str, Any],
     run_connection_test: RunConnectionTest,
 ) -> dict[str, Any]:
-    """Run the test on the saved, resolved ``config``, record it as health, and return the result."""
     started = time.perf_counter()
     result = await run_connection_test(tool_name, config)
     duration_ms = int((time.perf_counter() - started) * 1000)

@@ -19,7 +19,7 @@ MAX_UPLOAD_BYTES = 512 * 1024 * 1024
 
 
 class OfficeTemplateUploadTooLargeError(ValueError):
-    """Raised when an uploaded Office template exceeds the allowed size."""
+    pass
 
 
 def sanitize_uploaded_file_name(name: str, *, default_name: str = "template.bin") -> str:

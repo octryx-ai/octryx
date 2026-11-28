@@ -1,15 +1,4 @@
-"""The connection a platform service uses outside a tool call: the tool router's plan, not the raw config.
-
-Lookups, write-backs, health checks and other platform services that talk to a connector themselves must not read
-``jira_url`` / ``bitbucket_url`` / ``servicenow_url`` ... from the merged project config: in a Workspace served by
-named connections those keys belong to the (possibly empty) default entry. They ask here instead, with the binding
-keys their request concerns (a Jira project, a ServiceNow table, a ``project/repo``) and, where they know it, an
-explicit connection id. The answer is exactly the plan ``tool_routing.routed_execute`` would run
-(``route_planner.plan_connector``): a bound key → its connection, an unbound key → the default if its allowlist allows
-it, no key → the default while it is usable, else the one usable candidate (several: ``connection_ambiguous``);
-every refusal is raised as :class:`ConnectionRefusalError` with the router's code. Only the chosen connection's secrets
-are resolved.
-"""
+"""The connection a platform service uses outside a tool call: the tool router's plan, not the raw config."""
 
 from __future__ import annotations
 
@@ -30,8 +19,6 @@ REASON_CREDENTIAL_UNAVAILABLE = "named_connection_credential_unavailable"
 
 
 class ConnectionRefusalError(Exception):
-    """The router refused the connector use; ``code`` is the router's fixed reason, ``details`` its payload."""
-
     def __init__(self, details: dict[str, Any]) -> None:
         super().__init__(str(details.get("error") or details.get("code") or "connection refused"))
         self.code = str(details.get("code") or "")
@@ -40,8 +27,6 @@ class ConnectionRefusalError(Exception):
 
 @dataclass(frozen=True, slots=True)
 class ServiceConnection:
-    """The effective config of the chosen connection (secrets resolved) and its identity (``default`` or an id)."""
-
     connection_id: str
     name: str
     config: dict[str, Any] = field(repr=False)
@@ -78,7 +63,6 @@ async def service_connection_config(
     explicit_connection: str | None = None,
     base: dict[str, Any] | None = None,
 ) -> ServiceConnection:
-    """The connection serving ``connector`` for ``keys`` in the Workspace (raises :class:`ConnectionRefusalError`)."""
     merged = await _base(db, project_id, base)
     plan = _planned(connector, merged, keys, explicit_connection)
     if plan.passthrough:
@@ -100,9 +84,6 @@ async def service_connection_config(
 
 def planned_tool_config(tool_name: str, params: dict[str, Any] | None, base: dict[str, Any] | None, *,
                         agent_tool: bool = True) -> dict[str, Any]:
-    """The non-secret config the tool router would run ``tool_name`` with these ``params`` on (``{}`` if refused).
-    ``agent_tool=False``: the platform's own use (a workflow step), which a connection's agent tools level does not
-    limit."""
     merged = base if isinstance(base, dict) else {}
     plan = plan_route(tool_name, params, merged, agent_tool=agent_tool)
     if plan.refusal is not None or plan.fan_out or len(plan.targets) > 1:
@@ -113,8 +94,6 @@ def planned_tool_config(tool_name: str, params: dict[str, Any] | None, base: dic
 
 
 def usable_connection_ids(connector: str, base: dict[str, Any] | None) -> list[str]:
-    """The connections that could serve a use without a key, in the router's order: the Workspace's named
-    connections, then the global ones, then the default entry when it has a target (``default``)."""
     descriptor = descriptor_of(connector)
     merged = base if isinstance(base, dict) else {}
     if descriptor is None:

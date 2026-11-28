@@ -1,9 +1,4 @@
-"""The gateway body carries a thinking level as LiteLLM's ``reasoning_effort`` (live S3.2 follow-up).
-
-Live: every Opus 5.5 turn with thinking "light" got HTTP 400 "reasoning: Extra inputs are not permitted" from Bedrock
-(the Responses-style ``reasoning`` object passed through LiteLLM unchanged) and silently fell back to Haiku. LiteLLM's
-chat-completions parameter is ``reasoning_effort``; without a thinking level nothing is sent.
-"""
+"""The gateway body carries a thinking level as LiteLLM's ``reasoning_effort`` (live S3.2 follow-up)."""
 
 from __future__ import annotations
 
@@ -14,7 +9,7 @@ import pytest
 
 from tests.model_gateway.conftest import ALIAS, DEFAULT_CATALOG, MODEL_GROUP, FakeLiteLLMGateway, gateway_config
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
 MESSAGES = [{"role": "user", "content": "hi"}]

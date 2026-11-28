@@ -40,18 +40,6 @@ export const AUTOMATION_TAB_GROUP: AdminTabGroup = {
       ),
     },
     {
-      id: "scenarios",
-      label: "Scenarios",
-      icon: (
-        <svg viewBox="0 0 24 24">
-          <path d="M4 6h16" />
-          <path d="M4 12h10" />
-          <path d="M4 18h16" />
-          <circle cx="17" cy="12" r="3" />
-        </svg>
-      ),
-    },
-    {
       id: "workspaceKnowledge",
       label: "Workspace Knowledge",
       icon: (

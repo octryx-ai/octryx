@@ -1,29 +1,4 @@
-"""The one rule for configuring a Knowledge source, whatever its type.
-
-A Workspace owner or admin configures every source type of Knowledge › Sources (Confluence, Jira, ServiceNow,
-Kubernetes, Git/Bitbucket, Custom REST) in their own Workspace under the same rules, checked here and nowhere else.
-``service.configure_connector`` (create and update) and ``rest_preview.sample_rest_source`` (the dry run) both call
-:func:`enforce_source_rules` before anything is read or saved:
-
-- **only a connection granted to this Workspace**: a named connection the source pins or links must be available in
-  the Workspace (``named_connections.grants.grant_for``: its own, one shared with it, or ``all``); a Custom REST
-  definition must have a connection that serves the Workspace (its own or the platform's, exactly what a run resolves)
-  and its list operation a grant for this Workspace. A connection of another Workspace or one the platform keeps to
-  itself is refused 403 ``source_connection_not_granted``. This holds for a platform admin too: release the
-  connection to the Workspace first, so a source never reads with an account its Workspace was not given;
-- **visibility**: a source follows its own ACL, and a Custom REST source defaults to ``restricted``
-  (``rest_config``). Widening it to ``workspace`` shows every item to every member past the grants, so only a platform
-  admin may (403 ``rest_source_visibility_admin_only``: the code the Knowledge UI already maps);
-- the ACL enforce switch is platform admin only (``api/routes/knowledge_source_settings``), and another Workspace is
-  the one 404 of ``access/authorization`` before any of this runs.
-
-Why one place: a check in a single route leaves the other source types unchecked, and an unreleased named
-connection would surface only as a 409 run-state reason (``connection_not_available``) or not at all until the
-first run. Owners configure every type with the same rules, so the rule is kind-agnostic.
-
-Unknown ids (no such connection or definition) are left to the existing configuration refusals (409
-``connection_pin_unknown``, ``custom_rest_definition_unavailable``), which say what to fix.
-"""
+"""The one rule for configuring a Knowledge source, whatever its type, checked here and nowhere else."""
 
 from __future__ import annotations
 
@@ -46,9 +21,6 @@ VISIBILITY_WORKSPACE = "workspace"
 
 
 class SourceRuleRefusedError(Exception):
-    """A source configuration the caller may not make here: a fixed code, the field and a sentence (403), plus
-    ``extra`` (the refused connection's ``connection_id`` / ``connection_name`` where the caller may see them)."""
-
     def __init__(self, code: str, field: str, message: str, extra: dict[str, str] | None = None) -> None:
         super().__init__(code)
         self.code, self.field, self.message = code, field, message
@@ -59,11 +31,7 @@ class SourceRuleRefusedError(Exception):
 
 
 def _connection_facts(row: Any, *, admin: bool, project_id: str) -> dict[str, str]:
-    """What the refusal may say about the connection, so the UI links Admin › Connections.
-
-    A platform admin sees every connection: id and name. Anyone else gets no id (the connection is not released to
-    their Workspace, so it is not theirs to open), and the name only for a platform connection; another Workspace's
-    connection stays unnamed (tenant visibility goes downward only)."""
+    # Visibility goes downward only: no id unless the connection is released here, another Workspace's stays unnamed.
     if row is None:
         return {}
     if admin:
@@ -81,7 +49,6 @@ def _not_granted(field: str, facts: dict[str, str] | None = None) -> SourceRuleR
 
 
 def _named_connection_id(config: ConnectorConfig) -> tuple[str, str] | None:
-    """The named connection a source reads with and the field that named it; ``default`` is the Workspace's own."""
     if config.connection_id:
         return config.connection_id, "connection_id"
     pin = (config.scope or {}).get("connection_id")
@@ -101,7 +68,6 @@ async def _require_named_grant(db: AsyncSession, project_id: str, config: Connec
 
 
 async def _require_rest_grant(db: AsyncSession, project_id: str, scope: dict[str, Any], admin: bool) -> None:
-    """A Custom REST source's "connection": a REST connection serving this Workspace and a grant of its list read."""
     key = scope.get("definition")
     if not isinstance(key, str) or not key:
         return
@@ -123,7 +89,6 @@ async def _require_admin_for_workspace_visibility(scope: dict[str, Any], admin: 
 
 
 async def enforce_source_rules(db: AsyncSession, *, project_id: str, config: ConnectorConfig, actor_id: str) -> None:
-    """Refuse (:class:`SourceRuleRefusedError`) a source configuration the module doc's rule does not allow."""
     scope = dict(config.scope or {})
     admin = await is_global_admin(db, actor_id)
     await _require_named_grant(db, project_id, config, admin)

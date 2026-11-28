@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel, ConfigDict
 
 from ..core.workspace_ref import OptionalWorkspaceId
@@ -16,6 +18,7 @@ class ProviderCreate(BaseModel):
     aws_region: str | None = None
     aws_role_arn: str | None = None
     auth_mode: str | None = None
+    config_json: dict[str, Any] | None = None
     is_global: bool = False
     project_id: OptionalWorkspaceId = None
 

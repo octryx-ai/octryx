@@ -1,9 +1,5 @@
-"""Sample runs: one real run exported to a bundle and imported into the demo, shown with a "Sample run" badge.
-
-The run here is shaped like one from the shared stack: a team-delivery run with a child run and a PR review bot run,
-a chat session with a sub-agent session, messages, tool calls, turn traces with summaries, seat usage, the seat's
-device job with its events, events, a decision and a hand-off.
-"""
+"""Sample runs: one real run, shaped like one from the shared stack, exported to a bundle and imported into
+the demo with a "Sample run" badge."""
 
 from __future__ import annotations
 
@@ -64,7 +60,6 @@ async def _user(db, username: str, **extra) -> User:
 
 
 async def _workspace(db, name: str, owner: User, key: str = "OCX-1") -> tuple[Project, WorkItem]:
-    """A Workspace with its work item ``key`` (each Workspace its own tracker instance, as on two stacks)."""
     project = Project(id=_id(), name=name)
     db.add(project)
     await db.flush()
@@ -76,7 +71,6 @@ async def _workspace(db, name: str, owner: User, key: str = "OCX-1") -> tuple[Pr
 
 
 async def _source_run(db) -> dict:
-    """A finished run shaped like the shared stack's: everything the export takes along."""
     person = await _user(db, PERSON["username"], email=PERSON["email"], display_name=PERSON["display_name"])
     bot = await _user(db, "pr-review-bot", account_type="bot")
     project, item = await _workspace(db, "Source Workspace", person)
@@ -202,7 +196,7 @@ async def test_the_export_takes_the_run_its_children_its_review_and_what_hangs_o
 async def test_the_export_carries_no_person_no_home_folder_no_prompt_and_no_stack_url(db):
     _source, bundle = await _bundle(db)
     text = run_bundle.dumps(bundle)
-    for word in ("jane", "Jane", "Roe", "corp.example", "/Users/", "24264", "24260", "the whole prompt",
+    for word in ("jane", "Jane", "Roe", "corp.example", "/Users/", "127.0.0.1:24264", "localhost:24260", "the whole prompt",
                  "lab-mac-07", "/srv/agents", "/work/demo-shop", "gsk-1", "grant-1", "fernet:", "/opt/launch",
                  "hook_key_enc", "gateway_session_key", "oauth_grant_id", "launcher_state_root"):
         assert word not in text, word
@@ -239,10 +233,10 @@ def test_the_check_refuses_a_secret_and_a_too_big_bundle():
 def test_the_import_refuses_outside_the_demo(monkeypatch):
     monkeypatch.delenv("OCTRYX_DEMO", raising=False)
     with pytest.raises(SystemExit, match="outside the demo"):
-        run_bundle.require_demo()
+        run_bundle.require_demo("import")
     monkeypatch.setenv("OCTRYX_DEMO", "yes")
     with pytest.raises(SystemExit, match="outside the demo"):
-        run_bundle.require_demo()
+        run_bundle.require_demo("import")
 
 
 def test_the_import_refuses_a_production_runtime(monkeypatch):
@@ -251,15 +245,33 @@ def test_the_import_refuses_a_production_runtime(monkeypatch):
     monkeypatch.setenv("OCTRYX_DEMO", "1")
     monkeypatch.setattr(get_settings(), "runtime_profile", "production")
     with pytest.raises(SystemExit, match="runtime profile 'production'"):
-        run_bundle.require_demo()
+        run_bundle.require_demo("import")
     monkeypatch.setattr(get_settings(), "runtime_profile", "staging")
-    run_bundle.require_demo()
+    run_bundle.require_demo("import")
 
 
 async def test_the_cli_import_refuses_before_reading_anything(monkeypatch, tmp_path):
     monkeypatch.delenv("OCTRYX_DEMO", raising=False)
     with pytest.raises(SystemExit, match="outside the demo"):
         run_bundle.main(["import", str(tmp_path / "missing.json")])
+
+
+async def test_the_export_refuses_outside_the_demo_before_opening_its_maintenance_session(monkeypatch):
+    from app.config import get_settings
+    from app.services.data_access import viewer as viewer_module
+
+    def opened(*_args, **_kwargs):
+        raise AssertionError("no platform_maintenance session outside the demo")
+
+    monkeypatch.setattr(viewer_module, "platform_maintenance", opened)
+    monkeypatch.setattr("app.services.data_access.platform_maintenance", opened)
+    monkeypatch.delenv("OCTRYX_DEMO", raising=False)
+    with pytest.raises(SystemExit, match="refusing to export a sample run outside the demo"):
+        await run_bundle.export(_id())
+    monkeypatch.setenv("OCTRYX_DEMO", "1")
+    monkeypatch.setattr(get_settings(), "runtime_profile", "production")
+    with pytest.raises(SystemExit, match="refusing to export a sample run in the runtime profile 'production'"):
+        await run_bundle.export(_id())
 
 
 # ---- import ----------------------------------------------------------------------------------------------------------
@@ -450,7 +462,6 @@ def test_the_shipped_bundle_passes_the_check():
 @pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
 async def test_the_shipped_bundle_imports_onto_the_demo_shop_with_its_pull_request(db, auth_user, demo_switch,
                                                                                   tmp_path):
-    """The recorded run lands on OCX-2 of a fresh demo: its pull request applies to the seed's Demo Shop files."""
     seed = run_bundle._load_module(BACKEND.parent / "deployment" / "demo" / "seed_demo.py", "shipped_seed_demo")
     server, url = _serve(tmp_path / "git")
     try:
@@ -488,6 +499,25 @@ async def test_the_shipped_bundle_imports_onto_the_demo_shop_with_its_pull_reque
         assert "reviewed" in page and "<script" not in page
         recorded = {row["id"] for row in json.loads(SHIPPED.read_text(encoding="utf-8"))["tables"]["workflow_runs"]}
         assert not any(old in page for old in recorded) and new in page  # the PR text names the demo's runs
+    finally:
+        server.shutdown()
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed")
+async def test_the_seeded_sample_leaves_no_open_pull_request_on_its_work_item(db, auth_user, demo_switch, tmp_path):
+    from app.models.runtime.secure_work import WorkPullRequest
+
+    seed = run_bundle._load_module(BACKEND.parent / "deployment" / "demo" / "seed_demo.py", "closed_seed_demo")
+    server, url = _serve(tmp_path / "git")
+    try:
+        run_bundle._http("POST", f"{url}/_fake/repos", {"owner": "demo", "repo": "demo-shop", "files": seed.files()})
+        await _workspace(db, "Demo Shop", auth_user, key="OCX-2")
+        bundle = seed.closed_sample(json.loads(SHIPPED.read_text(encoding="utf-8")))
+        new = await run_bundle.import_bundle(bundle, workspace="Demo Shop", github=url, session_factory=_factory(db))
+        pulls = run_bundle._http("GET", f"{url}/_fake/pulls")
+        assert [(pull["number"], pull["state"]) for pull in pulls] == [(1, "closed")]
+        assert (await db.get(WorkflowRun, new)).pull_request["state"] == "closed"
+        assert [row.status for row in (await db.execute(select(WorkPullRequest))).scalars()] == ["closed"]
     finally:
         server.shutdown()
 

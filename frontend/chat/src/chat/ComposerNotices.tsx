@@ -23,10 +23,7 @@ function ComposerNotice({ tone, label, text, action }: ComposerNoticeProps) {
   );
 }
 
-/**
- * The person's roles in the chat's Workspace (roles contract §4/§5): with role-based tools on and no role, a calm
- * attention banner (the chat still answers, without tools); while a trusted role applies, a small persistent line.
- */
+/** With role-based tools on and no role the chat still answers, without tools. */
 function RoleNotice({ notice }: { notice: RoleChatNotice }) {
   if (notice.kind === "empty") {
     return (
@@ -49,8 +46,6 @@ function RoleNotice({ notice }: { notice: RoleChatNotice }) {
   );
 }
 
-// The route (workflow and why) is not shown above the composer: it is under "Run details" in the chat
-// header.
 export function ComposerNotices({
   editingMessage,
   onCancelEditMessage,
@@ -68,11 +63,8 @@ export function ComposerNotices({
   setGenerateTaskResult: (
     result: { taskName: string; taskUrl: string } | null,
   ) => void;
-  // Persistent while composing: a requested agent this chat's next message does not use.
   agentNotice?: { text: string; href: string } | null;
-  // Persistent while the chat's Workspace applies role-based tools (roles contract §4/§5).
   roleNotice?: RoleChatNotice | null;
-  // The write plan confirmed for this request: a quiet line while it is active.
   planNotice?: string | null;
 }) {
   const hasNotice =

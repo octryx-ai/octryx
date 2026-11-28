@@ -1,9 +1,4 @@
-"""What one turn produced, read for the check library: :class:`TurnEvidence` from tool history.
-
-The same reader serves platform chat at turn end (the loop's ``turn_tool_history``), octryx-claude at
-Stop (the gateway's recorded tool events) and "Run checks against a past session" (the stored tool
-calls). An artifact is a successful call of a tool that produces one (closed table below).
-"""
+"""What one turn produced, read for the check library: :class:`TurnEvidence` from tool history."""
 
 from __future__ import annotations
 
@@ -26,19 +21,11 @@ _FAILED_STATUSES = frozenset({"error", "failed", "denied", "blocked", "refused",
 FULL_RESULT_KEY = "full_result"
 EVIDENCE_TOOLS = frozenset({"run_test_suite", "bash"})
 MISSING_FULL_RESULT = "full_result_missing"
-# Markers of a model-facing copy (``_loop_tools._history_result_for_prompt``, ``tool_result_compression``).
+# Markers of a model-facing copy of a result (a stored artifact summary, a capped copy), not the full result.
 _COMPACTED_MARKERS = ("_prompt_result_source", "_hard_capped", "_artifact_kind")
 
 
-def evidence_history_fields(tool_name: str, full_result: Any) -> dict[str, Any]:
-    """What a turn's tool history entry carries besides its compacted result: the full result of an evidence tool."""
-    if str(tool_name or "") in EVIDENCE_TOOLS and isinstance(full_result, Mapping):
-        return {FULL_RESULT_KEY: dict(full_result)}
-    return {}
-
-
 def _evidence_result(name: str, entry: Mapping[str, Any]) -> Any:
-    """The result the checks judge: the full result; for an evidence tool never a compacted copy (it is missing)."""
     full = entry.get(FULL_RESULT_KEY)
     if isinstance(full, Mapping):
         return full

@@ -1,12 +1,4 @@
-"""Bulk archive / delete / restore of chat threads.
-
-The caller resolves the target threads under the sidebar's ownership/visibility filter; this module
-applies one action to them and reports exactly what happened: ``affected_ids`` and ``skipped`` with a
-closed reason. A failing thread is skipped and reported, the rest is still processed. Running threads
-are skipped by ``archive`` (stop them first) and stopped before ``delete``. Sub-chats follow their
-parent. Each thread commits on its own, so one failure never undoes the others; one audit row per call
-(ids and counts, never titles).
-"""
+"""Bulk archive, delete and restore of chat threads."""
 
 from __future__ import annotations
 

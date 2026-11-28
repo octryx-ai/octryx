@@ -1,5 +1,4 @@
 import { boundedAdminErrorText } from "../components/providerTab/litellmGatewayContract";
-import { DEFAULT_PROVIDER_CREATE_DRIVER } from "../components/providerTab/providerCreateChoices";
 import type { Dispatch, SetStateAction } from "react";
 import type { AdminProvider } from "../types/adminPanelTypes.usersProviders";
 import type { GatewayCreatePayload, GatewayUpdatePayload } from "../components/providerTab/litellmGatewayTypes";
@@ -28,16 +27,12 @@ type LiteLlmGatewayActionsArgs = {
   readJson: ReadJsonFn;
   setProviders: Dispatch<SetStateAction<AdminProvider[]>>;
   setShowAddProvider: Dispatch<SetStateAction<boolean>>;
-  setNewProviderDriver: Dispatch<SetStateAction<string>>;
-  loadSetupGuide: () => Promise<void>;
 };
 
 export function createLiteLlmGatewayActions({
   readJson,
   setProviders,
   setShowAddProvider,
-  setNewProviderDriver,
-  loadSetupGuide,
 }: LiteLlmGatewayActionsArgs) {
   const handleCreateLiteLlmGatewayProvider = async (
     payload: GatewayCreatePayload,
@@ -48,9 +43,7 @@ export function createLiteLlmGatewayActions({
         body: JSON.stringify(payload),
       });
       setProviders((prev) => [...prev, created]);
-      void loadSetupGuide();
       setShowAddProvider(false);
-      setNewProviderDriver(DEFAULT_PROVIDER_CREATE_DRIVER);
       return { ok: true, error: null };
     } catch (err) {
       return {

@@ -1,18 +1,5 @@
-"""``jira_release_status`` on the Knowledge MCP: the chat's live release status, with the chat's Jira gate.
-
-In the chat, ``jira_release_status`` is a ``jira`` connector tool: it is visible and executable only
-where the Workspace activates Jira (``tools/visibility.connector_activation_decision``). An MCP call has
-no turn configuration, so the gate is re-applied here on the Workspace row itself:
-
-- an **explicit deactivation** of Jira on the Workspace (``disabled_connectors``, ``jira_enabled:
-  false``, ...) is ``denied`` with reason ``connector_not_active``, before any Jira call;
-- otherwise the tool runs, and the service requires the Workspace's own Jira connection and the
-  connector's explicit product mapping, so a Workspace without Jira configured is
-  ``needs_configuration`` (activation by configuration, as in the chat).
-
-The tool stays read-only: the service reads Jira through ``http.SourceReader``, which only sends
-``GET`` and never follows redirects.
-"""
+"""``jira_release_status`` on the Knowledge MCP: the chat's live release status, with the chat's Jira gate. The gate is
+re-applied on the Workspace row: an MCP call has no turn configuration."""
 
 from __future__ import annotations
 

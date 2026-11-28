@@ -1,7 +1,4 @@
-"""MASH incremental sync route.
-
-GET /mash/v1/sync/changes — sequence-based change feed for platforms.
-"""
+"""MASH incremental sync route."""
 
 from __future__ import annotations
 
@@ -26,11 +23,7 @@ async def sync_changes(
     token: dict[str, Any] = Depends(require_mash_token),
     db: AsyncSession = Depends(get_db),
 ):
-    """Return changes since a given sequence number.
-
-    Platforms call this periodically (or after a WebSocket notification)
-    to pull policy updates incrementally.
-    """
+    """Return changes since a given sequence number."""
     result = await get_changes_since(
         db,
         since_sequence=since_sequence,

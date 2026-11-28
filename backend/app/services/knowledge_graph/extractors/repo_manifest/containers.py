@@ -30,7 +30,6 @@ async def _ingest_containers(
     db: AsyncSession, *, project_id: str | None, record: dict[str, Any], repo_node: Any, repository: str,
     source_ref: str,
 ) -> tuple[int, int, list[dict[str, Any]]]:
-    """``(nodes, edges, build claims)``: base-image nodes + a superseding build claim per container."""
     nodes = edges = 0
     build_claims: list[dict[str, Any]] = []
     seen_images: set[str] = set()
@@ -62,7 +61,6 @@ async def _ingest_containers(
 
 
 def _pipeline_claims(record: dict[str, Any], source_ref: str) -> list[dict[str, Any]]:
-    """Superseding CI pipeline claims listing the real stages."""
     pipeline_claims: list[dict[str, Any]] = []
     for pipeline in record.get("pipelines") or []:
         if not isinstance(pipeline, dict):

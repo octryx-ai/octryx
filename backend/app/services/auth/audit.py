@@ -22,7 +22,6 @@ def sanitize_auth_audit_details(details: dict[str, Any] | None) -> dict[str, Any
 
 
 def client_ip_from_request(request: Request | None) -> str | None:
-    """Address to attribute an auth event to, per the trusted-proxy boundary."""
     return effective_client_address(request)
 
 

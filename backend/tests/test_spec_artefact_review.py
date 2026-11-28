@@ -17,8 +17,11 @@ from app.services.workflow_runs.review import artefact_evidence, spec_evidence
 from app.services.workflow_runs.review.artefact_contract import answer_contract
 from app.services.workflow_runs.review.artefact_gate import gate_record
 from app.services.workflow_runs.review.runner import run_due_reviews
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_artefact_review_support import CHANGES, PASS, definition, prepared
 from tests.workflow_run_review_support import ScriptedReviewer
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 class SpecificationUnavailableError(Exception):

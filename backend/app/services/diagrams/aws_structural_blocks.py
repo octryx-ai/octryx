@@ -194,9 +194,6 @@ def _inter_vpc_strip(
     y: int,
     min_width: int,
 ) -> tuple[list[str], int, int, list[str]]:
-    """Peering connections and transit gateways span several VPCs; they render
-    in their own strip with an explicit edge to every VPC container they
-    connect (the container cell ids are the VPC refs)."""
     refs = sorted(inter_vpc_refs)
     columns = max(3, min(8, len(refs)))
     rows = math.ceil(len(refs) / columns)

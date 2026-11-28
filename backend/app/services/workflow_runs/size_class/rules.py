@@ -1,16 +1,10 @@
-"""The classification rules of a workflow's ``size_classes`` block, evaluated as data.
-
-A rule is ``{"class": <name>, "when": {<condition>: <value>, ...}}``; every condition of a rule must hold, an empty
-``when`` always holds, and the first rule that holds decides. The engine knows only these generic conditions; which
-issue types, labels, words or counts make a class is the workflow owner's ("no hardcoding").
-"""
+"""The classification rules of a workflow's ``size_classes`` block, evaluated as data."""
 
 from __future__ import annotations
 
 import re
 from typing import Any
 
-#: A bulleted line of the description (an acceptance criterion, usually).
 _BULLET = re.compile(r"^\s*[-*]\s+\S", re.MULTILINE)
 CONDITIONS = frozenset({"issue_type_in", "labels_any", "labels_none", "components_any", "text_matches",
                         "text_not_matches", "criteria_min", "criteria_max", "labels_count_max",

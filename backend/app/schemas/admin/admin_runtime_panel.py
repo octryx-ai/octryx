@@ -7,7 +7,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from ...runtime_limits import (
     MAX_APPROX_CHARS_PER_TOKEN,
     MAX_COMPLETION_TOKENS,
-    MAX_LLM_CACHE_TTL_SECONDS,
     MAX_RUNTIME_REQUEST_TIMEOUT_SECONDS,
     MAX_SAVED_SCRIPT_MAX_OUTPUT_CHARS,
     MAX_TRACE_MAX_DICT_ITEMS,
@@ -15,7 +14,6 @@ from ...runtime_limits import (
     MAX_TRACE_MAX_STRING,
     MIN_APPROX_CHARS_PER_TOKEN,
     MIN_COMPLETION_TOKENS,
-    MIN_LLM_CACHE_TTL_SECONDS,
     MIN_RUNTIME_REQUEST_TIMEOUT_SECONDS,
     MIN_SAVED_SCRIPT_MAX_OUTPUT_CHARS,
     MIN_TRACE_MAX_DICT_ITEMS,
@@ -37,8 +35,8 @@ class ReorderRequest(BaseModel):
 
 
 class RuntimeSettingsUpdateRequest(BaseModel):
-    # Undeclared keys are kept (``extra="allow"``) so the service sees the whole payload. Use
-    # ``to_update_payload()`` to build the service payload.
+    # Undeclared keys are kept (``extra="allow"``) so the service refuses unknown ones by name
+    # (``unknown_runtime_settings``). Use ``to_update_payload()`` to build the service payload.
     model_config = ConfigDict(extra="allow")
 
     max_output_tokens_default: int | None = Field(default=None, ge=MIN_COMPLETION_TOKENS, le=MAX_COMPLETION_TOKENS)
@@ -68,18 +66,7 @@ class RuntimeSettingsUpdateRequest(BaseModel):
     llm_security_analyzer_timeout_seconds: int | None = Field(default=None, ge=1, le=60)
     llm_security_analyzer_review_threshold: int | None = Field(default=None, ge=0, le=100)
     llm_security_analyzer_deny_threshold: int | None = Field(default=None, ge=0, le=100)
-    stuck_loop_tool_repeat_threshold: int | None = Field(default=None, ge=3, le=12)
-    stuck_loop_blocked_tool_threshold: int | None = Field(default=None, ge=1, le=6)
-    stuck_loop_repeated_jira_threshold: int | None = Field(default=None, ge=2, le=10)
-    stuck_loop_no_tool_duplicate_threshold: int | None = Field(default=None, ge=2, le=6)
-    stuck_loop_summary_repeat_threshold: int | None = Field(default=None, ge=1, le=4)
-    stuck_loop_no_tool_similarity_threshold: float | None = Field(default=None, ge=0.5, le=0.99)
-    elastic_iteration_enabled: bool | None = None
-    elastic_iteration_max_bonus: int | None = Field(default=None, ge=0, le=12)
-    elastic_iteration_unique_tool_threshold: int | None = Field(default=None, ge=1, le=6)
     security_analyzer_chain: list[str] | None = None
-    default_completion_tokens: int | None = Field(default=None, ge=MIN_COMPLETION_TOKENS, le=MAX_COMPLETION_TOKENS)
-    extended_completion_tokens: int | None = Field(default=None, ge=MIN_COMPLETION_TOKENS, le=MAX_COMPLETION_TOKENS)
     approx_chars_per_token: int | None = Field(
         default=None,
         ge=MIN_APPROX_CHARS_PER_TOKEN,
@@ -118,43 +105,8 @@ class RuntimeSettingsUpdateRequest(BaseModel):
     agent_request_cost_limit_usd: float | None = Field(default=None, ge=0.0, le=1_000_000.0)
     # Workspace scope only: the caps whose override is removed so the platform value applies again.
     inherit_cost_limits: list[Literal["agent_session_cost_limit_usd", "agent_request_cost_limit_usd"]] | None = None
-    llm_cache_ttl_seconds: int | None = Field(
-        default=None,
-        ge=MIN_LLM_CACHE_TTL_SECONDS,
-        le=MAX_LLM_CACHE_TTL_SECONDS,
-    )
-    llm_cache_tools_ttl_seconds: int | None = Field(
-        default=None,
-        ge=MIN_LLM_CACHE_TTL_SECONDS,
-        le=MAX_LLM_CACHE_TTL_SECONDS,
-    )
-    llm_tool_planner_trace_call_enabled: bool | None = None
-    llm_tool_planner_max_tokens: int | None = Field(default=None, ge=128, le=MAX_COMPLETION_TOKENS)
-    llm_tool_planner_timeout_seconds: int | None = Field(
-        default=None,
-        ge=1,
-        le=MAX_RUNTIME_REQUEST_TIMEOUT_SECONDS,
-    )
 
     def to_update_payload(self) -> dict[str, Any]:
-        """Declared fields without nulls, plus every undeclared key verbatim (even a null one)."""
         return {**self.model_dump(exclude_none=True), **(self.model_extra or {})}
 
 
-class ContextBudgetProfileUpsertRequest(BaseModel):
-    id: str | None = None
-    name: str = Field(min_length=1)
-    trigger_pattern: str = Field(min_length=1)
-    base_budget: int = Field(ge=0)
-    tool_budget: int = Field(default=0, ge=0)
-    history_budget: int = Field(default=0, ge=0)
-    entity_budget: int = Field(default=0, ge=0)
-    memory_budget: int = Field(default=0, ge=0)
-    priority: int = 100
-    is_active: bool = True
-
-
-class ToolResultCompressorUpdateRequest(BaseModel):
-    strategy: str = Field(min_length=1)
-    config: dict[str, Any] = Field(default_factory=dict)
-    is_active: bool = True

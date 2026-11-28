@@ -1,8 +1,4 @@
-"""Explicit non-success outcomes of a governed agent run: ``failed``, ``needs_configuration``, ``denied``.
-
-A refusal carries a closed, narrow-charset code (never free text or provider errors) plus an optional short,
-already sanitized ``detail`` (``provider_failure.failure_detail``) and the cost the run spent so far.
-"""
+"""Explicit non-success outcomes of a governed agent run: ``failed``, ``needs_configuration``, ``denied``."""
 
 from __future__ import annotations
 
@@ -14,8 +10,6 @@ STATUS_DENIED = "denied"
 
 
 class RunRefusal(Exception):  # noqa: N818 - a control-flow outcome, not an error
-    """Ends the run with an explicit non-success result."""
-
     def __init__(
         self,
         status: str,

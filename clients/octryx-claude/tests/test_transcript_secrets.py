@@ -1,11 +1,3 @@
-"""The Mac's pass over full transcripts uses the platform's own rules.
-
-Two lines shape-only filters miss, an ``.env`` read with ``STRIPE_KEY=sk_live_…``
-and the ``{"password": …}`` output of ``aws secretsmanager get-secret-value``, never leave the Mac. They are redacted
-with their tool call in the same batch, in an earlier batch, and with no tool call at all. The command list stays
-the live progress's, and a missing rules file sends nothing.
-"""
-
 from __future__ import annotations
 
 import json

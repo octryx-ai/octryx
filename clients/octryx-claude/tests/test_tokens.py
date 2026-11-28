@@ -84,8 +84,6 @@ def test_missing_login_is_not_logged_in(state):
 
 
 def test_the_stop_replays_second_attempt_fetches_a_fresh_token(state, monkeypatch):
-    """The epic-delivery Stop replay retries once with OCTRYX_FORCE_TOKEN_REFRESH=1: the cached token is not reused
-    then."""
     from octryx_claude.tokens import FORCE_REFRESH_ENV
 
     def handler(request: httpx.Request) -> httpx.Response:

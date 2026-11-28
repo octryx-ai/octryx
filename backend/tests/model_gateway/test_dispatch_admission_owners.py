@@ -1,12 +1,4 @@
-"""Per-owner seams for propagated model admission.
-
-``test_dispatch_admission.py`` proves the boundary. This module proves that each
-owner's *own* seam behaves: it asks the boundary before building a client, it
-surfaces the refusal as its own explicit state instead of a swallowed provider
-error, and nothing dispatches. One focused test per owner category that has real
-seam logic; the remaining categories are covered by the boundary suite plus the
-structural gate in ``test_dispatch_owner_inventory.py``.
-"""
+"""Per-owner seams for propagated model admission."""
 
 from __future__ import annotations
 
@@ -26,9 +18,6 @@ from .conftest import ALIAS, gateway_runtime, granted_project_config
 
 async def _runtimes() -> list[dict[str, Any]]:
     return [gateway_runtime()]
-
-
-# --- knowledge graph extraction / summarization / keywords ------------------
 
 
 async def test_knowledge_graph_runtime_refuses_before_building_a_client(db: AsyncSession, monkeypatch):

@@ -1,7 +1,4 @@
-"""Word document views: ``text``, ``outline``, ``annotated``, ``stats``, ``forms``.
-
-The shapes are what the chat inspector renders (``elements``, ``headings``, ``Content``, ``fields``).
-"""
+"""Word document views: ``text``, ``outline``, ``annotated``, ``stats``, ``forms``."""
 
 from __future__ import annotations
 

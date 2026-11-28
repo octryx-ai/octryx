@@ -1,16 +1,4 @@
-"""What an open octryx-claude session is doing, for the person's phone (Octryx Mobile).
-
-The activity comes from the calls the session makes anyway:
-
-- a tool check: ``working``; one Claude Code asks the person about (``ask``): ``approval``;
-- a finished tool: ``working``;
-- the Stop hook (verification): ``waiting``, with the last answer and the session's title, which the client reads
-  from its transcript and redacts like the session digest before it sends them;
-- the launcher's heartbeat (every 30 s while Claude Code runs) keeps the session listed; a session that sends
-  none for :data:`OPEN_FOR` is no longer open (the terminal was closed without a clean end).
-
-:func:`open_sessions` lists the person's own open sessions; it never returns another user's row.
-"""
+"""What an open octryx-claude session is doing, for the person's phone (Octryx Mobile)."""
 
 from __future__ import annotations
 
@@ -43,7 +31,6 @@ def _text(value: object, limit: int) -> str | None:
 
 async def note_activity(db: AsyncSession, session_key: str, activity: str, *, title: object = None,
                         last_text: object = None) -> None:
-    """Record the session's activity (and, from the Stop hook, its title and last answer). Flushes."""
     if activity not in ACTIVITIES:
         return
     row = (await db.execute(select(AgentPresence).where(AgentPresence.session_key == session_key))).scalar_one_or_none()
@@ -58,7 +45,6 @@ async def note_activity(db: AsyncSession, session_key: str, activity: str, *, ti
 
 
 async def note_heartbeat(db: AsyncSession, session_key: str, *, user_id: str) -> None:
-    """The launcher is alive: move ``heartbeat_at`` of the caller's own open presence. Flushes."""
     row = (await db.execute(select(AgentPresence).where(AgentPresence.session_key == session_key))).scalar_one_or_none()
     if row is None or row.stopped_at is not None or row.user_id != user_id:
         return
@@ -71,8 +57,7 @@ def _iso(value: Any) -> str | None:
 
 
 async def session_engines(db: AsyncSession, session_ids: set[str]) -> dict[str, str]:
-    """The engine each gateway session's launcher registered (``sessions.metadata.engine``). The launcher sends
-    ``engine`` only for Codex (``cli_session.register``), so a session without one is Claude Code."""
+    # The launcher sends ``engine`` only for Codex, so a session without one is Claude Code.
     if not session_ids:
         return {}
     rows = (await db.execute(select(Session.id, Session.metadata_).where(Session.id.in_(session_ids)))).all()
@@ -84,7 +69,6 @@ async def session_engines(db: AsyncSession, session_ids: set[str]) -> dict[str, 
 
 
 async def open_sessions(db: AsyncSession, *, user_id: str) -> list[dict[str, Any]]:
-    """The person's own octryx-claude sessions that are open now (a heartbeat or a call within :data:`OPEN_FOR`)."""
     since = utc_now() - OPEN_FOR
     seen = func.coalesce(AgentPresence.heartbeat_at, AgentPresence.last_seen_at)
     rows = (

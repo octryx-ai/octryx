@@ -70,7 +70,6 @@ async def _serialize_user_catalog(db: AsyncSession) -> list[dict[str, Any]]:
 
 
 async def _user_role_assignments(db: AsyncSession, project_id: str) -> dict[str, list[str]]:
-    """Return {user_id: [role_name, ...]} for a project, ordered by role_name."""
     rows = await db.execute(
         select(ProjectUserRoleAssignment.user_id, ProjectUserRoleAssignment.role_name)
         .where(ProjectUserRoleAssignment.project_id == project_id)
@@ -83,7 +82,6 @@ async def _user_role_assignments(db: AsyncSession, project_id: str) -> dict[str,
 
 
 async def _group_role_assignments(db: AsyncSession, project_id: str) -> dict[str, list[str]]:
-    """Return {group_id: [role_name, ...]} for a project, ordered by role_name."""
     rows = await db.execute(
         select(ProjectGroupRoleAssignment.group_id, ProjectGroupRoleAssignment.role_name)
         .where(ProjectGroupRoleAssignment.project_id == project_id)

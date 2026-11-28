@@ -108,7 +108,7 @@ function renderScriptRun(event: ToolEvent, result: Record<string, unknown>, onPr
   );
 }
 
-// Octryx may compress large tool results into artifact storage.
+// Octryx may move large tool results into artifact storage.
 // The actual payload is then at result.preview.compact_result.<field>.
 function diagramFields(result: Record<string, unknown>) {
   const compact =

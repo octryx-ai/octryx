@@ -28,8 +28,6 @@ def test_no_build_after_the_grace_means_no_ci_and_a_real_state_never_does():
 
 
 async def test_actions_the_connection_cannot_read_count_as_no_ci_after_the_grace(monkeypatch):
-    """A connection that gets 403 on the Actions runs list must not leave the run waiting at the ci node for ever.
-    403/404 is "no Actions run readable", so the no-CI grace applies; other errors do not."""
     from app.services.workflow_runs.platform import ci
 
     async def fake_dispatch(_db, _run, _tool, _args, **_kwargs):

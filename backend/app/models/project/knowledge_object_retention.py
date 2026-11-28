@@ -1,32 +1,4 @@
-"""Operator-owned retention governance for Workspace Knowledge objects.
-
-The ingestion boundary writes an immutable content-addressed object *before* it
-commits the revision/outbox transaction, so a failed ledger insert can leave bytes
-behind that no governed reference points at. These tables are the governance record of
-finding those bytes (report-only: no product path deletes them):
-
-- ``KnowledgeObjectRetentionPolicy`` is the operator's explicit per-Workspace retention
-  record (mode, age bound, legal hold). An absent row means the report-only default.
-- ``KnowledgeObjectReconciliationRun`` is one comparison of the governed ledger
-  references against the object inventory: counts only, so a run record discloses nothing
-  about content.
-- ``KnowledgeObjectReconciliationFinding`` is one unreferenced object of one run: which
-  content address, how many bytes, how old.
-- ``KnowledgeObjectRetentionHold`` is the durable claim of an operator retention pass on one
-  object. It is unique on ``(project_id, object_key)``, and the ingestion path refuses to
-  register a revision for a held key.
-
-Boundaries encoded here:
-
-- every row is Workspace-scoped with a non-null ``project_id``; nothing is instance-global;
-- ``object_key`` and ``content_sha256`` are persisted because an operator needs the exact
-  address and content of an unreferenced object — they are **never** rendered into an
-  API payload, a tool result or a log line (see ``services/knowledge/retention``);
-- failure and state values are fixed tokens (``ALL_*`` below), never server or driver text,
-  so no S3 error body, endpoint or credential can be persisted;
-- no bucket, endpoint, region or credential column exists at all: where the bytes live is
-  deployment configuration owned by ``services/knowledge/objects``.
-"""
+"""Retention governance for Workspace Knowledge objects that no governed reference points at."""
 
 from __future__ import annotations
 
@@ -45,6 +17,7 @@ from sqlalchemy import (
 )
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 # Retention modes. ``report_only`` is the default *and* the value of an absent row.
@@ -57,10 +30,12 @@ DEFAULT_MIN_OBJECT_AGE_HOURS = 168
 MIN_OBJECT_AGE_HOURS = 1
 MAX_OBJECT_AGE_HOURS = 8760
 
-# Run lifecycle. A run either completed its bounded inventory comparison or failed.
+# Run lifecycle. A run completed its bounded inventory comparison, failed, or found the Workspace under legal hold,
+# in which case it inventories, reports and flags nothing.
 RUN_STATE_COMPLETED = "completed"
 RUN_STATE_FAILED = "failed"
-ALL_RUN_STATES = frozenset({RUN_STATE_COMPLETED, RUN_STATE_FAILED})
+RUN_STATE_LEGAL_HOLD = "legal_hold"
+ALL_RUN_STATES = frozenset({RUN_STATE_COMPLETED, RUN_STATE_FAILED, RUN_STATE_LEGAL_HOLD})
 
 # Finding lifecycle: ``observed`` by the newest run, ``superseded`` once a newer run replaced it.
 FINDING_STATE_OBSERVED = "observed"
@@ -91,12 +66,8 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class KnowledgeObjectRetentionPolicy(Base):
-    """The explicit, operator-owned retention record of one Workspace.
-
-    Absent means report-only. ``mode``, ``legal_hold`` and the bounds are recorded with the
-    operator who set them.
-    """
+class KnowledgeObjectRetentionPolicy(WorkspaceBound, Base):
+    """The explicit, operator-owned retention record of one Workspace. Absent means report-only."""
 
     __tablename__ = "knowledge_object_retention_policies"
     __table_args__ = (
@@ -116,14 +87,8 @@ class KnowledgeObjectRetentionPolicy(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
 
-class KnowledgeObjectReconciliationRun(Base):
-    """One bounded comparison of governed ledger references against the object inventory.
-
-    Counts only. ``inventory_truncated`` records that the bounded page budget was reached,
-    so a partial view is never mistaken for a complete one, and
-    ``unrecognized_object_count`` records keys under the Workspace prefix that do not match
-    the product's key derivation: they are counted, never named.
-    """
+class KnowledgeObjectReconciliationRun(WorkspaceBound, Base):
+    """One bounded comparison of governed ledger references against the object inventory (counts only)."""
 
     __tablename__ = "knowledge_object_reconciliation_runs"
     __table_args__ = (
@@ -156,12 +121,8 @@ class KnowledgeObjectReconciliationRun(Base):
     finished_at = Column(DateTime, nullable=True)
 
 
-class KnowledgeObjectReconciliationFinding(Base):
-    """One unreferenced object of one run.
-
-    ``object_key`` is the exact address and ``content_sha256`` names *what* is stored; neither
-    ever leaves the service layer. A newer run supersedes older observations.
-    """
+class KnowledgeObjectReconciliationFinding(WorkspaceBound, Base):
+    """One unreferenced object of one reconciliation run."""
 
     __tablename__ = "knowledge_object_reconciliation_findings"
     __table_args__ = (
@@ -190,13 +151,8 @@ class KnowledgeObjectReconciliationFinding(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
 
-class KnowledgeObjectRetentionHold(Base):
-    """The durable claim of an operator retention pass on one object.
-
-    Unique on ``(project_id, object_key)``: a second pass loses the unique constraint, and the
-    ingestion path refuses to register a revision whose object is held. ``expires_at`` bounds a hold whose
-    operator process died, so a crashed pass cannot park a key forever.
-    """
+class KnowledgeObjectRetentionHold(WorkspaceBound, Base):
+    """The durable claim of an operator retention pass on one object."""
 
     __tablename__ = "knowledge_object_retention_holds"
     __table_args__ = (

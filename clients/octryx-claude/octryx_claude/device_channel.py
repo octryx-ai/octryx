@@ -1,33 +1,5 @@
-"""The device's outbound channel to the platform: connect, prove the key, replay, stay connected.
-
-- WSS to ``/api/v1/devices/channel`` with the 15-minute channel token in ``Authorization`` (never in the URL).
-- Handshake: ``challenge {nonce}`` → ``hello`` signed with the device key (``device_state.sign``) → ``welcome``
-  with the platform's last stored ``seq`` per job; the outbox drops what is stored and replays the rest.
-- Reconnect with exponential backoff and jitter (1 s → 30 s, ×0.5–1.5), reset after a successful ``welcome``.
-  After the platform announced a restart (close 1012/1001) the device retries every ``FAST_RETRY_SECONDS``
-  (×0.5–1.5) for ``FAST_RETRY_WINDOW_SECONDS``, so it is back within seconds once the platform is ready again.
-  Every failed attempt is logged (once a minute per reason) and written to the status file (``last_error``,
-  ``attempt``, ``next_retry_at``). WebSocket pings every 20 s; no pong within 40 s more ends the connection.
-- The token provider (HTTP, a file lock shared with job sessions) runs off the event loop, so running turns never
-  freeze while the device reconnects.
-- The channel token is refreshed five minutes before it expires and handed over with ``token`` (no reconnect); a
-  refused refresh is renewed with the device key by the token provider (``device_renewal``), so a background
-  service never needs a human login while the device is not revoked.
-- A refused renewal (``renewal_rejected``) or a 4401 after one forced refresh means ``needs_login``: the status says
-  so and the service idles until the device credential file changes (or retries hourly); it never loops.
-  ``revoke`` (message, close 4410 or a renewal answered ``device_revoked``) is a *signal*: the device asks the
-  platform's key-signed renewal (``confirm_revoked``) and persists ``revoked`` only when that answers
-  ``device_revoked`` — then it idles until ``device enable`` registers it again. An active answer reconnects with
-  the renewed credential, a refused one needs a login, anything else backs off; a redeploy never revokes.
-  A persisted ``revoked`` is asked again (``recheck_revoked``) at the start and then periodically: only the
-  platform's ``device_revoked`` keeps it (re-asked every ``REVOKED_RECHECK_SECONDS``, doubling to
-  ``REVOKED_RECHECK_MAX_SECONDS``); an active device clears it, no answer retries sooner with backoff.
-- A grant or token refusal from the platform (close 4401 or 1000 with ``device_grant_*`` / ``device_token_*``)
-  is a credential problem, not a revocation: one forced refresh (renewing with the key when refused).
-- ``pause``/``resume`` from the platform and the local ``device pause`` are both honoured (``paused`` property).
-
-Everything the platform sends that is not channel control goes to ``on_message`` (the job manager).
-"""
+"""The device's outbound WSS channel to the platform: connect, prove the key, replay, stay connected.
+A revoke is only a signal; ``revoked`` is persisted only when the key-signed renewal confirms it."""
 
 from __future__ import annotations
 
@@ -117,19 +89,15 @@ class ChannelClient(ChannelSession, ChannelWaits):
         self._token = ""
         self._send_lock = asyncio.Lock()
 
-    # --- what the job manager uses ----------------------------------------------------------------------------
-
     @property
     def paused(self) -> bool:
         return self.platform_paused or bool(device_state.load_device(self.state).get("paused"))
 
     async def send_job(self, job_id: str, message_type: str, body: dict[str, Any]) -> None:
-        """Buffer a job message under the job's next ``seq`` and send it when connected."""
         entry = self.outbox.append(job_id, message_type, redact_outputs(body))
         await self._send_entry(job_id, entry)
 
     async def send_message(self, message_type: str, body: dict[str, Any]) -> bool:
-        """An unsequenced message when connected (live sessions); ``False`` when it could not go out now."""
         connection = self._connection
         if connection is None or not self._welcomed:
             return False
@@ -150,8 +118,6 @@ class ChannelClient(ChannelSession, ChannelWaits):
     async def _send(self, connection: Connection, message_type: str, body: dict[str, Any]) -> None:
         async with self._send_lock:
             await connection.send(_envelope(message_type, body))
-
-    # --- the loop ---------------------------------------------------------------------------------------------
 
     def _status(self, **changes: Any) -> None:
         current = device_state.read_status(self.state)
@@ -196,7 +162,6 @@ class ChannelClient(ChannelSession, ChannelWaits):
 
     async def _token_refused(self, exc: TokenUnavailableError, backoff: float, forced_refresh: bool,
                              stop: asyncio.Event) -> tuple[float, bool]:
-        """No channel token: a revoke signal, a lost login, or a retry later; answers ``(backoff, forced_refresh)``."""
         if exc.code == REVOKED_CODE:
             return await self._revoke_signal(backoff, stop), False
         if exc.code in NEEDS_LOGIN_CODES:
@@ -207,8 +172,6 @@ class ChannelClient(ChannelSession, ChannelWaits):
 
     async def _closed(self, exc: ChannelClosedError, backoff: float, forced_refresh: bool,
                       stop: asyncio.Event) -> tuple[float, bool]:
-        """A closed session: revoke signal, credential refresh, refusal or reconnect; answers ``(backoff,
-        forced_refresh)``."""
         self.connected = False
         self._connection = None
         self._status(connected=False)
@@ -234,7 +197,6 @@ class ChannelClient(ChannelSession, ChannelWaits):
         return min(backoff * 2, BACKOFF_MAX), False
 
     async def _wait(self, seconds: float, stop: asyncio.Event) -> None:
-        """Sleep ``seconds``, or less when the service stops."""
         sleeper = asyncio.ensure_future(self.sleep(seconds))
         stopper = asyncio.ensure_future(stop.wait())
         try:
@@ -244,12 +206,10 @@ class ChannelClient(ChannelSession, ChannelWaits):
                 task.cancel()
 
     def _delay(self, backoff: float) -> float:
-        """The next retry delay with jitter (0.5×–1.5×): short right after an announced platform restart."""
         base = FAST_RETRY_SECONDS if self.clock() < self._fast_until else backoff
         return base * (0.5 + self.jitter())
 
     async def _retry_later(self, reason: str, backoff: float, stop: asyncio.Event) -> None:
-        """One failed attempt: logged (once a minute per reason), reported in the status file, then the backoff."""
         delay = self._delay(backoff)
         self._attempt += 1
         now = self.clock()

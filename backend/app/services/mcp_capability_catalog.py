@@ -1,30 +1,5 @@
-"""Mirror discovered MCP tools into the Workspace Capability catalog.
-
-This follows the established catalog-mirror pattern of
-``workspace_composition.sync_workspace_runtime_catalog_bindings``: a globally
-registered capability becomes a ``CapabilityType`` plus a **disabled** workspace
-binding, so mirroring never widens a project's execution surface by itself.
-
-Only the normalized public contract built by ``mcp_capability_contract`` is
-persisted. MCP connection configuration — commands, URLs, environment, headers,
-OAuth material — is never read here and never stored.
-
-Re-mirroring is idempotent. It refreshes the capability type contract and the
-binding's schema digest and never rewrites admin-owned governance state
-(``policy_config``, ``is_enabled``, ``is_default``, ``intent_scopes``,
-``binding_status``) — with one deliberate exception: when a capability's
-argument contract drifted from the one an admin approved, the binding is
-parked in an explicit ``reviewState="needs_review"`` deny state and
-disabled until an admin re-enables it (see
-``acknowledged_mcp_capability_schema_config``, applied by the admin write path in
-``mcp_capability_admin_policy``).
-
-A re-mirror also never reactivates a globally retired ``CapabilityType``:
-``is_active`` is set once at creation and is owned by the catalog lifecycle
-afterwards. Re-running the mirror can therefore only refresh a contract, never
-widen execution; retired capabilities are reported back as
-``inactive_capabilities``.
-"""
+"""Mirror discovered MCP tools into the Workspace Capability catalog. A new binding is disabled, so mirroring never
+widens a project's execution surface by itself."""
 
 from __future__ import annotations
 
@@ -49,7 +24,7 @@ from .mcp_capability_mirror_rows import (
     refresh_capability_binding,
     upsert_capability_type,
 )
-from .mcp_capability_policy import (
+from .mcp_governance.capability_policy import (
     MCP_CAPABILITY_REVIEW_STATE_NEEDS_REVIEW,
     mcp_capability_binding_key,
     normalized_mcp_server_name,
@@ -90,7 +65,6 @@ def _mirror_tools(
     existing_types: dict[str, CapabilityType],
     existing_bindings: dict[str, WorkspaceCapabilityBinding],
 ) -> dict[str, Any]:
-    """Create or refresh each tool's capability type and binding; the run's counters."""
     added = 0
     updated = 0
     drifted_tools: list[str] = []
@@ -133,7 +107,6 @@ async def mirror_mcp_server_capabilities(
     server_name: str,
     tools: Sequence[Any],
 ) -> dict[str, Any]:
-    """Mirror one server's discovered tools into the workspace capability catalog."""
     normalized_workspace_id, normalized_server = _mirror_identity(workspace_id, server_name)
     discovered, rejected = _mirrorable_tools(normalized_server, tools)
     binding_keys = [mcp_capability_binding_key(normalized_server, tool.name) for tool in discovered]
@@ -161,12 +134,7 @@ async def mirror_mcp_server_capabilities(
 
 
 def acknowledged_mcp_capability_schema_config(binding_config: Any) -> dict[str, Any] | None:
-    """Return the binding config with a pending schema review cleared, else ``None``.
-
-    Enabling a mirrored capability *is* the review decision for the contract
-    currently in the catalog. Pure on purpose: the admin write path composes this
-    with its own sanitizing before the binding is written.
-    """
+    # Enabling a mirrored capability is the review of the contract currently in the catalog.
     config = binding_config if isinstance(binding_config, dict) else {}
     if str(config.get("reviewState") or "").strip().lower() != MCP_CAPABILITY_REVIEW_STATE_NEEDS_REVIEW:
         return None

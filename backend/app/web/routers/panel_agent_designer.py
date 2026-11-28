@@ -1,9 +1,4 @@
-"""Admin panel routes for the visual Agent Designer.
-
-The designer runs as a static, credential-free artifact on its own origin inside an
-iframe. The admin host page calls these routes with its normal session (panel
-same-origin policy applies) and relays documents to the frame by ``postMessage``.
-"""
+"""Admin panel routes for the visual Agent Designer."""
 
 from __future__ import annotations
 
@@ -28,7 +23,6 @@ router = APIRouter()
 
 
 def designer_origin(raw: str | None) -> str | None:
-    """Return the configured origin if it is exactly ``scheme://host[:port]``."""
     value = str(raw or "").strip()
     if not value:
         return None

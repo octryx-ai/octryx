@@ -40,7 +40,6 @@ _ALLOWED_PLUGIN_IMPORTS: frozenset[str] = frozenset({
 
 
 def _load_plugin_state() -> dict[str, bool]:
-    """Load plugin enabled/disabled state from file."""
     if PLUGIN_STATE_FILE.exists():
         try:
             with open(PLUGIN_STATE_FILE) as f:
@@ -51,7 +50,6 @@ def _load_plugin_state() -> dict[str, bool]:
 
 
 def _save_plugin_state(state: dict[str, bool]) -> None:
-    """Save plugin enabled/disabled state to file."""
     try:
         PLUGIN_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(PLUGIN_STATE_FILE, "w") as f:
@@ -61,7 +59,6 @@ def _save_plugin_state(state: dict[str, bool]) -> None:
 
 
 def discover_plugins() -> list[type[BasePlugin]]:
-    """Discover all plugins in the plugins directory."""
     plugins = []
 
     for path in PLUGINS_DIR.iterdir():
@@ -89,7 +86,6 @@ def discover_plugins() -> list[type[BasePlugin]]:
 
 
 def _load_plugin_module(module_name: str, file_path: Path) -> list[type[BasePlugin]]:
-    """Load a single plugin module with namespace isolation."""
     # Snapshot sys.modules before loading to detect pollution afterward
     pre_modules = set(sys.modules.keys())
     plugins = []
@@ -121,7 +117,6 @@ def _load_plugin_module(module_name: str, file_path: Path) -> list[type[BasePlug
 
 
 def _is_dangerous_module(module_name: str) -> bool:
-    """Check if a module name represents a potentially dangerous import for plugins."""
     if module_name in _ALLOWED_PLUGIN_IMPORTS:
         return False
     # Block top-level dangerous packages
@@ -197,8 +192,6 @@ def get_all_tool_names() -> list[str]:
 
 
 def iter_model_visible_plugins():
-    """Yield plugins that may expose direct model-visible tool schemas."""
-
     for plugin in PLUGIN_INSTANCES.values():
         plugin_id = str(getattr(getattr(plugin, "metadata", None), "id", "") or "").strip().lower()
         if plugin_id in _BRIDGE_OWNED_PLUGIN_IDS:
@@ -242,8 +235,6 @@ def _plugin_tool_definition_metadata(plugin: BasePlugin, tool_def: Any) -> ToolD
 
 
 def iter_governed_plugin_tools():
-    """Yield plugin tools that have enough metadata for runtime visibility."""
-
     for plugin in iter_model_visible_plugins():
         for tool_def in plugin.get_tools():
             metadata = _plugin_tool_definition_metadata(plugin, tool_def)

@@ -81,5 +81,6 @@ def _audit_log(current_user: User, item: WorkItem, action: str, details: dict[st
         action=action,
         resource_type="work_item",
         resource_id=item.id,
+        project_id=item.project_id,
         details={"source_key": item.source_key, **details},
     )

@@ -1,13 +1,4 @@
-"""ServiceNow: named connections bound to tables.
-
-Besides the preset's connection unit (target, auth mode, principal, OIDC options, secrets) a ServiceNow connection
-carries how its instance is read (``services/servicenow_scripted.py``): the API style (the Table API or the
-instance's Scripted REST API), the Scripted REST paths and their page size. They describe the instance an account
-talks to, so they belong to the connection, not to a use: an instance without Table API access answers 403 to every
-Table API read of the connection (its test, Knowledge sync, intake and tools alike). Use settings stay on the
-connector entry and the uses: the table allowlist (the binding), the record limit (assignment groups, services,
-filter mode) and work-note write-back (``servicenow_worknote_*``, a Workspace's work item workflow).
-"""
+"""ServiceNow: named connections bound to tables."""
 
 from __future__ import annotations
 

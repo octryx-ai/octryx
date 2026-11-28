@@ -1,14 +1,4 @@
-"""The closed contract of a prompt catalog key: its seed, its placeholders, its risk.
-
-A key's body may use only the placeholders its spec declares (``{name}``, an
-identifier in braces). Anything else that looks like a placeholder is refused when a
-version is drafted or published, so a template can never ask for a variable the
-call site does not supply. Rendering refuses an unbound placeholder instead of
-leaving it in the text or substituting an empty string.
-
-Every refusal is a :class:`PromptTemplateUnavailableError` with the closed code
-``prompt_template_unavailable`` and a closed ``reason``.
-"""
+"""The closed contract of a prompt catalog key: its seed, its placeholders, its risk."""
 
 from __future__ import annotations
 
@@ -60,12 +50,7 @@ class PromptTemplateUnavailableError(Exception):
 
 @dataclass(frozen=True)
 class PromptKeySpec:
-    """One catalog key: what it is for, its seed text and its closed placeholder set.
-
-    A ``literal`` key (a tool description, which may contain JSON examples with braces) has
-    no placeholders: its body is served verbatim, never rendered as a template, and a draft
-    is validated as plain text.
-    """
+    """One catalog key: what it is for, its seed text and its closed placeholder set."""
 
     key: str
     area: str
@@ -111,7 +96,6 @@ def unknown_placeholders(body: str, allowed: frozenset[str]) -> tuple[str, ...]:
 
 
 def validate_body(spec: PromptKeySpec, body: str) -> None:
-    """Refuse a body this key cannot carry (empty, oversized, or with unknown placeholders)."""
     if not body.strip():
         raise PromptTemplateUnavailableError(spec.key, REASON_BODY_EMPTY)
     if len(body) > MAX_PROMPT_BODY_CHARS:
@@ -124,7 +108,6 @@ def validate_body(spec: PromptKeySpec, body: str) -> None:
 
 
 def render_body(key: str, body: str, variables: Mapping[str, object]) -> str:
-    """Substitute every placeholder; an unbound one is refused, never left or blanked."""
     missing = tuple(name for name in body_placeholders(body) if name not in variables)
     if missing:
         raise PromptTemplateUnavailableError(key, REASON_PLACEHOLDER_UNBOUND, names=missing)

@@ -1,22 +1,4 @@
-"""Whether a test command really ran tests. Pure.
-
-A test command is evidence of a test run only when the runner executed tests. Its output decides, never the fact
-that a command with a test prefix was issued:
-
-- **ran**: per-test results were parsed (pytest, JUnit XML, Go), or the runner printed its own summary of executed
-  tests (pytest ``N passed/failed``, unittest ``Ran N tests``, Jest ``Tests: … total``, Maven ``Tests run: N``,
-  ``go test`` ``ok``/``FAIL`` package lines), or it exited 0 (nothing to doubt);
-- **environment**: the runner could not start — exit 127/126, ``command not found``, no such executable, the
-  runner's own module missing (``No module named pytest`` for ``python3 -m pytest``), or the runner failed while
-  loading its configuration (``ImportError while loading conftest``). Nothing the agent wrote can explain this; the
-  run pauses ``environment_not_ready`` and no loop iteration is consumed;
-- **not_run**: anything else that executed no test — a collection error in a test module, ``no tests ran``, an
-  unreadable result. A collection error inside a test module is indistinguishable from a TDD red by import error
-  (a test importing what does not exist yet), so it is the agent's to fix: it does not count as a test run (the
-  phase's ``run_test_suite`` check fails at Stop), and it never reaches a gate.
-
-The exit code comes from the result (``exit_code``/``returncode``) or Claude Code's ``Exit code N`` first line.
-"""
+"""Whether a test command really ran tests."""
 
 from __future__ import annotations
 
@@ -71,7 +53,6 @@ def _exit_code(text: str, result: Mapping[str, Any]) -> int | None:
 
 
 def _runner_module(command: str) -> str | None:
-    """``pytest`` for ``pytest …``, ``X`` for ``python -m X …`` (the last segment's runner)."""
     words = str(command or "").replace("&&", ";").split(";")[-1].split()
     for index, word in enumerate(words):
         if word == "-m" and index + 1 < len(words):
@@ -84,7 +65,6 @@ def _runner_module(command: str) -> str | None:
 
 
 def classify(result: Mapping[str, Any] | None, *, command: str = "", parsed_results: int = 0) -> TestCommandOutcome:
-    """The outcome of one test command from its recorded result (``excerpt`` or ``stdout``/``stderr``)."""
     result = result if isinstance(result, Mapping) else {}
     text = "\n".join(str(result.get(key) or "") for key in ("excerpt", "stdout", "stderr") if result.get(key))
     code = _exit_code(text, result)
@@ -112,8 +92,6 @@ def classify(result: Mapping[str, Any] | None, *, command: str = "", parsed_resu
 
 
 def runner_not_started(text: str, code: int | None, command: str) -> str:
-    """Why a declared command's runner (a test runner, a linter) could not start, else ``''``: exit 126/127, a
-    command-not-found answer, or the runner's own module missing for ``python -m <runner>``."""
     if code in (126, 127) or any(pattern.search(text) for pattern in _NOT_FOUND):
         return f"the runner could not start (exit {code}): {_first_line(text, _NOT_FOUND) or 'command not found'}"
     missing = _NO_MODULE.search(text)
@@ -131,9 +109,6 @@ def _first_line(text: str, patterns: Iterable[re.Pattern[str]]) -> str:
 
 
 def environment_failure(outcomes: Iterable[tuple[TestCommandOutcome, str, str]]) -> dict[str, Any] | None:
-    """The newest test command's environment failure (``(outcome, command, excerpt)`` oldest first), if it was one.
-
-    A later test command that ran tests settles it: only the newest decides."""
     newest = None
     for outcome, command, excerpt in outcomes:
         newest = outcome.as_dict(command, excerpt) if outcome.kind == ENVIRONMENT else None
@@ -141,8 +116,6 @@ def environment_failure(outcomes: Iterable[tuple[TestCommandOutcome, str, str]])
 
 
 def reclassify(uses: Iterable[Any], prefixes: Iterable[Iterable[str]]) -> tuple[list[Any], dict[str, Any] | None]:
-    """Chat's tool uses with every test call that ran no test renamed :data:`NOT_RUN_TOOL` (it then counts neither
-    as ``run_test_suite`` nor as a test run), and the newest test command's environment failure."""
     from .library import ToolUse
     from .test_output import parse
     from .test_results import TEST_TOOLS, is_test_command

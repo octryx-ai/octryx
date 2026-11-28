@@ -3,6 +3,7 @@ import uuid
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, String, Text
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -10,7 +11,8 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class ExportPackage(Base):
+class ExportPackage(WorkspaceBound, Base):
+    __workspace_column__ = "source_project_id"
     __tablename__ = "export_packages"
     __table_args__ = (
         Index("ix_export_packages_type_exported_at", "package_type", "exported_at"),
@@ -29,7 +31,9 @@ class ExportPackage(Base):
     exported_at = Column(DateTime, default=utc_now, index=True)
 
 
-class ImportLog(Base):
+class ImportLog(WorkspaceBound, Base):
+    __workspace_owners__ = {"package_id": "export_packages"}
+    __workspace_column__ = "target_project_id"
     __tablename__ = "import_log"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)

@@ -28,5 +28,4 @@ class FakeManager:
 
 @pytest.fixture(autouse=True)
 def no_service_probe(monkeypatch):
-    """No service answers folder probes unless a test hands in its own answer."""
     monkeypatch.setattr(device_folder_access, "probe_from_service", lambda state, folders: None)

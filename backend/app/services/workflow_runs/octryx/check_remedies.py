@@ -1,10 +1,4 @@
-"""What to do about each failed check, in the Stop's answer (every message says what to do
-instead; "Phase 'Reproduce' is not done: The test suite ran." alone names neither the tool nor the way).
-
-Every check type has a ``run.remedy.<type>`` catalog text; the code fills in what the run knows: the check's tools
-and the run's declared test command (the contract pin, else the prepared environment). A type without a text keeps
-its description alone, and a guard test makes sure none is missing.
-"""
+"""What to do about each failed check, said in the Stop's answer."""
 
 from __future__ import annotations
 
@@ -15,7 +9,6 @@ STOP_TYPES = ("code_style", "declared_tests", "system_tests", "questions_asked",
 
 
 def remedy_types() -> tuple[str, ...]:
-    """Every check type a Stop can report: the library's and the Stop's own."""
     from ...workflow_checks.library import CHECK_TYPES
 
     return (*CHECK_TYPES, *STOP_TYPES)
@@ -37,7 +30,6 @@ def _tools(params: dict[str, Any]) -> str:
 
 
 def line(result: Any, checks: list[Any], contract: dict[str, Any]) -> str:
-    """``<what failed>: <what to do>`` for one failed check result."""
     from ..run_texts import run_text
 
     what = str(getattr(result, "description", "") or getattr(result, "type", ""))
@@ -54,7 +46,6 @@ def line(result: Any, checks: list[Any], contract: dict[str, Any]) -> str:
 
 
 def missing(results: list[Any], checks: list[Any], contract: dict[str, Any]) -> str:
-    """The Stop's list of what is missing, each with its remedy."""
     return "; ".join(line(result, checks, contract) for result in results)
 
 

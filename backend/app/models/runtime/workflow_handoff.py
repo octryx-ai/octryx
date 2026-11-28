@@ -6,12 +6,14 @@ import uuid
 from sqlalchemy import JSON, Boolean, CheckConstraint, Column, DateTime, ForeignKey, Index, Integer, String, Text
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 HANDOFF_STATES = frozenset({"offered", "accepted", "timed_out", "rejected", "owner_lost", "stopped", "child_done"})
 
 
-class WorkflowHandoff(Base):
+class WorkflowHandoff(WorkspaceBound, Base):
+    __workspace_column__ = "workspace_id"
     __tablename__ = "workflow_handoffs"
     __table_args__ = (
         CheckConstraint("state IN ('offered','accepted','timed_out','rejected','owner_lost','stopped','child_done')",
@@ -61,7 +63,9 @@ class WorkflowHandoff(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
 
-class WorkflowHandoffResponse(Base):
+class WorkflowHandoffResponse(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"handoff_id": "workflow_handoffs"}
     __tablename__ = "workflow_handoff_responses"
     __table_args__ = (
         Index("uq_handoff_personal_response", "handoff_id", "round", "user_id", unique=True),

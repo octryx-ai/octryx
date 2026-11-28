@@ -41,6 +41,7 @@ async def _record_v2(db: AsyncSession, run: WorkflowRun, intent: Any, page: Any,
     if audited is None:
         db.add(AuditLog(user_id=run.requested_by, action="s1.documentation.published",
                         resource_type="documentation_write_intent", resource_id=intent.id,
+                        project_id=run.project_id,
                         details={"run_id": run.id, "operation_id": intent.operation_id,
                                  "page_id": page.id, "version": page.version, "storage_digest": digest,
                                  "connection_id": intent.connection_id, "instance": intent.instance,
@@ -83,7 +84,6 @@ async def _certify_and_fail(db: AsyncSession, run: WorkflowRun, intent: Any, hel
 
 async def _finish_verdict(db: AsyncSession, run: WorkflowRun, intent: Any, verdict: dict[str, Any], held: Any,
                           client: Any) -> ToolOutcome:
-    """Record the reconciliation result on the intent (own commit), re-claim the run, answer."""
     from .confluence_v2_storage import storage_digest
     from .failure_routes import PAGE_CHANGED, PUBLISH_UNVERIFIED, RECONCILE_INCOMPLETE, s1_failure
     from .write_intent import mark_sent_confirmed, transition
@@ -114,7 +114,7 @@ async def _finish_verdict(db: AsyncSession, run: WorkflowRun, intent: Any, verdi
 
 
 async def _verify_confirmed(db: AsyncSession, run: WorkflowRun, intent: Any, *, transport: Any) -> ToolOutcome:
-    """A sent-confirmed intent is never sent again: re-read the page and answer from the read-back."""
+    # A sent-confirmed intent is never sent again.
     from ..external_step import pass_key, release_for_external_work
     from .confluence_v2 import CloudV2Client
     from .confluence_v2_errors import V2Error, V2ProfileRefusalError

@@ -1,21 +1,4 @@
-"""Confining a JQL query to allowed projects, so it can never break out.
-
-Shared by the agent tools (``_jira_helpers_jql._inject_project_restriction``) and the Secure Work intake
-(``services/secure_work/jira/jira_scope.restrict_jql``).
-
-A scanner reads the JQL the way Jira does for this purpose: quoted strings (``"…"`` and ``'…'``, with
-backslash escapes) are opaque, parentheses nest outside quotes, and ``ORDER BY`` counts only at the top
-level outside quotes, so ``summary ~ "order by"`` is never split.
-
-- :func:`jql_is_balanced` is False for an unterminated quote or a parenthesis that closes more than it
-  opened (``project = OCX) OR (project = OPS``). Callers refuse such a query instead of sending it.
-- A backslash outside a quoted string is refused too (``jql_invalid``): Jira's lexer
-  reads ``\\`` as an escape inside *and* outside quotes, so ``\\"`` outside quotes would end a string
-  the scanner believes open. The scanner skips the escaped character like Jira, and every caller refuses.
-- :func:`confine_jql` returns ``project in (<keys>) AND (<body>) [ORDER BY …]``. The body is balanced by
-  construction (defense in depth for a caller that did not refuse), so the user's text always stays
-  inside the one group and the project clause always binds.
-"""
+"""Confining a JQL query to allowed projects, so it can never break out."""
 
 from __future__ import annotations
 
@@ -44,7 +27,7 @@ class JqlShape:
 
 
 class UnsafeJqlError(ValueError):
-    """A JQL that could leave its group; callers refuse it before it is ever confined or sent."""
+    pass
 
 
 def scan_jql(text: str) -> JqlShape:
@@ -87,7 +70,6 @@ def scan_jql(text: str) -> JqlShape:
 
 
 def jql_problem(jql: str) -> str | None:
-    """``jql_invalid`` (a backslash outside quotes), ``jql_unbalanced``, or ``None`` for a safe JQL."""
     shape = scan_jql(str(jql or ""))
     if shape.bare_backslash:
         return "jql_invalid"
@@ -95,7 +77,6 @@ def jql_problem(jql: str) -> str | None:
 
 
 def jql_is_balanced(jql: str) -> bool:
-    """Whether the JQL is safe to confine: quotes closed, parentheses balanced, no backslash outside quotes."""
     return jql_problem(jql) is None
 
 
@@ -109,7 +90,6 @@ def _balanced(body: str) -> str:
 
 
 def split_order_by(jql: str) -> tuple[str, str]:
-    """``(body, "ORDER BY …")`` at the first top-level ORDER BY outside quotes; ``(jql, "")`` without one."""
     text = str(jql or "").strip()
     shape = scan_jql(text)
     if shape.order_by_at is None or not shape.balanced:
@@ -118,7 +98,6 @@ def split_order_by(jql: str) -> tuple[str, str]:
 
 
 def confine_jql(jql: str, project_clause: str) -> str:
-    """``<project_clause> AND (<body>) <ORDER BY>``: the body can never escape the clause."""
     if scan_jql(str(jql or "")).bare_backslash:
         raise UnsafeJqlError("jql_invalid")  # never confined by guesswork: callers refuse it first
     body, order = split_order_by(jql)

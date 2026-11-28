@@ -1,12 +1,4 @@
-"""The compact run contract the agent reads: what the phase asks of it, without the detail it rarely needs.
-
-Without it, ``workflow_run_status`` answered 64,267 characters, 49 KB of it the
-code style the launcher's Stop needs (its tool commands and rules). Claude Code wrote the answer to a file under the
-launcher's protected home, the agent's Read and Bash of it were refused, and this happened at every turn's start (two
-refused calls and two model calls each). The tool answers this view by default, and ``detail=true`` gives everything.
-The contract carries the paths (``detail_paths``), so the launcher puts the same view into the turn's context once
-per contract digest and the agent needs no call.
-"""
+"""The compact run contract the agent reads: what the phase asks of it, without the detail it rarely needs."""
 
 from __future__ import annotations
 
@@ -35,7 +27,6 @@ def _without(value: dict[str, Any], path: list[str], omitted: list[str], name: s
 
 
 def compact(contract: dict[str, Any], paths: tuple[str, ...] | list[str] = DETAIL_PATHS) -> dict[str, Any]:
-    """``contract`` without the ``paths``; ``detail_omitted`` names the ones it had."""
     view: dict[str, Any] = {key: value for key, value in contract.items() if key != PATHS_KEY}
     omitted: list[str] = []
     for name in paths:

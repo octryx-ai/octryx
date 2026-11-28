@@ -1,21 +1,21 @@
-"""A person's answer in a finding's thread shapes the next pass.
-
-A reply like "coupons are applied by the checkout service, never in order_total" must not stay a correction only
-while the next incremental pass repeats the finding word for word. The reply is remembered on the open finding, the
-follow-up review gets it and may answer ``withdrawn`` (the thread is answered and resolved), unless it names new
-evidence. And the bot's own thread replies never count as a person's (one login can serve the bot and the person)."""
+"""A person's answer in a finding's thread shapes the next pass."""
 
 from __future__ import annotations
 
 import re
+
+import pytest
 
 from app.services.pr_review_bot import bot_state, comment_poll
 from app.services.pr_review_bot.incremental import Effective, effective, seed, thread_answers
 from app.services.pr_review_bot.render import build_post
 from app.services.workflow_runs.corrections.signature import data
 from app.services.workflow_runs.review.convergence import Scope, follow_up_task, previous_findings, settle_follow_up
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_pr_review_bot_commands import _comment
 from tests.test_pr_review_bot_explain_ignore import _provider, _reviewed
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 ANSWER = "In this shop coupons are applied by the checkout service, never inside order_total."
 
@@ -25,12 +25,12 @@ async def test_a_persons_reply_in_the_thread_is_kept_on_the_open_finding_once(db
     _provider(monkeypatch, head, [
         _comment("c1", "octryx-ai", ANSWER, inline=True, in_reply_to="4711"),
         _comment("c2", "octryx-ai", "✅ Fixed in `abc1234`. Rounds half away from zero now.", inline=True,
-                 in_reply_to="4711"),  # the bot's own reply under the same login
+                 in_reply_to="4711"),
         _comment("c3", "stranger", "This finding is wrong, trust me.", inline=True, in_reply_to="4711"),
-        _comment("c4", "octryx-ai", "A general remark on the change.")])  # not in a finding's thread
+        _comment("c4", "octryx-ai", "A general remark on the change.")])
     bot_state.set_cursor(record, "2026-11-17T19:00:00+00:00")
     await comment_poll.poll_comments(db, record, owner.id)
-    await comment_poll.poll_comments(db, record, owner.id)  # the next poll sees c1 again: kept once
+    await comment_poll.poll_comments(db, record, owner.id)
     await db.refresh(run)
     finding = run.context["pr_review"]["open_findings"][0]
     assert finding["replies"] == [ANSWER] and finding["reply_ids"] == ["c1"]
@@ -88,7 +88,7 @@ def test_every_reply_the_bot_writes_is_recognised_as_the_bots_own():
                "Octryx: only people with an Octryx account in this Workspace can use it."]
     assert [reply for reply in replies if not any(re.match(pattern, reply) for pattern in patterns)] == []
     assert not any(re.match(pattern, ANSWER) for pattern in patterns)
-    assert not any(re.match(pattern, "💡 Idea: apply coupons in checkout") for pattern in patterns)  # a person's
+    assert not any(re.match(pattern, "💡 Idea: apply coupons in checkout") for pattern in patterns)
 
 
 async def test_without_a_previous_post_nothing_is_kept(db):

@@ -1,8 +1,4 @@
-"""The phased graph a generated workflow draft starts from (``workflow_generation``).
-
-start → the agent's phase (the session's tools) → a gate over the evidence it recorded → a decision on
-its result → the requester's approval → outcome. Validated by ``workflow_runs/graph`` before it is stored.
-"""
+"""The phased graph a generated workflow draft starts from (``workflow_generation``)."""
 
 from __future__ import annotations
 
@@ -35,11 +31,6 @@ def build_flow_definition(
     traces: list[TurnTrace],
     allowed_tools: list[str],
 ) -> dict[str, Any]:
-    """The phased definition (the designer's one format, D2b) the session's evidence suggests:
-
-    start → the agent's phase (the session's tools; it ends with ``complete`` or ``incomplete``) → a gate over
-    the evidence it recorded (failed: one more pass) → a decision on its result → the requester's approval →
-    outcome. Validated by ``workflow_runs/graph`` before it is stored."""
     intent = first_user_message(messages)
     tools = phase_tools(allowed_tools)
     capability = _capability_class(tools)
@@ -125,7 +116,7 @@ def _edge(source: str, target: str, *, when: str | None = None) -> dict[str, Any
 
 
 def phase_tools(allowed_tools: list[str]) -> list[str]:
-    """The session's tools a generated phase may offer: at most a change (never delivery, never an unknown tool)."""
+    # Never delivery, never an unknown tool.
     from ..tools.capability_requirements import tool_required_capability
     from .run_capability.classes import capability_covers
 

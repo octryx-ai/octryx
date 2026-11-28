@@ -6,6 +6,7 @@ from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -13,7 +14,8 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class ClarificationQuestion(Base):
+class ClarificationQuestion(WorkspaceBound, Base):
+    __workspace_owners__ = {"session_id": "sessions"}
     __tablename__ = "clarification_questions"
     __table_args__ = (
         Index("ix_clarification_questions_session_status", "session_id", "status"),

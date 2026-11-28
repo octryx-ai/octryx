@@ -51,13 +51,13 @@
   background: var(--surface-overlay);
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .tool-burst__event-name {
   color: var(--text);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .tool-burst__event-summary {
@@ -97,7 +97,7 @@
   border: 1px solid color-mix(in srgb, var(--status-idle) 30%, transparent);
   border-radius: var(--ds-radius-md);
   color: var(--muted-strong);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   padding: 2px 0.5rem;
 }
 

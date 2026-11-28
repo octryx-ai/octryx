@@ -1,28 +1,5 @@
-"""Automatic capture at turn end: a few memories the user explicitly stated, inferred by a governed model.
-
-Off by default. It runs only when the Workspace row enables it (``settings``), only after a user-facing
-turn has completed and been persisted, and never for a sub-agent turn. It reads the finished turn's
-user-visible messages only (the last user message and the assistant answer after it; no tool results,
-no system prompt), asks one bounded governed model call (``capture_model``) for at most
-``MAX_CANDIDATES`` candidates, and writes each accepted one as ``model_inferred`` + ``observed`` for the
-user to confirm, correct or forget.
-
-A candidate is accepted only when
-
-- its ``user_quote`` is a verbatim part of the user's message (so it is something the user stated,
-  not something the assistant said or the model invented);
-- its class is one capture may write (``personal`` and ``learning`` as personal memory; ``decision``
-  and ``convention`` as Workspace memory, which needs the user's authoring role like an explicit
-  ``memory_remember``);
-- its text passes ``text_guard`` (bounds, visible characters, and the secret refusal);
-- no visible item of the Workspace already has the same text, whatever its state: an inferred memory
-  never duplicates, confirms or resurrects a corrected one.
-
-It never fails the turn and never slows it: it runs at the end of the turn's background follow-up
-(``services/session/turn_follow_up``), after the turn is committed, with the model's reply bounded by
-``AUTO_CAPTURE_TIMEOUT_SECONDS``, and logs only fixed reason tokens. Only the reply is bounded: cancelling a
-database call half way would leave the session's transaction broken and its connection held.
-"""
+"""Automatic capture at turn end: a few memories the user explicitly stated, inferred by a governed model. Off by
+default; it never fails or slows the turn."""
 
 from __future__ import annotations
 
@@ -132,7 +109,6 @@ def _turn_prompt(user_text: str, answer_text: str) -> str:
 
 
 def accepted_candidates(answer: object, user_text: str) -> tuple[list[tuple[str, str]], int]:
-    """The (class, text) pairs a model answer may write, and how many candidates were rejected."""
     raw = answer.get("memories") if isinstance(answer, dict) else None
     if not isinstance(raw, list):
         return [], 0
@@ -171,7 +147,6 @@ async def _already_known(db: AsyncSession, *, project_id: str, user_id: str, tex
 async def capture_turn_memories(
     db: AsyncSession, *, session_id: str, model_factory: ModelFactory = governed_capture_model
 ) -> CaptureOutcome:
-    """Capture the finished turn of this session, or say with one fixed reason why not. Flushes only."""
     session = await db.get(AgentSession, session_id)
     if session is None:
         return CaptureOutcome("no_session")
@@ -214,7 +189,6 @@ async def _record_candidates(
     candidates: list[tuple[str, str]],
     skipped: int,
 ) -> tuple[int, int]:
-    """Write each accepted candidate once; a refused, repeated or already known one only counts as skipped."""
     recorded = 0
     seen: set[str] = set()
     for item_class, text in candidates:
@@ -250,7 +224,6 @@ async def _record_candidates(
 async def run_turn_memory_capture(
     *, session_factory: Callable[[], Any], session_id: str, model_factory: ModelFactory = governed_capture_model
 ) -> CaptureOutcome:
-    """The background entry point: bounded, never raising, logging only fixed reason tokens."""
     try:
         async with session_factory() as db:
             try:

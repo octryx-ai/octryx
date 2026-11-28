@@ -1,20 +1,4 @@
-"""The Memory lobe's ledger: what sessions taught the platform.
-
-Memory is experience, not source evidence. An item says what was decided, agreed or learned in a
-session, by whom and how trustworthy it is; it never carries a ``source_url`` and is never cited as a
-source. Items live in one Workspace and do not flow through Workspace bindings.
-
-- **scope**: ``user`` items are personal and visible only to ``owner_user_id``; ``workspace`` items
-  (optionally about one ``product``) are visible to the Workspace's members.
-- **author_class** drives trust: ``human_stated`` (a person said it), ``model_inferred`` (the agent
-  concluded it), ``verified`` (checked against source evidence).
-- **state**: ``observed`` (unreviewed) and ``confirmed`` are recallable; ``superseded`` (replaced by a
-  correction, see ``supersedes_id``), ``contradicted``, ``expired`` and ``forgotten`` are not.
-  ``promoted`` is reserved for the explicit promotion into Knowledge.
-- **forgetting is real**: a forgotten item keeps only its id, scope, state and who forgot it when;
-  ``text`` and ``content_hash`` are erased.
-- **provenance**: the session, the turn (the run's request id) and the author, plus ``created_at``.
-"""
+"""The Memory lobe's ledger: what sessions taught the platform."""
 
 from __future__ import annotations
 
@@ -24,6 +8,7 @@ from enum import StrEnum
 from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -69,7 +54,7 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class KnowledgeMemoryItem(Base):
+class KnowledgeMemoryItem(WorkspaceBound, Base):
     __tablename__ = "knowledge_memory_items"
     __table_args__ = (
         Index("ix_knowledge_memory_items_visibility", "project_id", "scope", "owner_user_id", "state"),

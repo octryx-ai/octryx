@@ -77,7 +77,6 @@ async def _drop_replaced_seed_target(
     normalized_model_id: str,
     is_seed_runtime_target_func: Any,
 ) -> None:
-    """The lone seed target gives way to the first real target, unless it is that very target."""
     seed_provider = await db.get(LLMProvider, existing_target.provider_id)
     if is_seed_runtime_target_func(existing_target, seed_provider):
         same_seed_target = (

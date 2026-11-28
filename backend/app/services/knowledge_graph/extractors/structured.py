@@ -1,14 +1,4 @@
-"""Deterministic extractors for structured sources.
-
-These map a Bronze snapshot (already fetched and normalized by a connector) into
-graph nodes/edges. They never call the source system — that is the connector's
-job. Structured sources have a real graph, so no LLM is used. Aliases (external
-ids, names, addresses) let a resource appear once even when several sources
-mention it (e.g. a Terraform resource and its AWS counterpart).
-
-For databases, only the SCHEMA (tables, columns, foreign keys) is ingested — never
-row data.
-"""
+"""Deterministic extractors for structured sources."""
 
 from __future__ import annotations
 
@@ -18,8 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..store import upsert_edge, upsert_node
 from .common import slugify
-
-# The code-structure extractor lives in its own module; it stays importable from here.
 
 _STRUCTURAL_RELATIONS = {"depends_on", "part_of", "contains", "references"}
 
@@ -114,7 +102,6 @@ async def ingest_terraform(db: AsyncSession, *, project_id: str | None, snapshot
 async def _ingest_tables(
     db: AsyncSession, *, project_id: str | None, database: str, schema: str, tables: list[Any], db_node: Any
 ) -> tuple[dict[str, Any], int, int]:
-    """``(table node by name, nodes, edges)`` for the schema's tables."""
     table_by_name: dict[str, Any] = {}
     nodes = edges = 0
     for table in tables:
@@ -205,9 +192,7 @@ async def ingest_database_schema(
 async def ingest_topology_snapshot(
     db: AsyncSession, *, project_id: str | None, record: dict[str, Any]
 ) -> dict[str, int] | None:
-    """Adapt a compact connector topology bronze value (``aws_topology_snapshot``
-    / ``kubernetes_topology_snapshot``: selected_nodes/selected_edges) to the
-    resource-graph shape ``ingest_aws_topology`` expects."""
+    """Adapt a compact connector topology bronze value to the resource-graph shape ``ingest_aws_topology`` expects."""
     nodes = [n for n in (record.get("selected_nodes") or []) if isinstance(n, dict)]
     if not nodes:
         return None

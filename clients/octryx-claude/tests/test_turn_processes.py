@@ -1,5 +1,3 @@
-"""App servers a run turn left listening stop at its end; nothing else."""
-
 from __future__ import annotations
 
 import os
@@ -53,7 +51,6 @@ def test_a_mark_matches_whole_entries_only():
 
 
 def test_every_process_the_turn_end_stops_is_recorded_with_its_command(monkeypatch):
-    """Nightly 979b2216: a build's helper was ended by SIGTERM and nothing said who sent it."""
     import os
     import signal
 

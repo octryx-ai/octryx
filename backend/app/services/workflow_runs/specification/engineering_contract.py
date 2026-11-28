@@ -1,8 +1,4 @@
-"""Project freshly authorized accepted-spec criteria for an engineering test contract.
-
-The handoff owner resolves durable receiver authority and current source access. This adapter never
-falls back to a requester, copied child outputs, ticket prose or a private database lookup.
-"""
+"""Project freshly authorized accepted-spec criteria for an engineering test contract."""
 from __future__ import annotations
 
 from copy import deepcopy
@@ -13,11 +9,7 @@ from ..records import WorkflowRunError
 
 
 async def accepted_spec_criteria(db, run: WorkflowRun, *, principal: User | None = None) -> dict[str, Any] | None:
-    """Return server-derived criteria/provenance, or None only for a run without a spec handoff.
-
-    A claimed or durable spec handoff must resolve for the actual actor. Missing authority raises;
-    callers must refuse the submission without replacing the previous recorded contract.
-    """
+    # Missing authority raises: callers must refuse without replacing the recorded contract.
     from ..handoff.specification import has_spec_handoff, resolve_accepted_spec
 
     if not await has_spec_handoff(db, run):
@@ -42,5 +34,5 @@ async def accepted_spec_criteria(db, run: WorkflowRun, *, principal: User | None
 
 
 def criterion_text(criterion: dict[str, Any]) -> str:
-    """Format the exact accepted fields for a coverage refusal; never infer semantic coverage."""
+    # Never infer semantic coverage.
     return f"Given {criterion['given']}\nWhen {criterion['when']}\nThen {criterion['then']}"

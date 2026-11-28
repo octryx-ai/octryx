@@ -28,7 +28,6 @@ export function AdminPanelTabContent(props: AdminPanelTabContentProps) {
     projectsTabCtx,
     providersTabCtx,
     runtimesTabCtx,
-    scenariosTabCtx,
     schedulersTabCtx,
     skillsTabCtx,
     tasksTabCtx,
@@ -50,7 +49,6 @@ export function AdminPanelTabContent(props: AdminPanelTabContentProps) {
       projectsTabCtx={projectsTabCtx}
       providersTabCtx={providersTabCtx}
       runtimesTabCtx={runtimesTabCtx}
-      scenariosTabCtx={scenariosTabCtx}
       connectorsTabCtx={connectorsTabCtx}
       toolCatalogTabCtx={toolCatalogTabCtx}
       knowledgeTabCtx={knowledgeTabCtx}

@@ -19,12 +19,6 @@ class ChatRerunPreparation:
 
 
 def _chat_rerun_routing_resolution() -> dict:
-    """The plain-chat routing resolution of a rerun on a thread that never recorded one.
-
-    A rerun is a chat entry point like a send: without a recorded resolution the run would have no
-    profile origin (``run_capability.resolution``, ``missing_declaration``) and the execution gate
-    would refuse an ordinary chat message. The rerun runs as a chat turn without a workflow.
-    """
     from ..workflow_routing.explicit_selection import explicit_mode_no_selection_resolution
 
     resolution = explicit_mode_no_selection_resolution()

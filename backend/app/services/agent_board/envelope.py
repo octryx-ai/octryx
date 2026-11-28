@@ -1,11 +1,4 @@
-"""The board message envelope.
-
-``{id, project_id, kind, author:{type, user:{id,display_name}, agent_hash}, on_behalf_of, to:{user, agent_hash,
-role}, work_item:{id,key,title}|null, reply_to, created_at, body, options, acked_by_me, decided, redacted_at}``,
-plus ``acks:[{recipient:{kind, user, agent_hash}, acked_at}]`` for the UI. ``decided`` is
-``{by:{id,display_name}, at, option, text}`` on an answered ``decision_request`` and ``null`` otherwise.
-Times are ISO 8601 UTC. Every agent-facing result carries :data:`CONTENT_IS_DATA`.
-"""
+"""The board message envelope."""
 
 from __future__ import annotations
 
@@ -36,11 +29,6 @@ async def user_refs(db: AsyncSession, user_ids: Iterable[str | None]) -> dict[st
 
 
 async def agent_owners(db: AsyncSession, project_ids: Iterable[str], hashes: Iterable[str]) -> dict[str, str]:
-    """The user behind each agent hash, from what the platform already links to it.
-
-    A hash is never reversed. The Workspace's gateway sessions are hashed like the presence hash; claims, posts
-    and agent acks carry their holder's, author's or recipient's user. An unknown hash stays unresolved.
-    """
     wanted, projects = set(hashes), sorted(set(project_ids))
     if not wanted or not projects:
         return {}
@@ -79,13 +67,11 @@ async def agent_owners(db: AsyncSession, project_ids: Iterable[str], hashes: Ite
 
 
 def decision_parts(decision: AgentBoardMessage) -> tuple[str | None, str | None]:
-    """A decision's stored ``(option, text)``: the option is its first option entry, the text its body."""
     option = decision.options[0] if isinstance(decision.options, list) and decision.options else None
     return option, decision.body or None
 
 
 async def _decisions_of(db: AsyncSession, rows: Sequence[AgentBoardMessage]) -> list[AgentBoardMessage]:
-    """The decisions answering the ``decision_request`` rows among ``rows``."""
     request_ids = [row.id for row in rows if row.kind == KIND_DECISION_REQUEST]
     return (
         (
@@ -199,7 +185,6 @@ def _ack_views(own_acks: list[AgentBoardAck], users: dict[str, dict[str, str]]) 
 
 
 def _decided(decision: AgentBoardMessage, users: dict[str, dict[str, str]], *, redacted: bool) -> dict[str, Any]:
-    """Who decided and when; a redacted request never shows the chosen option or text."""
     option, text = (None, None) if redacted else decision_parts(decision)
     return {"by": users.get(decision.author_user_id), "at": iso(decision.created_at), "option": option, "text": text}
 

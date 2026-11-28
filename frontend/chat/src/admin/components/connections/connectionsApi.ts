@@ -1,6 +1,4 @@
-// The connection endpoints as the page calls them.
-// Plain fetch, because the page's state depends on the status: a 404 on the list means the server has no central
-// connections yet ("needs configuration", no stand-in data).
+// Plain fetch: the page's state depends on the status (a 404 means no central connections yet).
 import { readWorkspaceLimits, type UnboundToday } from "./boundScopes";
 import { fieldErrorsOf } from "./connectionDraft";
 import { readConnectionTypes, type ConnectionType } from "./connectionTypes";
@@ -39,7 +37,6 @@ async function call(path: string, init?: RequestInit): Promise<{ status: number;
   return { status: response.status, payload };
 }
 
-/** The connections; with a workspace id only those available in that workspace (?workspace_id=, contract 1.1). */
 export async function listConnections(workspaceId = ""): Promise<ListResult> {
   try {
     const { status, payload } = await call(workspaceId ? `${BASE}?workspace_id=${encodeURIComponent(workspaceId)}` : BASE);
@@ -51,7 +48,6 @@ export async function listConnections(workspaceId = ""): Promise<ListResult> {
   }
 }
 
-/** The kinds of connection the server knows (its connector descriptors); [] when it cannot say. */
 export async function loadConnectionTypes(): Promise<ConnectionType[]> {
   try {
     const { status, payload } = await call("/api/v1/admin/connection-types");
@@ -76,7 +72,6 @@ async function save(path: string, method: "PUT" | "POST", body: Record<string, u
   }
 }
 
-/** Partial update: fields left out stay as they are. */
 export const updateConnection = (id: string, body: Record<string, unknown>) => save(`${BASE}/${encodeURIComponent(id)}`, "PUT", body);
 export const createConnection = (body: Record<string, unknown>) => save(BASE, "POST", body);
 
@@ -89,7 +84,6 @@ export async function testConnection(id: string): Promise<TestResult | null> {
   }
 }
 
-/** Delete: only without active uses; otherwise the answer names them (409 connection_in_use). */
 export async function deleteConnection(id: string): Promise<{ ok: boolean; text: string }> {
   try {
     const { status, payload } = await call(`${BASE}/${encodeURIComponent(id)}`, { method: "DELETE" });
@@ -99,7 +93,6 @@ export async function deleteConnection(id: string): Promise<{ ok: boolean; text:
   }
 }
 
-/** Reset: the workspace uses the connection as it is again. */
 export async function resetDeviation(workspaceId: string, connectionId: string): Promise<boolean> {
   try {
     const path = `/api/v1/workspaces/${encodeURIComponent(workspaceId)}/connections/${encodeURIComponent(connectionId)}/deviation`;
@@ -110,7 +103,6 @@ export async function resetDeviation(workspaceId: string, connectionId: string):
   }
 }
 
-/** "Sync now" of one intake (existing endpoint); the answer as one sentence. */
 export async function syncIntake(workspaceId: string, intakeId: string): Promise<string> {
   try {
     const path = `/api/v1/secure-work/workspaces/${encodeURIComponent(workspaceId)}/intake/${encodeURIComponent(intakeId)}/sync`;
@@ -121,14 +113,9 @@ export async function syncIntake(workspaceId: string, intakeId: string): Promise
   }
 }
 
-/** At most this many Workspaces are read for "Today, unbound" (the batch route's limit); more says "each Workspace's list". */
 export const MAX_ALLOWLIST_WORKSPACES = 200;
 
-/**
- * Each Workspace's allowed keys of `connector` and the global list, in one request (GET
- * /admin/chat/api/panel/connectors/{connector}/workspace-limits?ids=…; platform admins). one request
- * per Workspace exhausted the API's database pool on Preview. Null when the read fails or there are too many.
- */
+// One batch request: a request per Workspace exhausted the API's database pool.
 export async function loadUnboundToday(workspaces: WorkspaceRef[], connector: string, field: string): Promise<UnboundToday | null> {
   if (!workspaces.length || workspaces.length > MAX_ALLOWLIST_WORKSPACES) return null;
   try {

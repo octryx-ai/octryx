@@ -191,7 +191,6 @@ async def _walk_affected(
     direction: str,
     relation: str,
 ) -> tuple[set[str], dict[str, CodeGraphEdge], bool]:
-    """Breadth-first walk from the start node, bounded by depth and node count."""
     visited = {start_id}
     frontier = {start_id}
     edge_rows: dict[str, CodeGraphEdge] = {}

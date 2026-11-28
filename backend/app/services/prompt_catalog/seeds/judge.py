@@ -1,9 +1,5 @@
-"""Seeds of the judge and model-side planner prompts: the routing condition operator, the
-command security analyzer, the trace-only tool planner and the orchestrator reviewer.
-
-The only code copy of these texts. Answer contracts the parsers depend on stay code constants and
-arrive as the ``{answer_contract}`` placeholder.
-"""
+"""Seeds of the judge and model-side planner prompts: the routing condition operator, the command security analyzer, the
+trace-only tool planner and the orchestrator reviewer."""
 
 from __future__ import annotations
 
@@ -30,29 +26,6 @@ SPECS: tuple[PromptKeySpec, ...] = (
         placeholders=frozenset({"answer_contract", "capability", "command_text", "project_label", "tool_name"}),
         risk=RISK_HIGH,
         description="{answer_contract} lists the JSON keys and enums the analyzer parses.",
-    ),
-    PromptKeySpec(
-        key="judge.planner.system",
-        area=AREA,
-        title="Trace-only tool planner: system prompt",
-        seed=(
-            "You are the Octryx trace-only tool planner. Return only JSON matching required_output_schema. Do "
-            "not call tools. Do not include prose."
-        ),
-    ),
-    PromptKeySpec(
-        key="judge.planner.validation_rules",
-        area=AREA,
-        title="Trace-only tool planner: validation rules",
-        seed=(
-            "Return only JSON that matches the required_output_schema.\n"
-            "Use only tools listed in allowed_tool_catalog.\n"
-            "Do not select tools that require approval.\n"
-            "Keep selected_tools length less than or equal to max_tool_calls.\n"
-            "Include concrete stop_criteria for known intents.\n"
-            "Set requires_clarification=true when the request is ambiguous or no useful tool is available."
-        ),
-        description="One rule per line.",
     ),
     PromptKeySpec(
         key="judge.review.task",

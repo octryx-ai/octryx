@@ -1,15 +1,4 @@
-"""The code questions about spring-petclinic at the pinned commit, with their known answers.
-
-Each question carries:
-
-- ``facts``: case-insensitive patterns the answer must contain (short fact tokens);
-- ``files``: the repository files a correct answer is grounded in; at least one citation must
-  point at one of them at the pinned commit;
-- ``truth``: (file, literal) pairs that must hold in the repository at that commit. The check
-  verifies them first, so an expected answer is only asserted while the repository confirms it.
-
-Verified against spring-petclinic b26f2352 (Spring Boot 3.5.6) on 2026-10-01.
-"""
+"""The code questions about spring-petclinic at the pinned commit, with their known answers."""
 
 from __future__ import annotations
 

@@ -147,12 +147,6 @@
        },
        "blocking": true,
        "description": "The test suite ran"
-      },
-      {
-       "type": "lint_passed",
-       "params": {},
-       "blocking": true,
-       "description": "The repository's declared lint command passes on this run's change"
       }
      ],
      "required_model_capability": "coding",
@@ -224,7 +218,7 @@
      "workflow_class": "coding_change_tdd",
      "capability_class": "change",
      "routing_intent": "coding",
-     "when_to_use": "Split the work into slices and delegate them with delegate_slices (each slice names the confirmed tests it makes pass); merge them with merge_slices, then run the full test suite. Never change a confirmed test.",
+     "when_to_use": "Split the work into slices (each slice names the confirmed tests it makes pass); the engine runs them as its sub-agents, then run the full test suite. Never change a confirmed test.",
      "checks": [
       {
        "type": "tool_called",
@@ -241,12 +235,6 @@
        "params": {},
        "blocking": true,
        "description": "The last test run after the last change passed"
-      },
-      {
-       "type": "lint_passed",
-       "params": {},
-       "blocking": true,
-       "description": "The repository's declared lint command passes on this run's change"
       }
      ],
      "required_model_capability": "coding",
@@ -278,9 +266,7 @@
       "write_workspace_file",
       "edit_workspace_file",
       "multi_edit_workspace_file",
-      "run_test_suite",
-      "delegate_slices",
-      "merge_slices"
+      "run_test_suite"
      ],
      "denylist": []
     },
@@ -317,12 +303,6 @@
       "params": {},
       "blocking": true,
       "description": "Every slice is merged"
-     },
-     {
-      "type": "lint_passed",
-      "params": {},
-      "blocking": true,
-      "description": "The repository's declared lint command passes on this run's change"
      }
     ]
    }

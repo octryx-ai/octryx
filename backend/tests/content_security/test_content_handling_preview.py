@@ -1,6 +1,5 @@
 """The settings preview (``handling_preview``, ``GET .../content-handling``) states what the enforcement points
-actually do: every action's preview at the tool-result check and at Command safety equals the runtime disposition
-there, and the gateway points show what the gateway's plan applies (credentials only, refuse or report)."""
+actually do."""
 
 from __future__ import annotations
 
@@ -41,7 +40,7 @@ def test_the_tool_result_preview_is_the_tool_result_record(monkeypatch, action):
                                                       tool_name="fetch", workspace_id="ws", session_id=None,
                                                       principal="user", counts={"email": 1})
     handled.release(tool_result_handling.RELEASED_BLOCKED if handled.refused else tool_result_handling.RELEASED_UNCHANGED,
-                    present=frozenset({"email"}))  # released unchanged: the result carries the email
+                    present=frozenset({"email"}))
     handled.write()
     obligation = recorded[-1]["obligation"]
     preview = _preview("email", settings, POINT_TOOL_RESULTS)
@@ -74,33 +73,28 @@ async def test_the_command_preview_is_command_safety(monkeypatch, action):
 
 @pytest.mark.parametrize("kind", ["secrets", "credential_assignment", "email", "internal_ip", "iban", "phone"])
 @pytest.mark.parametrize("action", [*ACTIONS, None])
-def test_the_gateway_preview_is_the_gateways_plan(kind, action):
-    """On the gateway only credentials act, by ``refuse`` or ``report`` (defaults: credentials refused, credential
-    assignments reported); everything else is shown
-    ``platform_calls_only`` with the action the gateway's plan applies instead."""
+def test_the_gateway_preview_is_the_workspace_setting(kind, action):
     settings = {} if action is None else {kind: action}
     applied = plan_for(settings, SURFACE_GATEWAY).action(kind)
+    platform = plan_for(settings, SURFACE_PLATFORM).action(kind)
+    assert applied == ("report" if kind == "email" and action is None else platform), "one setting; email defaults"
     for point in ("gateway_messages", "gateway_responses", "codex_seat"):
         preview = _preview(kind, settings, point)
-        assert preview["action"] == applied
+        rerouted_away = point == "codex_seat" and applied in ("reroute", "mask_reroute")
+        assert preview["action"] == ("refuse" if rerouted_away else applied)
         assert preview["configured_action"] == (action or applied)
-        assert (preview["reason"] == "platform_calls_only") is (preview["configured_action"] != applied
-                                                                or kind not in ("secrets", "credential_assignment"))
-        assert preview["conditions"] == []
-    default = {"secrets": "refuse", "credential_assignment": "report"}.get(kind, "none")
-    assert applied == (action if action in ("refuse", "report") and kind in ("secrets", "credential_assignment")
-                       else default)
+        assert preview["reason"] == ("content_route_unavailable" if rerouted_away else None)
+        older = [(rule["where"], rule["action"]) for rule in preview["conditions"]]
+        assert older == ([("older_history", "mask")] if applied == "refuse" else [])
 
 
 def test_a_refused_kind_in_older_history_is_shown_masked_on_platform_model_calls():
-    """``model_call_fields.refusing`` refuses a kind in the newest turn and the offered tools only; the copy masks it
-    everywhere else (``RecordedRun`` masks the refusing kinds too): the preview says so beside both call points."""
     from app.services.content_security import model_call_fields
     from app.services.content_security.model_call_record import SURFACE_REPLAY_ARGUMENTS
 
     assert SURFACE_REPLAY_ARGUMENTS not in model_call_fields._REFUSING_SURFACES
     assert [point.id for point in POINTS if OLDER_HISTORY_MASKED in point.conditions] == [
-        "model_call", "model_call_direct"]
+        "model_call", "model_call_direct", "gateway_messages", "gateway_responses", "codex_seat"]
     for point in ("model_call", "model_call_direct"):
         refused = _preview("email", {"email": "refuse"}, point)
         assert (refused["action"], [(rule["where"], rule["action"]) for rule in refused["conditions"]]) == (
@@ -117,7 +111,8 @@ def test_the_fixed_rules_are_listed_per_point():
     assert fixed["model_output"] == {"unfinished": "withhold", "unreadable": "refuse", "prompt_injection": "none"}
     assert fixed["tool_results"] == {"unfinished": "withhold", "prompt_injection": "none"}
     for point in ("gateway_messages", "gateway_responses", "codex_seat"):
-        assert fixed[point] == {"unfinished": "refuse", "unreadable": "refuse", "prompt_injection": "refuse"}
+        assert fixed[point] == {"unfinished": "refuse", "unreadable": "refuse", "prompt_injection": "refuse",
+                                "final_bytes": "refuse"}
     assert fixed["commands"] == {"unfinished": "review", "prompt_injection": "none"}
 
 

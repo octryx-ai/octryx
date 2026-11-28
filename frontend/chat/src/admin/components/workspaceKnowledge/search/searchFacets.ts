@@ -1,9 +1,5 @@
 import type { EvidenceHit } from "../workspaceKnowledgeTypes";
 
-// Knowledge → Search: hits grouped by the system they come from, narrowed by source, space or project and time in
-// the browser (the search itself is unchanged), and the place inside a source in words. Everything comes from
-// fields the server sent; a hit without `origin` lands in one "Sources" group.
-
 export type SearchFacets = { kinds: string[]; containers: string[]; within: TimeWindow };
 export type TimeWindow = "any" | "7d" | "30d" | "365d";
 export const NO_FACETS: SearchFacets = { kinds: [], containers: [], within: "any" };
@@ -27,29 +23,23 @@ const ORIGIN_LABELS: Record<string, string> = {
   custom_rest: "REST API",
 };
 
-/** The origin kind of a hit, "" when the server did not say. */
 export function originKindOf(hit: Pick<EvidenceHit, "origin">): string {
   return typeof hit.origin?.kind === "string" ? hit.origin.kind.trim().toLowerCase() : "";
 }
 
-/** "Confluence", "Jira", …; an unknown kind in words; no kind at all is "Sources". */
 export function originLabel(kind: string): string {
   if (!kind) return "Sources";
   return ORIGIN_LABELS[kind] ?? kind.replace(/[_-]+/g, " ").replace(/^./, (first) => first.toUpperCase());
 }
 
-/** The link that opens the source where it lives: "Open in Confluence", or "Open source" for anything else. */
 export function openInLabel(kind: string): string {
   const label = ORIGIN_LABELS[kind];
   return label && kind !== "upload" ? `Open in ${label}` : "Open source";
 }
 
-// `older`: further versions of the same page folded under this hit (searchFamilies.ts); empty for a plain hit.
-// `passages`: further passages of the same page, folded under its best one ("+N more passages").
 export type NumberedHit = { hit: EvidenceHit; number: number; older: EvidenceHit[]; passages?: EvidenceHit[] };
 export type HitGroup = { kind: string; label: string; hits: NumberedHit[] };
 
-/** Groups in the order their best hit appears; each shown hit keeps its number on the page. */
 export function groupPresented(shown: NumberedHit[]): HitGroup[] {
   const groups: HitGroup[] = [];
   for (const entry of shown) {
@@ -64,18 +54,12 @@ export function groupPresented(shown: NumberedHit[]): HitGroup[] {
   return groups;
 }
 
-/** Groups of plain hits, numbered in the ranked order from `firstNumber`. */
 export function groupHits(hits: EvidenceHit[], firstNumber = 1): HitGroup[] {
   return groupPresented(hits.map((hit, index) => ({ hit, number: firstNumber + index, older: [] })));
 }
 
 export type HitDate = { value: string; label: "changed" | "received" };
 
-/**
- * The date a hit shows, always labelled: when the source changed, once the server knows it; else when
- * Octryx AI received this version. Never an unlabelled sync date.
- */
-/** The source's own change date: `origin.source_changed_at` (backend contract), or a top-level field. */
 function sourceChangedAt(hit: Pick<EvidenceHit, "source_changed_at" | "origin">): string | null {
   return hit.origin?.source_changed_at || hit.source_changed_at || null;
 }
@@ -89,8 +73,7 @@ export function hitDate(hit: Pick<EvidenceHit, "changed_at" | "source_changed_at
 
 export type FacetOption = { value: string; label: string; count: number };
 
-/** The filter choices the returned hits offer, with their counts; nothing is offered that matches no hit.
- * A count is the number of documents (sources), as the result list groups passages per document. */
+// Counts are documents, since the result list groups passages per document.
 export function facetOptions(hits: EvidenceHit[]): { kinds: FacetOption[]; containers: FacetOption[] } {
   const count = (keyOf: (hit: EvidenceHit) => string) => {
     const sources = new Map<string, Set<string>>();
@@ -117,7 +100,7 @@ function changedAt(hit: Pick<EvidenceHit, "changed_at" | "source_changed_at" | "
   return Number.isFinite(time) ? time : null;
 }
 
-/** The hits the filters keep. A hit without a date is kept only under "Any time"; nothing is guessed. */
+// A hit without a date is kept only under "Any time"; nothing is guessed.
 export function applyFacets(hits: EvidenceHit[], facets: SearchFacets, now: number = Date.now()): EvidenceHit[] {
   const days = TIME_WINDOWS.find((entry) => entry.value === facets.within)?.days ?? null;
   return hits.filter((hit) => {
@@ -135,15 +118,11 @@ export function activeFacetCount(facets: SearchFacets): number {
   return facets.kinds.length + facets.containers.length + Number(facets.within !== "any");
 }
 
-// "Title > 1. Chapter > 1.2 Section" → "1. Chapter > 1.2 Section".
 function sectionInside(section: string, title: string): string {
   return section.startsWith(`${title} > `) ? section.slice(title.length + 3) : section;
 }
 
-/**
- * Where the passage sits inside its source, in words: section, pages or lines. Never the revision, character
- * offsets or a score: those are bookkeeping, not a place a reader can find.
- */
+// Never revision, offsets or score: bookkeeping, not a place a reader can find.
 export function hitPlace(hit: Pick<EvidenceHit, "section" | "pages" | "lines" | "source_title">): string {
   const parts: string[] = [];
   if (hit.section) parts.push(`§ ${sectionInside(hit.section, hit.source_title)}`);
@@ -156,7 +135,6 @@ export function hitPlace(hit: Pick<EvidenceHit, "section" | "pages" | "lines" | 
   return parts.join(" · ");
 }
 
-/** The link that opens a hit where it lives: the origin's own link, else the source link; null without one. */
 export function hitSourceUrl(hit: Pick<EvidenceHit, "origin" | "source_url">): string | null {
   return hit.origin?.url || hit.source_url || null;
 }

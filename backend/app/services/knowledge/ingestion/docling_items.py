@@ -1,8 +1,4 @@
-"""DoclingDocument items read as text: references, pages, positions, tables and the shared bounds.
-
-Part of ``docling_document.py``'s parse; a structure outside the DoclingDocument contract raises a
-parser contract violation here, never a partial guess.
-"""
+"""DoclingDocument items read as text: references, pages, positions, tables and the shared bounds."""
 
 from __future__ import annotations
 

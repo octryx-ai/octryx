@@ -1,15 +1,4 @@
-"""Extended AWS topology collectors for broader service coverage.
-
-Each collector is read-only and routed through ``safe_aws_call`` so a missing
-IAM permission or a service that is simply not used in an account degrades to a
-warning instead of failing the snapshot. This is what lets one connector read
-"whatever is present" across many different accounts.
-
-VPC-bound resources emit ``runs_in``/``uses_subnet``/``uses_security_group``
-edges so the renderer nests them into the right subnet tier; regional/global
-resources (API Gateway, CloudFront, Route 53, SQS, SNS, …) carry no VPC edge
-and land in the regional-services group.
-"""
+"""Extended AWS topology collectors for broader service coverage."""
 
 from __future__ import annotations
 

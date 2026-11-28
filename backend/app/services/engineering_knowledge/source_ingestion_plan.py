@@ -23,7 +23,6 @@ def _target_source(
     source_type: str,
     trust_tier: str = "official",
 ) -> dict[str, Any]:
-    """One planned source pinned to a single target coordinate and version."""
     return asdict(
         EngineeringKnowledgeSourceSpec(
             source_key=source_key,

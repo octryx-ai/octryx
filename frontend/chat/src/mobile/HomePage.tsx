@@ -1,7 +1,7 @@
 // Home: what needs the person first, then the state of their work at a glance (tiles that open the tabs), the tasks
 // assigned to them and the newest chats. Everything follows the Workspace choice.
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import type { AttentionItem } from "../chat/companion/companionTypes";
 import { RedactedText } from "../chat/redaction/RedactedText";
 import { ChatRows } from "./ChatList";
@@ -32,6 +32,7 @@ type Props = {
   loading: boolean;
   error: string;
   onOpenItem: (item: AttentionItem) => void;
+  onTakeOver: (item: AttentionItem) => Promise<void>;
   onOpenApproval: (approval: PhoneApproval) => void;
   onOpenCase: (item: Case) => void;
   onOpenThread: (thread: DeviceThread) => void;
@@ -44,7 +45,7 @@ const RECENT_CHATS = 4;
 const YOUR_TASKS = 3;
 
 export function HomePage({
-  switcher, needs, approvals, tiles, threads, sessions, cases, workspaces, usage, loading, error, onOpenItem, onOpenApproval,
+  switcher, needs, approvals, tiles, threads, sessions, cases, workspaces, usage, loading, error, onOpenItem, onTakeOver, onOpenApproval,
   onOpenCase, onOpenThread, onOpenSession, onAllChats, onNewChat,
 }: Props) {
   const usageLine = usage ? usageText(usage) : "";
@@ -64,7 +65,8 @@ export function HomePage({
           </p>
         )}
         {needs.length + approvals.length > 0 && (
-          <NeedsSection needs={needs} approvals={approvals} workspaces={workspaces} onOpenItem={onOpenItem} onOpenApproval={onOpenApproval} />
+          <NeedsSection needs={needs} approvals={approvals} workspaces={workspaces} onOpenItem={onOpenItem} onTakeOver={onTakeOver}
+            onOpenApproval={onOpenApproval} />
         )}
         {tiles.length > 0 && <TilesSection tiles={tiles} />}
         {cases.length > 0 && <TasksSection cases={cases} workspaces={workspaces} onOpenCase={onOpenCase} />}
@@ -121,8 +123,8 @@ function HomeActions({ loading, onNewChat }: Pick<Props, "loading" | "onNewChat"
 }
 
 // Approvals first, then the other items that need the person.
-function NeedsSection({ needs, approvals, workspaces, onOpenItem, onOpenApproval }:
-  Pick<Props, "needs" | "approvals" | "workspaces" | "onOpenItem" | "onOpenApproval">) {
+function NeedsSection({ needs, approvals, workspaces, onOpenItem, onTakeOver, onOpenApproval }:
+  Pick<Props, "needs" | "approvals" | "workspaces" | "onOpenItem" | "onTakeOver" | "onOpenApproval">) {
   return (
     <section aria-labelledby="m-needs">
       <h2 id="m-needs" className="m-section">
@@ -156,19 +158,42 @@ function NeedsSection({ needs, approvals, workspaces, onOpenItem, onOpenApproval
             </button>
           </li>
         ))}
-        {needs.map((item) => (
-          <li key={item.key}>
-            <button type="button" className="m-need" onClick={() => onOpenItem(item)}>
-              <span className="m-need-text">
-                <b>{item.title}</b>
-                <span>{[item.subtitle, item.workspace?.name].filter(Boolean).join(" · ")}</span>
-              </span>
-              <Icon name="chevronRight" size={18} className="m-row-chevron" />
-            </button>
-          </li>
-        ))}
+        {needs.map((item) => <NeedRow key={item.key} item={item} onOpenItem={onOpenItem} onTakeOver={onTakeOver} />)}
       </ul>
     </section>
+  );
+}
+
+// A session handed to the person or waiting in the pool is taken over right here; the server's refusal (someone was
+// faster, no device can run it) is shown in its own words.
+function NeedRow({ item, onOpenItem, onTakeOver }: { item: AttentionItem } & Pick<Props, "onOpenItem" | "onTakeOver">) {
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState("");
+  const takes = item.kind === "pool" || item.kind === "handover";
+  const take = () => {
+    setBusy(true);
+    setProblem("");
+    onTakeOver(item).catch((error: { message?: string }) => setProblem(error?.message || "It could not be taken over."))
+      .finally(() => setBusy(false));
+  };
+  return (
+    <li>
+      <button type="button" className="m-need" onClick={() => onOpenItem(item)}>
+        <span className="m-need-text">
+          <b>{item.title}</b>
+          <span>{[item.subtitle, item.workspace?.name].filter(Boolean).join(" · ")}</span>
+        </span>
+        <Icon name="chevronRight" size={18} className="m-row-chevron" />
+      </button>
+      {takes && (
+        <div className="m-buttons">
+          <button type="button" className="m-primary m-wide" disabled={busy} data-testid="m-take-over" onClick={take}>
+            {busy ? "Taking over…" : "Take over"}
+          </button>
+        </div>
+      )}
+      {problem && <p className="m-error" role="alert">{problem}</p>}
+    </li>
   );
 }
 

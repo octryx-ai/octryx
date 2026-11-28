@@ -13,7 +13,6 @@ _RESPONSE_INSTRUCTION = (
 
 
 def planning_messages(system_prompt: str | None, context: str, enabled_tools: set[str]) -> list[dict]:
-    """The planning call: which tools does the model need for this request."""
     return [
         {"role": "system", "content": system_prompt or ""},
         {
@@ -31,7 +30,6 @@ def planning_messages(system_prompt: str | None, context: str, enabled_tools: se
 
 
 def final_messages(system_prompt: str | None, context: str, tool_context: str) -> list[dict]:
-    """The answer call, with the tool results when there are any."""
     if tool_context:
         user_content = f"{context}\n\nTool results:\n{tool_context}\n\n{_RESPONSE_INSTRUCTION}"
     else:
@@ -44,7 +42,6 @@ def final_messages(system_prompt: str | None, context: str, tool_context: str) -
 
 
 def format_tool_results(tool_results: list[dict]) -> str:
-    """Format tool results for LLM context."""
     lines = []
     for item in tool_results:
         tool_name = item.get("tool", "unknown")
@@ -63,7 +60,6 @@ def format_tool_results(tool_results: list[dict]) -> str:
 
 
 def summarize_result(result: dict, max_len: int = 1500) -> str:
-    """Create a concise summary of tool result for LLM context."""
     # Common useful fields
     important_keys = {"title", "name", "status", "summary", "description", "result", "count", "items"}
 
@@ -89,7 +85,6 @@ def summarize_result(result: dict, max_len: int = 1500) -> str:
 
 
 def detect_follow_up(response: str) -> str | None:
-    """Detect if the response contains a follow-up question."""
     # Look for question marks at the end or "?" followed by suggestion
     # Simple heuristic: the response ends with "?" or asks the caller a direct question
     patterns = [
@@ -117,7 +112,6 @@ def detect_follow_up(response: str) -> str | None:
 
 
 def extract_tool_names(text: str) -> list[str]:
-    """Extract tool names from LLM planning response."""
     lines = text.strip().split("\n")
     tools = []
 
@@ -146,7 +140,6 @@ def extract_tool_names(text: str) -> list[str]:
 
 
 def extract_params(tool_name: str, user_message: str) -> dict:
-    """Extract parameters for a tool from user message (basic heuristic)."""
     # This is a simple implementation
     # A more sophisticated version would use LLM to extract params
     params: dict[str, Any] = {}

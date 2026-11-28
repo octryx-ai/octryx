@@ -11,7 +11,6 @@ from ..common import slugify
 
 
 def _release_texts(release: dict[str, Any], name: str, project_key: str, released: bool) -> tuple[str, str]:
-    """``(status line, node description)`` of one release."""
     release_date = str(release.get("release_date") or "").strip()
     start_date = str(release.get("start_date") or "").strip()
     description = str(release.get("description") or "").strip()
@@ -63,10 +62,8 @@ async def ingest_release_record(
     project_id: str | None,
     release: dict[str, Any],
 ) -> Any | None:
-    """Deterministically map a release record (e.g. a Jira version) into the
-    graph: a release node linked to its tracker project, with a version claim
-    carrying the release date — the temporal backbone for "what changed when".
-    """
+    """Map a release record (e.g. a Jira version) into the graph: a release node, its tracker project and a dated
+    version claim."""
     name = str(release.get("name") or "").strip()
     if not name:
         return None

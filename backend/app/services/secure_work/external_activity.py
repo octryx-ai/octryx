@@ -83,6 +83,7 @@ async def _link_item(
             action="secure_work.external_activity.linked",
             resource_type="work_item",
             resource_id=item.id,
+            project_id=item.project_id,
             details={
                 "event_id": event.id,
                 "event_type": event.event_type,

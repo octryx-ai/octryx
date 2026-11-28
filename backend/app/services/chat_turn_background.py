@@ -6,6 +6,8 @@ import asyncio
 import logging
 from collections.abc import Awaitable, Callable
 
+from .data_access import background_viewer, reading_as
+
 logger = logging.getLogger(__name__)
 
 _CHAT_TURN_BACKGROUND_TASKS: dict[str, set[asyncio.Task]] = {}
@@ -17,11 +19,12 @@ def schedule_chat_turn_background_task(
     task_name: str,
     coro_factory: Callable[[], Awaitable[None]],
 ) -> asyncio.Task:
-    """Schedule bounded chat-turn follow-up work without extending the foreground run task."""
+    viewer = background_viewer()
 
     async def _runner() -> None:
-        await asyncio.sleep(0)
-        await coro_factory()
+        with reading_as(viewer):
+            await asyncio.sleep(0)
+            await coro_factory()
 
     task = asyncio.create_task(_runner(), name=f"chat-turn-background:{task_name}:{session_id}")
     bucket = _CHAT_TURN_BACKGROUND_TASKS.setdefault(session_id, set())

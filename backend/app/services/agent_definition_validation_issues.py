@@ -1,8 +1,5 @@
-"""Typed validation issues of an Agent Definition revision snapshot.
-
-An issue is a fixed code plus the offending identifier, never authored prose or configuration
-content, so a result can be shown to an administrator and stored without leaking secrets.
-"""
+"""Typed validation issues of an Agent Definition revision snapshot. A fixed code plus the offending identifier, never
+authored prose or configuration content."""
 
 from __future__ import annotations
 
@@ -12,11 +9,7 @@ from typing import Any
 
 @dataclass(frozen=True, slots=True)
 class ValidationIssue:
-    """One typed validation failure.
-
-    ``subject`` carries only an identifier (a tool name, an id, a step
-    position), never authored prose or configuration content.
-    """
+    # ``subject`` carries identifiers only, never authored prose or configuration content.
 
     code: str
     field: str

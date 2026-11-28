@@ -1,14 +1,5 @@
-"""Review fixes of the Bitbucket Cloud slice (PASS WITH NOTES, findings 1-6), each reproduced first.
-
-1. a pull request id or commit with path segments never reaches a REST path (the allowlist would be bypassed);
-2. a Cloud push goes to the clone URL of the bound repository, never the working copy's ``origin``; the token is
-   handed only to the connection's own host (Cloud: bitbucket.org; Server/Data Center: its configured host);
-3. a requester's Atlassian account binds only on an exact email match (a hidden address is no match);
-4. an Inbox link to a pull request is an http(s) page or the run card;
-5. a Server-only tool with its own HTTP client (file read, repository bootstrap) refuses a Cloud connection, and a
-   Cloud connection whose URL is not bitbucket.org has no credential;
-6. a ``local_snapshot`` connector resolves no connection (its run is refused as ``snapshot_upload_required``).
-"""
+"""Bitbucket Cloud edge cases: REST path segments, push target and token host, account binding, links, Server-only
+tools."""
 
 from __future__ import annotations
 

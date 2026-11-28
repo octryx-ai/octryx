@@ -1,13 +1,12 @@
-"""Coordinator state contracts per coordinator mode: direct, sub-agent group and worker delegation."""
+"""Coordinator state contracts per coordinator mode: direct and worker delegation."""
 
 from __future__ import annotations
 
 from typing import Any
 
-from ..models import Session, SubAgentGroup, WorkerDelegation
+from ..models import Session, WorkerDelegation
 from ..schemas.operations.coordinator import CoordinatorMode, CoordinatorStateContract
 from .session.run_state import get_session_run_completion_reason, get_session_run_status
-from .sub_agent_group.telemetry import summarize_sub_agent_group_telemetry
 
 _TERMINAL_DELEGATION_STATUSES = frozenset({"completed", "failed", "declined"})
 _ACTIVE_DELEGATION_STATUSES = frozenset({"pending", "accepted", "in_progress"})
@@ -68,7 +67,6 @@ def _direct_contract(root_session: Session, child_session_ids: list[str]) -> Coo
         run_completion_reason=_session_run_completion_reason(root_session),
         child_session_ids=child_session_ids,
         synthesis_ready=True,
-        can_continue=not active_run,
         can_stop=active_run,
     )
 
@@ -77,56 +75,10 @@ def _determine_metadata_mode(root_session: Session) -> CoordinatorMode:
     metadata = dict(root_session.metadata_ or {})
     if metadata.get("workflow_contract") or metadata.get("workflow_id"):
         return "deterministic_workflow"
-    if metadata.get("current_sub_agent_group_id"):
-        return "sub_agent_group"
     trigger = str(metadata.get("trigger") or "").strip().lower()
     if trigger == "worker_delegation":
         return "worker_delegation"
     return "unknown"
-
-
-def _sub_agent_group_contract(
-    root_session: Session,
-    *,
-    group: SubAgentGroup,
-    child_session_ids: list[str],
-) -> CoordinatorStateContract:
-    telemetry = summarize_sub_agent_group_telemetry(group)
-    progress = telemetry["progress"]
-    readiness = telemetry["readiness"]
-    terminal_state = str(telemetry["terminal_state"] or "").strip().lower() or "unknown"
-
-    if progress["pending_children"] > 0:
-        aggregate_status = "awaiting_children"
-    elif readiness["parent_resume_ready"]:
-        aggregate_status = "ready_to_continue"
-    else:
-        aggregate_status = terminal_state
-
-    return CoordinatorStateContract(
-        root_session_id=root_session.id,
-        coordinator_mode="sub_agent_group",
-        aggregate_status=aggregate_status,
-        session_status=str(root_session.status or "").strip().lower() or "unknown",
-        run_status=_session_run_status(root_session),
-        run_completion_reason=_session_run_completion_reason(root_session),
-        child_session_ids=_normalize_ids(list(group.child_session_ids_json or []) + child_session_ids),
-        delegated_session_ids=[],
-        sub_agent_group_id=group.id,
-        delegation_ids=[],
-        progress_counts={
-            "total_children": int(progress["total_children"] or 0),
-            "completed_children": int(progress["completed_children"] or 0),
-            "failed_children": int(progress["failed_children"] or 0),
-            "timed_out_children": int(progress["timed_out_children"] or 0),
-            "terminal_children": int(progress["terminal_children"] or 0),
-            "pending_children": int(progress["pending_children"] or 0),
-        },
-        progress_ratio=float(progress["completion_ratio"] or 0.0),
-        synthesis_ready=bool(readiness["parent_resume_ready"]),
-        can_continue=bool(readiness["parent_resume_ready"]),
-        can_stop=not bool(readiness["group_is_terminal"]),
-    )
 
 
 def _normalize_delegation_status(status: str | None) -> str:
@@ -167,7 +119,6 @@ def _worker_delegation_contract(
         run_completion_reason=_session_run_completion_reason(root_session),
         child_session_ids=_normalize_ids(child_session_ids + delegated_session_ids),
         delegated_session_ids=delegated_session_ids,
-        sub_agent_group_id=None,
         delegation_ids=delegation_ids,
         progress_counts={
             "total_children": len(delegation_ids),
@@ -181,6 +132,5 @@ def _worker_delegation_contract(
         if statuses
         else None,
         synthesis_ready=all_terminal,
-        can_continue=all_terminal,
         can_stop=not all_terminal,
     )

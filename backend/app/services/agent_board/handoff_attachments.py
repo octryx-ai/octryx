@@ -1,14 +1,4 @@
-"""Handoff attachments: the client's git bundle when the WIP branch cannot be pushed.
-
-- At most :data:`MAX_ATTACHMENT_BYTES` (50 MB). The object store holds at most 32 MB per object, so a bundle is
-  stored as content-addressed parts of :data:`PART_BYTES` each in the Workspace's area of the store
-  (``knowledge/objects``, the existing SeaweedFS/S3 store).
-- Every bundle is secret-scanned (``bundle_scan``) before anything is stored; a hit is 422 ``secret_detected``,
-  a malformed bundle 422 ``bundle_invalid``.
-- Reads verify every part's digest and the whole bundle's SHA-256. Both store and read write an audit row.
-- An unconfigured store is 409 ``attachment_store_not_configured``; an unreachable one 503
-  ``attachment_store_unavailable``.
-"""
+"""Handoff attachments: the client's git bundle when the WIP branch cannot be pushed."""
 
 from __future__ import annotations
 
@@ -36,7 +26,6 @@ CODE_TOO_LARGE = "attachment_too_large"
 
 
 def attachment_store() -> Any:
-    """The Workspace object store (the evidence runtime's); tests replace this provider."""
     from ..knowledge.runtime import get_evidence_runtime
 
     return get_evidence_runtime().object_store
@@ -76,6 +65,7 @@ async def store_bundle(
     )
     db.add(attachment)
     db.add(AuditLog(user_id=user_id, action=STORE_AUDIT_ACTION, resource_type="work_item_handoff_attachment",
+                    project_id=project_id,
                     resource_id=attachment.id, details={"project_id": project_id, "work_item_id": work_item_id,
                                                         "byte_size": len(data), "sha256": attachment.sha256}))
     await db.flush()
@@ -97,7 +87,8 @@ async def load_bundle(db: AsyncSession, *, attachment: WorkItemHandoffAttachment
     if hashlib.sha256(data).hexdigest() != attachment.sha256:
         raise HTTPException(status_code=503, detail={"code": CODE_UNAVAILABLE})
     db.add(AuditLog(user_id=user_id, action=READ_AUDIT_ACTION, resource_type="work_item_handoff_attachment",
-                    resource_id=attachment.id, details={"project_id": attachment.project_id,
+                    resource_id=attachment.id, project_id=attachment.project_id,
+                    details={"project_id": attachment.project_id,
                                                         "work_item_id": attachment.work_item_id}))
     await db.flush()
     return data

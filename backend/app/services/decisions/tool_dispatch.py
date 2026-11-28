@@ -1,12 +1,4 @@
-"""Tool dispatch decisions (O2): every governed tool call either counts as allowed or records why it was not.
-
-``tools.registry`` runs all dispatch gates (agent tool surface, connector activation, classification, tool
-policy, run capability, MCP capability and resources, tool approval, coding gates) in one place and returns the
-first refusal. This module turns that single result into the decision record: a refusal by an MCP policy is an
-``mcp_access`` denial, every other refusal a ``tool_policy`` denial with the refusing policy as the rule. An
-approval hold is recorded by the approval itself (``decisions.approvals``) and an enforced Cedar denial by the
-policy engine (its own record), so neither is recorded twice here.
-"""
+"""Tool dispatch decisions (O2): every governed tool call either counts as allowed or records why it was not."""
 
 from __future__ import annotations
 
@@ -61,8 +53,6 @@ def record_tool_dispatch(tool_name: str, context: Any, blocked: dict[str, Any] |
 def recorded_tool_dispatch(
     checks: Callable[[str, dict, Any], Awaitable[dict[str, Any] | None]],
 ) -> Callable[[str, dict, Any], Awaitable[dict[str, Any] | None]]:
-    """Wrap the registry's dispatch gates so their single outcome becomes a decision record or an allow count."""
-
     @functools.wraps(checks)
     async def run_and_record(tool_name: str, params: dict, context: Any) -> dict[str, Any] | None:
         blocked = await checks(tool_name, params, context)

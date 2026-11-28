@@ -1,16 +1,4 @@
-"""The platform approval rule: does a governed change need a second admin?
-
-Stored in ``system_config`` under :data:`APPROVAL_RULE_CONFIG_KEY`; edited by platform admins in
-Settings → Governance → "Approval rule". Two values:
-
-* ``four_eyes`` — the default (also for a missing or unreadable value): an admin other than the
-  author approves before anyone can publish;
-* ``single_admin`` — for an installation with one admin: the author approves their own change and
-  publishes it in one step; every such publish is audited as ``approval_mode: self``.
-
-The decision itself lives in ``services.governance.four_eyes``; this module only stores, reads and
-audits the rule.
-"""
+"""The platform approval rule: does a governed change need a second admin?"""
 
 from __future__ import annotations
 
@@ -52,15 +40,13 @@ async def load_approval_rule(db: AsyncSession) -> str:
 
 
 async def set_approval_rule(db: AsyncSession, *, rule: Any, actor_id: str) -> str:
-    """Store the rule and audit the change (who, old → new); flushes, the caller commits."""
     value = str(rule or "").strip().lower()
     if value not in APPROVAL_RULES:
         raise ApprovalRuleError(ERROR_APPROVAL_RULE_INVALID)
     previous = await load_approval_rule(db)
     if value == previous:
         return value
-    await set_system_config_value(db, key=APPROVAL_RULE_CONFIG_KEY, value=value, description="Platform approval rule",
-                                  updated_by=actor_id, record_prompt_revision=False)
+    await set_system_config_value(db, key=APPROVAL_RULE_CONFIG_KEY, value=value, description="Platform approval rule")
     db.add(AuditLog(user_id=actor_id, action=AUDIT_APPROVAL_RULE_UPDATED, resource_type="system_config",
                     resource_id=APPROVAL_RULE_CONFIG_KEY, details={"previous": previous, "rule": value}))
     await db.flush()
@@ -68,7 +54,6 @@ async def set_approval_rule(db: AsyncSession, *, rule: Any, actor_id: str) -> st
 
 
 async def approval_rule_status(db: AsyncSession) -> dict[str, Any]:
-    """What the UI shows: the stored rule, whether self-approval is in effect, and why."""
     from .four_eyes import self_approval_source
 
     row = await db.get(SystemConfig, APPROVAL_RULE_CONFIG_KEY)

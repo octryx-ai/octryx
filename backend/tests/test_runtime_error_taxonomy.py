@@ -4,7 +4,11 @@ import json
 
 import pytest
 
-from app.agent.core.runtime.runtime_errors import (
+from app.agent.runtime.retry_policy import (
+    RUNTIME_FALLBACK_MODE_ALL_RUNTIMES,
+    build_runtime_retry_policy,
+)
+from app.agent.runtime.runtime_errors import (
     CLASSIFICATION_SOURCE_DEFAULT,
     CLASSIFICATION_SOURCE_EXCEPTION_TYPE,
     CLASSIFICATION_SOURCE_EXPLICIT,
@@ -12,12 +16,8 @@ from app.agent.core.runtime.runtime_errors import (
     ProviderRuntimeError,
     classify_runtime_error,
 )
-from app.agent.core.runtime.runtime_fallback_policy import RUNTIME_FALLBACK_MODE_FIRST_RUNTIME_ONLY
-from app.agent.engine.runtime._engine_runtime_fallback import _chat_with_runtime_fallback
-from app.agent.engine.runtime._engine_runtime_retry_policy import (
-    RUNTIME_FALLBACK_MODE_ALL_RUNTIMES,
-    build_runtime_retry_policy,
-)
+from app.agent.runtime.runtime_fallback import _chat_with_runtime_fallback
+from app.agent.runtime.runtime_fallback_policy import RUNTIME_FALLBACK_MODE_FIRST_RUNTIME_ONLY
 
 
 def test_explicit_provider_error_class_wins_over_message() -> None:

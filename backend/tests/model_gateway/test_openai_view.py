@@ -31,7 +31,7 @@ def test_parallel_tool_calls_and_their_outputs_form_one_turn():
     delta = newest_turn(view["messages"])
     # Codex's shell and patch calls are recorded under the names the evidence reads (Claude Code's)
     assert [(use.tool_use_id, use.name) for use in delta.prior_tool_uses] == [("a", "Bash"), ("b", "Edit")]
-    assert delta.prior_tool_uses[0].input == {"command": "ls"}  # the command as one string, as for Bash
+    assert delta.prior_tool_uses[0].input == {"command": "ls"}
     assert delta.prior_tool_uses[1].input == {"input": "*** Begin Patch"}
     assert [(result.tool_use_id, result.text) for result in delta.tool_results] == [("a", "README.md"), ("b", "ok")]
 
@@ -55,11 +55,11 @@ def test_codex_calls_get_the_names_and_inputs_the_evidence_reads():
 
     assert evidence_names("exec_command", {"cmd": "/bin/zsh -lc 'pytest -q'"}) == (
         "Bash", {"cmd": "/bin/zsh -lc 'pytest -q'", "command": "pytest -q"})
-    assert evidence_names("shell", {"command": ["bash", "-lc", "ls"]})[1]["command"] == "ls"  # unwrapped
+    assert evidence_names("shell", {"command": ["bash", "-lc", "ls"]})[1]["command"] == "ls"
     patch = "*** Begin Patch\n*** Add File: docs/spec.md\n+# Spec\n*** End Patch"
     assert evidence_names("apply_patch", {"input": patch}) == ("Edit", {"input": patch, "file_path": "docs/spec.md"})
     assert evidence_names("mcp__octryx_knowledge__workflow_catalog", {}) == (
-        "mcp__octryx-knowledge__workflow_catalog", {})  # the platform's MCP name
+        "mcp__octryx-knowledge__workflow_catalog", {})
     view = anthropic_view({"model": "m", "input": [
         {"type": "function_call", "call_id": "c", "namespace": "mcp__octryx_knowledge",
          "name": "workflow_run_status", "arguments": "{}"},
@@ -78,7 +78,6 @@ def test_a_shell_apply_patch_is_recorded_as_the_file_change():
 
 
 def test_a_denied_or_failed_codex_call_is_an_error_and_a_broken_shell_patch_no_edit():
-    """A hook-denied ``apply_patch {json}`` is never recorded as a successful Edit."""
     from app.services.model_gateway.inbound.openai_view import _tool_result, evidence_names
 
     denied = _tool_result({"call_id": "c1", "output": "Command blocked by PreToolUse hook: Octryx policy denied"})

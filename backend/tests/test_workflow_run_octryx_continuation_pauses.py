@@ -9,6 +9,7 @@ from app.models import Session, UserDevice
 from app.services.devices.job_events import apply_event
 from app.services.devices.jobs import start_turn
 from app.services.workflow_runs.octryx.continuation_marker import CONTEXT_KEY
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import (  # noqa: F401
     FOLDER,
     _confirm,
@@ -18,10 +19,10 @@ from tests.workflow_run_octryx_continuation_support import (  # noqa: F401
     _reenter,
 )
 
+pytestmark = pytest.mark.usefixtures("scripted_pool")
+
 
 def _ended_unfinished_once(run) -> None:
-    """The pass already ended unfinished once: the second time (stall_after, default 2) pauses (the
-    first time it goes on by itself, tests/test_platform_evidence.py)."""
     from app.services.workflow_runs.octryx.same_pass import UNFINISHED_KEY
 
     run.context = {**dict(run.context or {}), UNFINISHED_KEY: {
@@ -44,8 +45,6 @@ async def _user_texts(db, thread: Session) -> list[str]:
 
 @pytest.mark.asyncio
 async def test_a_phase_turn_that_ends_unfinished_pauses_and_a_users_own_failed_turn_does_not(db):
-    """A phase turn that ends without its checks must not leave the run 'running'. It pauses with the agent's
-    words; a turn the user typed afterwards changes nothing."""
     admin, _device, thread, run = await _device_run(db)
     await _confirm(db, run, admin)
     [job] = await _jobs(db, thread)
@@ -56,7 +55,6 @@ async def test_a_phase_turn_that_ends_unfinished_pauses_and_a_users_own_failed_t
     assert run.node_state["pause"]["code"] == "phase_not_finished"
     assert "can't be created" in run.node_state["pause"]["message"]
 
-    # A turn the user typed afterwards (no continuation of this pass is started any more) fails: no new pause.
     run.status, run.pause_reason = "running", None
     run.context = {key: value for key, value in run.context.items() if key != CONTEXT_KEY}
     own = await start_turn(db, owner_user_id=admin.id, device=await db.get(UserDevice, job.device_id),
@@ -110,8 +108,6 @@ async def test_aborting_a_run_stops_its_running_device_turn(db):
 
 @pytest.mark.asyncio
 async def test_the_pause_of_an_unfinished_phase_turn_names_the_check_that_failed(db):
-    """A turn judged failed by the code style (a file over its size limit) must not pause with only "its checks did
-    not pass": the failed check is named (honesty rule)."""
     admin, _device, thread, run = await _device_run(db)
     await _confirm(db, run, admin)
     [job] = await _jobs(db, thread)
@@ -143,9 +139,6 @@ def test_a_failed_turn_without_a_failed_blocking_check_says_so():
 
 @pytest.mark.asyncio
 async def test_a_green_pipeline_leaves_no_red_fix_prompt_in_the_chat_and_a_red_one_shows_it_with_its_turn(db):
-    """A device run with a green pipeline must not end in the chat with "the CI pipeline ran … and they are red …
-    Fix exactly that": the prompt is stored when the turn is offered, before the launcher knows the result, and
-    must not stay when it ends the job green (``pipeline_done``). It reaches the chat only at ``job_accepted``."""
     admin, _device, thread, run = await _device_run(db)
     await _confirm(db, run, admin)
     [job] = await _jobs(db, thread)
@@ -154,8 +147,8 @@ async def test_a_green_pipeline_leaves_no_red_fix_prompt_in_the_chat_and_a_red_o
     await apply_event(db, job, "turn_finished", {"turn_id": job.turn_id, "status": "success"}, limits={})
     before = await _user_texts(db, thread)
 
-    await _reenter(db, run, "work", runtime_step=True)  # the pipeline turn
-    await _reenter(db, run, "work")  # its continuation into the phase, offered before the result is known
+    await _reenter(db, run, "work", runtime_step=True)
+    await _reenter(db, run, "work")
     await apply_event(db, job, "job_rejected", {"turn_id": job.turn_id, "reason": "pipeline_done"}, limits={})
     green = await _user_texts(db, thread)
     assert green[: len(before)] == before
@@ -164,6 +157,6 @@ async def test_a_green_pipeline_leaves_no_red_fix_prompt_in_the_chat_and_a_red_o
     await _reenter(db, run, "work", runtime_step=True)
     await _reenter(db, run, "work")
     prompt = job.turn_prompt
-    await apply_event(db, job, "job_accepted", {"turn_id": job.turn_id}, limits={})  # red: the agent's turn starts
+    await apply_event(db, job, "job_accepted", {"turn_id": job.turn_id}, limits={})
     red = await _user_texts(db, thread)
     assert red[-1] == prompt and red.count(prompt) == 1

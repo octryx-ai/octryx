@@ -1,10 +1,4 @@
-"""Does a slide layout paint something opaque behind its own text?
-
-Split out of ``template_snapshot`` so the shape-tree reading that answers this
-question lives with its own responsibility. The answer feeds the ``title_illegible``
-gate check: a layout that declares a light title colour is only safe if there is
-a backdrop behind it.
-"""
+"""Does a slide layout paint something opaque behind its own text?"""
 
 from __future__ import annotations
 
@@ -26,11 +20,6 @@ _LIGHT_LUMINANCE = 0.75
 
 
 def is_light_color(value: str | None) -> bool:
-    """Whether a recorded slot colour is light enough to vanish on white.
-
-    Inherited colours (``None``) are theme colours by definition and are not
-    judged here; only an explicitly set scheme slot or literal RGB is.
-    """
     if not value:
         return False
     if value.startswith("scheme:"):
@@ -58,19 +47,6 @@ def paints_backdrop(
     slide_size: dict[str, Any],
     geometry: Any,
 ) -> bool:
-    """``p:bg`` — or a slide-filling decorative shape — backs this layout's text.
-
-    Templates just as often place a full-slide picture or filled rectangle in
-    the layout's shape tree as they set ``p:bg``; a branded title slide often
-    does exactly that (a full-slide ``p:pic`` behind a light title), which is
-    why its title is legible. Reading only ``p:bg`` reported such a slide as
-    ``title_illegible`` although the render shows the light title on the
-    backdrop picture.
-
-    Non-placeholder shapes only: a *placeholder* that happens to be large is
-    content, not decoration. ``geometry`` is the shape-transform reader of the
-    snapshot, passed in so this module stays free of the snapshot's internals.
-    """
     if root.find(f"{{{NS_P}}}cSld/{{{NS_P}}}bg") is not None:
         return True
     slide_area = int(slide_size.get("width_emu") or 0) * int(slide_size.get("height_emu") or 0)

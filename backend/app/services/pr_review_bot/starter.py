@@ -1,19 +1,4 @@
-"""Start the ``pr-review-bot`` run for a pull request head, once (concept §4, stage A).
-
-Both triggers end here: a webhook event (``webhook.on_scm_webhook``) and the hourly sync (``sync``). Each decides by
-the repository's opt-in (``settings``) and answers one closed outcome:
-
-- ``started``: a run reviews this head (its id is returned);
-- ``already_reviewed``: a run of the bot exists for this pull request and head commit, from either trigger (a
-  webhook and the sync never review the same push twice; the sync also catches a missed webhook);
-- ``skipped`` with a reason: ``not_registered`` (no Workspace repository), ``bot_off`` (the trigger is not switched
-  on for the repository), ``draft`` (a draft, unless ``review_drafts``), ``fork`` (the source branch lives in a fork:
-  checking it out needs a maintainer's approval, a later stage), ``no_head`` (the event names no commit).
-
-The bot never reviews a pull request as the session that wrote it: the reviewer is the independent review node, a
-fresh session without the author's history (``review.runner``). A run that opened the pull request is named in the
-run's context (``authored_by_run``), so the summary says the run's own review was the first pass.
-"""
+"""Start the ``pr-review-bot`` run for a pull request head, once (concept §4, stage A)."""
 
 from __future__ import annotations
 
@@ -54,20 +39,15 @@ class StartOutcome:
 
 
 def same_head(recorded: str, head: str) -> bool:
-    """Bitbucket Cloud webhooks name the short hash (12 characters), its API and a checkout the full one."""
     recorded, head = recorded.lower(), head.lower()
     return bool(recorded and head) and (recorded.startswith(head) or head.startswith(recorded))
 
 
 def _ended_without_review(run: WorkflowRun, facts: dict[str, Any]) -> bool:
-    """A run that ended without posting a review (blocked: no checkout, nothing posted) does not count: the next
-    sync or push tries the head again. Otherwise runs blocked on a refused checkout leave every later sync answering
-    already_reviewed for heads nobody has reviewed."""
     return run.completed_at is not None and run.outcome != "done" and not facts.get("posted")
 
 
 async def reviewed_run(db: AsyncSession, project_id: str, event: PullRequestEvent) -> WorkflowRun | None:
-    """The run that reviewed (or is reviewing) this pull request head; a run that ended without a review is none."""
     rows = (await db.execute(select(WorkflowRun).where(
         WorkflowRun.project_id == project_id, WorkflowRun.workflow_key == WORKFLOW_KEY,
         WorkflowRun.repository == event.repository,
@@ -82,7 +62,6 @@ async def reviewed_run(db: AsyncSession, project_id: str, event: PullRequestEven
 
 
 async def _authoring_run(db: AsyncSession, project_id: str, event: PullRequestEvent) -> str:
-    """The Octryx run that opened this pull request, if one did (its ``pull_request`` names the same id)."""
     rows = (await db.execute(select(WorkflowRun.id, WorkflowRun.pull_request).where(
         WorkflowRun.project_id == project_id, WorkflowRun.repository == event.repository,
         WorkflowRun.workflow_key != WORKFLOW_KEY, WorkflowRun.branch == event.source_branch,
@@ -106,9 +85,6 @@ def _skip_reason(event: PullRequestEvent, settings: Any, trigger: str) -> str:
 
 async def admit(db: AsyncSession, project_id: str, event: PullRequestEvent, *, trigger: str,
                 force_full: bool = False) -> StartOutcome | None:
-    """Why ``event`` starts no run, or ``None`` when it does; reads only (a webhook answers with it at once).
-
-    An ``@octryx review full`` (``force_full``, stage D) reviews a head again and also a paused pull request."""
     from .bot_state import is_paused
 
     record = await repository_record(db, project_id, event.repository)
@@ -127,8 +103,6 @@ async def admit(db: AsyncSession, project_id: str, event: PullRequestEvent, *, t
 
 async def start_review(db: AsyncSession, project_id: str, event: PullRequestEvent, *, trigger: str,
                        start: Any = None, force_full: bool = False, requested_by: str = "") -> StartOutcome:
-    """Start the bot's run for ``event`` when the repository opted in; commits on a start. The run's first steps
-    (the checkout, the pending status) run within this call, as for every run start."""
     refused = await admit(db, project_id, event, trigger=trigger, force_full=force_full)
     if refused is not None:
         return refused

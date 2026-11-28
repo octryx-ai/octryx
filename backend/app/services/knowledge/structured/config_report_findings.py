@@ -1,8 +1,4 @@
-"""Which linkage edges of the "Handbook vs. reality" report make it into each list, after the filters.
-
-Pure selection over the edges and nodes the report already read and checked for visibility; no
-database access. Every list keeps one finding per base file, ordered by setting name and path.
-"""
+"""Which linkage edges of the "Handbook vs. reality" report make it into each list, after the filters."""
 
 from __future__ import annotations
 
@@ -11,8 +7,6 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Findings:
-    """The report's findings per list, filtered but not yet cut to the limit."""
-
     hints: dict[str, list] = field(default_factory=dict)
     section_hints: dict[tuple, list] = field(default_factory=dict)
     undocumented: list = field(default_factory=list)
@@ -42,7 +36,6 @@ def value_at(values: object, position: int):
 
 
 def variant_paths(props: dict) -> list[str]:
-    """Variant file paths of a finding; an inconsistency holds one variant list per side."""
     items = list(props.get("variants") or ())
     items = [nested for item in items for nested in (item if isinstance(item, list) else [item])]
     paths = [str(item.get("path") or "") for item in items if isinstance(item, dict)]
@@ -55,8 +48,6 @@ def section_of(view) -> tuple:
 
 
 def _keeper(nodes: dict, parameter: str | None, file: str | None, in_section: set[str] | None):
-    """The filter every list applies: parameter name, file path part and manual section."""
-
     def keep(*node_ids: str, edge=None) -> bool:
         views = [nodes[node_id] for node_id in node_ids]
         names = {view.properties.get("key") or view.properties.get("name") for view in views}

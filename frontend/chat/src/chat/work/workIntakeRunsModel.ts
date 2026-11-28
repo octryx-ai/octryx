@@ -1,8 +1,3 @@
-
-// The runs of an intake (work-settings-workflows-ui B-7; the history comes from
-// `…/intake/{id}/runs`). Pure: no React. Read from the server, never guessed.
-// A failed run carries `{code, reason, message?, projects?}` (jira_run_failure.py); a blocked run `block_reason`.
-
 export type IntakeRun = {
   id: string;
   at: string | null;
@@ -19,7 +14,6 @@ const text = (value: unknown) => (typeof value === "string" ? value.trim() : "")
 
 const TRIGGER_TEXT: Record<string, string> = { manual: "manual", scheduled: "scheduled" };
 
-/** One run read strictly from a serialized sync run; null when it is not one. */
 export function readRun(value: unknown, sessionTrigger: string | null = null): IntakeRun | null {
   if (!isRecord(value) || !text(value.id) || !text(value.status)) return null;
   const trigger = TRIGGER_TEXT[text(value.trigger)] ?? sessionTrigger ?? "trigger not reported";
@@ -42,16 +36,13 @@ const AUTOMATION_TEXT: Record<string, string> = {
   human_only: "humans only",
 };
 
-/** "N pending next run" when the per-run limit or paging left items for the next run; "" when nothing is left. */
 export function pendingText(summary: Record<string, unknown>): string {
   const pending = count(summary.pending_next_run);
   if (pending !== null && pending > 0) return `${pending} pending next run`;
   return summary.more_pending === true ? "more pending next run" : "";
 }
 
-/** "3 imported · 1 updated · 5 unchanged · 70 pending next run", only the counts the run reports. Items the
- * limit or paging left for the next run are pending, never "filtered out"; only the intake's own filters
- * (reported as `source.returned` minus `total_after_filter`) leave items out. */
+// Items the limit or paging left for the next run are pending, never "filtered out".
 export function runCountsText(summary: Record<string, unknown>): string {
   const source = isRecord(summary.source) ? summary.source : {};
   const returned = count(source.returned);
@@ -66,7 +57,6 @@ export function runCountsText(summary: Record<string, unknown>): string {
   return parts.join(" · ");
 }
 
-/** "4 with label octryx – agent may start": the automation label never filters the import, it only marks items. */
 export function runAutomationText(summary: Record<string, unknown>): string {
   const automation = isRecord(summary.automation) ? summary.automation : {};
   const matching = count(automation.matching);
@@ -82,7 +72,6 @@ const BLOCK_TEXT: Record<string, string> = {
   jql_unbalanced: "the intake's custom JQL has unbalanced parentheses or quotes, so it was not sent to Jira",
 };
 
-/** The outcome in words, with the failure code and Jira's own message, and a refused scope explained. */
 export function runOutcome(run: IntakeRun): RunOutcome {
   const summary = run.summary;
   const code = text(summary.code) || text(summary.reason) || run.error || "";

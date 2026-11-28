@@ -1,10 +1,4 @@
-"""Closed refusal codes of an admin edit to a governed policy list (W22b).
-
-Every refusal names one code from :data:`POLICY_LIST_ERROR_CODES` and, where it applies, the
-offending values (identifiers only, never free text from elsewhere). The HTTP layer maps the
-code to its status: ``unknown_policy_list`` is 404, ``version_conflict`` 409, everything else
-422.
-"""
+"""Closed refusal codes of an admin edit to a governed policy list (W22b)."""
 
 from __future__ import annotations
 
@@ -46,8 +40,6 @@ _STATUS_BY_CODE = {UNKNOWN_POLICY_LIST: 404, VERSION_CONFLICT: 409}
 
 
 class PolicyListError(ValueError):
-    """A refused policy-list edit: one closed ``code``, the offending ``values`` and a message."""
-
     def __init__(self, code: str, message: str, values: Iterable[str] = ()) -> None:
         if code not in POLICY_LIST_ERROR_CODES:
             raise ValueError(f"unknown policy list error code: {code}")
@@ -65,12 +57,10 @@ class PolicyListError(ValueError):
 
 
 def as_http_exception(error: PolicyListError) -> HTTPException:
-    """The HTTP form of a refusal: its status and the closed ``{code, values, message}`` detail."""
     return HTTPException(status_code=error.status_code, detail=error.detail())
 
 
 def refuse_duplicates(values: Iterable[str], *, what: str) -> None:
-    """Refuse a list that names one value twice (``duplicate_entry``)."""
     seen: set[str] = set()
     duplicates = {value for value in values if value in seen or seen.add(value)}
     if duplicates:

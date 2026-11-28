@@ -1,19 +1,5 @@
-"""The parallel work box never re-dispatches blindly.
-
-A scheduler that starts the ready items again on every tick produces hundreds of item sessions and device jobs,
-nearly all rejected (``workspace_preparation_workflow_run_not_bound``, ``environment_not_ready``). Three causes,
-each pinned here with the real scheduler, the device executor and the
-device job chain (``apply_event`` → continuation → ``job_ended``):
-
-- a started item's ``running``, session and job were changed in place on the dict already stored, so SQLAlchemy saw
-  no change and never wrote them: every tick found the item ``pending`` again;
-- each start made a new item thread; several gateway sessions then bound as ``octryx:<key>`` and each ended the
-  previous one's binding (``workflow_run_not_bound``);
-- the item's folder was prepared on the run's branch, which git refuses in a second worktree
-  (``environment_not_ready``).
-
-And an abort must not leave an item job running.
-"""
+"""The parallel work box never re-dispatches blindly: in-place dict changes, per-start threads and branch
+reuse across worktrees each made every tick restart items; an abort leaves no item job running."""
 
 from __future__ import annotations
 
@@ -34,6 +20,7 @@ from app.services.workflow_runs.teamwork import (
     scheduler,
     work_git,
 )
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.teamwork_device_support import (  # noqa: F401 - the device-run harness and its fixtures
     BRANCH,
     FOLDER,
@@ -44,20 +31,18 @@ from tests.teamwork_device_support import (  # noqa: F401 - the device-run harne
     admitted,
 )
 
-pytestmark = pytest.mark.usefixtures("admitted")  # the Workspace admits the items' models
+pytestmark = [pytest.mark.usefixtures("admitted"), pytest.mark.usefixtures("scripted_pool")]  # the Workspace admits the items' models
 
 CLIENT_DIR = Path(__file__).resolve().parents[2] / "clients" / "octryx-claude"
 PAST = "2000-01-01T00:00:00"
 
 
 def _branched(run, keys=("api", "ui"), head="b" * 40):
-    """The main thread's launcher already made the item worktrees (``work_git`` reported)."""
     run.context = {**run.context, device_work_state.GIT_KEY: {"seq": 1, "branched": {
         key: {"folder": f"{FOLDER}/.octryx-items/{key}", "branch": f"{BRANCH}--{key}", "head": head} for key in keys}}}
 
 
 async def _stored(db, run) -> dict:
-    """The split as the database has it (what the next tick, in another transaction, reads)."""
     await db.flush()
     await db.refresh(run)
     return run.context[WORK_KEY]["items"]
@@ -214,9 +199,6 @@ def _git(root: Path, *args: str) -> str:
 
 @pytest.mark.asyncio
 async def test_an_item_starts_on_the_device_path_end_to_end(db, tmp_path):
-    """Server and launcher code together: the main thread's launcher makes the worktree, the item's job binds as its
-    own session, its contract prepares the item's branch in the worktree (the launcher's own ``prepare``), the report
-    is ready, and a refused job counts on the item instead of starting another one."""
     if str(CLIENT_DIR) not in sys.path:
         sys.path.insert(0, str(CLIENT_DIR))
     from octryx_claude import work_git as launcher_git

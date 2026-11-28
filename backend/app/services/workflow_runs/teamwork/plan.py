@@ -1,26 +1,4 @@
-"""The coordinator's work plan: its validation and how a revision changes the running split.
-
-The coordinator submits ``{"contract", "items": [{id, title, role, model?, depends_on, paths, appends_to?,
-instructions, proofs, reopen?}]}`` with ``submit_work_plan``. A refusal lists every problem at once (a refused
-submission is a failed tool call, as for every phase output), so a weak model fixes the plan in one go instead of one
-problem per call.
-
-Two items are *concurrent* when neither is an ancestor of the other through ``depends_on``: they may run at the same
-time in their own working copies, so the paths they own may not overlap (refuse,
-not warn) — otherwise their merges would conflict and the run would loop back for nothing. Dependent items run one
-after the other on the merged state and may share paths.
-
-Shared files (otherwise ``pyproject.toml``, the router ``app.js`` and ``i18n.js``
-belonged to one
-item each, so a later screen could register neither its route nor its texts): each shared file has one owner item,
-and an item that depends on the owner (directly or through others) may name it in ``appends_to`` to add its own
-entries there. It then writes those files too (its path rules), and for the overlap check they count as its paths, so
-two items that append to the same file must depend on each other. The simplest rule that keeps merges clean: the
-owner is merged before any appender starts, and appenders of one file run one after the other.
-
-No upper bound on the number of items (no artificial limits). A model the Workspace refuses is not
-refused here: it falls back at start with the existing ``run_turn_model_refused`` event.
-"""
+"""The coordinator's work plan: its validation and how a revision changes the running split."""
 
 from __future__ import annotations
 
@@ -67,10 +45,6 @@ def _item(raw: Any, index: int) -> dict[str, Any]:
 
 
 def folder_globs(paths: list[str]) -> list[str]:
-    """``dir/`` becomes ``dir/**``, and a bare name without a wildcard or a suffix (``src/kitchen-helper/api``) also
-    gets ``<name>/**`` next to it, so it names the folder's files (it may still be a file such as ``Makefile``).
-    Otherwise ``src/kitchen-helper/api/`` was accepted, but no file inside matched it,
-    so every write of the item was refused and it stalled."""
     out: list[str] = []
     for path in paths:
         bare = path.rstrip("/")
@@ -86,7 +60,6 @@ def folder_globs(paths: list[str]) -> list[str]:
 
 
 def ancestors(items: dict[str, dict[str, Any]], key: str) -> set[str]:
-    """Every item ``key`` waits for, directly or through others."""
     seen: set[str] = set()
     stack = list(items.get(key, {}).get("depends_on") or [])
     while stack:
@@ -103,15 +76,7 @@ def concurrent(items: dict[str, dict[str, Any]], a: str, b: str) -> bool:
 
 
 def overlaps(first: str, second: str) -> bool:
-    """Whether two path globs can name the same file (``server/**`` and ``server/search/api.ts`` do).
-
-    ``fnmatch`` of one pattern against the other misses globs that cross folders: ``src/**/*.py`` and
-    ``src/kitchen-helper/web/**`` both match ``src/kitchen-helper/web/x.py``. A wildcard
-    matches any text,
-    ``/`` included (``path_matches``), so two globs can meet when the literal text before their first wildcard is a
-    prefix of the other's and the literal text after their last wildcard is a suffix of the other's; the parts in
-    between are taken to meet (a refused plan costs one resubmission, a missed overlap a merge conflict and a
-    replan)."""
+    # The parts between wildcards are taken to meet: a refused plan costs one resubmission, a missed overlap a conflict.
     from ..protected_paths import path_matches
 
     if not _wild(first) or not _wild(second):
@@ -130,17 +95,14 @@ def _wild(pattern: str) -> bool:
 
 
 def _head(pattern: str) -> str:
-    """The literal text before the first wildcard (``**/`` at the start may also match nothing: no head)."""
     return re.split(r"[*?\[]", pattern, maxsplit=1)[0]
 
 
 def _tail(pattern: str) -> str:
-    """The literal text after the last wildcard (a ``[...]`` class counts as a wildcard)."""
     return re.split(r"[*?\]]", pattern)[-1]
 
 
 def _cycle(items: dict[str, dict[str, Any]]) -> list[str]:
-    """The items on a dependency cycle (Kahn's order leaves them over), ``[]`` without one."""
     incoming = {key: sum(1 for dep in item["depends_on"] if dep in items and dep != key)
                 for key, item in items.items()}
     ready = [key for key, count in incoming.items() if count == 0]
@@ -163,8 +125,6 @@ def _path_problems(item: dict[str, Any]) -> list[str]:
 
 
 def validate_plan(raw: Any, *, roles: dict[str, Any] | None = None) -> tuple[dict[str, Any], list[str]]:
-    """``(record, problems)``. ``roles``: the ``parallel_work`` node's role templates (``None`` when the plan is
-    checked without its node; the role is then only required to be named)."""
     from ...workflow_checks.test_ids import is_canonical
 
     raw = raw if isinstance(raw, dict) else {}
@@ -212,11 +172,6 @@ def validate_plan(raw: Any, *, roles: dict[str, Any] | None = None) -> tuple[dic
 
 
 def _proof_path_problems(item: dict[str, Any]) -> list[str]:
-    """Each proof's test file lies under the item's own paths: the item writes its proof tests, and the path rule
-    refuses any other file. Otherwise frontend items got ``tests/system/...``
-    proofs
-    while ``tests/system/**`` belonged to the test item; nobody wrote them, the pipeline reported missing proofs and
-    the run replanned until its loop limit."""
     from ..protected_paths import path_matches
 
     problems = []
@@ -229,7 +184,6 @@ def _proof_path_problems(item: dict[str, Any]) -> list[str]:
 
 
 def _append_problems(items: dict[str, dict[str, Any]]) -> list[str]:
-    """``appends_to`` names files of an item this one depends on (directly or through others)."""
     from ..protected_paths import path_matches
 
     problems = []
@@ -251,12 +205,6 @@ def starts_at_once(roles: dict[str, Any] | None, role: str) -> bool:
 
 
 def _waiting_test_problems(items: dict[str, dict[str, Any]], roles: dict[str, Any] | None) -> list[str]:
-    """An item of a role that starts at once (the test role) depends only on the owners of the shared files it
-    appends to: it writes its tests from the contract (routes, test ids, texts) while the others build, and the
-    pipeline runs them on the merged story.
-
-    Otherwise a test item that depended on all four other items started only
-    after the last one merged and ran 6.5 minutes alone."""
     from ..protected_paths import path_matches
 
     problems = []
@@ -294,18 +242,14 @@ def _overlap_problems(items: dict[str, dict[str, Any]]) -> list[str]:
 
 
 def _writes(item: dict[str, Any]) -> list[str]:
-    """Every path the item may write: its own and the shared files it appends to."""
     return [*(item.get("paths") or []), *(item.get("appends_to") or [])]
 
 
 def write_paths(item: dict[str, Any]) -> list[str]:
-    """The item's path rules: what it owns plus the shared files it appends to (``appends_to``)."""
     return list(dict.fromkeys(_writes(item)))
 
 
 def changes_nothing(current: dict[str, dict[str, Any]], record: dict[str, Any]) -> bool:
-    """A resubmitted plan that reopens, adds and drops nothing, and retries no stuck item: the split after it is the
-    split before it (a merged item whose wording alone changed stays merged, :func:`reopens`)."""
     planned = {item["id"]: item for item in record.get("items") or []}
     if set(planned) != set(current):
         return False
@@ -313,11 +257,8 @@ def changes_nothing(current: dict[str, dict[str, Any]], record: dict[str, Any]) 
                    for key, item in planned.items())
 
 
-# --- revision: a new plan against the split that is already running ---------------------------------------------
-
 
 def _changed(old: dict[str, Any], new: dict[str, Any]) -> bool:
-    """Whether a work field differs; a missing field and an empty one are equal."""
     return any((old.get(field) or None) != (new.get(field) or None) for field in WORK_FIELDS)
 
 
@@ -326,30 +267,18 @@ def _gained(old: dict[str, Any], new: dict[str, Any], field: str) -> bool:
 
 
 def reopens(old: dict[str, Any], planned: dict[str, Any]) -> bool:
-    """Whether a re-plan sends a ``merged`` item back to work: only ``reopen: true``, or new work in its plan entry
-    (a proof, a path or a shared file it did not have). A merged item whose instructions, title, model or
-    dependencies were reworded stays merged and is never built again.
-
-    Otherwise, after a red pipeline, a coordinator that reopened one item and
-    wrote
-    "Merged and fine; keep unchanged" into the other four items' instructions; each changed text reopened its item,
-    so the second round re-ran all five items (6:50 of the story's 28 minutes) for one CSS split; merged items
-    were re-run the same way whenever their text changed."""
+    # Reworded instructions alone never reopen a merged item.
     return planned.get("reopen") is True or any(_gained(old, planned, field)
                                                 for field in ("proofs", "paths", "appends_to"))
 
 
 def reopen_fields(old: dict[str, Any], reason: str) -> dict[str, Any]:
-    """The run state of an item's next iteration: pending again, its own session kept (it resumes), the last result
-    and its merge forgotten."""
     return {"status": PENDING, "iteration": int(old.get("iteration") or 1) + 1, "attempts": 0, "result": None,
             "conflicts": None, "finished_at": None, "start_refusals": 0, "start_detail": None, "retry_at": None,
             "reason": reason, "fix": None, "fix_source": None}
 
 
 def revision_problems(current: dict[str, dict[str, Any]], record: dict[str, Any]) -> list[str]:
-    """What a revised plan may not do to the running split: change or drop a running item, or one whose merge is
-    still pending (``done``)."""
     new = {item["id"]: item for item in record.get("items") or []}
     problems = []
     for key, old in sorted(current.items()):
@@ -363,16 +292,6 @@ def revision_problems(current: dict[str, dict[str, Any]], record: dict[str, Any]
 
 
 def revise(current: dict[str, dict[str, Any]], record: dict[str, Any]) -> dict[str, dict[str, Any]]:
-    """The split after a (re)submitted plan, by the revision rules of design section 2:
-
-    - a ``merged`` item stays merged unless :func:`reopens` (``reopen: true``, or a new proof, path or shared file);
-      its reworded fields are kept, so the task list and the team view show the coordinator's latest words;
-    - a reopened merged item becomes ``pending`` with ``iteration + 1``; it resumes its own session;
-    - a ``running`` / ``done`` item is kept as it is (``revision_problems`` refused changing it);
-    - a ``failed``, ``blocked`` or ``conflict`` item the coordinator keeps is tried again (``pending``, next
-      iteration): the coordinator saw why it stopped, and keeping it unchanged would only replan again;
-    - new items start ``pending``; items left out of the plan are dropped (only ones that are not running).
-    """
     split: dict[str, dict[str, Any]] = {}
     for planned in record.get("items") or []:
         key = planned["id"]
@@ -388,7 +307,7 @@ def revise(current: dict[str, dict[str, Any]], record: dict[str, Any]) -> dict[s
             split[key] = {**old, **fields}
         elif status == PENDING:
             split[key] = {**old, **fields}
-        else:  # merged and reopened, or stuck: its next iteration
+        else:
             split[key] = {**old, **fields, **reopen_fields(
                 old, "reopened" if status == MERGED else f"retry after {status}")}
     return split

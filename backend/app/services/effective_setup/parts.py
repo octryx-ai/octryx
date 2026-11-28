@@ -1,12 +1,4 @@
-"""Shared shapes of the Effective setup response: one part per layer the agent gets.
-
-Every part names its source (the admin page that owns it), its version, what enforces
-it and its token share. ``enforced`` is a closed vocabulary shown as a badge:
-
-- ``enforced``: the runtime blocks what the part forbids;
-- ``guided``: the runtime reminds, then continues;
-- ``guidance``: the agent is told, nothing checks it.
-"""
+"""Shared shapes of the Effective setup response: one part per layer the agent gets."""
 
 from __future__ import annotations
 
@@ -17,6 +9,11 @@ from ..knowledge_chunking.chunker import estimate_tokens
 
 Enforcement = Literal["enforced", "guided", "guidance"]
 
+# The admin tabs that own a part (the page's "edit" links).
+PROMPT_TEXTS_TAB = "promptCatalog"
+SKILLS_TAB = "skills"
+TOOLS_TAB = "toolCatalog"
+APPROVALS_TAB = "policies"
 PART_SYSTEM_TEXTS = "system_texts"
 PART_AGENT = "agent"
 PART_INSTRUCTIONS = "instructions"

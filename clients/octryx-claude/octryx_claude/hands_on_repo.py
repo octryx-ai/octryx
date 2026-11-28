@@ -1,10 +1,4 @@
-"""The hands-on scenarios a repository keeps itself (bug flow): ``tests/hands_on/**/*.json`` in the app
-folder, e.g. ``tests/hands_on/bugs/.json`` written by a bug's reproduce phase. Every hands-on run of the app
-runs them too, so a fixed bug cannot come back; the bug flow's reproduce check runs only the bug's own files.
-
-A file holds one scenario object or ``{"scenarios": [...]}`` in the platform's schema (``workflow_runs.hands_on``).
-A file the launcher cannot read is a failed scenario (the agent fixes it), never silently skipped.
-"""
+"""The hands-on scenarios a repository keeps itself (``tests/hands_on/**/*.json`` in the app folder)."""
 
 from __future__ import annotations
 
@@ -49,7 +43,6 @@ def _scenario(raw: Any, ident: str) -> dict[str, Any]:
 
 
 def _normalize(step: dict[str, Any]) -> None:
-    """``goto`` with a ``url`` that is a path, ``click`` with a ``label``: taken as ``path`` / ``text``."""
     if step["do"] == "goto" and "path" not in step and str(step.get("url") or "").startswith("/"):
         step["path"] = step.pop("url")
     if step["do"] == "click" and "text" not in step and step.get("label"):
@@ -57,8 +50,6 @@ def _normalize(step: dict[str, Any]) -> None:
 
 
 def load(app: Path, *, bug_key: str = "") -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """``(scenarios, broken)``: the repository's scenarios (only ``bugs/<bug_key>*.json`` when a key is given), ids
-    ``repo:<path>#<n>``; ``broken`` the files that are no scenario, as failed results."""
     folder = app / (BUGS if bug_key else FOLDER)
     pattern = f"{bug_key}*.json" if bug_key else "**/*.json"
     scenarios: list[dict[str, Any]] = []

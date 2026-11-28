@@ -1,19 +1,5 @@
-"""Record answer feedback in the Memory lobe: one structured record and one memory item per rating.
-
-- **Where**: the Workspace of the chat. A chat without a Workspace has nowhere to keep it:
-  ``workspace_required`` (state ``needs_configuration``). The person must still be able to read that
-  Workspace; otherwise ``workspace_not_accessible``. Rating an answer is not team-memory authoring,
-  so no admin or owner role is needed.
-- **One per (user, message)**: re-submitting replaces the verdict, both texts and every aspect of the
-  same record, and rewrites the same memory item in place. Nothing of the replaced wording remains.
-- **The memory item** is Workspace scope, class ``answer_feedback``, ``human_stated`` and
-  ``confirmed`` (the person wrote it and saw it), with the session as provenance and the message id
-  as its turn reference. If it was forgotten meanwhile, the new rating is a new statement: a new item.
-- **Links** come from the answer's own turn trace (the bounded execution snapshot), never from the
-  request: workflow key and id, execution profile id, provider and model.
-
-Flushes only; the caller commits together with the transport record.
-"""
+"""Record answer feedback in the Memory lobe: one structured record and one memory item per rating. Flushes only; the
+caller commits."""
 
 from __future__ import annotations
 
@@ -64,7 +50,6 @@ def _bounded(value: object, limit: int) -> str | None:
 
 
 async def resolve_answer_links(db: AsyncSession, *, message: Message) -> AnswerLinks:
-    """The answer's links from its latest turn trace; the message's model when no trace names one."""
     trace = (
         await db.execute(
             select(TurnTrace)
@@ -153,7 +138,6 @@ async def _write_item(
 async def record_answer_feedback(
     db: AsyncSession, *, user: User, session: Session, message: Message, feedback: AnswerFeedbackInput
 ) -> FeedbackOutcome:
-    """Record or replace this person's feedback on this answer, or refuse with a fixed reason."""
     if not session.project_id:
         raise MemoryRefusedError("workspace_required")
     try:
@@ -196,7 +180,6 @@ async def record_answer_feedback(
 
 
 async def erase_forgotten_feedback_texts(db: AsyncSession, memory_item_ids: Iterable[str]) -> None:
-    """Forgetting a feedback memory erases its texts in the structured record too; the verdict stays."""
     ids = sorted(set(memory_item_ids))
     if not ids:
         return

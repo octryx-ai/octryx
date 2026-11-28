@@ -20,10 +20,12 @@ from app.services.workflow_runs.binding import held_resolution, record_phase_tur
 from app.services.workflow_runs.records import WorkflowRunError, bind_session, start_run
 from app.services.workflow_runs.run_sessions import new_bound_session
 from tests.phased_workflow_fixtures import PHASE, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _one_phase_definition() -> dict:
-    """One phase and its outcome: a turn whose checks pass completes the run."""
     return {
         "execution_kind": "phased",
         "nodes": [
@@ -82,13 +84,11 @@ async def test_a_run_pins_its_version_anchors_the_work_item_and_governs_its_sess
     profile = _profile(resolution)
     assert (profile["status"], profile["decision_source"]) == ("allowed", "workflow_run")
 
-    # A turn that is not done keeps the run running; a passed check result completes it.
     analysis = {ROUTING_RESOLUTION_KEY: resolution}
     failed = [CheckResult("tool_called", "failed", True, "evidence", "not called")]
     await record_phase_turn(db, request_analysis=analysis, session_id=session.id, state="not_verified",
                             results=failed, evidence=None)
     assert run.status == "running" and run.gate_results["work"]["state"] == "not_verified"
-    # The turn's event names the blocking check that failed, not just "failed".
     await db.flush()
     turn = (await db.execute(select(WorkflowRunEvent).where(WorkflowRunEvent.run_id == run.id,
                                                             WorkflowRunEvent.kind == "phase_turn"))).scalars().one()
@@ -97,7 +97,6 @@ async def test_a_run_pins_its_version_anchors_the_work_item_and_governs_its_sess
     await record_phase_turn(db, request_analysis=analysis, session_id=session.id, state="passed",
                             results=passed, evidence=None)
     assert (run.status, run.outcome) == ("completed", "done")
-    # A finished run no longer governs the session.
     assert await run_turn_resolution(db, session, user_message="next") is None
 
 

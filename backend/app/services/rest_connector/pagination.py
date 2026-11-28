@@ -1,13 +1,4 @@
-"""Pagination, one page per call: the answer carries ``next_cursor`` and the model passes it back.
-
-Kinds (per operation, ``pagination.type``): ``none``, ``cursor`` (a token from ``cursor_path`` goes back as the query
-parameter ``cursor_param``), ``offset`` (``offset_param``/``limit_param``, ``page_size``), ``next_url`` (a URL at
-``next_path``) and ``link_header`` (RFC 8288 ``rel="next"``).
-
-A next URL is not handed to the model as a URL: it is signed into an opaque cursor bound to the operation, so a
-model cannot forge one that points elsewhere or drops the scope. On use, the URL must still be on the connection's
-host, and the scope parameters are set again on its query.
-"""
+"""Pagination, one page per call: the answer carries ``next_cursor`` and the model passes it back."""
 
 from __future__ import annotations
 
@@ -27,7 +18,7 @@ _LINK_NEXT_RE = re.compile(r'<([^>]+)>\s*;[^,]*\brel="?next"?', re.IGNORECASE)
 
 
 class CursorError(ValueError):
-    """A cursor that is not one this operation issued; the message is safe to return."""
+    pass
 
 
 def normalize_pagination(raw: Any) -> dict[str, Any]:
@@ -61,7 +52,6 @@ def sign_url(url: str, operation_id: str) -> str:
 
 
 def open_url_cursor(cursor: str, operation_id: str, base_url: str) -> str:
-    """The URL of a signed cursor of this operation on the connection's host, else :class:`CursorError`."""
     try:
         _, payload, signature = str(cursor).split(".")
         expected = hmac.new(_key(), payload.encode(), hashlib.sha256).hexdigest()[:32]
@@ -85,7 +75,6 @@ def next_cursor(
     offset: int,
     record_count: int,
 ) -> str | None:
-    """The cursor of the next page, ``None`` on the last page."""
     kind = config.get("type")
     if kind == "cursor":
         value = get_path(body, config["cursor_path"])

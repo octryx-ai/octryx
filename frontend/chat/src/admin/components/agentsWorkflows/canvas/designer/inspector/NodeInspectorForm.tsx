@@ -48,9 +48,9 @@ function ApprovalForm({ node, catalog, editable, issues, set }: FormProps) {
 }
 
 /** What the person confirms and what happens when the confirmation is opened with high findings. */
-function ConfirmationForm({ node, catalog, editable, issues, set, workflowKey }: FormProps) {
+function ConfirmationForm({ node, catalog, editable, issues, set }: FormProps) {
   const config = node.config ?? {};
-  const openHigh = onOpenHighChoices(workflowKey);
+  const openHigh = onOpenHighChoices();
   return (
     <>
       <SelectField label="The person confirms" value={text(config.subject)} disabled={!editable}

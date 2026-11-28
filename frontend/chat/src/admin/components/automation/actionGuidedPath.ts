@@ -1,17 +1,13 @@
-// Guided Action authoring: the guided task type, which path an Action opens in, and the agents usable in a workspace.
 import type { PanelAgentRow, PanelTaskRow } from "../taskTypes";
 
 export const GUIDED_TASK_TYPE = "agent_run";
 
 export type WorkspaceOption = { id: string; name: string; is_active?: boolean };
 
-// ---- which path an Action opens in ---------------------------------------------------------------
-
 export type ActionPath =
   | { kind: "guided" }
   | { kind: "advanced"; reason: string };
 
-/** New Actions are guided. An existing one is guided only when it is exactly a single agent run in a known workspace. */
 export function actionPath(task: PanelTaskRow | null): ActionPath {
   if (!task) return { kind: "guided" };
   if (task.task_type !== GUIDED_TASK_TYPE) {
@@ -45,14 +41,7 @@ export function actionPath(task: PanelTaskRow | null): ActionPath {
   return { kind: "guided" };
 }
 
-// ---- workspace and agent ----------------------------------------------------------------------
-
-/**
- * Active agents usable in the workspace: explicitly global ones and the workspace's own. The agent
- * list sends a global agent's workspace as "" (agent_definition_payload.py) and the agent catalog as
- * null (agent_catalog_policy.py); a missing or non-string value is not read as global. The Reviewer
- * never runs from an Action: only a workflow run's review node runs it.
- */
+// Global agents come with workspace "" (agent list) or null (catalog); the Reviewer never runs from an Action.
 export function compatibleAgents(
   agents: PanelAgentRow[],
   workspaceId: string,
@@ -68,11 +57,6 @@ export function compatibleAgents(
   );
 }
 
-/**
- * Whether the agent row authors an instruction of its own (goal, system or output prompt, or an
- * enabled step's instructions), mirroring the runtime admission. Only meaningful for the
- * content a run actually executes; see `instructionCheck`.
- */
 export function hasAuthoredInstruction(agent: PanelAgentRow): boolean {
   const filled = (value: unknown) =>
     typeof value === "string" && value.trim() !== "";

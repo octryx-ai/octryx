@@ -1,9 +1,4 @@
-"""Refresh-token rotation and revocation for the platform OAuth server.
-
-Refresh tokens rotate on every use; replaying a rotated token revokes the whole grant (token-theft signal). A
-refresh of a web grant checks that the platform login session captured at consent time is still alive; a device
-grant is checked against its device registration instead (see ``flows``).
-"""
+"""Refresh-token rotation and revocation for the platform OAuth server."""
 
 from __future__ import annotations
 

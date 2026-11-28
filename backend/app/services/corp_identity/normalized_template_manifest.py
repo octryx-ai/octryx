@@ -36,15 +36,12 @@ MAX_MESSAGE_CHARS = 800
 
 
 class _UnusableSourceError(Exception):
-    """The source cannot be normalised — carried to the manifest, never raised out."""
-
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
 
 
 def _failure(code: str, error: BaseException) -> dict[str, str]:
-    """The manifest's ``error``: the exception type and a closed code, never its message."""
     return {"type": error_type(error), "error_code": error_code(code)}
 
 
@@ -57,7 +54,6 @@ def _sha256(path: Path) -> str:
 
 
 def read_normalization_manifest(profile_root: str | Path) -> dict[str, Any]:
-    """The stored manifest, or ``{}`` when there is none we can read."""
     path = Path(profile_root).expanduser() / NORMALIZATION_MANIFEST_NAME
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
@@ -75,11 +71,6 @@ def _write_json(path: Path, payload: dict[str, Any]) -> None:
 
 
 def _customization(manifest: dict[str, Any], derivative: Path) -> tuple[bool, bool]:
-    """``(exists, customized)`` for the derivative on disk.
-
-    A derivative whose digest we never recorded counts as customised: we have no
-    evidence that we wrote it, so we do not get to delete it.
-    """
     if not derivative.is_file():
         return False, False
     recorded = str(manifest.get("normalized_sha256") or "").strip()
@@ -139,7 +130,6 @@ def _snapshot_of(template: Path, profile_root: Path) -> dict[str, Any]:
 def _keep_customized(
     profile_root: Path, source: Path, source_sha: str, manifest: dict[str, Any]
 ) -> dict[str, Any]:
-    """Leave an edited derivative alone and re-describe it as it now stands."""
     derivative = profile_root / NORMALIZED_TEMPLATE_NAME
     warnings = [
         "normalized.potx was edited after it was generated; it is kept as-is and "
@@ -183,12 +173,6 @@ def _keep_customized(
 
 
 def _is_current(manifest: dict[str, Any], profile_root: Path, source_sha: str, exists: bool) -> bool:
-    """Whether the stored artefacts already describe this exact original.
-
-    Failures are deliberately not reusable: a rebuild is cheap and a failure may
-    have been environmental, so the next upload gets a fresh attempt instead of
-    a verdict frozen into the profile.
-    """
     if str(manifest.get("source_sha256") or "") != source_sha:
         return False
     if not (profile_root / TEMPLATE_SNAPSHOT_NAME).is_file():

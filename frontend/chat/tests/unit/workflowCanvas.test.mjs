@@ -1,6 +1,6 @@
-// One concept Workflow: both kinds in one list, the list as the entry and a selected
-// workflow opened on the canvas in the whole window (designer D2a), old Canvas links land on the right workflow, and
-// a phase of a workflow that runs in phases is edited as a graph whose edits only touch its stored steps and checks.
+// One concept Workflow: one list as the entry and a selected workflow opened on the canvas in the whole window
+// (designer D2a), links land on the right workflow, and a phase of a workflow is edited as a graph whose edits only
+// touch its stored steps and checks.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -12,7 +12,6 @@ import {
   filterListed, lastChangedLabel, listUrl, listedWorkflows, readListView, readOpenWorkflow,
 } from "../../src/admin/components/agentsWorkflows/workflows/workflowListModel.ts";
 import { readWorkflowsOverview } from "../../src/admin/components/agentsWorkflows/workflows/workflowsModel.ts";
-import { flowBuilderTabSource } from "./flowBuilderTabSource.mjs";
 
 const OVERVIEW = readWorkflowsOverview({
   usage_window_days: 30,
@@ -29,33 +28,30 @@ const OVERVIEW = readWorkflowsOverview({
   }],
 });
 
-test("the list carries both kinds and filters by kind, class, scope and text", () => {
+test("the list filters by class, scope and text", () => {
   const items = listedWorkflows(OVERVIEW);
-  assert.deepEqual(items.map((item) => [item.kind, item.key]),
-    [["phased", "knowledge-request"], ["flow", "incident-intake"], ["phased", "bug-fix"]]);
-  const all = { query: "", capability: "", scope: "all", kind: "all" };
-  assert.deepEqual(filterListed(items, { ...all, kind: "flow" }).map((item) => item.id), ["f1"]);
+  assert.deepEqual(items.map((item) => item.key), ["knowledge-request", "incident-intake", "bug-fix"]);
+  const all = { query: "", capability: "", scope: "all" };
   assert.deepEqual(filterListed(items, { ...all, scope: "workspace" }).map((item) => item.id), ["f1"]);
   assert.deepEqual(filterListed(items, { ...all, scope: "global" }).map((item) => item.id), ["f0", "f2"]);
-  assert.deepEqual(filterListed(items, { ...all, kind: "phased" }).map((item) => item.id), ["f0", "f2"]);
   assert.deepEqual(filterListed(items, { ...all, capability: "read_only" }).map((item) => item.id), ["f0", "f1"]);
   assert.deepEqual(filterListed(items, { ...all, query: "knowledge" }).map((item) => item.id), ["f0"]);
   assert.deepEqual(filterListed(items, { ...all, query: "incident" }).map((item) => item.id), ["f1"]);
 });
 
-test("the list is the entry; a link that names a workflow opens it directly, old ones included", () => {
+test("the list is the entry; a link that names a workflow opens it directly", () => {
   assert.equal(readListView("?tab=workflowList"), "table");
   assert.equal(readListView("?tab=workflowList&view=table"), "table");
   // An old Canvas link without a workflow lands on the list, not on some first workflow.
   assert.equal(readListView("?tab=workflowList&view=canvas"), "table");
-  for (const search of ["?tab=workflowList&flow_id=f1", "?view=canvas&phased=f2", "?view=canvas&new_flow=1"]) {
-    assert.equal(readListView(search), "canvas", search);
+  assert.equal(readListView("?view=canvas&phased=f2"), "canvas");
+  // The retired flow builder's addresses open nothing.
+  for (const search of ["?tab=workflowList&flow_id=f1", "?view=canvas&new_flow=1"]) {
+    assert.equal(readListView(search), "table", search);
   }
-  // `?tab=workflowList&flow_id=…` opens the flow on this page.
-  assert.deepEqual(readOpenWorkflow("?tab=workflowList&flow_id=f1"), { kind: "flow", id: "f1" });
-  assert.deepEqual(readOpenWorkflow("?phased=f2"), { kind: "phased", id: "f2" });
+  assert.equal(readOpenWorkflow("?phased=f2"), "f2");
   assert.equal(
-    listUrl("https://octryx.example/chat?area=workflows&tab=workflowList&flow_id=f1#x", "canvas", { kind: "phased", id: "f2" }),
+    listUrl("https://octryx.example/chat?area=workflows&tab=workflowList#x", "canvas", "f2"),
     "/chat?area=workflows&tab=workflowList&view=canvas&phased=f2#x",
   );
   assert.equal(listUrl("https://octryx.example/chat?tab=workflowList&phased=f2", "table", null), "/chat?tab=workflowList&view=table");
@@ -115,13 +111,13 @@ test("nodes render on the flow builder's node with mode, policy and blocking bad
 });
 
 test("the list says when a workflow last changed, by whom and how often it ran", () => {
-  const [recent, flow, phased] = listedWorkflows(OVERVIEW);
+  const [recent, unchanged, phased] = listedWorkflows(OVERVIEW);
   const now = Date.parse("2026-11-09T11:00:00Z");
-  assert.deepEqual([recent.row.updatedBy, phased.row.updatedBy, flow.row.updatedBy], ["Ada Admin", "Fay Editor", null]);
+  assert.deepEqual([recent.row.updatedBy, phased.row.updatedBy, unchanged.row.updatedBy], ["Ada Admin", "Fay Editor", null]);
   assert.equal(lastChangedLabel(recent, now).text, "3 h ago");
   assert.equal(lastChangedLabel(phased, now).text, "25 d ago", "a naive server time is UTC; always how long ago (W10)");
   assert.match(lastChangedLabel(phased, now).title, /15 Oct 2026, \d\d:30:00/);
-  assert.deepEqual(lastChangedLabel(flow, now), { text: "—", title: "" });
+  assert.deepEqual(lastChangedLabel(unchanged, now), { text: "—", title: "" });
   assert.equal(phased.row.used, 6);
 });
 
@@ -132,18 +128,16 @@ test("One list as the entry, a selected workflow fills the window with one way b
   assert.doesNotMatch(page, /aria-label="Workflow on the canvas"/, "no dropdown to switch workflows");
   assert.doesNotMatch(page, /label: "Canvas"|label: "Table"/, "no Canvas / Table toggle");
   assert.doesNotMatch(page, /WorkflowDetailDrawer row=\{selected\}/, "a row never opens the drawer");
-  // A workflow that runs in phases opens in the designer page (openWorkflow switches to it).
-  assert.match(page, /const openItem = \(item: ListedWorkflow\) => leave\(\(\) => openWorkflow\(\{ kind: item\.kind, id: item\.id \}\)\);/);
+  // A workflow opens in the designer page (openWorkflow switches to it).
+  assert.match(page, /const openItem = \(item: ListedWorkflow\) => leave\(\(\) => openWorkflow\(item\.id\)\);/);
   assert.doesNotMatch(page, /StepsWorkflowEditor/, "a phase opens from its workflow, never from the list");
   assert.match(page, /<PhasedWorkflowEditor [^>]*onBack=\{toList\}/);
-  assert.match(page, /<FlowWorkflowEditor [^>]*onExit=\{toList\}/);
+  assert.doesNotMatch(page, /FlowWorkflowEditor|New flow|newFlow/, "no path to the retired flow builder");
   // The filters beyond search fold away.
   assert.match(page, /aria-controls="workflows-filters"/);
   const table = read("agentsWorkflows/workflows/WorkflowTable.tsx");
-  assert.match(table, /<th>Workflow<\/th><th>Kind<\/th><th>Status<\/th>\{onToggleActive \? <th>On<\/th> : null\}<th>Last changed<\/th><th>By<\/th><th>\{runs\}<\/th>/);
-  for (const editor of ["agentsWorkflows/canvas/PhasedEditorHeader.tsx", "flowBuilder/FlowBuilderHeaderActions.tsx"]) {
-    assert.match(read(editor), /← All workflows/, editor);
-  }
+  assert.match(table, /<th>Workflow<\/th><th>Status<\/th>\{onToggleActive \? <th>On<\/th> : null\}<th>Last changed<\/th><th>By<\/th><th>\{runs\}<\/th>/);
+  assert.match(read("agentsWorkflows/canvas/PhasedEditorHeader.tsx"), /← All workflows/);
   assert.match(read("agentsWorkflows/canvas/StepsEditorHeader.tsx"), /← Phases/);
   assert.match(read("agentsWorkflows/canvas/PhasedWorkflowEditor.tsx"), /<StepsWorkflowEditor graphPath=\{phaseGraphPath\(flowId, openPhase\)\}/);
   const phased = ["PhasedWorkflowEditor.tsx", "PhasedCanvasToolbar.tsx"].map((name) => read(`agentsWorkflows/canvas/${name}`)).join("\n");
@@ -170,7 +164,7 @@ test("test flows stay hidden unless asked for; leaving dirty edits waits for the
     ],
   });
   const items = listedWorkflows(overview);
-  const all = { query: "", capability: "", scope: "all", kind: "all" };
+  const all = { query: "", capability: "", scope: "all" };
   assert.deepEqual(filterListed(items, all).map((item) => item.id), ["f1"]);
   assert.deepEqual(filterListed(items, { ...all, showTestFlows: true }).map((item) => item.id), ["f1", "f2"]);
 
@@ -189,7 +183,7 @@ test("the page asks with the design-system ConfirmDialog; a phase saves drafts a
   assert.match(page, /<ConfirmDialog title="Leave this workflow\?"/);
   assert.match(page, /const toList = \(\) => leave\(/, "going back to the list waits for unsaved edits");
   assert.match(page, /onDirtyChange=\{setDirty\}/);
-  assert.doesNotMatch(flowBuilderTabSource(), /window\.confirm/);
+  assert.doesNotMatch(page, /window\.confirm/);
   const editor = ["StepsWorkflowEditor.tsx", "StepsWorkflowPanels.tsx", "stepsWorkflowState.ts"]
     .map((name) => read(`agentsWorkflows/canvas/${name}`)).join("\n");
   assert.doesNotMatch(editor, />Publish|approvalId|\/publish/);

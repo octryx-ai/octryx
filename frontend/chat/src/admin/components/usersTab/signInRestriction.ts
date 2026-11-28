@@ -2,17 +2,12 @@ type ReadJson = <T>(url: string, init?: RequestInit) => Promise<T>;
 
 export type SignInSaveOutcome =
   | { state: "saved"; effective: boolean }
-  // The write may or may not have been applied; `effective` is what the server reports now.
   | { state: "unconfirmed"; effective: boolean }
-  // Neither the write nor the current value could be confirmed.
   | { state: "unknown" };
 
 const RUNTIME_SETTINGS = "/admin/chat/api/panel/runtime-settings";
 
-// Saves only `auth_oidc_only` (the runtime-settings PUT accepts partial
-// bodies). A failed response is never treated as "nothing changed": the
-// effective value is read back, because the server may have committed the write
-// before the response failed.
+// A failed response may still have committed the write, so the effective value is read back.
 export async function saveSignInRestriction(readJson: ReadJson, oidcOnly: boolean): Promise<SignInSaveOutcome> {
   try {
     const updated = await readJson<{ auth_oidc_only?: boolean }>(RUNTIME_SETTINGS, {
@@ -30,8 +25,7 @@ export async function saveSignInRestriction(readJson: ReadJson, oidcOnly: boolea
   }
 }
 
-// What the page may claim about the effective setting after a save attempt:
-// after an unknown outcome the stored value is only the last confirmed one.
+// After an unknown outcome the stored value is only the last confirmed one.
 export function signInEffectiveLabel(
   saveState: "idle" | "saving" | "saved" | "unconfirmed" | "unknown",
   lastConfirmedOidcOnly: boolean,

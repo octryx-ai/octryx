@@ -19,7 +19,6 @@ def set_facts(run: WorkflowRun, **values: Any) -> None:
 
 
 def post_target(run: WorkflowRun) -> tuple[str, dict[str, Any]] | None:
-    """``(provider, the post tool's repository and pull request arguments)``."""
     ref = parse_repository(run.repository)
     facts = facts_of(run)
     if ref is None or ref.provider not in POST_TOOLS or not facts.get("pr_id"):

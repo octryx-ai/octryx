@@ -37,13 +37,10 @@ REASON_CLASSIFICATION_UNKNOWN = "data_classification_unknown"
 
 
 class ClassificationValueError(ValueError):
-    """A classification outside ``DATA_CLASSIFICATION_ORDER``; ``code`` is fixed."""
-
     code = REASON_CLASSIFICATION_UNKNOWN
 
 
 def checked_classification(value: object) -> str | None:
-    """``None`` for ``None``/empty, the normalized level, or ``ClassificationValueError``."""
     if value is None:
         return None
     if type(value) is not str:
@@ -56,10 +53,14 @@ def checked_classification(value: object) -> str | None:
     return normalized
 
 
+# Defaults work: a fresh installation's Workspaces (a person's private one too) can use their models. An admin's
+# stored value, or "none" in the environment, overrides it.
+PRESET_CLASSIFICATION = "internal"
+
+
 def instance_default_classification() -> tuple[str | None, str]:
-    """The configured default and its state: ``set``, ``unset`` or ``invalid`` (outside the vocabulary)."""
-    value = normalized_classification(get_settings().knowledge_default_data_classification)
-    if not value:
+    value = normalized_classification(get_settings().knowledge_default_data_classification) or PRESET_CLASSIFICATION
+    if value == INSTANCE_DEFAULT_NONE:
         return None, DEFAULT_UNSET
     if value not in DATA_CLASSIFICATION_LEVELS:
         return None, DEFAULT_INVALID
@@ -72,14 +73,12 @@ _known_admin_default: list[tuple[str | None]] = []
 
 
 def known_instance_default() -> str | None:
-    """The Instance default for a synchronous decision point: the admin value as last read, else the env value."""
     if _known_admin_default:
         return _known_admin_default[0][0]
     return instance_default_classification()[0]
 
 
 async def instance_default_for(db: AsyncSession) -> tuple[str | None, str, str]:
-    """``(default, state, source)``: the admin-stored value wins over the env bootstrap value."""
     result = await _instance_default_for(db)
     if result[2] == DEFAULT_SOURCE_ADMIN:
         _known_admin_default[:] = [(result[0],)]
@@ -102,8 +101,6 @@ async def _instance_default_for(db: AsyncSession) -> tuple[str | None, str, str]
 
 
 def _section(config: object) -> dict:
-    """The stored ``data_policy`` block without its classification fields, so a level write keeps the rest
-    (the stricter Workspace overrides)."""
     section = config.get(DATA_POLICY_CONFIG_KEY) if isinstance(config, dict) else None
     if not isinstance(section, dict):
         return {}
@@ -116,7 +113,6 @@ def _declared(config: object) -> str:
 
 
 def _may_default(config: object) -> bool:
-    """Only a Workspace with no classification of its own: none set, none cleared, nothing unreadable."""
     section = config.get(DATA_POLICY_CONFIG_KEY) if isinstance(config, dict) else None
     if section is None:
         return True

@@ -1,10 +1,4 @@
-"""Writing the Workspace handoff policy.
-
-``set_workspace_handoff_policy`` validates the section (``handoff_policy_keys``), checks that the stored policy
-merged with it still validates (a broken stored policy is a coded refusal before any write, like the seat
-switch), writes ``agent_gateway_policy.handoff`` through the governed project-config path and records an audit
-row. A policy that sets only the seat keys and/or the handoff section keeps the baseline (``policy.py``).
-"""
+"""Writing the Workspace handoff policy (``agent_gateway_policy.handoff``), audited."""
 
 from __future__ import annotations
 
@@ -24,7 +18,6 @@ REASON_POLICY_INVALID = "agent_gateway_policy_invalid"
 async def set_workspace_handoff_policy(
     db: AsyncSession, *, project: Project, value: Any, actor_id: str
 ) -> HandoffPolicy:
-    """Store the validated section; raises ``HandoffPolicyError`` (field reasons or the stored-policy reason)."""
     section = normalize_handoff_policy(value, f"{AGENT_GATEWAY_POLICY_CONFIG_KEY}.{HANDOFF_POLICY_KEY}")
     config = project.config if isinstance(project.config, dict) else {}
     stored = config.get(AGENT_GATEWAY_POLICY_CONFIG_KEY)

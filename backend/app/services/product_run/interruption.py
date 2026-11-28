@@ -1,14 +1,4 @@
-"""Settle Product Run Attempts whose owning process died (runtime robustness).
-
-An Attempt in an active state (``requested``, ``admitted``, ``running``) is owned by
-the process recorded in ``owner_process_id``. When that process has no live lease
-(``services/runtime_ownership/process_lease.py``), nothing can ever move the Attempt
-again, so it is moved ``failed`` / ``interrupted_by_restart`` by the ``system`` actor
-through the ordinary compare-and-set transition, audit row included.
-
-Only active Attempts are considered. A paused Attempt (``waiting_approval``) or any
-other terminal state is never touched, so a resumable pause stays resumable.
-"""
+"""Settle Product Run Attempts whose owning process died (runtime robustness)."""
 
 from __future__ import annotations
 
@@ -33,14 +23,11 @@ END_REASON_INTERRUPTED_BY_RESTART = "interrupted_by_restart"
 
 @dataclass(frozen=True, slots=True)
 class SettledAttempt:
-    """One Attempt this sweep ended; ids only, for the count-only audit."""
-
     session_id: str
     owner_user_id: str
 
 
 async def settle_orphaned_attempts(db: AsyncSession) -> list[SettledAttempt]:
-    """End every active Attempt whose owning process has no live lease."""
     rows = (
         await db.execute(
             select(

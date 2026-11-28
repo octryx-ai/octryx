@@ -1,10 +1,4 @@
-"""The Confluence page picker: one level of a space's page tree, read-only.
-
-``GET /chat/api/panel/connectors/confluence/page-tree?space_key=&parent_id=&start=&limit=`` (global) and
-``GET /chat/api/panel/projects/{project_id}/connectors/confluence/page-tree?...`` (a Workspace): the top-level
-pages of an allowed space, or the child pages of one page, read with the saved connection that serves the
-space in that scope (``services/confluence_pages``). Admin only; nothing is stored.
-"""
+"""The Confluence page picker: one level of a space's page tree, read-only. Admin only; nothing is stored."""
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse

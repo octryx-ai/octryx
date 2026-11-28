@@ -6,11 +6,12 @@ import copy
 
 import pytest
 
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
+
 
 def test_a_heredoc_that_writes_a_file_is_data_and_one_a_shell_reads_is_commands():
-    """``cat > conftest.py <<'EOF'`` with ``server.shutdown()`` in the file is not refused as destructive, and a 7K
-    JavaScript module and a 34K Python data script written by heredocs are not refused as unparseable; each refusal
-    would cost the session a retry."""
     from app.services.agent_gateway.capability import _destructive
     from app.services.agent_gateway.command_match import command_segments
     from app.services.exec_policy.policy_config import DEFAULT_EXEC_POLICY_CONFIG
@@ -33,8 +34,6 @@ def test_a_heredoc_that_writes_a_file_is_data_and_one_a_shell_reads_is_commands(
 
 @pytest.mark.asyncio
 async def test_the_story_session_may_message_its_subagents_and_write_in_claudes_temp_folder(db, monkeypatch):
-    """SendMessage (continuing a subagent) is not refused as unclassified, nor are Writes into Claude Code's own temp
-    folder as outside the repository; the free shell writes there anyway."""
     from tests.server_build_lock import lift_server_build_lock
     from tests.workflow_run_octryx_support import _bound_run, _decide, _fix_definition, _hook
 
@@ -57,8 +56,6 @@ async def test_the_story_session_may_message_its_subagents_and_write_in_claudes_
 
 
 def test_the_review_takes_every_change_the_device_may_report():
-    """A story of several hundred thousand characters does not pause at review_no_decision; the review reads a large
-    change in parts, so its bound is the device patch's runaway guard, not a cut of a real story."""
     from app.services.workflow_runs.octryx.facts import MAX_PATCH
     from app.services.workflow_runs.review.evidence import MAX_DIFF
     from app.services.workflow_runs.review.reading import change_parts
@@ -69,8 +66,6 @@ def test_the_review_takes_every_change_the_device_may_report():
 
 
 def test_a_file_a_heredoc_writes_is_no_credential_read():
-    """``cat > paths.py <<'EOF' ... return Path(env) ... EOF`` is not refused as an environment dump. A shell's own
-    heredoc and a plain ``env`` are still refused."""
     from app.services.workflow_runs.octryx.hard_deny import hard_denied
 
     module = "mkdir -p src && cat > src/paths.py <<'EOF'\ndef home():\n    env = os.environ.get('X')\n" \
@@ -83,8 +78,6 @@ def test_a_file_a_heredoc_writes_is_no_credential_read():
 
 @pytest.mark.asyncio
 async def test_the_review_reads_text_in_full_and_binaries_and_lockfiles_as_one_line(tmp_path):
-    """``--text`` would put hundreds of PNG baselines into the reviewed diff (tens of MB) and the review would refuse
-    the change as too large though its text part is small. The tree stays the whole change."""
     import subprocess
     from types import SimpleNamespace
 

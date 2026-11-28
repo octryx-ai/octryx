@@ -5,7 +5,6 @@ from sqlalchemy import delete as sa_delete
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .agent.core.prompts.prompt_templates import ensure_system_prompt_variant_routing
 from .config import get_settings
 from .models import (
     Permission,
@@ -24,7 +23,6 @@ from .services.prompt_catalog.seeding import ensure_prompt_catalog_seed
 from .services.research_policy import ensure_default_research_policy_profiles
 from .services.skill_catalog.categories import ensure_starter_categories
 from .services.tool_config import upsert_tool_config
-from .services.tool_result_compression import ensure_default_tool_result_compressors
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +37,6 @@ settings = get_settings()
 
 
 async def _ensure_bootstrap_admin_safe(db: AsyncSession, *, admin_user: User, admin_role: Role) -> None:
-    """Keep the local break-glass admin account active and assigned to the admin role."""
     changed = False
     if not admin_user.is_active:
         admin_user.is_active = True
@@ -66,10 +63,6 @@ async def _ensure_bootstrap_admin_safe(db: AsyncSession, *, admin_user: User, ad
 
 
 async def seed_database(db: AsyncSession):
-    """Run on application startup. Idempotent."""
-
-    await ensure_system_prompt_variant_routing(db)
-    await ensure_default_tool_result_compressors(db)
     await ensure_default_exec_policy_config(db)
     await ensure_default_research_policy_profiles(db)
 

@@ -1,44 +1,5 @@
-"""A browser of its own for one run turn: Microsoft's Playwright MCP server, started by Claude Code for that session.
-
-The story session checks every screen it builds at desktop and phone width in a browser, but "a
-browser MCP server that launches its OWN isolated browser instance per session, no extension". The Claude-in-Chrome
-route before it (``claude --chrome`` in an agent Chrome profile) needed the extension installed by hand and
-could drive the person's own Chrome.
-
-Why ``@playwright/mcp`` and not Google's ``chrome-devtools-mcp`` (both checked with ``--help``):
-
-- ``browser_resize`` sets the exact widths the check needs (1280, 390); ``browser_snapshot`` gives the page as an
-  accessibility tree in text, which a small model reads more cheaply than screenshots;
-- ``--allowed-origins`` takes ``http://127.0.0.1:*`` with any port; chrome-devtools-mcp's ``--allowedUrlPattern``
-  needs Chrome 149+, and it sends usage statistics and page URLs (CrUX) to Google unless switched off;
-- ``--browser chrome`` uses the device's installed Google Chrome, so nothing is downloaded; without Chrome the bundled
-  Chromium is installed once into the same folder.
-
-How it runs:
-
-- the package is pinned (:data:`VERSION`) and installed once with the device's own ``npm`` into the launcher's state
-  folder (``<state>/browser-mcp/<version>``, :func:`ensure_installed`); no global install, no ``npx`` at run time, so a
-  turn starts it offline. When ``npm`` or the install is missing, the turn simply has no browser (its prompt falls
-  back to Playwright screenshots);
-- every session gets a profile folder of its own (``--user-data-dir <state>/sessions/<key>/browser-profile``,
-  :func:`profile_dir`; an isolated user-data dir per session under the session folder, never
-  the person's Chrome profile; Playwright MCP 0.0.84 refuses ``--isolated`` together with a user-data dir),
-  ``--headless`` (no window on the person's screen) and ``--allowed-origins`` for loopback only (none with the offer's
-  ``browser_external``, B13: public pages are read, the hooks refuse internal hosts). "The app's ports"
-  are any loopback port: no repository declares its app's port (``coding_setup.environment`` has commands only,
-  the system tests start the app on a free port), so the session's own app is wherever it listens on
-  127.0.0.1/localhost. Only the platform's own port is blocked (``--blocked-origins``, evaluated before the
-  allowlist) when the platform itself listens on loopback (a local stack, ``OCTRYX_BASE_URL=http://127.0.0.1:24600``);
-- downloads are off (``browser.contextOptions.acceptDownloads = false`` in a per-session ``--config`` file, the only
-  way 0.0.84 takes it), and ``file://`` stays blocked (no ``--allow-unrestricted-file-access``);
-- its own README says the origin lists do "not serve as a security boundary": the launcher's PreToolUse hook
-  (``hooks``, ``run_shell.browser_rule``, for Claude Code and Codex alike) and the platform's rule
-  (``workflow_runs/octryx/browser_tools``) are the boundary;
-- Codex gets the same server under the same name in its session ``config.toml`` (``codex_driver.config_toml``); the
-  name has no ``-``, so its tools are ``mcp__playwright__browser_*`` in both engines;
-- its snapshots and screenshots go to a folder of the session outside the state folder (:func:`output_dir`), which the
-  agent may read (the state folder is closed to the agent's file tools and sandbox).
-"""
+"""Playwright MCP as an isolated, headless, loopback-only browser for one run turn.
+Its origin lists are no security boundary: the PreToolUse hook and the platform's browser rule are."""
 
 from __future__ import annotations
 
@@ -51,7 +12,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
 
-from . import browser
+from . import browser, state
 
 PACKAGE = "@playwright/mcp"
 VERSION = "0.0.84"
@@ -64,10 +25,14 @@ SERVER_CONFIG = {"browser": {"contextOptions": {"acceptDownloads": False}}}
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost")
 INSTALL_TIMEOUT = 600
 NODE_CANDIDATES = ("/opt/homebrew/bin/node", "/usr/local/bin/node", "/usr/bin/node")
+# A server runner has no internet: its image carries the pinned server and its Chromium here, read-only.
+PREBUILT_ENV = "OCTRYX_BROWSER_MCP_DIR"
+OUTPUT_DIR = "browser-output"
 
 
 def install_dir(state_root: Path) -> Path:
-    return Path(state_root) / "browser-mcp" / VERSION
+    prebuilt = os.environ.get(PREBUILT_ENV, "")
+    return Path(prebuilt) if prebuilt else Path(state_root) / "browser-mcp" / VERSION
 
 
 def cli_path(folder: Path) -> Path:
@@ -75,8 +40,7 @@ def cli_path(folder: Path) -> Path:
 
 
 def find_node() -> str | None:
-    """The device's ``node``: on ``PATH``, else where Homebrew and the installers put it (a LaunchAgent's PATH is
-    short)."""
+    # A LaunchAgent's PATH is short, so Homebrew's and the installers' locations are tried too.
     found = shutil.which("node")
     if found:
         return found
@@ -97,11 +61,11 @@ def _npm(node: str) -> str | None:
 
 
 def ensure_installed(state_root: Path, *, node: str | None = None, run: Any = None) -> Path | None:
-    """The pinned server's ``cli.js``, installed into the state folder first when it is not there; ``None`` when it
-    cannot be (no ``node`` or ``npm``, offline on the first use, a failed install)."""
     folder = install_dir(state_root)
     if installed_version(folder) == VERSION and cli_path(folder).is_file():
         return cli_path(folder)
+    if os.environ.get(PREBUILT_ENV):
+        return None
     node = node or find_node()
     npm = _npm(node) if node else None
     if not node or not npm:
@@ -119,7 +83,6 @@ def ensure_installed(state_root: Path, *, node: str | None = None, run: Any = No
 
 
 def ensure_chromium(folder: Path, node: str, *, run: Any = None) -> bool:
-    """A device without Google Chrome: Playwright's bundled Chromium, installed once into ``<folder>/browsers``."""
     browsers = folder / "browsers"
     if browsers.is_dir() and any(browsers.glob("chromium*")):
         return True
@@ -140,7 +103,6 @@ def output_dir(session_key: str) -> Path:
 
 
 def session_folder(state_root: Path, session_key: str) -> Path | None:
-    """``<state>/sessions/<key>`` (``LocalState.session_dir``); ``None`` for a key that is no UUID."""
     try:
         return Path(state_root) / "sessions" / str(uuid.UUID(str(session_key)))
     except ValueError:
@@ -148,15 +110,12 @@ def session_folder(state_root: Path, session_key: str) -> Path | None:
 
 
 def profile_dir(state_root: Path, session_key: str) -> Path | None:
-    """The browser's own profile for this session only (cookies and storage of the app it looks at)."""
     folder = session_folder(state_root, session_key)
     return folder / PROFILE_DIR if folder is not None else None
 
 
 def blocked_origins(platform_url: str, *, external: bool = False) -> list[str]:
-    """The platform's own origins when it listens on loopback (a local stack), else nothing: the browser looks at the
-    session's app, never at the platform. A browser that reads external pages (``external``) also never opens the
-    platform's public host."""
+    # The browser looks at the session's app, never at the platform.
     try:
         parts = urlsplit(str(platform_url or "").strip())
         port = parts.port or {"http": 80, "https": 443}.get(parts.scheme)
@@ -174,9 +133,6 @@ def blocked_origins(platform_url: str, *, external: bool = False) -> list[str]:
 def server_spec(state_root: Path, session_key: str, *, node: str | None = None, chrome: bool | None = None,
                 install: Any = None, run: Any = None, platform_url: str = "",
                 external: bool = False) -> dict[str, Any] | None:
-    """The MCP server entry of one session's browser (``mcpServers.playwright``), or ``None`` without one.
-    ``external`` (the offer's ``browser_external``, B13): no loopback-only ``--allowed-origins``; the platform's
-    origins stay blocked and the hooks' ``run_shell.browser_rule`` refuses internal hosts."""
     profile = profile_dir(state_root, session_key)
     if profile is None:
         return None
@@ -185,13 +141,18 @@ def server_spec(state_root: Path, session_key: str, *, node: str | None = None, 
     if not node or cli is None:
         return None
     folder = install_dir(state_root)
-    out = output_dir(session_key)
+    # On a server runner the browser runs under the agent's account: its folders are the shared state's group's.
+    shared = state.shared_state()
+    out = profile.parent / OUTPUT_DIR if shared else output_dir(session_key)
     config = profile.parent / CONFIG_FILE
     try:
         out.mkdir(parents=True, exist_ok=True)
         profile.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if shared:
+            for path in (out, profile):
+                os.chmod(path, 0o2770)
         config.write_text(json.dumps(SERVER_CONFIG), encoding="utf-8")
-        os.chmod(config, 0o600)
+        os.chmod(config, 0o640 if shared else 0o600)
     except OSError:
         return None
     use_chrome = browser.chrome_installed() if chrome is None else chrome
@@ -209,8 +170,6 @@ def server_spec(state_root: Path, session_key: str, *, node: str | None = None, 
 
 
 def browser_config(mcp_path: Path, spec: dict[str, Any]) -> Path:
-    """The session's MCP config (``--strict-mcp-config``) with the browser server added, written next to it for this
-    turn only (``mcp-browser.json``); the session's own config stays without a browser for every other turn."""
     try:
         config = json.loads(Path(mcp_path).read_text())
     except (OSError, ValueError):

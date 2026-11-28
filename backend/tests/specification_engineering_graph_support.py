@@ -1,25 +1,5 @@
-"""Test fixture: the engineering B that consumes an accepted spec, and the spec parent's typed offer into it.
-
-``spec_engineering_definition`` is a NEW authored graph (key :data:`ENGINEERING_KEY`), derived from exactly the B
-seed (:data:`BASE_DIGEST`) without changing that seed or any historic version: every Red/Green/lint/code-review/tree/CI/
-merge/publication/receipt node, check and edge stays as it is. It adds only
-
-- ``start.handoff_inputs: [spec]``: the spec arrives only through the accepted typed handoff, resolved for the actual
-  caller (``specification.integration``); a direct start is refused before any ticket or branch write;
-- the spec as an explicit input of Clarify and of both documentation phases, and on the test-contract card
-  (``shows: spec``: the exact criteria, their recorded coverage and the confirmation they come from);
-- ``decider: spec_origin`` on the post-merge functional acceptance (a), publication (b), late acceptance and
-  exception decisions. Engineering, test- and documentation-contract confirmations stay with the engineer, who also
-  keeps owner, execution, Session and runtime rights.
-
-``specification_engineering_definition`` is the spec-from-idea parent with, before its terminal ``done``, one typed
-``handoff/v1`` offer of its confirmed spec into an exact pinned version of that graph (version id + canonical
-checksum). Its inputs are explicit: an existing Work item, repository, connections, the spec's source ids and a named
-engineer. It is a connective controlled fixture, not Chain 1: no ticket creation, link or notification; no provider
-write and no scope grant of its own (the receiver's rights are rechecked at acceptance).
-
-Neither definition ships with the platform; a test publishes a version explicitly, as an admin would.
-"""
+"""Test fixture: an engineering graph derived from the B seed that takes the spec only through the typed handoff,
+and a spec-from-idea parent offering its confirmed spec into it; neither ships with the platform."""
 from __future__ import annotations
 
 import copy
@@ -32,8 +12,7 @@ from typing import Any
 BASE_SEED_PATH = Path(__file__).resolve().parent / "fixtures" / "engineering_graph_base.json"
 BASE_KEY = "feature-delivery-tdd"
 # The B seed this graph is derived from; a changed seed needs an explicit, reviewed re-derivation.
-# re-derived after the tests-first wording (new tests may fail at the import of new code).
-BASE_DIGEST = "sha256:b0fc51cda308c0ac6ddb7224b300efa926cb862c6a4c9de1afb466ef18a502df"
+BASE_DIGEST = "sha256:504bda65a0a3fc42461aa007ea3e9f3404a5501f3287b2cddfe07f0cdf32e38e"
 ENGINEERING_KEY = "feature-delivery-from-spec"
 ENGINEERING_NAME = "Feature delivery from an accepted specification (TDD)"
 ENGINEERING_DESCRIPTION = (
@@ -57,7 +36,6 @@ _DOCS = (" The accepted specification (spec) is an input: describe its user stor
 
 
 def base_seed() -> dict[str, Any]:
-    """The base seed (``BASE_SEED_PATH``) with its compiled ``definition``."""
     from app.services.workflow_runs.seeding import compiled_seed
 
     return compiled_seed(json.loads(BASE_SEED_PATH.read_text(encoding="utf-8")))
@@ -73,7 +51,6 @@ def _base() -> dict[str, Any]:
 
 
 def spec_engineering_definition() -> dict[str, Any]:
-    """A fresh copy of the new authored engineering graph (never a seed, never a historic version)."""
     definition = _base()
     nodes = {node["id"]: node for node in definition["nodes"]}
     nodes["start"]["config"] = {"handoff_inputs": ["spec"]}
@@ -94,7 +71,6 @@ def spec_engineering_definition() -> dict[str, Any]:
 def engineering_handoff(*, workspace_id: str, work_item_id: str, repository: str, connection_ids: list[str],
                         source_ids: list[str], engineer_id: str,
                         timeout_seconds: int = HANDOFF_TIMEOUT_SECONDS) -> dict[str, Any]:
-    """The closed handoff/v1 contract of the offer; every scope value is explicit, nothing is inferred."""
     return {"schema_version": "handoff/v1", "owner": f"person:{engineer_id}", "artefacts": ["spec"],
             "acceptance": ("Engineer the exact confirmed specification in this Work item and repository: its "
                            "stable criteria become your test contract; you own the run, its Session and runtime."),
@@ -105,7 +81,6 @@ def engineering_handoff(*, workspace_id: str, work_item_id: str, repository: str
 
 def specification_engineering_definition(*, child_version_id: str, child_checksum: str,
                                          **scope: Any) -> dict[str, Any]:
-    """The spec-from-idea parent offering its confirmed spec into the pinned engineering B before ``done``."""
     from tests.specification_definition_support import specification_definition
 
     definition = specification_definition()

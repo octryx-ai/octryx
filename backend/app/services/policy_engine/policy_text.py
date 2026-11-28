@@ -1,16 +1,4 @@
-"""One policy set text as its single statements.
-
-The stored artefact stays the whole set text; this module only reads it per policy:
-
-- :func:`split_statements` cuts the text at every ``;`` outside a string literal or a ``//`` comment. A comment
-  in front of a statement belongs to it; whatever follows the last ``;`` (a trailing comment) is the trailer.
-- :func:`index_statements` pairs each statement with its EST (``cedarpy.policies_to_json_str``, positional
-  ``policy0`` … ``policyN``): ``@id`` and the other annotations, effect, actions, and the entities and named
-  connections it references.
-- :func:`join_statements` is the deterministic set text of policy-level edits: statements sorted by ``@id``.
-
-The statement digest identifies a policy's text across versions ("changed" = another digest).
-"""
+"""One policy set text as its single statements."""
 
 from __future__ import annotations
 
@@ -29,7 +17,6 @@ class SplitText:
 
 
 def split_statements(text: str) -> SplitText:
-    """The statements of ``text`` (each stripped, ending with ``;``) and the trailer after the last one."""
     statements: list[str] = []
     start = 0
     index, size = 0, len(text)
@@ -58,8 +45,6 @@ def split_statements(text: str) -> SplitText:
 
 @dataclass(frozen=True, slots=True)
 class References:
-    """What a policy names: entity ids by type and the named-connection ids of ``context.connections``."""
-
     entities: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
     connections: tuple[str, ...] = ()
     uses_principal: bool = False
@@ -148,7 +133,6 @@ def _positional(name: str) -> int:
 
 
 def index_statements(text: str, *, every_action: Iterable[str] = ()) -> list[Statement]:
-    """Every statement of a parseable set text with its EST facts; raises ``ValueError`` when it does not parse."""
     split = split_statements(text)
     est = json.loads(cedar_module().policies_to_json_str(text)) if split.statements else {}
     bodies = [body for _, body in sorted((est.get("staticPolicies") or {}).items(),
@@ -173,7 +157,6 @@ def index_statements(text: str, *, every_action: Iterable[str] = ()) -> list[Sta
 
 
 def join_statements(statements: Iterable[tuple[str, str]], trailer: str = "") -> str:
-    """The set text of ``(policy_id, statement)`` pairs, sorted by ``@id``; empty for no statements."""
     ordered = [text.strip() for _, text in sorted(statements, key=lambda item: item[0])]
     parts = [*ordered, trailer.strip()] if trailer.strip() else ordered
     return "\n\n".join(parts) + "\n" if parts else ""

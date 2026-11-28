@@ -1,9 +1,4 @@
-"""Current human Workspace membership and the work-role holders that decide Workflow nodes.
-
-``role:<key>`` deciders and handoff owners resolve through the Workspace's work-role assignments
-(``work_role_model``), limited to the Workspace's current active human members. Work-role assignments are
-independent of platform roles; no global-admin expansion is used when resolving a node decider.
-"""
+"""Current human Workspace membership and the work-role holders that decide Workflow nodes."""
 from __future__ import annotations
 
 from sqlalchemy import or_, select
@@ -21,7 +16,7 @@ async def active_human(db: AsyncSession, user_id: str) -> User | None:
 
 
 async def workspace_humans(db: AsyncSession, project_id: str | None) -> dict[str, User]:
-    """Actual current direct/group members, never the admin cross-Workspace shortcut."""
+    # Never the admin cross-Workspace shortcut.
     if not project_id:
         return {}
     project = await db.get(Project, project_id, populate_existing=True)
@@ -37,9 +32,6 @@ async def workspace_humans(db: AsyncSession, project_id: str | None) -> dict[str
 
 
 async def work_role_members(db: AsyncSession, project_id: str | None, role_key: str) -> tuple[str, ...]:
-    """Holders of the seed role ``role_key`` among the Workspace's active human members.
-
-    A revoked assignment, inactive role or group, removed membership or service user contributes nothing."""
     if role_key not in WORK_ROLE_KEYS or not project_id:
         return ()
     eligible = await workspace_humans(db, project_id)
@@ -50,12 +42,7 @@ async def work_role_members(db: AsyncSession, project_id: str | None, role_key: 
 
 async def lock_actor_membership(db: AsyncSession, project_id: str | None, user_id: str,
                                  *, role_key: str | None = None) -> None:
-    """Hold the rows that may revoke this actor while the final decision transaction commits.
-
-    Run is already locked by the caller. Global membership writers need no awareness of Workflow
-    claims: their UPDATE/DELETE on these rows waits. Re-resolve afterward, since a revocation may
-    have won before we obtained a lock. No missing authority row is manufactured.
-    """
+    # Re-resolve after locking: a revocation may have won before the lock.
     await db.execute(select(User).where(User.id == user_id).with_for_update()
                      .execution_options(populate_existing=True))
     if not project_id:

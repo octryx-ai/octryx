@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import uuid
+from collections.abc import Collection
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions.api import ValidationError
@@ -20,29 +22,8 @@ from ...models.security.compliance_audit import (
     EvidencePackage,
 )
 from ...time_utils import utc_now
-
-# Fields that must always be scrubbed from exports
-_SENSITIVE_FIELD_PATTERNS = {"password", "secret", "token", "credential", "api_key", "private_key"}
-
-
-def _redact_details(details: dict, redact_all: bool = False) -> tuple[dict, list[str]]:
-    """Scrub sensitive keys from a details dict. Returns (clean_dict, redacted_fields)."""
-    if not details:
-        return details, []
-    redacted: list[str] = []
-    clean: dict = {}
-    for key, value in details.items():
-        low = key.lower()
-        if redact_all or any(pat in low for pat in _SENSITIVE_FIELD_PATTERNS):
-            clean[key] = "[REDACTED]"
-            redacted.append(key)
-        elif isinstance(value, dict):
-            inner, inner_redacted = _redact_details(value)
-            clean[key] = inner
-            redacted.extend(f"{key}.{f}" for f in inner_redacted)
-        else:
-            clean[key] = value
-    return clean, redacted
+from .projection import project_details
+from .redaction import redact_details
 
 
 async def create_audit_record(
@@ -64,17 +45,10 @@ async def create_audit_record(
     request_id: str | None = None,
     commit: bool = True,
 ) -> ComplianceAuditRecord:
-    """Persist one redacted audit record.
-
-    ``commit=False`` hands transaction ownership to the caller: a caller whose own
-    state change must be atomic with its record stages both and commits once (see
-    ``services/knowledge_evidence/projection_recovery.py``). The record is then not
-    refreshed, because it is not yet in the database.
-    """
     if event_type not in ALL_AUDIT_EVENT_TYPES:
         raise ValidationError(f"Invalid event_type: {event_type}")
 
-    clean_details, redacted_fields = _redact_details(details or {}, redact_all=False)
+    clean_details, redacted_fields = redact_details(details or {})
 
     record = ComplianceAuditRecord(
         id=str(uuid.uuid4()),
@@ -105,22 +79,36 @@ async def create_audit_record(
 async def list_audit_records(
     db: AsyncSession,
     *,
-    project_id: str | None = None,
+    project_ids: Collection[str] | None = None,
+    exclude_project_ids: Collection[str] = (),
     event_type: str | None = None,
     resource_type: str | None = None,
     actor_user_id: str | None = None,
+    since: datetime | None = None,
+    until: datetime | None = None,
+    before: tuple[datetime, str] | None = None,
     limit: int = 200,
 ) -> list[ComplianceAuditRecord]:
-    stmt = select(ComplianceAuditRecord)
-    if project_id:
-        stmt = stmt.where(ComplianceAuditRecord.project_id == project_id)
+    record = ComplianceAuditRecord
+    stmt = select(record)
+    if project_ids is not None:
+        stmt = stmt.where(record.project_id.in_(list(project_ids)))
+    if exclude_project_ids:
+        stmt = stmt.where(or_(record.project_id.is_(None), record.project_id.notin_(list(exclude_project_ids))))
     if event_type:
-        stmt = stmt.where(ComplianceAuditRecord.event_type == event_type)
+        stmt = stmt.where(record.event_type == event_type)
     if resource_type:
-        stmt = stmt.where(ComplianceAuditRecord.resource_type == resource_type)
+        stmt = stmt.where(record.resource_type == resource_type)
     if actor_user_id:
-        stmt = stmt.where(ComplianceAuditRecord.actor_user_id == actor_user_id)
-    stmt = stmt.order_by(ComplianceAuditRecord.created_at.desc()).limit(limit)
+        stmt = stmt.where(record.actor_user_id == actor_user_id)
+    if since:
+        stmt = stmt.where(record.created_at >= since)
+    if until:
+        stmt = stmt.where(record.created_at < until)
+    if before:
+        at, record_id = before
+        stmt = stmt.where(or_(record.created_at < at, and_(record.created_at == at, record.id < record_id)))
+    stmt = stmt.order_by(record.created_at.desc(), record.id.desc()).limit(limit)
     return list((await db.execute(stmt)).scalars().all())
 
 
@@ -180,10 +168,6 @@ async def seal_evidence_package(
 async def export_evidence_package(
     db: AsyncSession, package_id: str
 ) -> dict[str, Any]:
-    """Export a sealed package as a dict (JSON-serializable).
-
-    Sensitive fields in details are always redacted in exports.
-    """
     pkg = (await db.execute(select(EvidencePackage).where(EvidencePackage.id == package_id))).scalar_one_or_none()
     if not pkg:
         raise NotFoundError("EvidencePackage", package_id)
@@ -201,8 +185,7 @@ async def export_evidence_package(
 
     exported_records = []
     for r in records:
-        # Always apply redaction on export
-        safe_details, _ = _redact_details(r.details or {}, redact_all=r.contains_sensitive)
+        shown, hidden = project_details(r)
         exported_records.append({
             "id": r.id,
             "event_type": r.event_type,
@@ -212,8 +195,8 @@ async def export_evidence_package(
             "resource_type": r.resource_type,
             "resource_id": r.resource_id,
             "resource_name": r.resource_name,
-            "details": safe_details,
-            "redacted_fields": r.redacted_fields,
+            "details": shown,
+            "hidden_field_count": hidden,
             "classification_level": r.classification_level,
             "created_at": r.created_at.isoformat() if r.created_at else None,
         })

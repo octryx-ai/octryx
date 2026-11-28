@@ -1,17 +1,4 @@
-"""Admin lifecycle of the System prompt texts: draft, submit, publish, retire, revert to shipped.
-
-Every operation refuses with a closed :class:`PromptCatalogRefusal` code instead of
-guessing. A draft is validated against its key's placeholder contract when it is
-written and again when it is published, so an unknown placeholder never reaches a
-turn. Every key, whatever its risk,
-goes through ``in_review`` and a four-eyes approval (``services/prompt_catalog/governance``).
-An override may be global or scoped to a workflow or a Workspace (the workflow owner defines the flow; four eyes
-still apply): a ``workflow:<flow key>`` text by the workflow's owner, a
-``workspace:<id>`` text by the Workspace's owners and admins (``scope_rights``), each through the same draft →
-review → approval by another person → publish; agent guidance stays in the agent's own instructions. "Revert to
-shipped" publishes the code seed again without review (it is the
-reviewed product text). Every change writes an audit row with ids, versions and digests only.
-"""
+"""Admin lifecycle of the System prompt texts: draft, submit, publish, retire, revert to shipped."""
 
 from __future__ import annotations
 
@@ -111,7 +98,6 @@ async def create_draft(
 
 
 async def require_rights(db: AsyncSession, user: User, scope_type: str, scope_id: str | None) -> None:
-    """The user may write at this scope (``scope_rights``); else ``prompt_scope_forbidden``."""
     if not await may_write(db, user.id, scope_type, scope_id):
         raise PromptCatalogRefusal(REFUSAL_SCOPE_FORBIDDEN, 403, scope_type=scope_type)
 
@@ -184,7 +170,6 @@ async def retire(db: AsyncSession, *, version_id: str, user: User) -> PromptTemp
 
 
 async def revert_to_shipped(db: AsyncSession, *, key: str, user: User) -> PromptTemplateVersion:
-    """Publish the shipped code text of ``key`` again (global); no review, it is the product's reviewed text."""
     if not is_known_prompt_key(key):
         raise PromptCatalogRefusal("prompt_key_not_found", 404, key=key)
     spec = prompt_key_spec(key)

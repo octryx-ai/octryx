@@ -28,10 +28,7 @@ def _without_section(text: str, heading: str) -> str:
 
 
 def drop_unused_prompt_sections(messages: list[dict[str, Any]], sent_tool_names: Iterable[str]) -> list[dict[str, Any]]:
-    """The request messages without the sections whose tools this request does not send in full.
-
-    Once such a tool is loaded with tool_search, its section is back from the next call on.
-    """
+    """The request messages without the sections whose tools this request does not send in full."""
     sent = set(sent_tool_names)
     unused = [heading for heading, tools in _SECTION_TOOLS.items() if not tools & sent]
     if not unused:

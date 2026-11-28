@@ -26,8 +26,6 @@ def _release(version: str = NEW, content: bytes = WHEEL) -> dict:
 
 
 class Platform:
-    """GET /octryx-claude/version and /package/<version>, counting requests."""
-
     def __init__(self, release: dict | Exception | httpx.Response, package: bytes = WHEEL) -> None:
         self.release, self.package, self.calls = release, package, []
         self.http = httpx.Client(transport=httpx.MockTransport(self.handle))
@@ -47,8 +45,6 @@ class Platform:
 
 
 class Builder:
-    """Stands in for uv/venv/pip and the new venv's version probe."""
-
     def __init__(self, *, fail: bool = False, reports: str | None = None) -> None:
         self.fail, self.reports, self.argv = fail, reports, []
 
@@ -68,7 +64,6 @@ class Builder:
 
 @pytest.fixture
 def installed(tmp_path, monkeypatch):
-    """An installed layout: <state>/venvs/{older, OLD}, current -> OLD, a temporary HOME with the shim."""
     home = tmp_path / "home"
     root = tmp_path / "state"
     venvs = root / "venvs"

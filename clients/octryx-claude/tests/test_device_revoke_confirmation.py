@@ -1,10 +1,3 @@
-"""A revoke signal is persisted only when the platform confirms it.
-
-A refused grant refresh and a channel close 4410 ``revoke`` can happen without a revoke on the platform (e.g. a
-replayed rotation during a redeploy). The client asks the key-signed renewal first: only its ``device_revoked``
-revokes; a real revoke stays effective.
-"""
-
 from __future__ import annotations
 
 import asyncio

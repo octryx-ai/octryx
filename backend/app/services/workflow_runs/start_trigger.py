@@ -1,10 +1,5 @@
-"""What starts a phased workflow, as its definition says it (flow rules belong in the workflow definition, never
-in a list of keys in the code).
-
-The Start box's ``config.started_by`` names it: ``work_item`` (the default, also when the key is absent) or
-``pull_request``: the PR review bot starts it for a pull request, so a person never starts it from a Work item's
-start dialog, the routing of a Work item type or the app (``records.startable_workflows_for`` leaves it out).
-"""
+"""What starts a phased workflow, as its definition says it (flow rules belong in the workflow definition, never in a
+list of keys in the code)."""
 
 from __future__ import annotations
 
@@ -22,7 +17,6 @@ def _start_config(definition: dict[str, Any]) -> dict[str, Any]:
 
 
 def started_by(definition: dict[str, Any]) -> str:
-    """``work_item`` or ``pull_request`` (an unknown value reads as the default; validation names it)."""
     value = str(_start_config(definition).get("started_by") or STARTED_BY_WORK_ITEM)
     return value if value in STARTED_BY else STARTED_BY_WORK_ITEM
 

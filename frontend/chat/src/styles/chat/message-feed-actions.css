@@ -53,7 +53,7 @@
   margin-bottom: 0.25rem;
   color: var(--text);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .resume-notice {
@@ -75,7 +75,7 @@
 .resume-notice__eyebrow {
   color: var(--status-active-ink);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -83,7 +83,7 @@
 .resume-notice__title {
   color: var(--text);
   font-size: var(--ds-text-lg);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .resume-notice__body {

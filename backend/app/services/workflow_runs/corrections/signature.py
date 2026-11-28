@@ -1,10 +1,4 @@
-"""A correction's signature: redacted first, then normalised, so the same mistake gives the same key. Pure.
-
-a signature never holds a secret or a person's name. ``redact`` runs before anything is
-normalised or stored (the platform's secret redaction, the data's token patterns, then the names of the Workspace's
-people); ``normalise`` then drops what differs between two occurrences of one mistake (paths, files, numbers,
-quoted text, identifiers) and keeps the words that say what was wrong.
-"""
+"""A correction's signature: redacted first, then normalised, so the same mistake gives the same key."""
 
 from __future__ import annotations
 
@@ -33,8 +27,6 @@ def _normalise_rules() -> tuple[tuple[re.Pattern[str], str], ...]:
 
 
 def name_parts(people: Iterable[Any]) -> tuple[str, ...]:
-    """The words that name the given people: display name parts, user names and e-mail local parts (at least
-    ``min_name`` letters), longest first so a full name goes before its parts."""
     shortest = int(data()["redact"]["min_name"])
     found: set[str] = set()
     for person in people:
@@ -53,7 +45,6 @@ def name_parts(people: Iterable[Any]) -> tuple[str, ...]:
 
 
 def redact(text: Any, names: Iterable[str] = ()) -> str:
-    """``text`` without secrets, e-mail addresses, @mentions and the given names."""
     from ...redaction_policy import redact_secret_text
 
     replacement = str(data()["redact"]["replacement"])
@@ -66,7 +57,6 @@ def redact(text: Any, names: Iterable[str] = ()) -> str:
 
 
 def normalise(text: str) -> str:
-    """The shape of a (redacted) message: what was wrong, without where and with which names."""
     value = text
     for pattern, replacement in _normalise_rules():
         value = pattern.sub(replacement, value)
@@ -74,7 +64,6 @@ def normalise(text: str) -> str:
 
 
 def file_pattern(path: Any) -> str:
-    """``shop/pricing/cart.py`` → ``shop/**/*.py``; a file at the root → ``*.py``; none → ``*``."""
     raw = str(path or "").strip().split(":", 1)[0].lstrip("./")
     if not raw or raw.startswith("("):
         return "*"
@@ -95,7 +84,6 @@ def key(check_kind: str, pattern: str, message: str) -> str:
 
 
 def excerpt(text: Any, names: Iterable[str] = ()) -> str:
-    """The occurrence's own words for the evidence, redacted and bounded (never normalised)."""
     return " ".join(redact(text, names).split())[: int(data()["max_excerpt"])]
 
 

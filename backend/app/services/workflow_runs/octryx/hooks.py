@@ -1,13 +1,4 @@
-"""The gateway hooks of a run-bound octryx-claude session: what each hook answer adds.
-
-- PreToolUse (``agent_gateway/tool_decision``): the run's decision (``tool_policy``) replaces the session's
-  workflow-tool and capability steps; the launcher's facts are recorded under the run claim first, and the run is
-  claimed only when they change it;
-- Stop / SubagentStop (``api/routes/agent_gateway``): ``stop.run_stop`` replaces the Workspace test gate;
-- every answer of a bound session carries the refreshed contract (``workflow_run``).
-
-A session that follows no run is untouched: every function returns ``None`` for it.
-"""
+"""The gateway hooks of a run-bound octryx-claude session: what each hook answer adds."""
 
 from __future__ import annotations
 
@@ -26,10 +17,7 @@ from .facts import FACTS_KEY, facts_change, record_facts
 logger = logging.getLogger(__name__)
 
 def test_prefixes(policy: Any) -> tuple[tuple[str, ...], ...]:
-    """The Workspace's test command prefixes (else the defaults) plus every stack's runner (``stacks.json``).
-
-    Without the stack runners, `node --test` was no test run for the Stop, so "the test suite ran" and "the
-    last test run passed" failed four times on a fixed, green phase; the runners are data, never a list in code."""
+    # The stack runners are data, never a list in code.
     from ...engineering_knowledge.stacks import test_runners
 
     verification = getattr(policy, "verification", None)
@@ -42,7 +30,6 @@ def test_prefixes(policy: Any) -> tuple[tuple[str, ...], ...]:
 async def run_pre_tool_use(
     db: AsyncSession, *, session: Session, policy: Any, hook_input: dict[str, Any]
 ) -> tuple[ToolDecision | None, dict[str, Any]] | None:
-    """``(denial or None, contract)`` for a run-bound session, ``None`` for any other."""
     from ...exec_policy import get_effective_exec_policy_config
     from .scm_rules import scm_hosts
     from .tool_policy import run_tool_decision
@@ -68,12 +55,15 @@ async def run_pre_tool_use(
     exec_config = with_role_commands(await get_effective_exec_policy_config(db, project_id=session.project_id),
                                      await effective_permission(db, session.user_id, session.project_id))
     from ...devices.device_runs_keys import device_runs_section, tool_defaults
+    from ..plan_scope import expensive_classes, scope_state
 
+    section = device_runs_section(getattr(policy, "raw", None) or {})
     decision = run_tool_decision(
         run, contract, session, hook_input,
         exec_config=exec_config,
         hosts=await scm_hosts(db, session.project_id), test_prefixes=test_prefixes(policy),
-        defaults=tool_defaults(device_runs_section(getattr(policy, "raw", None) or {})))
+        defaults={**tool_defaults(section), "expensive_paths": expensive_classes(section),
+                  "plan_scope": scope_state(run)})
     if decision is None or decision.decision == "allow":
         from ..run_memory import denial_answered
 

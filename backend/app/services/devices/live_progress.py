@@ -1,17 +1,5 @@
-"""What a running Claude Code session is doing, for its owner's phone, which otherwise
-sees only the session's answers. Phase A: the device reads the session's own transcript (read-only,
-``clients/octryx-claude/octryx_claude/live_progress.py``) and sends short events as ``live_progress {peer, events}``.
-
-- **from the device** (:func:`record_progress`): only for a session the device lists right now (the same rule as a
-  live message); every event normalized again here (a closed set of kinds and fields, every text clipped and
-  redacted once more), at most :data:`MAX_EVENTS_PER_MESSAGE` per message and :data:`MAX_EVENTS_PER_MINUTE` per device;
-  each gets the next ``seq`` of its session. Per session the newest :data:`KEEP_PER_SESSION` are kept, nothing older
-  than :data:`KEEP_DAYS`.
-- **the owner** (:func:`progress`): ``since_seq`` answers only what is newer, so the phone catches up after it was away;
-  only the device's owner, only by their interactive login (the route), only a session listed right now.
-
-Nobody else reads the table: there is no admin route.
-"""
+"""What a running Claude Code session is doing, for its owner's phone, which otherwise sees only the session's
+answers."""
 
 from __future__ import annotations
 

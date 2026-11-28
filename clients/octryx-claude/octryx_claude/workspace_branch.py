@@ -1,6 +1,5 @@
 """Put the launch folder on the run's branch (``workspace_prep`` step 1): fetch from origin, or the platform's
-bundle when this device cannot, and set up a folder that is no working copy yet.
-"""
+bundle when this device cannot (a server runner: through ``git_gateway``), and set up a new folder."""
 
 from __future__ import annotations
 
@@ -11,6 +10,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from .git_gateway import GatewaySource
 from .workspace_git import (
     _BRANCH,
     _HOST_ALIASES,
@@ -31,21 +31,30 @@ from .workspace_git import (
 BundleSource = Callable[[list[str]], "dict[str, Any] | None"]
 
 
+GATEWAY_FETCH_TIMEOUT = 600  # a whole branch history can take a while on a slow link
+
+
+def _fetch_run_branch(root: Path, branch: str, gateway: GatewaySource | None) -> subprocess.CompletedProcess | None:
+    refspec = f"+refs/heads/{branch}:refs/remotes/origin/{branch}"
+    if gateway is None:
+        return _git(root, "fetch", "origin", refspec)
+    source = gateway()
+    if source is None:
+        return None
+    url, env = source
+    return _git(root, "fetch", "--no-tags", url, refspec, env=env, timeout=GATEWAY_FETCH_TIMEOUT)
+
+
 def _commits_on_device(root: Path) -> list[str]:
-    """What the folder already has (HEAD and every branch tip): the platform bundles only what is missing."""
+    # the platform bundles only what the device lacks
     tips = _out(_git(root, "for-each-ref", "--format=%(objectname)", "refs/heads", "refs/remotes")).splitlines()
     head = _git(root, "rev-parse", "HEAD")
     return [sha for sha in dict.fromkeys([_out(head) if _ok(head) else "", *tips]) if _SHA.match(sha)]
 
 
 def _fetch_bundle(root: Path, branch: str, source: BundleSource) -> subprocess.CompletedProcess | None:
-    """Fetch the run's branch from the platform's bundle into ``origin/<branch>`` (as if fetched from origin).
-
-    When the device has no git credentials for the repository host ("could not read Username for
-    'https://git.example.com'"), each next story would start from a commit
-    the platform pushed from its own working copy, and a person would fetch by hand at every story transition.
-    A bundle of a branch the platform does not have yet carries the branch's known commit only (another ref name):
-    then the objects arrive and the branch starts at ``head``."""
+    # Without git credentials for the host, each story would start from a stale commit the platform pushed. A
+    # bundle of a branch the platform lacks carries only its known commit under another ref name.
     answer = source(_commits_on_device(root))
     if not isinstance(answer, dict) or answer.get("state") != "ready" or not answer.get("bundle"):
         return None
@@ -63,13 +72,11 @@ def _fetch_bundle(root: Path, branch: str, source: BundleSource) -> subprocess.C
 
 
 def _unborn(root: Path) -> bool:
-    """A git working copy of its own without any commit yet (``git init`` only)."""
     return (root / ".git").exists() and not _ok(_git(root, "rev-parse", "--verify", "--quiet", "HEAD^{commit}"))
 
 
 def remote_for(repository: dict[str, Any] | None) -> str:
-    """The run repository's remote URL: the platform's (``remote_url``, without user info), else
-    ``https://<host>/<owner>/<repo>.git`` from the connection's hosts (an API host is never the clone host)."""
+    # an API host is never the clone host
     if not isinstance(repository, dict):
         return ""
     url = str(repository.get("remote_url") or "")
@@ -82,11 +89,7 @@ def remote_for(repository: dict[str, Any] | None) -> str:
 
 
 def bootstrap(root: Path, repository: dict[str, Any] | None) -> str:
-    """Make an empty folder (or one that is not a git working copy yet) the run repository's working copy:
-    ``git init`` and ``origin`` set to the run's remote; ``""`` when done or not needed, else why not.
-
-    A device without git credentials for the remote cannot clone; the branch then comes from the platform's bundle
-    (:func:`prepare_branch`), as for a folder that cannot fetch origin."""
+    # No clone: a device without git credentials for the remote gets the branch from the platform's bundle.
     if _ok(_git(root, "rev-parse", "--verify", "--quiet", "HEAD^{commit}")):
         return ""  # a working copy with commits
     if not (root / ".git").exists() and _ok(_git(root, "rev-parse", "--git-dir")):
@@ -102,10 +105,10 @@ def bootstrap(root: Path, repository: dict[str, Any] | None) -> str:
     return "" if _ok(done) else ((done.stderr if done is not None else "") or "setting origin failed").strip()[:300]
 
 
-def _already_on(root: Path, branch: str, head: str | None, bundle_source: BundleSource | None) -> dict[str, Any]:
-    """The folder is on the run's branch already: catch up with the platform's commit when it is newer."""
+def _already_on(root: Path, branch: str, head: str | None, bundle_source: BundleSource | None,
+                gateway: GatewaySource | None = None) -> dict[str, Any]:
     if head and bundle_source is not None and not _has_commit(root, head) and \
-            not _ok(_git(root, "fetch", "origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}")):
+            not _ok(_fetch_run_branch(root, branch, gateway)):
         _fetch_bundle(root, branch, bundle_source)  # the platform's newer commit, then fast-forwarded below
     stale = _catch_up(root, head)
     if stale:
@@ -114,8 +117,6 @@ def _already_on(root: Path, branch: str, head: str | None, bundle_source: Bundle
 
 
 def _dirty_or_stashed(root: Path, name: str) -> tuple[list[str], str]:
-    """The tracked files changed on the current branch ``name``; an earlier run's leftovers are stashed instead
-    (``(dirty files, stash or "")``)."""
     status = _git(root, "status", "--porcelain", "--untracked-files=no")
     dirty = [line[3:] for line in (status.stdout or "").splitlines() if line.strip()] if _ok(status) else []
     stashed = ""
@@ -130,11 +131,8 @@ def _dirty_or_stashed(root: Path, name: str) -> tuple[list[str], str]:
     return dirty, stashed
 
 
-def prepare_branch(root: Path, branch: str, head: str | None = None,
-                   bundle_source: BundleSource | None = None) -> dict[str, Any]:
-    """Put the folder on the run's branch. ``head``: the commit the platform knows the branch at; when origin cannot
-    be fetched from this device (no git credentials here) but the folder has that commit, the branch starts there;
-    without it, ``bundle_source`` (the platform) gives the branch as a git bundle."""
+def prepare_branch(root: Path, branch: str, head: str | None = None, bundle_source: BundleSource | None = None,
+                   gateway: GatewaySource | None = None) -> dict[str, Any]:
     if not _BRANCH.match(branch or ""):
         return {"state": "unavailable", "name": branch, "detail": "the run names no valid branch"}
     current = _git(root, "rev-parse", "--abbrev-ref", "HEAD")
@@ -142,12 +140,12 @@ def prepare_branch(root: Path, branch: str, head: str | None = None,
         return {"state": "unavailable", "name": branch, "detail": "the folder is not a git working copy"}
     name = _out(current) if _ok(current) else ""  # a bootstrapped folder has no commit yet: nothing to keep
     if name == branch:
-        return _already_on(root, branch, head, bundle_source)
+        return _already_on(root, branch, head, bundle_source, gateway)
     dirty, stashed = _dirty_or_stashed(root, name)
-    if dirty:
+    if dirty:  # nothing is stashed, reset or overwritten: a person decides
         return {"state": "dirty", "name": branch, "current": name, "dirty_files": dirty[:20],
                 "detail": f"the folder is on '{name}' with uncommitted changes to {len(dirty)} tracked file(s)"}
-    fetched = _git(root, "fetch", "origin", f"+refs/heads/{branch}:refs/remotes/origin/{branch}")
+    fetched = _fetch_run_branch(root, branch, gateway)
     if not _ok(fetched) and bundle_source is not None and not (head and _has_commit(root, head)):
         bundled = _fetch_bundle(root, branch, bundle_source)
         if _ok(bundled) and _ok(_git(root, "rev-parse", "--verify", "--quiet", f"refs/remotes/origin/{branch}")):

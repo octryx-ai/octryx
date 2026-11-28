@@ -1,6 +1,5 @@
-"""Chat runs as the platform Assistant, strictly read-only; the picker offers Assistant and
-Engineer (read-only in chat); an agent's tools_deny only narrows.
-"""
+"""Chat runs as the platform Assistant, strictly read-only; the picker offers Assistant and Engineer (read-only in
+chat); an agent's tools_deny only narrows."""
 
 from __future__ import annotations
 
@@ -9,8 +8,6 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app.agent.core.context.context_planner import ContextPlan
-from app.agent.core.context.turn_tool_surface import plan_and_record_turn_tool_surface
 from app.models import AgentDefinition, Project
 from app.services.run_capability import decide_run_capability
 from app.services.session.agent_selection_sources import AgentSelectionSource
@@ -84,25 +81,5 @@ async def test_chat_is_capped_read_only_and_allow_changes_raises_nothing():
     assert (asked.capability_class, asked.escalated) == ("read_only", False)
 
 
-def _plan() -> ContextPlan:
-    return ContextPlan(tier="t", include_tools=True, include_system_context=True, include_skills=False,
-                       include_recent_history=True, include_summary_context=False, include_agent_blueprint=True,
-                       recent_history_limit=10, system_prompt_variant="", route_reason="", token_budget=1000,
-                       domains=[], tool_allowlist=None, skill_terms=[], blocked_tools=[], required_domains=[],
-                       enforce_domain_coverage=False, scenario_profile_id="", scenario_profile_name="")
 
 
-async def test_an_agents_tools_deny_only_narrows_the_surface():
-    from types import SimpleNamespace
-
-    plan = plan_and_record_turn_tool_surface(
-        _plan(), session_id="s", session_metadata={}, current_session=None, capability_type="diagnosis",
-        strategy_decision=SimpleNamespace(workflow_id="", workflow_contract={}), routing_resolution=None,
-        agent_definition={"toolsDeny": ["knowledge_search"], "steps": []}, project_config={},
-        capability_class="read_only")
-    assert plan.tool_allowlist and "knowledge_search" not in plan.tool_allowlist
-    granted = plan_and_record_turn_tool_surface(
-        _plan(), session_id="s", session_metadata={}, current_session=None, capability_type="diagnosis",
-        strategy_decision=SimpleNamespace(workflow_id="", workflow_contract={}), routing_resolution=None,
-        agent_definition={"toolsDeny": [], "steps": []}, project_config={}, capability_class="read_only")
-    assert set(plan.tool_allowlist) < set(granted.tool_allowlist)

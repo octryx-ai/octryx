@@ -1,6 +1,4 @@
-"""A plain run turn ends its session once, after its last process: a SessionEnd of the first ``claude -p`` process
-would drop the seat credential the process resumed for the platform's blocked Stop still uses (401
-``seat_credential_invalid``)."""
+"""A plain run turn ends its session once, after its last process."""
 
 from __future__ import annotations
 

@@ -1,8 +1,4 @@
-"""Which embedding spaces a Workspace database carries vectors for.
-
-The embedding step records a space once its property and index exist; vector retrieval checks the
-record, so a Workspace without vectors gets an explicit state instead of a query on a missing index.
-"""
+"""Which embedding spaces a Workspace database carries vectors for."""
 
 from __future__ import annotations
 
@@ -24,7 +20,6 @@ async def vector_space_ready(db: AsyncSession, project_id: str, space_key: str) 
 
 
 async def record_vector_space(db: AsyncSession, project_id: str, space_key: str) -> None:
-    """Record the space inside the caller's transaction; a concurrent record is the same fact."""
     if await vector_space_ready(db, project_id, space_key):
         return
     try:

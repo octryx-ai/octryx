@@ -1,9 +1,4 @@
-"""SSO mapping per identity provider: which claim carries the groups and which the roles.
-
-Stored in the provider's ``claim_mappings_json`` (``groups``, ``roles``; nested paths such as ``realm_access.roles``
-work through ``oidc_claims.claim_value``). Each sign-in keeps both lists apart on the identity
-(``sso_groups_json`` / ``sso_roles_json``); role assignments match them (``effective``).
-"""
+"""SSO mapping per identity provider: which claim carries the groups and which the roles."""
 from __future__ import annotations
 
 import re
@@ -76,7 +71,6 @@ async def set_mapping(db: AsyncSession, user: User, provider_id: str, body: dict
 
 
 async def my_claims(db: AsyncSession, user: User, provider_id: str) -> dict[str, Any]:
-    """"Test with my sign-in": the caller's groups and roles of their last sign-in through the provider."""
     identity = (await db.execute(select(UserIdentity).where(UserIdentity.user_id == user.id,
                                                             UserIdentity.provider_id == provider_id))
                 ).scalar_one_or_none()

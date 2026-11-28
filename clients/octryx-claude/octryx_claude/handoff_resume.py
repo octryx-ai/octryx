@@ -1,6 +1,4 @@
-"""``resume`` of a handed-over work item (``handoff``): the branch fetched (or the bundle downloaded and verified),
-the exact WIP commit checked out in a new worktree ``../octryx-<KEY>``, and the opening context for the session (the
-handoff, never a transcript)."""
+"""``resume`` of a handed-over work item: fetch, check out the WIP commit in a new worktree, open the session."""
 
 from __future__ import annotations
 

@@ -8,7 +8,6 @@ from .common import _string
 
 
 async def connector_secret_value(context: ToolContext, *, connector_name: str, field_name: str) -> str:
-    """Resolve a connector secret without exposing raw values through generic project config."""
     config = context.project_config or {}
     raw_value = _string(config.get(field_name))
     if raw_value:
@@ -23,6 +22,7 @@ async def connector_secret_value(context: ToolContext, *, connector_name: str, f
         expected_tool_name=connector_name,
         expected_field_name=field_name,
         expected_project_id=None,
+        purpose="connector.tool_call",
     )
     return _string(value)
 

@@ -1,10 +1,4 @@
-"""Who may see a session's full transcript, and the paged, redacted read.
-
-Only a Workspace admin or owner (platform admins count as admins, ``access_control``) and the session's owner may
-list or read a transcript; anyone else gets 404, exactly like a missing session, so a transcript's existence is not
-disclosed. Every page served is an audit row (``session_transcript.read``) with who read which stream and lines.
-A page is read by line number in one stream (``main`` or ``agent-<id>``) and every line passes the redaction again.
-"""
+"""Who may see a session's full transcript, and the paged, redacted read."""
 
 from __future__ import annotations
 
@@ -62,7 +56,6 @@ def _streams(rows: list[Any]) -> list[dict[str, Any]]:
 
 async def list_transcripts(db: AsyncSession, *, viewer: Viewer, project_id: str, session_id: str = "",
                            workflow_run_id: str = "", device_job_id: str = "") -> list[dict[str, Any]]:
-    """The sessions of the Workspace with a stored transcript the viewer may read, newest first."""
     query = select(SessionTranscriptChunk).where(SessionTranscriptChunk.project_id == project_id)
     if not viewer.workspace_admin:
         query = query.where(SessionTranscriptChunk.owner_user_id == viewer.user.id)
@@ -100,11 +93,13 @@ async def _session_chunks(db: AsyncSession, session_id: str) -> list[SessionTran
 
 async def read_page(db: AsyncSession, *, user: User, session_id: str, stream: str = STREAM_MAIN,
                     from_line: int = 0, limit: int = DEFAULT_PAGE_LINES) -> dict[str, Any]:
-    """One page of a stream of the session's transcript, redacted; audited. 404 when absent or not readable."""
     chunks = await _session_chunks(db, session_id)
     if not chunks:
         raise TranscriptAccessError(404, "transcript_not_found")
-    viewer = await viewer_for(db, user, chunks[0].project_id)
+    try:
+        viewer = await viewer_for(db, user, chunks[0].project_id)
+    except TranscriptAccessError:
+        raise TranscriptAccessError(404, "transcript_not_found") from None
     if not viewer.may_read(chunks[0].owner_user_id):
         raise TranscriptAccessError(404, "transcript_not_found")
     limit = max(1, min(int(limit or DEFAULT_PAGE_LINES), MAX_PAGE_LINES))

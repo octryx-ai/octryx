@@ -21,12 +21,10 @@ logger = logging.getLogger(__name__)
 
 
 
-async def _can_execute_locally_without_worker(db: Any, task: Any) -> bool:
-    """Permit deterministic pipelines and explicit agent/workflow bindings.
+AGENT_RUN_TASK_TYPE = "agent_run"
 
-    A bound Action follows its authored execution kind under the existing policy; its state is re-checked at
-    execution (``require_bound_task_runnable`` and admission) before any session exists.
-    """
+
+async def _can_execute_locally_without_worker(db: Any, task: Any) -> bool:
     from sqlalchemy import select
 
     from ...models import TaskStep
@@ -49,7 +47,8 @@ async def _can_execute_locally_without_worker(db: Any, task: Any) -> bool:
         .all()
     )
     if not steps:
-        return False
+        # An agent turn runs on the runner pool, like an agent-bound Action's: no worker profile has to hold it.
+        return str(getattr(task, "task_type", "") or "") == AGENT_RUN_TASK_TYPE
 
     for step in steps:
         step_type = str(step.step_type or "").strip()
@@ -232,14 +231,6 @@ class SchedulerDispatchLoopMixin:
         return len(selected)
 
     def _spawn_execution(self, coroutine: Any) -> asyncio.Task:
-        """Starts a dispatched run and keeps a reference until it ends.
-
-        asyncio holds only a weak reference to a task, so a bare ``create_task`` can be collected before the run
-        finishes (Python docs, asyncio.create_task). The set also lets a caller wait for the runs it dispatched
-        (:meth:`_wait_for_dispatched_runs`). Under load a test once polled ``completed_at``
-        for one second, closed its session while the dispatched run was still committing on it, and SQLAlchemy
-        raised ``IllegalStateChangeError``.
-        """
         tasks = self.__dict__.setdefault("_execution_tasks", set())
         task = asyncio.create_task(coroutine)
         tasks.add(task)
@@ -247,13 +238,11 @@ class SchedulerDispatchLoopMixin:
         return task
 
     async def _wait_for_dispatched_runs(self) -> None:
-        """Waits until every run this scheduler dispatched has ended (their errors stay with their tasks)."""
         tasks = list(self.__dict__.get("_execution_tasks", ()))
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
     async def _cancel_runs_cancelled_elsewhere(self) -> list[str]:
-        """Cancel this process's runs whose TaskRun another process marked ``cancelled``; returns task ids."""
         from sqlalchemy import select
 
         from ...models import TaskRun

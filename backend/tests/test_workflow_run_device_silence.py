@@ -16,6 +16,9 @@ from app.services.workflow_runs.records import new_chat_session, record_event, s
 from app.time_utils import utc_now
 from tests.devices.device_support import RecordingConnection, device_with_grant, enable_device_runs
 from tests.phased_workflow_fixtures import admin_user, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 DEFINITION = {
     "execution_kind": "phased",
@@ -40,7 +43,6 @@ def _hub():
 
 
 async def _waiting_run(db, *, minutes: int, online: bool, definition: dict | None = None):
-    """A device run at ``pipeline`` whose step started waiting ``minutes`` ago and has heard nothing since."""
     project = await enable_device_runs(db)
     admin = await admin_user(db)
     device, _ = await device_with_grant(db, admin)
@@ -56,7 +58,7 @@ async def _waiting_run(db, *, minutes: int, online: bool, definition: dict | Non
     then = utc_now() - timedelta(minutes=minutes)
     await db.flush()
     for earlier in (await db.execute(select(WorkflowRunEvent).where(WorkflowRunEvent.run_id == run.id))).scalars():
-        earlier.created_at = then - timedelta(minutes=1)  # the start's own events came before the step waited
+        earlier.created_at = then - timedelta(minutes=1)
     for kind, detail in (("node_entered", {"kind": "platform_action"}), ("waiting", {"action": "pipeline.run"})):
         record_event(db, run, kind, node_id="pipeline", detail=detail).created_at = then
     await db.commit()

@@ -1,15 +1,4 @@
-"""Workflows a platform service selects for the turn it starts itself.
-
-Some turns are started by a governed platform service, not typed by a user: the secure-work
-coding execution runs an approved Work Plan. That service knows its workflow, so it names it
-on the ``TurnRequest`` (``platform_workflow_service``) instead of leaving the family to be
-guessed from the prompt it wrote. The mapping (service -> workflow) is closed: only a listed
-service selects, and only its listed workflow. HTTP routes never set the field.
-
-The resolution shape mirrors the explicit-mode resolutions (same keys), with its own
-``source``/``status`` so no consumer mistakes it for a published DB definition: it carries no
-tool policy and no safety constraints, and it makes no workflow proposal call.
-"""
+"""Workflows a platform service selects for the turn it starts itself."""
 
 from __future__ import annotations
 
@@ -26,11 +15,10 @@ PLATFORM_WORKFLOWS: dict[str, str] = {
 
 
 class UnknownPlatformWorkflowServiceError(ValueError):
-    """A caller named a service outside the closed platform set (a programming error)."""
+    pass
 
 
 def platform_workflow_selection_resolution(service: str) -> dict[str, Any]:
-    """The routing resolution for a platform service's own workflow selection."""
     clean_service = str(service or "").strip()
     clean_workflow_id = PLATFORM_WORKFLOWS.get(clean_service)
     if not clean_workflow_id:

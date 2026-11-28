@@ -73,12 +73,6 @@ async def _jira_resolve_cloud_assignee(
     project_key: str,
     desired_assignee: str,
 ) -> str | None:
-    """The Jira Cloud ``accountId`` of one person, or ``None`` when it cannot be resolved unambiguously.
-
-    Jira Cloud has no ``name``: an unresolved person is never sent as a name. Only an exact ``accountId``,
-    display name or email (case-insensitive) of exactly one person resolves; a fuzzy match never does, not
-    even the only search result ("bob" is not "Bobby Tables").
-    """
     candidate = str(desired_assignee or "").strip()
     if not candidate:
         return None

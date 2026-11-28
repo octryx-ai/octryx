@@ -1,19 +1,4 @@
-"""Who is calling the agent gateway, for which Workspace and which launcher session.
-
-Resolved from the request headers alone, before any body is read:
-
-- the bearer token must be a platform OAuth access token for the gateway audience
-  carrying ``model:invoke``; its grant is re-checked, so revoking it cuts access now;
-- the Workspace is named explicitly (``X-Octryx-Workspace``). Consent grants
-  are unbound today (``project_ids`` null means "every project the user can access
-  at call time"), so the header is authorized against the user's current project
-  access and, when the grant is bound, against the grant too. A grant bound to
-  exactly one project needs no header; anything else without one is
-  ``needs_configuration``;
-- the launcher session key (``X-Octryx-Session``) must be a UUID.
-
-Every refusal is a value with a fixed reason code, never an exception text.
-"""
+"""Who is calling the agent gateway, for which Workspace and which launcher session, from the headers alone."""
 
 from __future__ import annotations
 
@@ -25,6 +10,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import User
+from ..data_access import bind_request_viewer
 from ..oauth_provider.resource import resolve_oauth_resource_context
 from ..project import get_user_project_ids
 from .contract import (
@@ -77,12 +63,8 @@ class GatewayIdentity:
 
 
 def bearer_token(headers: Mapping[str, str]) -> str:
-    """The gateway token: ``Authorization: Bearer`` first, else ``x-api-key``.
-
-    Claude Code's ``apiKeyHelper`` value arrives in both headers; either suffices.
-    """
-
     authorization = str(headers.get("authorization") or "").strip()
+    # Claude Code's ``apiKeyHelper`` value arrives in both headers; either suffices.
     if authorization.lower().startswith("bearer "):
         return authorization[7:].strip()
     return str(headers.get("x-api-key") or "").strip()
@@ -112,16 +94,13 @@ async def _resolve_workspace(
             return "", GatewayRefusal(STATE_NEEDS_CONFIGURATION, REASON_WORKSPACE_NOT_SELECTED)
     if bound_project_ids is not None and requested not in bound_project_ids:
         return "", GatewayRefusal(STATE_DENIED, REASON_WORKSPACE_NOT_AUTHORIZED)
+    # A grant may be unbound: membership is checked on every call, so a removed member loses access at once.
     if requested not in set(await get_user_project_ids(user_id, db)):
         return "", GatewayRefusal(STATE_DENIED, REASON_WORKSPACE_NOT_AUTHORIZED)
     return requested, None
 
 
 async def resolve_gateway_login(db: AsyncSession, headers: Mapping[str, str]) -> tuple[User, Any] | GatewayRefusal:
-    """The caller of a gateway token (token, ``model:invoke`` scope, active user), without session or Workspace.
-
-    ``(user, oauth context)``; the context carries the grant's ``bound_project_ids``.
-    """
     token = bearer_token(headers)
     if not token:
         return GatewayRefusal(STATE_UNAUTHORIZED, REASON_TOKEN_MISSING)
@@ -133,15 +112,30 @@ async def resolve_gateway_login(db: AsyncSession, headers: Mapping[str, str]) ->
     user = await db.get(User, context.user_id)
     if user is None or not bool(getattr(user, "is_active", True)):
         return GatewayRefusal(STATE_UNAUTHORIZED, REASON_USER_INACTIVE)
+    bind_request_viewer(user.id)  # the gateway's principal, like the private-Workspace gate's on other routes
     return user, context
+
+
+async def _acting_user(db: AsyncSession, user: User, context: Any, requested: str, session_key: str = "") -> User:
+    from ..devices.runner_identity import is_runner_account, runner_turn_owner  # noqa: PLC0415
+
+    if not is_runner_account(user):
+        return user
+    owner = await runner_turn_owner(db, user, grant_id=context.grant_id, workspace_id=requested,
+                                    session_key=session_key)
+    if owner is None:
+        return user  # without a turn the runner account is a member of nothing and is refused below
+    bind_request_viewer(owner.id)  # the rest of the request reads as the turn's owner, like a device as its owner
+    return owner
 
 
 async def authorize_login_workspace(
     db: AsyncSession, user: User, context: Any, requested: str
 ) -> tuple[str, GatewayRefusal | None]:
-    """A Workspace a gateway login names: a member Workspace inside the grant's binding, else a fixed refusal."""
+    # Only a member Workspace inside the grant's binding; anything else is a fixed refusal.
+    acting = await _acting_user(db, user, context, requested.strip())
     return await _resolve_workspace(
-        db, user_id=user.id, requested=requested.strip(), bound_project_ids=context.bound_project_ids
+        db, user_id=acting.id, requested=requested.strip(), bound_project_ids=context.bound_project_ids
     )
 
 
@@ -149,8 +143,6 @@ async def resolve_gateway_identity(
     db: AsyncSession,
     headers: Mapping[str, str],
 ) -> GatewayIdentity | GatewayRefusal:
-    """Resolve the caller, Workspace and session key, or a fixed refusal."""
-
     login = await resolve_gateway_login(db, headers)
     if isinstance(login, GatewayRefusal):
         return login
@@ -158,10 +150,22 @@ async def resolve_gateway_identity(
     session_key, session_reason = _session_key(headers)
     if session_reason:
         return GatewayRefusal(STATE_NEEDS_CONFIGURATION, session_reason)
+    return await identity_for_login(
+        db, user, context, session_key=session_key, workspace=str(headers.get(HEADER_WORKSPACE) or ""),
+        work_item=str(headers.get(HEADER_WORK_ITEM) or ""), workflow_run=str(headers.get(HEADER_WORKFLOW_RUN) or ""),
+    )
+
+
+async def identity_for_login(
+    db: AsyncSession, user: User, context: Any, *, session_key: str, workspace: str, work_item: str = "",
+    workflow_run: str = "",
+) -> GatewayIdentity | GatewayRefusal:
+    requested = workspace.strip()
+    user = await _acting_user(db, user, context, requested, session_key)
     workspace_id, refusal = await _resolve_workspace(
         db,
         user_id=user.id,
-        requested=str(headers.get(HEADER_WORKSPACE) or "").strip(),
+        requested=requested,
         bound_project_ids=context.bound_project_ids,
     )
     if refusal is not None:
@@ -172,8 +176,8 @@ async def resolve_gateway_identity(
         oauth_client_id=context.oauth_client_id,
         workspace_id=workspace_id,
         session_key=session_key,
-        work_item_key=str(headers.get(HEADER_WORK_ITEM) or "").strip()[:_MAX_WORK_ITEM_CHARS],
-        workflow_run_id=str(headers.get(HEADER_WORKFLOW_RUN) or "").strip()[:36],
+        work_item_key=work_item.strip()[:_MAX_WORK_ITEM_CHARS],
+        workflow_run_id=workflow_run.strip()[:36],
     )
 
 
@@ -182,6 +186,7 @@ __all__ = [
     "GatewayRefusal",
     "authorize_login_workspace",
     "bearer_token",
+    "identity_for_login",
     "resolve_gateway_identity",
     "resolve_gateway_login",
 ]

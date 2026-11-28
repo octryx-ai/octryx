@@ -1,12 +1,5 @@
-"""An unfinished scan never yields clean, is never cached, and is withheld before anything goes on.
-
-Enforcement points covered here (the model-call wrapper is covered in ``tests/content_security``):
-
-- the inbound gateway: an unfinished re-sent tool result refuses the request on every attempt (the gateway changes
-  nothing), remembers nothing as clean, and never reaches the upstream;
-- the tool-result check of platform tools, MCP results and launcher reports (``check_tool_result``): an
-  unfinished string and a part deeper than the scan reads are withheld in every mode, with a ``withheld`` count.
-"""
+"""An unfinished scan never yields clean, is never cached, and is withheld before anything goes on
+(inbound gateway and ``check_tool_result``; the model-call wrapper is covered in ``tests/content_security``)."""
 
 from __future__ import annotations
 
@@ -25,14 +18,14 @@ from tests.policy_engine_support import use_custom_policies
 # More internal-address candidates than a detector examines in one text: its scan cannot finish.
 FRAGMENT = "10.3.0.1 "
 UNFINISHED = " ".join(f"10.3.{index // 250}.{index % 250}" for index in range(5200))
-#: The same for the gateway, whose built-in kinds are credentials and credential assignments only (C12F-08).
+#: The same for the gateway, whose built-in kinds are credentials and credential assignments only.
 GATEWAY_FRAGMENT = "password=Value0x"
 GATEWAY_UNFINISHED = " ".join(f"password=Value{index}x" for index in range(5200))
 
 
 @pytest.mark.asyncio
 async def test_the_gateway_refuses_an_unfinished_re_sent_tool_result_on_every_attempt(client, db, gateway_setup):
-    from app.services.content_routing import gateway
+    from app.services.content_security import format_request_body
     from tests.model_gateway.conftest import ALIAS
 
     fake, build = gateway_setup
@@ -43,7 +36,7 @@ async def test_the_gateway_refuses_an_unfinished_re_sent_tool_result_on_every_at
         response = await client.post(ROUTE, json=body, headers=headers)
         assert response.status_code == 400 and "content_scan_unfinished" in response.text
     assert fake.requests == [], "nothing was forwarded"
-    scanned = gateway.scan_request(body, headers["X-Octryx-Workspace"], RequestBudget())
+    scanned = format_request_body.examine_request_body(body, headers["X-Octryx-Workspace"], RequestBudget())
     assert not scanned.finished and GATEWAY_FRAGMENT not in str(scanned.body.live.report.summary())
 
 

@@ -1,16 +1,5 @@
-"""Claude Code parity over MCP, extra tools: connector reads, diagrams, governed web, sources, feedback.
-
-Contract tests on the runners the Knowledge MCP uses (``run_governed_mcp_tool`` for chat tool
-classes, ``run_parity_mcp_tool`` for platform handlers):
-
-- no schema has a mode, ``agent_type``, ``project_id``, ``workspace_id`` or ``user_id``;
-- the connection Workspace is used, a foreign Workspace is ``not_found``;
-- the chat's gates hold: project tool policy, connector activation, missing connection;
-- a connector read returns exactly the chat tool's result (so evidence fields added to the chat
-  results arrive on MCP unchanged), with the Workspace's own credentials;
-- the trusted-source registry holds for ``web_search`` and ``web_fetch``;
-- ``knowledge_sources`` lists a source with its ``source_url``; feedback text never reaches the audit.
-"""
+"""Claude Code parity over MCP for the extra tools: no mode or scope arguments, the connection's Workspace,
+the chat's gates, connector reads identical to the chat's, trusted sources, and feedback kept out of the audit."""
 
 from __future__ import annotations
 
@@ -21,7 +10,6 @@ import pytest
 from mcp.server.fastmcp import FastMCP
 from sqlalchemy import select
 
-from app.agent.core.context.run_context_config import assemble_turn_project_config
 from app.models import AuditLog, Message, Project, Session, ToolCall
 from app.models.project.knowledge_evidence import (
     REVISION_STATE_PROJECTED,
@@ -29,6 +17,7 @@ from app.models.project.knowledge_evidence import (
     KnowledgeSourceRevision,
     KnowledgeSourceRevisionOrigin,
 )
+from app.services.mcp_connector_tools import CONNECTOR_MCP_TOOLS
 from app.services.mcp_extra_registration import register_extra_tools
 from app.services.mcp_extra_tools import EXTRA_GOVERNED_MCP_TOOLS, EXTRA_HANDLER_MCP_TOOLS
 from app.services.mcp_governed_knowledge import GOVERNED_MCP_TOOLS, McpCaller, run_governed_mcp_tool
@@ -37,14 +26,10 @@ from app.services.web_search import health
 from app.services.web_search import service as web_search_service
 from app.services.web_search.providers import SearchHit
 from app.services.web_search.registry import put_source
-from app.tools.context import ToolContext
+from app.tools.definitions.surfaces import served_over_mcp
 from app.tools.diagram import CreateDiagramTool
-from app.tools.jira_impl import _jira_helpers_api
-from app.tools.jira_impl._jira_query_ticket_actions import GetJiraTicket
-from tests.connection_support import connect
 from tests.fresh_interpreter_support import run_python_probe
 from tests.knowledge_evidence_seed_support import seed_member, seed_workspace
-from tests.knowledge_evidence_text_support import unfenced
 
 SCOPES = ("knowledge:read", "knowledge:write")
 GUIDE = "https://docs.example.test/runbook?version=3"
@@ -53,7 +38,7 @@ FORBIDDEN_ARGUMENTS = {"mode", "agent_type", "agent_mode", "project_id", "worksp
 
 @pytest.fixture(autouse=True)
 def extra_tools(monkeypatch):
-    """The parent wires these tables into the runners; the tests do it per test."""
+    # The parent wires these tables into the runners; the tests do it per test.
     for name, entry in EXTRA_GOVERNED_MCP_TOOLS.items():
         monkeypatch.setitem(GOVERNED_MCP_TOOLS, name, entry)
     for name, entry in EXTRA_HANDLER_MCP_TOOLS.items():
@@ -74,9 +59,6 @@ async def _workspace(db, config: dict) -> str:
     return workspace_id
 
 
-async def _set_config(db, workspace_id: str, config: dict) -> None:
-    (await db.get(Project, workspace_id)).config = config
-    await db.commit()
 
 
 async def test_the_extra_tools_have_no_mode_and_no_identity_arguments():
@@ -84,7 +66,9 @@ async def test_the_extra_tools_have_no_mode_and_no_identity_arguments():
     register_extra_tools(server, lambda ctx: ("u", None, None, SCOPES))
     tools = {tool.name: tool for tool in await server.list_tools()}
 
-    assert set(tools) == set(EXTRA_GOVERNED_MCP_TOOLS) | set(EXTRA_HANDLER_MCP_TOOLS)
+    assert set(tools) == set(CONNECTOR_MCP_TOOLS) | {"web_fetch"}
+    # The rest have no gate of their own on MCP: registry tools the session MCP endpoint serves (``surfaces``).
+    assert all(served_over_mcp(name) for name in {*EXTRA_GOVERNED_MCP_TOOLS, *EXTRA_HANDLER_MCP_TOOLS} - set(tools))
     assert "office_file_action" not in tools
     for name, tool in tools.items():
         assert not FORBIDDEN_ARGUMENTS & set(tool.inputSchema.get("properties") or {}), name
@@ -100,63 +84,6 @@ def test_the_tool_tables_can_be_merged_by_the_runners_without_an_import_cycle():
     assert out.returncode == 0 and out.stdout.strip().splitlines()[-1] == "False"
 
 
-async def test_connector_read_returns_the_chat_result_with_the_chat_gates(db, monkeypatch):
-    # A named connection is the sole runtime source of a connector (a flat jira_url activates nothing).
-    workspace_id = await _workspace(db, {})
-    other_id = await _workspace(db, {})
-    await connect(db, "jira", workspace_id)
-    await connect(db, "jira", other_id)
-    member_id = await seed_member(db, workspace_id=workspace_id, role="member")
-    await db.commit()
-    seen: list[dict] = []
-
-    async def jira_get(client, jira_url, path, headers=None, params=None):
-        seen.append({"url": jira_url, "path": path, "authorized": "Authorization" in (headers or {})})
-        if path.endswith("/comment"):
-            return {"comments": [{"body": "Looks good", "author": {"displayName": "Rina"}}]}, "2"
-        fields = {"summary": "Payment routing", "status": {"name": "Open"}, "reporter": {"displayName": "Alice"}}
-        return {"key": "RIVER-1", "fields": fields}, "2"
-
-    monkeypatch.setattr(_jira_helpers_api, "_jira_api_get", jira_get)
-    arguments = {"ticket_id": "RIVER-1"}
-
-    # The chat turn's project config for this user and Workspace, built by the chat's own assembly.
-    turn = await assemble_turn_project_config(
-        db=db, user_id=member_id, project_id=workspace_id, user_roles=["viewer"], workspace_root="/tmp",
-        session_metadata={}, engineering_runtime_metadata={},
-    )
-    chat_context = ToolContext(user_id=member_id, project_ids=[workspace_id], roles=["viewer"], session_id="s",
-                               project_config=turn.project_config, db=db)
-    chat = await GetJiraTicket().execute(dict(arguments), chat_context)
-
-    caller = _caller(member_id, workspace_id)
-    result = await run_governed_mcp_tool(db, caller=caller, tool_name="get_jira_ticket", arguments=dict(arguments))
-    # Both paths fence the ticket's text (live connector reads) with their own fresh token: compare unfenced.
-    assert unfenced(result) == chat and set(unfenced(result)) == set(chat)
-    assert unfenced(result)["summary"] == "Payment routing" and "content_is_data" in result
-    # The Workspace's own connection, with its credentials, exactly as in the chat.
-    assert seen[-1] == {"url": "https://jira.example.test", "path": "/issue/RIVER-1/comment", "authorized": True}
-
-    foreign = await run_governed_mcp_tool(
-        db, caller=_caller(member_id, other_id), tool_name="get_jira_ticket", arguments=dict(arguments)
-    )
-    assert foreign["state"] == "not_found"
-
-    await _set_config(db, workspace_id, {"tool_policy": {"denylist": ["get_jira_ticket"]}})
-    denied = await run_governed_mcp_tool(db, caller=caller, tool_name="get_jira_ticket", arguments=dict(arguments))
-    assert (denied["state"], denied["reason"]) == ("denied", "tool_denied_by_project_policy")
-
-    await _set_config(db, workspace_id, {"disabled_connectors": ["jira"]})
-    calls = len(seen)
-    inactive = await run_governed_mcp_tool(db, caller=caller, tool_name="get_jira_ticket", arguments=dict(arguments))
-    assert (inactive["state"], inactive["reason"]) == ("denied", "connector_not_active")
-
-    await _set_config(db, workspace_id, {})
-    missing = await run_governed_mcp_tool(
-        db, caller=caller, tool_name="list_servicenow_incidents", arguments={"limit": 5}
-    )
-    assert (missing["state"], missing["reason"]) == ("needs_configuration", "connector_not_configured")
-    assert len(seen) == calls
 
 
 async def test_a_diagram_is_the_chat_payload(db):

@@ -1,7 +1,4 @@
-"""Canonical package surface for knowledge embeddings: the governed provider runtime and scoring.
-
-It is the embedding provider layer the entity graph and the chunk index use.
-"""
+"""Canonical package surface for knowledge embeddings: the governed provider runtime and scoring."""
 
 from .drivers import EmbeddingConfigurationError
 from .provider_runtime import resolve_knowledge_embedding_runtime

@@ -27,7 +27,7 @@
 .policies__status-dot {
   width: 0.5rem;
   height: 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--status-running);
 }
 
@@ -68,7 +68,7 @@
 
 .policies__fail {
   color: var(--status-error-ink);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .policies__row {
@@ -122,7 +122,7 @@
 }
 
 .policies__name {
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .policies__name--generated {
@@ -144,7 +144,7 @@
 
 .policies__summary b {
   color: var(--text);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .policies__src {
@@ -166,7 +166,7 @@
   background: transparent;
   color: var(--status-running-ink);
   font: inherit;
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -231,6 +231,6 @@
 
 /* A determining policy by its readable label; the raw id is the tooltip. */
 .policies__ref {
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: help;
 }

@@ -65,11 +65,10 @@ async def _project_id(db) -> str:
 
 
 @pytest.mark.asyncio
-async def test_the_manifest_delivers_allowlisted_frontmatter_and_withholds_scripts(client, db):
-    admin = await _admin(db)
+async def test_the_manifest_delivers_allowlisted_frontmatter_and_withholds_scripts(client, db, auth_user):
     project_id = await _project_id(db)
     terraform = (await category(db, "iac.terraform")).id
-    await published_skill(db, terraform, "style-guide", approver_id=admin.id, files=[
+    await published_skill(db, terraform, "style-guide", approver_id=auth_user.id, files=[
         BundleFile("SKILL.md", STYLE), BundleFile("references/naming.md", "# Naming\n"),
         BundleFile("scripts/fmt.sh", "#!/bin/sh\nterraform fmt\n", True), BundleFile("LICENSE", "MIT License\n")],
         extension={"safety_rules": ["Never run terraform apply"]}, licence_spdx="MIT")
@@ -105,20 +104,19 @@ async def test_the_manifest_delivers_allowlisted_frontmatter_and_withholds_scrip
 
 
 @pytest.mark.asyncio
-async def test_an_allowed_mcp_entry_starts_by_digest_without_credential_passthrough(client, db, fake_git):
-    admin = await _admin(db)
+async def test_an_allowed_mcp_entry_starts_by_digest_without_credential_passthrough(client, db, fake_git, auth_user):
     project_id = await _project_id(db)
     terraform = (await category(db, "iac.terraform")).id
-    imported = await client.post(f"{BASE}/import/git", headers=bearer(admin.id), json={
+    imported = await client.post(f"{BASE}/import/git", headers=bearer(auth_user.id), json={
         "url": OFFICIAL, "ref": "main", "marketplace_plugin": "terraform", "commit": MARKET_LATER,
         "items": [{"kind": "mcp_server", "path": "external_plugins/terraform", "name": "terraform",
                    "category_id": terraform}]})
     skill_id = imported.json()["imported"][0]["skill_id"]
-    draft = (await client.get(f"{BASE}/skills/{skill_id}/versions/1", headers=bearer(admin.id))).json()
+    draft = (await client.get(f"{BASE}/skills/{skill_id}/versions/1", headers=bearer(auth_user.id))).json()
     digest = "sha256:" + "d" * 64
-    await client.put(f"{BASE}/skills/{skill_id}/versions/1", headers={**bearer(admin.id), "If-Match": draft["digest"]},
+    await client.put(f"{BASE}/skills/{skill_id}/versions/1", headers={**bearer(auth_user.id), "If-Match": draft["digest"]},
                      json={"launch_spec": {**draft["launch_spec"], "image_digest": digest}})
-    await force_publish(db, skill_id, approver_id=admin.id)
+    await force_publish(db, skill_id, approver_id=auth_user.id)
     headers, _ = await _gateway(db, project_id)
     denied = (await client.get(f"{GATEWAY}/skills/manifest", headers=headers)).json()
     assert denied["mcp_servers"] == [] and {"name": "terraform", "reason": "needs_mcp_policy"} in denied["withheld"]
@@ -133,11 +131,10 @@ async def test_an_allowed_mcp_entry_starts_by_digest_without_credential_passthro
 
 
 @pytest.mark.asyncio
-async def test_skill_calls_and_slash_commands_are_recorded_by_name_only(client, db):
-    admin = await _admin(db)
+async def test_skill_calls_and_slash_commands_are_recorded_by_name_only(client, db, auth_user):
     project_id = await _project_id(db)
     terraform = (await category(db, "iac.terraform")).id
-    skill, _ = await published_skill(db, terraform, "style-guide", approver_id=admin.id)
+    skill, _ = await published_skill(db, terraform, "style-guide", approver_id=auth_user.id)
     skill_id = skill.id
     await db.commit()
     headers, session_id = await _gateway(db, project_id)

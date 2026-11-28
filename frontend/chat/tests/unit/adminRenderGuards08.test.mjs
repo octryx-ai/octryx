@@ -1,5 +1,5 @@
 // Render guards for admin parts split into smaller functions: the Workspace settings section switch, a repository's
-// coding setup record, the evidence grounding setting, and the user and group actions of the users tab keep the same
+// coding setup record, and the user and group actions of the users tab keep the same
 // structure and calls.
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -11,7 +11,7 @@ import { loadStubbed, stubs } from "./adminGuardStubLoader.mjs";
 const SECTIONS = ["/CodeRepositoriesSection", "/WorkspaceDataClassificationCard", "/WorkspaceModelsSection", "/WorkspaceCodingSection",
   "/WorkspaceRulesSection", "/WorkspaceDocumentationTargetCard", "/WorkspaceCorpIdentityCard", "/KnowledgeRepositoryPolicyPanel",
   "/AdminWorkspaceCompositionSection", "/ProjectAccessSection", "/WorkspaceRolesSection", "/PluginsPage", "/ProjectConnectorSettingsSection",
-  "/ProjectEvidenceGroundingSection", "/ProjectKnowledgeLookupSection", "/ProjectObservabilitySection", "/ProjectPolicyGroup",
+  "/ProjectKnowledgeLookupSection", "/ProjectObservabilitySection", "/ProjectPolicyGroup",
   "/ProjectQualityPoliciesSection", "/ProjectResourcesSection", "/WorkspaceRepositoriesSection", "/PrReviewBotSection", "/ProjectSettingsOverview",
   "/ProjectSkillsSection", "/ProjectVoiceSection", "/ProjectWorkflowProposalSection"];
 const C = 'ctx={"c":1}';
@@ -28,8 +28,7 @@ const EXPECTED = {
     + 'CodeRepositoriesSection(props={"c":1}) ProjectPolicyGroup(purpose=Test, lint and SAST defaults, and how repositories are created.,'
     + `title=Code quality and repository bootstrap) ProjectQualityPoliciesSection(${C})`,
   agents: `AdminWorkspaceCompositionSection(${C},view=agents) ProjectSkillsSection(${C}) ProjectPolicyGroup(purpose=Whether a chat without a `
-    + `selected workflow gets one workflow proposal.,title=Workflow proposals) ProjectWorkflowProposalSection(${C}) ProjectPolicyGroup(purpose=When `
-    + `answers must follow the evidence-grounded contract with cited sources.,title=Evidence grounding) ProjectEvidenceGroundingSection(${C})`,
+    + `selected workflow gets one workflow proposal.,title=Workflow proposals) ProjectWorkflowProposalSection(${C})`,
   rules: "WorkspaceRulesSection(onOpenSection=fn,projectId=p1,projectName=Harbor) WorkspaceDataClassificationCard(onOpenMatrix=fn,"
     + "policyHref=/chat?area=agents&workspace_id=p1&agents_view=policy,projectId=p1) WorkspaceCorpIdentityCard(isAdmin=true,projectId=p1)",
   "rules:classification": "WorkspaceDataClassificationCard(onOpenMatrix=fn,policyHref=/chat?area=agents&workspace_id=p1&agents_view=policy,"
@@ -105,38 +104,6 @@ test("the repository coding setup record loads, edits and saves the setup", asyn
     { "./workspaceRepositoriesApi": { ...api, loadCodingSetup: async () => { throw new Error("Gone"); } } }).RepositoryCodingSetup,
   { workspaceId: "w1", repository: { ...repository, default_branch: "main", source: { kind: "url", name: "git" } }, onSaved: noop, onClose: noop }));
   includesAll(text(failing.root), ["Loading the coding setup…", "Gone", "main", "git"]);
-});
-
-test("the evidence grounding section loads the stored policy and saves a new choice", async () => {
-  const requests = [];
-  let answer = { ok: true, data: { config: { evidence_grounding_policy: { mode: "workflow" } } } };
-  const governed = { governedRequest: async (url, init) => { requests.push([url, init.method, init.body]); return answer; } };
-  const { ProjectEvidenceGroundingSection } = loadStubbed("admin/components/projectsTab/ProjectEvidenceGroundingSection.tsx",
-    ["/GovernedIssueList"], {}, { "/governedRequest": governed });
-  const view = await createAsync(createElement(ProjectEvidenceGroundingSection, { ctx: { configuringProjectQuality: { id: "p 1" } } }));
-  includesAll(text(view.root), ["Evidence grounding", "Saved: workflow", "Save grounding policy", "When turns in this Workspace must answer",
-    "Default (workflow)", "{}"]);
-  assert.equal(requests[0][0], "/admin/chat/api/panel/projects/p%201/config");
-  const radios = all(view, "input");
-  assert.equal(radios.length, 3);
-  assert.deepEqual(radios.map((node) => node.props.checked), [false, true, false]);
-  assert.equal(view.root.findAll((node) => typeof node.props.className === "string" && node.props.className.includes("governed-choice--selected")).length, 1);
-  assert.equal(all(view, "button")[0].props.disabled, true);
-  act(() => radios[2].props.onChange());
-  assert.equal(all(view, "button")[0].props.disabled, false);
-  answer = { ok: true, data: { config: { evidence_grounding_policy: { mode: "required" } } } };
-  await act(async () => all(view, "button")[0].props.onClick());
-  await tick();
-  assert.deepEqual(plain(requests[1].slice(1)), ["PUT", { evidence_grounding_policy: { mode: "required" } }]);
-  includesAll(text(view.root), ["Saved: required", "Evidence grounding policy saved."]);
-  answer = { ok: false, issues: [{ path: "x", message: "bad" }] };
-  act(() => all(view, "input")[0].props.onChange());
-  await act(async () => all(view, "button")[0].props.onClick());
-  await tick();
-  assert.equal(stubs(view, "GovernedIssueList")[0].props.issues.length, 1);
-  assert.equal(stubs(view, "GovernedIssueList")[0].props.label, "Evidence grounding errors");
-  const none = create(createElement(ProjectEvidenceGroundingSection, { ctx: {} }));
-  assert.equal(none.toJSON(), null);
 });
 
 const recorder = () => {

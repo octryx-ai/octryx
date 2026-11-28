@@ -1,25 +1,4 @@
-"""C: operations records as typed nodes and edges, from their structured fields only.
-
-The ServiceNow and Jira connectors store each record as a Markdown render with a fixed
-shape (``servicenow_render.render_record``, ``jira_render.render_issue``): a ``# NUMBER: title``
-heading, ``- Label: value`` facts, then ``## Description`` / ``## Comments``. These parsers read
-exactly that shape; a record whose heading does not match is skipped with a warning, never guessed.
-
-- **ServiceNow** (the record number decides the node type: the profile ``ticket_patterns`` key
-  whose pattern the number matches, e.g. ``Incident`` for ``INC…``): ``assigned_to_group``,
-  ``affects_service`` (``Business service``), ``affects_ci`` (``Configuration item``), ``caused_by``
-  (INC → CHG, only by the profile's "caused by CHG…" patterns) and ``mentions`` of other tickets.
-- **Jira**: ``in_component``, ``released_in`` (fix versions), ``affects_version`` and ``mentions``.
-  Person fields (assignee, reporter) are not graph nodes. Issue links are not part of the render
-  today, so no ``relates_to`` edge can be stated from it.
-- **Kubernetes inventory** (one namespace as the Kubernetes connector renders it): ``runs_in`` (deployment →
-  namespace → cluster) and ``uses_image`` (deployment → image version) from its deployment table;
-  namespace and cluster come from the profile ``inventory_namespace_pattern`` /
-  ``inventory_cluster_pattern``.
-
-A ticket only mentioned (not ingested itself) becomes a stub node (``stub: true``); a reader
-prefers the record's own statement of the same node.
-"""
+"""Operations records as typed nodes and edges, from their structured fields only."""
 
 from __future__ import annotations
 

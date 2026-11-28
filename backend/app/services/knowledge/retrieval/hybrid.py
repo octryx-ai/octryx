@@ -1,24 +1,5 @@
-"""Hybrid retrieval: lexical and vector evidence, fused into one ranked, cited answer.
-
-Both modes run against the same authorized Workspace and each returns only citable,
-current evidence (``retrieve_workspace_evidence``). The candidates are fused by Reciprocal Rank
-Fusion: deterministic, model-free, and immune to the two modes scoring on different scales. A hit
-found only by vector search must reach the space's ``min_similarity``; below that it is noise, not
-evidence.
-
-Lexical retrieval is the baseline: a Workspace that cannot serve it fails the request. Every other
-mode reports its own outcome in ``mode_states`` (``needs_configuration``, ``denied``,
-``unavailable``, ``contract_violation``), so a lexical-only answer is always marked as such and
-never passes silently for the complete one.
-
-The modes run one after the other, because they share the caller's database session.
-
-With a reranker the fused candidates are scored jointly with the query and reordered;
-a candidate below the reranker's ``min_relevance`` is dropped. A code hit is scored with its file and
-symbol header in front of its lines, so the reranker sees which class a method belongs to.
-Rerank is reported in ``mode_states``
-like any mode: without one, or when it fails, the fused order stands and the state says why.
-"""
+"""Hybrid retrieval: lexical and vector evidence, fused into one ranked, cited answer. A vector-only hit must reach the
+space's ``min_similarity``."""
 
 from __future__ import annotations
 
@@ -53,8 +34,6 @@ MODE_OK = "ok"
 
 @dataclass(frozen=True, slots=True)
 class HybridEvidence:
-    """One fused hit: the cited span, which modes found it, and its fused rank score."""
-
     evidence: CitedEvidence
     modes: tuple[str, ...]
     fused_score: float
@@ -89,7 +68,6 @@ async def hybrid_workspace_evidence(
     products: object = None,
     version: object = None,
 ) -> HybridRetrieval:
-    """Lexical plus (when available) vector evidence, fused, floored and cut to ``limit``."""
     bounded = _limit(limit)
     candidates = min(bounded * CANDIDATE_FACTOR, MAX_LIMIT_PER_MODE)
     with timed_stage("lexical"):
@@ -137,7 +115,6 @@ async def _vector_hits(
     version: object,
     states: dict[str, str],
 ) -> tuple[CitedEvidence, ...]:
-    """Vector candidates, or none with the mode's state recorded; only an invalid request fails the search."""
     vector_hits: tuple[CitedEvidence, ...] = ()
     try:
         with timed_stage("vector"):
@@ -163,7 +140,6 @@ async def _vector_hits(
 def _fused(
     lexical_hits: tuple[CitedEvidence, ...], vector_hits: tuple[CitedEvidence, ...], floor: float
 ) -> list[HybridEvidence]:
-    """Reciprocal Rank Fusion of both modes; a vector-only hit must reach the similarity floor."""
     fused: dict[str, HybridEvidence] = {}
     for rank, item in enumerate(lexical_hits, start=1):
         fused[item.evidence_key] = HybridEvidence(item, ("lexical",), 1.0 / (RRF_K + rank), None)
@@ -190,7 +166,6 @@ async def _reranked(
     ranked: list[HybridEvidence],
     states: dict[str, str],
 ) -> list[HybridEvidence]:
-    """Reorder by the reranker's relevance and drop what falls below its floor; else keep ``ranked``."""
     if runtime.reranker is None:
         states["rerank"] = "needs_configuration"
         return ranked
@@ -227,7 +202,6 @@ async def _reranked(
 
 
 def _rerank_document(evidence: CitedEvidence) -> str:
-    """A code hit is reranked with its file and symbol header, the way it is embedded."""
     if evidence.kind == SPAN_KIND_CODE:
         return code_embedding_text(evidence.text, path=evidence.source_title, section_path=evidence.section_path)
     return evidence.text

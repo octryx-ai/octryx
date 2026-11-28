@@ -1,10 +1,5 @@
-"""Shared helpers for the Alembic-versus-model parity tests.
-
-The comparison target is ``app.db.migration_metadata.load_migration_metadata()``, the model set Alembic
-owns. Every scenario runs on SQLite and, when ``OCTRYX_TEST_POSTGRES_URL`` names a disposable
-PostgreSQL server (asyncpg SQLAlchemy URL), on PostgreSQL. On that server the tests only create and drop
-their own ``octryx_alembic_parity_*`` scratch databases.
-"""
+"""Shared helpers for the Alembic-versus-model parity tests (SQLite, and PostgreSQL when ``OCTRYX_TEST_POSTGRES_URL``
+names a disposable server; only ``octryx_alembic_parity_*`` scratch databases are created and dropped)."""
 
 from __future__ import annotations
 
@@ -28,8 +23,8 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import command
 from app.db.migration_metadata import load_migration_metadata
-from tests.alembic_model_parity_residual import DriftKey
-from tests.postgres_env import postgres_url
+from tests.support.alembic_model_parity_residual import DriftKey
+from tests.support.postgres_env import postgres_url
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
 MIGRATION_METADATA = load_migration_metadata()
@@ -60,7 +55,7 @@ def migrate(database_url: str, monkeypatch: pytest.MonkeyPatch, *, revision: str
     # database under test; an inherited DATABASE_URL must never be migrated by a test.
     monkeypatch.setenv("DATABASE_URL", database_url)
     config = alembic_config(database_url)
-    # Scratch SQLite migrations skip fsync (tests/scratch_sqlite_migrations.py, loaded by conftest.py).
+    # Scratch SQLite migrations skip fsync (tests/support/scratch_sqlite_migrations.py, loaded by conftest.py).
     if down:
         command.downgrade(config, revision)
     else:
@@ -95,7 +90,6 @@ def _drift_key(diff: tuple) -> DriftKey:
 
 
 def schema_drift(connection: Connection) -> set[DriftKey]:
-    """Every difference between the connected schema and the metadata Alembic owns, as stable keys."""
     context = MigrationContext.configure(connection, opts={"compare_type": True, "compare_server_default": False})
     keys: set[DriftKey] = set()
     for diff in compare_metadata(context, MIGRATION_METADATA):
@@ -105,7 +99,6 @@ def schema_drift(connection: Connection) -> set[DriftKey]:
 
 
 def missing_model_objects(drift: set[DriftKey]) -> list[DriftKey]:
-    """Tables and columns the models declare but no revision creates (never allowed as residual)."""
     return sorted(key for key in drift if key[0] in ("add_table", "add_column"))
 
 
@@ -117,7 +110,6 @@ def assert_exact_residual(drift: set[DriftKey], expected: dict[DriftKey, str]) -
 
 
 def schema_snapshot(connection: Connection) -> dict[str, Any]:
-    """Every table with its columns, indexes, unique constraints, foreign keys and check constraints."""
     inspector = inspect(connection)
     snapshot: dict[str, Any] = {}
     for (_schema, table), columns in inspector.get_multi_columns().items():
@@ -152,8 +144,6 @@ async def run_on(database_url: str, probe: Callable[[Connection], Any], **engine
 
 @dataclass(frozen=True)
 class ScratchDatabase:
-    """A disposable database owned by one test; ``url`` is an async SQLAlchemy URL."""
-
     dialect: str
     url: str
 
@@ -178,7 +168,6 @@ def _postgres_admin(statement: str) -> None:
 def scratch_database(
     dialect: str, directory: Path, *, template: ScratchDatabase | None = None
 ) -> Iterator[ScratchDatabase]:
-    """An empty database, or a copy of ``template``, that is removed afterwards."""
     if dialect == "sqlite":
         path = directory / f"{uuid.uuid4().hex}.db"
         if template is not None:
@@ -197,7 +186,6 @@ def scratch_database(
 
 @contextmanager
 def migrated_database(dialect: str, directory: Path, *, revision: str = "head") -> Iterator[ScratchDatabase]:
-    """A database built by ``alembic upgrade <revision>`` alone (no ``create_all``), removed afterwards."""
     with scratch_database(dialect, directory) as database:
         with pytest.MonkeyPatch.context() as monkeypatch:
             database.migrate(monkeypatch, revision=revision)

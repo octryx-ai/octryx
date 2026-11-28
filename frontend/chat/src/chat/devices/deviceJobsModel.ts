@@ -1,5 +1,3 @@
-// A thread's device jobs: parsed defensively, updated incrementally from `device_job_event`, and turned
-// into what the chat shows for the current turn (streamed text, tool cards, approvals, the outcome).
 import { readableModelName } from "./modelNames";
 import { readRemedy } from "./remedyModel";
 import type { DeviceJob, JobApproval, JobDenial, JobEvent } from "./deviceJobTypes";
@@ -61,7 +59,7 @@ export function readJobs(raw: unknown): DeviceJob[] | null {
   return items.map((item) => readJob(item)).filter((job): job is DeviceJob => !!job);
 }
 
-/** Apply one `device_job_event` payload; `null` means "a gap: reload from the server". */
+// null means a gap: reload from the server.
 export function applyJobEvent(jobs: DeviceJob[], payload: Record<string, unknown>): DeviceJob[] | null {
   if (payload.eventType === "tool_denied") return withDenial(jobs, payload);
   const incoming = readJob(payload.job);
@@ -86,7 +84,6 @@ export function applyJobEvent(jobs: DeviceJob[], payload: Record<string, unknown
   return previous ? jobs.map((job) => (job.id === merged.id ? merged : job)) : [...jobs, merged];
 }
 
-/** A `tool_denied` stream event joins its job (by `job_id`); an unknown job changes nothing. */
 function withDenial(jobs: DeviceJob[], payload: Record<string, unknown>): DeviceJob[] {
   const id = text(payload.job_id);
   if (!jobs.some((job) => job.id === id)) return jobs;
@@ -94,6 +91,9 @@ function withDenial(jobs: DeviceJob[], payload: Record<string, unknown>): Device
     remedy: readRemedy(payload.remedy) };
   return jobs.map((job) => (job.id === id ? { ...job, denials: [...job.denials, denial] } : job));
 }
+
+// Every server runner was busy: the turn starts when one frees (backend ``runner_queue``); Stop cancels it.
+export const WAITING_RUNNER = "waiting_runner";
 
 export type JobState = { label: string; tone: "running" | "done" | "stopped" | "attention"; live: boolean };
 
@@ -104,6 +104,7 @@ const REASONS: Record<string, string> = {
   folder_not_allowlisted_on_device: "the folder is not allowed on the device",
   profile_unavailable_on_device: "the profile is not available on the device",
   stopped_by_owner: "stopped by you",
+  cancelled_by_owner: "cancelled by you before a server runner took it",
   pipeline_done: "the CI pipeline ran; nothing was left for the model",
   stopped: "stopped by you",
   paused: "the device was paused",
@@ -119,32 +120,27 @@ const REASONS: Record<string, string> = {
   model_not_offered: "the device's profile does not offer that model",
 };
 
-/** The job header's "seat · claude-…": the reported model, else the requested one, else the device default. */
 export const jobModelLabel = (job: DeviceJob) => {
   const model = job.model || job.requestedModel;
   return `${job.profile} · ${model ? readableModelName(model) : "device default model"}`;
 };
 
-/** Whether opening a thread restores its device target (D4 sticky per thread): only while the thread still runs
- * there, i.e. a job is live or its newest answer came from the device (``device:<profile>``). A thread whose newest
- * answer came from the Server opens on the Server with the Workspace default. */
+// Only while the thread still runs there, so a thread last answered by the Server opens on the Server.
 export function restoresDeviceTarget(job: DeviceJob | undefined,
   messages: { role?: string; model?: string | null; origin?: string | null }[] | null | undefined): boolean {
   if (!job) return false;
-  if (job.status === "offered" || job.status === "running") return true;
+  if (job.status === WAITING_RUNNER || job.status === "offered" || job.status === "running") return true;
   const answers = (messages ?? []).filter((message) => message.role === "assistant");
   const newest = answers[answers.length - 1];
-  // Since a device answer names the model it ran on; the server marks it with origin "device".
+  // A device answer names the model it ran on; the server marks it with origin "device".
   return !newest || newest.origin === "device" || String(newest.model ?? "").startsWith("device:");
 }
 
 export const reasonText = (reason: string | null) => (reason ? REASONS[reason] ?? reason.replace(/_/g, " ") : "");
 
-// The device service restarted (an update, a crash) or the turn sent no event for too long: nothing runs any more.
 const INTERRUPTED = new Set(["service_restarted", "service_stopped", "turn_stalled"]);
 const FOLDER_NOT_ACCESSIBLE = "device_folder_not_accessible";
 
-/** The plain-words next step for a folder the device's background service may not read (macOS privacy). */
 export function folderAccessText(job: DeviceJob): string {
   const rejected = [...job.events].reverse().find((event) => event.type === "job_rejected"
     && text(event.body.reason) === FOLDER_NOT_ACCESSIBLE);
@@ -157,12 +153,14 @@ export function folderAccessText(job: DeviceJob): string {
 }
 
 export function jobState(job: DeviceJob, finished: Record<string, unknown> | null): JobState {
+  if (job.status === WAITING_RUNNER) return { label: "Waiting for a server runner", tone: "running", live: true };
+  if (job.statusReason === "cancelled_by_owner") return { label: "Cancelled", tone: "stopped", live: false };
   if (job.status === "offered") return { label: "Starting on the device", tone: "running", live: true };
   if (job.status === "running") return { label: job.stopping ? "Stopping" : "Running", tone: "running", live: true };
   if (job.statusReason === FOLDER_NOT_ACCESSIBLE && (job.status === "rejected" || job.status === "idle")) {
     return { label: `Not started: ${folderAccessText(job)}`, tone: "attention", live: false };
   }
-  // The launcher ran the CI pipeline and the run had moved on: a finished job, not a rejection.
+  // The run had moved on after the launcher ran the CI pipeline: a finished job, not a rejection.
   if (job.statusReason === "pipeline_done") return { label: "Done: CI pipeline ran", tone: "done", live: false };
   if (job.status === "rejected") return { label: `Not started: ${reasonText(job.statusReason)}`, tone: "attention", live: false };
   if (job.status === "device_lost") return { label: "Device lost: it did not come back in time", tone: "stopped", live: false };

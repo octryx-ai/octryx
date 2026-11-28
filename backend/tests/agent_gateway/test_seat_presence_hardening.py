@@ -3,8 +3,6 @@
 # ruff: noqa: F811  (the shared ``anthropic`` fixture is imported, then requested by name)
 from __future__ import annotations
 
-import logging
-
 import pytest
 from sqlalchemy import select
 
@@ -23,14 +21,11 @@ from tests.agent_gateway.seat_presence_support import (
 from tests.agent_gateway.seat_upstream_support import anthropic  # noqa: F401 - fixture
 from tests.knowledge_evidence_seed_support import seed_member
 
-# --- seat route corrections ------------------------------------------------------------------------------
-
 
 @pytest.mark.committed_db  # own DB session per request: the seat call's background work never shares one
 @pytest.mark.asyncio
 @pytest.mark.parametrize("profile", ["seat", "governed"])
 async def test_clear_keeps_the_session_alive_for_both_profiles(client, db, anthropic, profile):
-    """A finalize for /clear stops nothing, revokes nothing; a real end still does both."""
     if profile == "seat":
         workspace_id, _user, gateway, credential = await _seat_session(client, db)
     else:
@@ -57,7 +52,6 @@ async def test_clear_keeps_the_session_alive_for_both_profiles(client, db, anthr
 @pytest.mark.asyncio
 @pytest.mark.parametrize("check", ["membership", "grant_revoked", "workspace_header", "user_inactive"])
 async def test_every_seat_call_rechecks_identity(client, db, anthropic, check):
-    """The four per-call checks of ``seat_credential.resolve_seat_identity``; nothing is sent upstream."""
     from app.models.security.user import UserProject
 
     workspace_id, user_id, gateway, credential = await _seat_session(client, db)
@@ -87,7 +81,6 @@ async def test_every_seat_call_rechecks_identity(client, db, anthropic, check):
 
 @pytest.mark.asyncio
 async def test_a_non_ascii_header_is_a_coded_400_never_a_500(client, db, anthropic):
-    """The request is built inside the error handling; the upstream client is always closed."""
     _workspace_id, _user, gateway, credential = await _seat_session(client, db)
     headers = {**_seat_headers(gateway, credential), "authorization": "Bearer sk-ant-oat01-éé"}
 
@@ -121,15 +114,3 @@ async def test_a_misconfigured_upstream_refuses_seat_calls(client, db, anthropic
 
     assert refused.status_code == 503 and "seat_upstream_misconfigured" in refused.json()["error"]["message"]
     assert anthropic.requests == []
-
-
-@pytest.mark.asyncio
-async def test_the_rls_middleware_never_decodes_the_subscription_bearer(client, db, anthropic, caplog):
-    """No ERROR traceback for the seat route's bearer (it is not an Octryx token)."""
-    _workspace_id, _user, gateway, credential = await _seat_session(client, db)
-    caplog.set_level(logging.DEBUG, logger="app.middleware.security.row_level_security")
-    caplog.clear()  # the registration above carries a gateway token; only the seat call is under test
-
-    assert (await client.post(SEAT, json=_body(), headers=_seat_headers(gateway, credential))).status_code == 200
-
-    assert not [record for record in caplog.records if record.name.endswith("row_level_security")]

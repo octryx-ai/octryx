@@ -1,34 +1,4 @@
-"""Usage and transcript of one inbound model call, written after the response.
-
-Runs in a fresh database session (the request-scoped one may already be closed
-while a stream is relayed) and records what was *observed*, including partial
-streams (``stream_completed`` says which):
-
-- one ``UsageEvent``: ``tokens_in`` = ``input_tokens``; cache reads and cache
-  writes in their own columns. The cost follows the alias' governed cost
-  contract through ``resolve_usage_payload`` with *all* prompt tokens (input +
-  cache creation + cache read), so pricing matches the internal driver path.
-  A usage contract violation is recorded at cost 0 with that violation as the
-  ``cost_status`` — the answer was already served, so it cannot be discarded;
-- one ``TurnTrace``: only the newest turn (bounded, redacted), the assistant
-  text and ``tool_use`` summary, usage and closed gateway evidence;
-- ``ToolCall`` rows per the agent-gateway contract: ``tool_use`` blocks of the
-  assistant message before the trailing user message are upserted as
-  ``requested`` (one row per ``tool_use`` id, idempotent on client retries), and
-  ``tool_result`` blocks of the trailing user message set ``result`` and
-  ``success``/``error`` from ``is_error``. A row the execution-evidence hook
-  created first (``agent_gateway/tool_execution.py``) is completed, never
-  replaced. Rows written by the client hooks (``source=client_hook``) are never
-  touched;
-- ``Message`` rows only for agent-loop calls, defined structurally as requests
-  that declare ``tools`` (Claude Code's utility calls — titles, summaries — carry
-  none): the user's prompt when the trailing user message has text blocks other
-  than ``<system-reminder>`` blocks, and the assistant's final text when the
-  stop reason is ``end_turn``. The prompt is keyed by conversation position and
-  content hash, so a retried call does not record it twice.
-
-Every text is redacted with the shared redaction policy and bounded.
-"""
+"""Usage and transcript of one inbound model call, recorded after the response in a fresh database session."""
 
 from __future__ import annotations
 
@@ -148,7 +118,6 @@ async def _write(db: AsyncSession, record: GatewayCallRecord) -> None:
         created_at=utc_now(),
     )
     db.add(trace)
-    # Runs: the summary row of this call.
     db.add(summary_row(trace, gateway_run_summary(
         session_id=record.session_id, raw_output=raw_output, usage=usage_json,
         duration_ms=record.duration_ms, client_context=record.client_context,
@@ -158,9 +127,8 @@ async def _write(db: AsyncSession, record: GatewayCallRecord) -> None:
         await link_answer_trace(db, trace, await _record_messages(db, record, delta, cost))
 
 
+# A usage-contract violation is recorded at cost 0 with that status: the answer was already served.
 async def record_gateway_call(record: GatewayCallRecord) -> bool:
-    """Persist one call; never raises into the response path."""
-
     try:
         async with db_core.async_session_factory() as db:
             await _write(db, record)

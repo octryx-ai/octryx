@@ -1,9 +1,5 @@
-"""Spec Studio on a real run: the draft phase records it, the product owner changes, comments and approves through the
-API, and the approval freezes the review baseline and writes the decisions into SPEC.md (Coffee fixture).
-
-A spec must not claim "no product owner answers" and drop accepted proposals; every decision lands in SPEC.md,
-written by the platform.
-"""
+"""Spec Studio on a real run: the product owner changes, comments and approves through the API,
+and the approval freezes the review baseline and writes every decision into SPEC.md."""
 
 from __future__ import annotations
 
@@ -19,6 +15,9 @@ from app.services.workflow_runs.binding import run_turn_resolution
 from app.services.workflow_runs.phase_outputs import submit_output
 from app.services.workflow_runs.records import new_chat_session, start_run
 from tests.phased_workflow_fixtures import PHASE, admin_user, phase_turn, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 FIXTURES = Path(__file__).parent / "fixtures/spec_studio/caf44"
 SPEC = "coffee/flutter/claude/SPEC.md"
@@ -70,7 +69,6 @@ async def _waiting_run(db, tmp_path: Path):
     resolution = await run_turn_resolution(db, session, user_message="Write the spec.")
     await phase_turn(db, session.id, resolution, ["submit_spec_studio"])
     assert run.node_state["waiting"]["subject"] == "decisions"
-    # The independent review reviewed this tree; the push sends exactly it (platform/scm.push).
     _git(tmp_path, "add", "-A")
     run.context = {**dict(run.context or {}), "review": {"tree": _git(tmp_path, "write-tree"), "verdict": "pass"}}
     await db.commit()
@@ -87,7 +85,6 @@ async def test_the_product_owner_decides_comments_and_approves_and_spec_md_carri
     url = f"/api/v1/workflow-runs/{run.id}/spec-studio"
     studio = (await client.get(url, headers=auth_headers)).json()
     assert studio["awaiting_approval"] is True and studio["open_points"] == []
-    # The run card offers the Studio (desktop run bar and phone run page).
     card = (await client.get(f"/api/v1/workflow-runs/{run.id}", headers=auth_headers)).json()["run"]
     assert card["spec_studio"] == {"version": 1, "open_points": 0, "frozen": False, "approved": 0}
     assert [s["id"] for s in studio["artefact"]["screens"]] == ["today", "beans", "brew", "filter", "gear"]
@@ -111,7 +108,6 @@ async def test_the_product_owner_decides_comments_and_approves_and_spec_md_carri
     assert "`hardnessUnit` – Einheit für die Wasserhärte? → °fH (proposal accepted)." in spec
     assert "`accent` (light): #7A3F20" in spec and "| `accent` | #7A3F20 | #E0A06A |" in spec
     assert "Comment on Heute, 390 px at “Bohnen” (`nav.beans`): nicht Namen sondern Icons" in spec
-    # Inside the spec's own Decisions section, after its 15 decisions, before the open questions.
     assert spec.index("15. Annahmen") < spec.index("Spec Studio decisions") < spec.index("## 9 Offene Fragen")
     approved_app = json.loads((tmp_path / "coffee/flutter/claude/spec-studio.json").read_text(encoding="utf-8"))
     assert approved_app["design"]["directions"][0]["light"]["accent"] == "#7A3F20"
@@ -131,7 +127,6 @@ async def test_the_product_owner_decides_comments_and_approves_and_spec_md_carri
     events = (await client.get(f"/api/v1/workflow-runs/{run.id}/events", headers=auth_headers)).json()
     kinds = [event["kind"] for event in events["events"]]
     assert kinds.count("spec_studio_changed") == 3 and "spec_studio_approved" in kinds
-    # Counted in-process at the event, never from the database.
     metrics = [line for line in agent_metrics.render() if line.startswith("octryx_spec_studio_events_total{")]
     assert any('event="changed"' in line and 'kind="comment.add"' in line and float(line.rsplit(" ", 1)[1]) == 1
                for line in metrics)
@@ -167,7 +162,7 @@ async def test_a_spec_confirmed_without_a_person_still_writes_its_decisions_befo
     run = await _waiting_run(db, tmp_path)
     assert agent_open_points(run) == []
     await before_push(db, run)
-    await before_push(db, run)  # once per artefact version: a retried push writes nothing twice
+    await before_push(db, run)
     spec = (tmp_path / SPEC).read_text(encoding="utf-8")
     assert spec.count("approved by the platform (auto-accepted)") == 1
     assert "`purgeIdleHours` – Ab wie langer Pause soll die App das Vorab-Mahlen (Totraum) empfehlen? → Nach 2 " \
@@ -175,6 +170,5 @@ async def test_a_spec_confirmed_without_a_person_still_writes_its_decisions_befo
     entry = run.context["spec_studio"]["approved"][-1]
     assert (entry["how"], entry["approved_by"], entry["open_points"]) == ("auto_accepted", None, [])
 
-    # Open points the agent can fix reach it as an answer (the auto-accept sends the spec back with them).
     note_open_points(run, [{"section": "rules", "target": "R1", "text": "R1: add one realistic example."}])
     assert run.context["po_answers"][-1]["text"].endswith("- R1: add one realistic example.")

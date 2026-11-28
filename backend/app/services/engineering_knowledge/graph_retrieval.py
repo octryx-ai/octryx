@@ -23,8 +23,6 @@ MAX_RESULTS = 25
 
 @dataclass(frozen=True)
 class EngineeringKnowledgeVisibility:
-    """Policy-normalized visibility controls for agent retrieval."""
-
     project_ids: tuple[str, ...] = ()
     repository_id: str | None = None
     allowed_classifications: tuple[str, ...] = DEFAULT_ALLOWED_CLASSIFICATIONS

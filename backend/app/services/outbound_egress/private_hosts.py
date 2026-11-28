@@ -1,25 +1,4 @@
-"""The admin-governed private-host allowlist for on-prem connections.
-
-A credentialed SaaS connection (``connections.py``) runs in the ``public_only`` scope, so an
-on-prem Jira, Confluence, Bitbucket, GitHub Enterprise, GitLab or ServiceNow on a private
-address is refused with ``private_address_not_allowlisted``. An admin opens exactly such a
-target by listing its ``host:port`` for that connection type:
-
-* entries are exact ``host:port`` pairs (``jira.corp.example:443``, ``10.20.0.5:8443``,
-  ``[fd12::5]:443``); the port is required, nothing is a wildcard or a range;
-* an entry never names the pod or a metadata service: loopback, link-local, unspecified and
-  the AWS IPv6 metadata literals, ``localhost`` and the named metadata hosts are refused
-  (``entry_pod_local_refused``), and at request time a listed hostname that resolves to any
-  pod-local address is still refused (``blocked_address``);
-* a public IP literal needs no entry and is refused (``entry_not_private``);
-* the allowlist lives in admin configuration (``system_config`` key
-  :data:`PRIVATE_HOST_ALLOWLIST_KEY`), applies in every runtime profile including
-  production, and every change is audited (``egress.private_hosts.updated``, before and
-  after entries, the acting admin).
-
-A stored allowlist that no longer validates (edited by hand) is not partially applied: the
-connection answers ``private_host_allowlist_unavailable`` until an admin saves a valid one.
-"""
+"""The admin-governed private-host allowlist for on-prem connections."""
 
 from __future__ import annotations
 
@@ -53,8 +32,6 @@ _PLAIN = re.compile(r"^([^:\[\]]+):(\d{1,5})$")
 
 
 class PrivateHostAllowlistError(ValueError):
-    """An allowlist change or a stored allowlist was refused; ``reason`` is a fixed code."""
-
     def __init__(self, reason: str, *, entry_index: int | None = None) -> None:
         super().__init__(reason)
         self.reason = reason
@@ -78,7 +55,6 @@ class PrivateHostEntry:
 
     @property
     def policy_key(self) -> str:
-        """The ``hostname:port`` form the outbound URL policy compares against."""
         return f"{self.host}:{self.port}"
 
 
@@ -100,7 +76,6 @@ def _checked_literal(ip: ipaddress._BaseAddress) -> str:
 
 
 def parse_private_host_entry(raw: object) -> PrivateHostEntry:
-    """One validated entry, or :class:`PrivateHostAllowlistError` with a fixed reason."""
     text = str(raw or "").strip().lower()
     match = _BRACKETED.match(text)
     if match is not None:
@@ -167,7 +142,6 @@ def _decode_stored(value: str | None) -> dict[str, list[PrivateHostEntry]]:
 
 
 async def read_private_host_allowlist(db: AsyncSession) -> dict[str, list[str]]:
-    """Every allowlistable connection type with its entries (display form), for the admin view."""
     from ..system_config import get_system_config_value
 
     stored = _decode_stored(await get_system_config_value(db, PRIVATE_HOST_ALLOWLIST_KEY))
@@ -175,7 +149,6 @@ async def read_private_host_allowlist(db: AsyncSession) -> dict[str, list[str]]:
 
 
 async def private_host_policy_keys(db: AsyncSession, connection: str) -> frozenset[str]:
-    """The policy keys of one connection type; raises ``private_host_allowlist_unavailable`` if corrupt."""
     from ..system_config import get_system_config_value
 
     stored = _decode_stored(await get_system_config_value(db, PRIVATE_HOST_ALLOWLIST_KEY))
@@ -189,7 +162,6 @@ async def replace_private_host_entries(
     entries: object,
     actor_user_id: str,
 ) -> list[str]:
-    """Validate and store the entries of one connection type, audited; the caller commits."""
     from ..system_config import get_system_config_value, set_system_config_value
 
     connection = _checked_connection(connection)
@@ -207,9 +179,6 @@ async def replace_private_host_entries(
         key=PRIVATE_HOST_ALLOWLIST_KEY,
         value=json.dumps(payload, sort_keys=True) if payload else None,
         description="Admin-governed private host:port allowlist per on-prem connection type.",
-        updated_by=actor_user_id,
-        change_source="egress_private_hosts",
-        record_prompt_revision=False,
     )
     record_admin_config_audit(
         db,
@@ -217,6 +186,7 @@ async def replace_private_host_entries(
         action=AUDIT_ACTION_UPDATED,
         resource_type=AUDIT_RESOURCE_TYPE,
         resource_id=connection,
+        project_id=None,
         before={"entries": before},
         after={"entries": after},
     )

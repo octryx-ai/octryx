@@ -1,21 +1,4 @@
-"""Files a device job made on the person's Mac, fetched on their request (Octryx Mobile).
-
-A job's artifacts can be fetched from the app. The Mac lists the files a
-turn changed by name only (a ``files`` job event, ``clients/octryx-claude/octryx_claude/device_files.py``). Then:
-
-- **the owner asks** (:func:`request_file`): only the job's owner, only by their own web or phone login (the route
-  refuses API keys and bearer tokens), only a path the job itself listed, only while the platform's kill switch is
-  on and the device is active and not paused; at most :data:`MAX_OPEN` open requests per person.
-- **the channel tick** (:func:`deliver_pending`) sends ``file_request {request_id, job_id, path}``; a request the
-  device has not answered after :data:`SENT_TIMEOUT` fails (``no_answer``).
-- **the device answers** (:meth:`FileTransfers.handle`) with ``file_chunk`` messages (in order, at most
-  :data:`MAX_FILE_BYTES` in total, the size and SHA-256 checked at the end) or ``file_failed {reason}``.
-- **the owner reads it** (:func:`file_for_owner`): the content is served as a download, never rendered as a page
-  on the platform's origin (see the route). Content older than :data:`KEEP` is deleted by the platform's
-  housekeeping (:func:`purge_expired`, on the workflow sweep's tick), not only on a next request.
-
-The Mac checks everything again on its side: its own record of the job's folder, no path out of it, no secrets.
-"""
+"""Files a device job made on the person's Mac, fetched on their request (Octryx Mobile)."""
 
 from __future__ import annotations
 
@@ -52,7 +35,6 @@ class JobFileError(Exception):
 
 
 async def reported_files(db: AsyncSession, job: DeviceJob) -> dict[str, dict[str, Any]]:
-    """The files the job's turns listed (path → its latest entry)."""
     events = (await db.execute(
         select(DeviceJobEvent.body).where(DeviceJobEvent.job_id == job.id, DeviceJobEvent.type == "job_event")
         .order_by(DeviceJobEvent.seq.desc()).limit(MAX_SCANNED_EVENTS))).scalars().all()
@@ -103,7 +85,6 @@ async def file_for_owner(db: AsyncSession, *, job_id: str, file_id: str, user_id
 
 
 async def purge_expired(db: AsyncSession) -> int:
-    """Delete fetched files older than :data:`KEEP` (their content with them); commits."""
     result = await db.execute(delete(DeviceJobFile).where(DeviceJobFile.created_at < utc_now() - KEEP))
     await db.commit()
     return int(result.rowcount or 0)
@@ -130,8 +111,6 @@ async def deliver_pending(db: AsyncSession, connection: Any) -> None:
 
 
 class FileTransfers:
-    """The chunks of the files in flight on this server's device connections (in order, bounded)."""
-
     def __init__(self) -> None:
         self._parts: dict[str, tuple[str, list[bytes], int]] = {}
 

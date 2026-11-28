@@ -17,6 +17,19 @@ export type TurnView = { items: TurnItem[]; finished: Record<string, unknown> | 
 type ToolItem = Extract<TurnItem, { kind: "tool" }>;
 export type TurnBlock = Extract<TurnItem, { kind: "text" }> | { kind: "tools"; key: string; tools: ToolItem[] };
 
+export type ContextUse = { used: number; window: number; percent: number };
+
+/** How full the thread's context was after its latest model call (the launcher's `context` events), or null. */
+export function contextUse(job: DeviceJob): ContextUse | null {
+  for (const event of [...job.events].reverse()) {
+    if (event.type !== "job_event" || event.body.kind !== "context") continue;
+    const used = Number(event.body.used), window = Number(event.body.window);
+    if (!(used > 0 && window > 0)) continue;
+    return { used, window, percent: Math.min(100, Math.round((used / window) * 100)) };
+  }
+  return null;
+}
+
 /** Consecutive tool cards become one block, so the card folds them into one line as the chat does. */
 export function turnBlocks(items: TurnItem[]): TurnBlock[] {
   const blocks: TurnBlock[] = [];
@@ -58,6 +71,12 @@ export function turnView(job: DeviceJob): TurnView {
         preview: text(event.body.input_preview), output: "" };
       tools.set(text(event.body.tool_use_id), card);
       items.push(card);
+    } else if (kind === "context_pack" && text(event.body.text)) {
+      // The launcher's context pack, put in front of the phase's first prompt: one finished card.
+      streaming = null;
+      items.push({ kind: "tool", key: `p${event.seq}`, tool: "Context pack", status: "done", output: text(event.body.text),
+        preview: `${Number(event.body.symbols) || 0} symbols, ${Number(event.body.routes) || 0} routes, `
+          + `${Number(event.body.tests) || 0} tests` });
     } else if (kind === "tool_result") {
       const card = tools.get(text(event.body.tool_use_id));
       if (card) {

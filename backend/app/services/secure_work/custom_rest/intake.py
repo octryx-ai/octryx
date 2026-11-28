@@ -1,14 +1,4 @@
-"""Saving, scheduling and running a Custom REST intake.
-
-A Workspace may have several Custom REST intakes (one per list operation it syncs). Saving checks what a run would
-otherwise only find out later: the definition is active and the Workspace has a connection for it, the operation is
-an enabled read, the data scope is decidable (``listing.acting_role``: a scoped operation needs the intake's role, the
-role needs a grant), and a write-back operation is an enabled write of the same definition. A new intake is inactive
-until a preview of its settings ran (``intake/setup``).
-
-The schedule is the generic intake task (``registry.GENERIC_SYNC_TASK_TYPE``, deterministic, no worker): the
-scheduler, "Sync now" and an inbound webhook bound to that task all run the same sync.
-"""
+"""Saving, scheduling and running a Custom REST intake."""
 
 from __future__ import annotations
 
@@ -39,7 +29,6 @@ def _refused_from(error: IntakeSourceError, field: str):  # noqa: ANN202 - an HT
 
 
 async def check_config(db: AsyncSession, project_id: str, definition_key: str, config: Mapping[str, Any]) -> None:
-    """422 with the run's own refusal code when the intake could never run as configured."""
     try:
         definition, operation = await resolve_list(db, project_id, definition_key, config["operation"])
         acting_role(operation, config["role"], project_id)
@@ -65,7 +54,6 @@ def _stored(row: WorkItemSyncConfig, config: Mapping[str, Any]) -> None:
 
 async def put_intake(db: AsyncSession, *, project_id: str, definition_key: str, name: str, config: Mapping[str, Any],
                      user: User, row: WorkItemSyncConfig | None) -> WorkItemSyncConfig:
-    """Create (inactive) or update the intake; audited, scheduled."""
     await check_config(db, project_id, definition_key, config)
     if row is None:
         row = WorkItemSyncConfig(name=name[:220], project_id=project_id, source_type=SOURCE_TYPE,
@@ -78,6 +66,7 @@ async def put_intake(db: AsyncSession, *, project_id: str, definition_key: str, 
     await db.flush()
     await schedule(db, row, user)
     db.add(AuditLog(user_id=user.id, action=CONFIG_AUDIT_ACTION, resource_type="work_item_sync_config",
+                    project_id=row.project_id,
                     resource_id=row.id, details={"project_id": project_id, "definition": definition_key,
                                                  "operation": config["operation"], "role": config["role"],
                                                  "schedule": config["schedule"]["preset"]}))
@@ -91,7 +80,6 @@ async def sync_task(db: AsyncSession, row: WorkItemSyncConfig) -> Task | None:
 
 
 async def schedule(db: AsyncSession, row: WorkItemSyncConfig, user: User) -> Task:
-    """The intake's task and scheduler; active only for an active intake with a schedule (not ``manual``)."""
     task = await sync_task(db, row)
     if task is None:
         task = Task(name=f"Custom REST intake · {row.name}", task_type=GENERIC_SYNC_TASK_TYPE,
@@ -116,7 +104,6 @@ async def schedule(db: AsyncSession, row: WorkItemSyncConfig, user: User) -> Tas
 
 async def run_intake(db: AsyncSession, *, row: WorkItemSyncConfig, user: User, dry_run: bool,
                      trigger: str = TRIGGER_MANUAL) -> dict[str, Any]:
-    """Preview or sync on the shared pipeline; raises ``IntakeSourceError``."""
     return await pipeline.run_intake(db, source=RECORDS, row=row, user=user, dry_run=dry_run, trigger=trigger)
 
 

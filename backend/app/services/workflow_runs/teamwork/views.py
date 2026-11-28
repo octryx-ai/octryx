@@ -1,6 +1,5 @@
-"""What the run view shows of the coordinator's split (design section 6, "Run view"): one box per item with its role,
-model, status and iteration, the ``depends_on`` arrows, and merge or conflict marks. No instructions, worktree paths
-or session internals: the run card is a board, the item's session holds its work."""
+"""What the run view shows of the coordinator's split: one box per item with its role, model, status and iteration,
+the ``depends_on`` arrows, and merge or conflict marks."""
 
 from __future__ import annotations
 

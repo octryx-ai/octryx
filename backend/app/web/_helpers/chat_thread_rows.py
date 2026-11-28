@@ -36,8 +36,6 @@ class ChatThreadRowsPayload:
 
 @dataclass(slots=True)
 class _ThreadRowFacts:
-    """Per-session facts loaded once for a page of thread rows."""
-
     task_run_map: dict[str, Any]
     latest_task_run_by_session_id: dict[str, Any]
     message_count_by_session_id: dict[str, int]
@@ -51,13 +49,6 @@ class _ThreadRowFacts:
 
 
 async def _load_latest_turn_stopped(db: AsyncSession, session_ids: list[str]) -> dict[str, str | None]:
-    """Sessions whose newest turn trace recorded an explicit runtime stop, with its closed stop reason.
-
-    Reads the same explicit markers as the turn execution summary (``runtime_outcome_from_trace``),
-    one bounded query for the page; only the flag and the closed reason code (from the re-validated turn
-    snapshot) reach the client, never trace content. A newer trace without a recorded outcome (a turn
-    still running, a progress step) is not a stop.
-    """
     if not session_ids:
         return {}
     ranked = (
@@ -85,7 +76,6 @@ async def _load_latest_turn_stopped(db: AsyncSession, session_ids: list[str]) ->
 
 
 def _closed_stop_reason(context_snapshot: Any) -> str | None:
-    """The re-validated snapshot's closed ``runtime_stop_reason``; a stopped trace always carries one."""
     _status, snapshot = read_turn_execution_snapshot(context_snapshot)
     return snapshot[RUNTIME_STOP_REASON_KEY] if snapshot is not None else None
 
@@ -104,7 +94,6 @@ async def _load_approval_counts(
     sessions: list[AgentSession],
     session_ids: list[str],
 ) -> dict[str, dict[str, int]]:
-    """Total and pending approval counts per session."""
     approval_counts_by_session_id: dict[str, dict[str, int]] = {}
     if sessions:
         approval_rows = (

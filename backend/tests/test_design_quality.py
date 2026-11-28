@@ -1,8 +1,5 @@
-"""What the workflow builds should look like the product the spec describes.
-
-A workflow can build flat color blocks where the spec asks for "colored placeholder image areas ... the visual
-anchor", and a review can pass a story whose screenshot shows a heading above nothing; a sidebar that stops
-mid-page must not be a low note that goes through the automatic accept."""
+"""What the workflow builds should look like the product the spec describes; a visibly incomplete page must not pass
+as a low note through the automatic accept."""
 
 from __future__ import annotations
 
@@ -13,6 +10,9 @@ import pytest
 from app.services.workflow_runs.review import screens
 from app.services.workflow_runs.review.model import ReviewAnswer, ReviewUsage
 from tests.phased_seed_definitions import seed_definitions
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 64
 SEEDS = Path(__file__).resolve().parents[1] / "app/services/workflow_runs/seeds/phased_workflows.json"
@@ -31,9 +31,7 @@ def test_the_spec_draws_its_visual_anchors_and_ends_the_design_with_a_look_and_f
     assert "visual signature" in interview
     assert "described as drawn" in draft and "colour stops" in draft and "neighbouring items differ" in draft
     assert '"Look and feel" list' in draft and "LF1" in draft
-    # The layout checks every product needs are part of every list.
     assert "bottom of the viewport" in draft and "empty region" in draft and "screen's language" in draft
-    # The spec review sends a look left to guesswork back to the draft (medium: the accept waits for a revision).
     assert '"a coloured area"' in SPEC_REVIEW_RULE and "Look and feel" in SPEC_REVIEW_RULE
 
 
@@ -67,7 +65,6 @@ def test_a_missed_look_check_that_the_verdict_drops_comes_back_as_a_high_finding
     assert floored["findings"] == [{"severity": "high", "file": "search-results.png", "line": 1,
                                     "fix": "LF2, search-results.png: flat peach blocks, the spec draws a gradient "
                                            "with the dish icon"}]
-    # Carried or explained by the verdict, a medium look note, or a high note that is no look check: unchanged.
     carried = {"verdict": "changes", "summary": "s", "findings": [
         {"severity": "high", "file": "web/cards.css", "line": 4, "fix": "LF2: draw the gradient"}]}
     explained = {**passed, "summary": "search-results.png shows the loading state, LF2 does not apply there."}
@@ -77,7 +74,6 @@ def test_a_missed_look_check_that_the_verdict_drops_comes_back_as_a_high_finding
 
 @pytest.mark.asyncio
 async def test_every_screenshot_batch_knows_all_screenshot_names():
-    """A batch sees only its own images; 'no screenshot of cook mode open' is judged against all of them."""
     from app.services.workflow_runs.review.reading import NOTES_KEY, _answer_with_screens
 
     seen = []
@@ -94,7 +90,7 @@ async def test_every_screenshot_batch_knows_all_screenshot_names():
         screens.Screen("cook-mode-open.png", "image/png", PNG)]
     answered = await _answer_with_screens(Model(), "sys", "task", shots, "lean task")
     looking = [user for user, with_images in seen if with_images]
-    assert len(looking) == 2 and looking[0] == looking[1]  # the same text: cached for the second batch
+    assert len(looking) == 2 and looking[0] == looking[1]
     assert "All screenshots of this review (22)" in looking[0] and "cook-mode-open.png" in looking[0]
     assert [note["screenshot"] for note in answered.answer[NOTES_KEY]] == ["s00.png", "s20.png"]
 
@@ -140,4 +136,4 @@ async def test_a_missed_look_blocks_the_automatic_accept_and_the_notes_stay_on_t
     if not ships:
         assert review["verdict"] == "changes" and review["findings"][0]["severity"] == "high"
         assert review["findings"][0]["file"] == "search-results.png"
-        assert run.node_state["waiting"]["subject"] == "decisions"  # the product owner sees the missed look
+        assert run.node_state["waiting"]["subject"] == "decisions"

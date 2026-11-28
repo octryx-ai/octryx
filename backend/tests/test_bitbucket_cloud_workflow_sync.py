@@ -24,6 +24,9 @@ from app.services.workflow_runs import watch
 from tests.bitbucket_cloud_workflow_support import EMAIL, HEAD, TOKEN, _cloud_workspace
 from tests.knowledge_evidence_runtime_support import build_runtime
 from tests.knowledge_evidence_seed_support import fetch_user, seed_member
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _tarball(sha: str) -> bytes:
@@ -55,9 +58,6 @@ PIPELINE = "/2.0/repositories/acme/payments/pipelines/6"
 
 
 class LiveShapedCloud:
-    """Bitbucket Cloud in real response shapes: Pipelines build #6 with a test step and a step without
-    a test report (Bitbucket answers 404 on its ``test_cases``), PR #1 open, then merged."""
-
     def __init__(self) -> None:
         self.paths: list[str] = []
         self.pr_state = "OPEN"
@@ -118,8 +118,6 @@ async def test_a_bitbucket_cloud_repository_is_synced_with_its_connection(db, dn
 
 
 async def test_the_poll_reads_ci_green_then_the_merge_on_bitbucket_cloud(db, monkeypatch) -> None:
-    """A Pipelines step without a test report must not fail the whole build-status read (``unknown: Not found``)
-    and stall the CI watch. Through the real governed tools, the poll sees CI green, then the merge."""
     from app.tools.bitbucket_impl import _bitbucket_cloud
     from tests.test_workflow_run_platform_actions import _run as start
 
@@ -152,10 +150,10 @@ async def test_the_poll_reads_ci_green_then_the_merge_on_bitbucket_cloud(db, mon
     assert (run.context["ci"]["reason"], run.context["ci"]["sha"]) == ("", HEAD)
     ci_run = run.context["tests"]["runs"][-1]  # the test step's report is recorded (no working copy: unkeyed here)
     assert (ci_run["source"], ci_run["sha"]) == ("ci", HEAD) and "test_total" in str(ci_run.get("unresolved"))
-    assert f"{PIPELINE}/steps/{{step-lint}}/test_reports/test_cases" in cloud.paths  # the 404 step was read
+    assert f"{PIPELINE}/steps/{{step-lint}}/test_reports/test_cases" in cloud.paths
     assert run.current_node_id == "merged"
 
-    assert await watch.poll_watching_runs(db) == 0  # PR #1 still open
+    assert await watch.poll_watching_runs(db) == 0
     cloud.pr_state = "MERGED"
     assert await watch.poll_watching_runs(db) == 1
     run = await db.get(WorkflowRun, run.id)

@@ -16,11 +16,11 @@ from ...models import (
     User,
 )
 from ...time_utils import utc_now
-from ..access_control import require_existing_workspace
 from .federation_import_conflicts import _package_node_facts, _parse_datetime
 from .federation_serializers import serialize_federation_package
 from .graph_store_serializers import serialize_graph_node
 from .graph_store_writes import upsert_engineering_knowledge_node
+from .workspace_scope import require_scope_workspaces
 
 IMPORT_REVIEW_ACTIONS = {
     "accept",
@@ -31,8 +31,6 @@ IMPORT_REVIEW_ACTIONS = {
     "merge_duplicate",
     "local_override",
 }
-# A scope of these types names a Workspace in ``scope_id``.
-WORKSPACE_SCOPE_TYPES = {"workspace", "project"}
 TRUST_LEVELS = {"bronze", "silver", "gold", "official", "verified", "untrusted"}
 
 
@@ -48,9 +46,8 @@ async def review_imported_engineering_knowledge_package(
     imported facts to is resolved first: an unknown one is 404 ``project_not_found`` before anything is written."""
 
     scope = _review_scope(payload)
-    await require_existing_workspace(db, scope["workspace_id"])
-    if scope["scope_type"] in WORKSPACE_SCOPE_TYPES:
-        await require_existing_workspace(db, scope["scope_id"])
+    await require_scope_workspaces(db, current_user.id, scope_type=scope["scope_type"], scope_id=scope["scope_id"],
+                                   workspace_id=scope["workspace_id"])
     safe_action = str(action or "").strip().lower()
     if safe_action not in IMPORT_REVIEW_ACTIONS:
         raise HTTPException(status_code=400, detail="Unsupported federation import review action")

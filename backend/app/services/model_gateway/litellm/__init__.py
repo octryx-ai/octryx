@@ -1,11 +1,4 @@
-"""Governed LiteLLM gateway client adapter.
-
-Octryx keeps policy, alias admission, credential, budget, audit, and
-failure-semantics ownership; the cluster LiteLLM service is the model data
-plane. This package is a client for that data plane — it does not proxy,
-load-balance, or route upstream models, and it never exposes an upstream
-provider or model identifier to an agent or a user.
-"""
+"""Governed LiteLLM gateway client adapter."""
 
 from .alias_catalog import (
     GATEWAY_CAPABILITIES,

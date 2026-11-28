@@ -1,17 +1,5 @@
-"""Merge request notes, discussions and member access on GitLab, for the review bot (threads and
-``@octryx`` commands).
-
-- ``comments_since``: the notes of the open merge requests created since a time, read discussion by discussion
-  (``GET …/merge_requests/:iid/discussions``, page by page); a system note (``added 1 commit``) is never a comment.
-  Every note is returned as ``{id, pr, author, author_id, body, created_at, in_reply_to, inline}``, the shape of
-  ``github_pr_comments``. A GitLab thread is a discussion: a note in one names its discussion id as ``in_reply_to``,
-  so a reply goes to ``POST …/discussions/:id/notes``; a note on its own (``individual_note``) names none;
-- ``permissions``: a commenter's access level on the project (``GET …/members/all?query=``, inherited members
-  included) in the review bot's words: ``admin`` (Owner), ``maintain`` (Maintainer), ``write`` (Developer),
-  ``read`` (Reporter, Guest, Planner), ``none`` (not a member); ``unknown`` when the token may not read it;
-- ``answer_threads``: the replies in the threads of earlier inline comments and, when asked, the thread resolved
-  (``PUT …/discussions/:id?resolved=true``). A thread that cannot be answered is named with its reason.
-"""
+"""Merge request notes, discussions and member access on GitLab, for the review bot (threads and ``@octryx``
+commands)."""
 
 from __future__ import annotations
 
@@ -31,7 +19,6 @@ ACCESS_LEVELS = ((50, "admin"), (40, "maintain"), (30, "write"), (5, "read"))
 
 
 async def pages(http: Any, headers: dict[str, str], url: str, params: dict[str, Any]) -> list[dict[str, Any]]:
-    """Every item of a GitLab list, page by page until a page is not full."""
     items: list[dict[str, Any]] = []
     page = 1
     while True:
@@ -66,7 +53,6 @@ def _notes(discussion: dict[str, Any], iid: str, after: datetime) -> list[dict[s
 
 async def comments_since(http: Any, headers: dict[str, str], base: str, since: str,
                          iids: list[str]) -> list[dict[str, Any]]:
-    """The notes on the open merge requests ``iids`` created since ``since`` (ISO 8601), oldest first."""
     after = _moment(since)
     if after is None:
         return []
@@ -105,7 +91,6 @@ def _why(error: Exception) -> str:
 
 async def answer_threads(http: Any, headers: dict[str, str], mr_base: str,
                          answers: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """``{comment_id, replied, resolved, reason?}`` per answer; ``comment_id`` is the discussion id."""
     done: list[dict[str, Any]] = []
     for answer in answers:
         discussion = str(answer.get("comment_id") or "")

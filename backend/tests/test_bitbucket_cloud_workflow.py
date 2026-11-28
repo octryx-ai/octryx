@@ -1,16 +1,4 @@
-"""Workflow B on Bitbucket Cloud: the run's actions, CI, webhooks and Knowledge sync on a Cloud connection.
-
-- the repository's named connection decides the deployment; on Cloud the requester reviews by Atlassian account id:
-  an explicit id on the engineering profile, else their email through the Workspace's Jira Cloud connection (one
-  exact account), else the step fails naming what to set;
-- CI is the build statuses of the pushed commit (Pipelines), through the governed tool on the connection; a stopped
-  pipeline fails, no status yet is running;
-- Cloud webhooks (``X-Event-Key``) become ``pr.*`` / ``ci.*``; one successful commit status never passes a commit
-  (the poll judges all), a failed one fails it; each delivery's ``X-Request-UUID`` is its replay key;
-- ``scm.comment`` posts on the open pull request of the run's branch; other providers fail and say so;
-- the Jira lookup by email accepts exactly one account whose visible email equals it;
-- a bitbucket.org repository is synced into Knowledge with exactly its Cloud connection's credential.
-"""
+"""Workflow B on Bitbucket Cloud: the run's actions, CI, webhooks and Knowledge sync on a Cloud connection."""
 
 from __future__ import annotations
 
@@ -57,9 +45,6 @@ async def test_on_cloud_the_requester_reviews_by_atlassian_account(db, monkeypat
 
 
 async def test_a_requester_whose_own_cloud_connection_opens_the_pr_is_its_author_not_unresolved(db, monkeypatch) -> None:
-    """A requester who saved the Bitbucket Cloud connection with their own Atlassian token but whose Octryx email
-    differs from it is not found by the Jira email lookup. They are the PR's author: ``requester_is_author``, no
-    lookup, no reviewer, never ``requester_unresolved``."""
     from app.models import ConnectorNamedConnection
 
     admin = await admin_user(db)
@@ -90,7 +75,7 @@ async def test_a_requester_whose_own_cloud_connection_opens_the_pr_is_its_author
     lookups.clear()
     chosen = await repo_ref.reviewers_for(db, run, ref)
     assert (chosen.requester, chosen.unresolved, chosen.is_author) == ("", "", True) and chosen.names == []
-    assert lookups == []  # no email lookup needed
+    assert lookups == []
 
     db.add(run)
     await db.flush()
@@ -109,9 +94,6 @@ async def test_a_requester_whose_own_cloud_connection_opens_the_pr_is_its_author
 
 
 async def test_a_shared_platform_cloud_connection_saved_by_the_requester_is_theirs(db, monkeypatch) -> None:
-    """The platform's Bitbucket connection, saved by the requester and shared with the Workspace (no own Bitbucket
-    entry: a passthrough route without a named target), must not say ``requester_unresolved``. The account is
-    matched by the connection's username, so it is ``requester_is_author``."""
     import uuid
 
     from app.models import ConnectionWorkspace, ConnectorNamedConnection
@@ -136,5 +118,4 @@ async def test_a_shared_platform_cloud_connection_saved_by_the_requester_is_thei
     monkeypatch.setattr(bitbucket_cloud, "dispatch_tool", no_lookup)
     assert await bitbucket_cloud.requester_account(db, _run(workspace_id, admin.id), args) == (
         "", bitbucket_cloud.REQUESTER_IS_AUTHOR)
-    # Started by someone else: their own account is not the connection's.
     assert not await bitbucket_cloud.personal_connection(db, _run(workspace_id, other_id), args)

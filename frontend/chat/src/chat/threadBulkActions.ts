@@ -1,5 +1,3 @@
-// Chat sidebar bulk actions: one request per action, the
-// list reloads once, and the server's result (affected and skipped ids) is what the user sees.
 import {
   bulkRequestBody,
   type ThreadBulkAction,
@@ -55,7 +53,6 @@ async function postBulk(readJson: ReadJsonFn, body: unknown): Promise<ThreadBulk
   );
 }
 
-/** What the server would do: the confirm dialog shows these numbers, nothing changes. */
 export function previewThreadBulkAction(
   readJson: ReadJsonFn,
   selection: ThreadSelection,
@@ -64,10 +61,6 @@ export function previewThreadBulkAction(
   return postBulk(readJson, bulkRequestBody(selection, action, true));
 }
 
-/**
- * Runs the action in one request and reloads the list exactly once, also when the request
- * fails. When the open chat is among the affected ids, the reload navigates to `newThreadSearch`.
- */
 export async function performThreadBulkAction({
   readJson,
   loadState,
@@ -83,7 +76,6 @@ export async function performThreadBulkAction({
   action: ThreadBulkAction;
   selectedSessionId: string | null;
   newThreadSearch: string;
-  /** Drops the affected rows from the list at once (loaded pages included). */
   forgetThreads?: (ids: string[]) => void;
 }): Promise<ThreadBulkResult> {
   let result: ThreadBulkResult | null = null;
@@ -121,7 +113,6 @@ export async function restoreThreads({
   }
 }
 
-/** The server count of a Workspace (optionally for a search) and the server time it holds for. */
 export async function fetchThreadGroupCount(
   readJson: ReadJsonFn,
   projectId: string,
@@ -144,7 +135,6 @@ const SKIP_REASON_LABEL: Record<ThreadBulkSkipReason, string> = {
   failed: "failed",
 };
 
-/** "69 chats archived · 2 skipped: running" — partial results are always reported. */
 export function bulkResultMessage(action: ThreadBulkAction, result: ThreadBulkResult): string {
   const verb = action === "delete" ? "deleted" : action === "restore" ? "restored" : "archived";
   const done = `${plural(result.affectedIds.length, "chat", "chats")} ${verb}`;

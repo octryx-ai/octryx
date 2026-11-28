@@ -1,20 +1,4 @@
-"""Command safety's ``command_guardrail`` check: content handling of the kinds that matter for commands.
-
-The command text is scanned with the detectors of the commands-relevant kinds (``content_security.handling``:
-credentials, credential assignments, internal IP addresses) the Workspace's plan acts on (surface ``commands``).
-Per kind found, the plan's action decides:
-
-- shipped default ``review`` (and ``mask``: a command cannot be masked): sent for review, because the value would
-  leave the platform in the command's output or arguments;
-- ``refuse``: denied;
-- ``reroute`` / ``mask_reroute``: denied with ``content_route_unavailable`` (a command cannot be rerouted);
-- ``report``: allowed, the finding named as informational.
-
-Email addresses are not a reason to ask a person (``git config user.email``), prompt-injection phrases are a
-model-input concern. The finding names the policies and detector counts, never the matched text. A command the
-scan could not finish examining (``Examination.finished`` false) is sent for review: no finding is not the same as
-a clean command. A plan that cannot be read denies (``content_handling_unavailable``).
-"""
+"""Command safety's ``command_guardrail`` check: content handling of the kinds that matter for commands."""
 
 from __future__ import annotations
 
@@ -43,8 +27,6 @@ SOURCE_COMMAND = "command"
 
 
 def _scope(context: ToolContext | None) -> str | PlatformScope:
-    """The turn's Workspace, or — a turn without one is a session without a Workspace by design — the platform
-    scope (``handling.PlatformScope``)."""
     config = context.project_config if context is not None and isinstance(context.project_config, dict) else {}
     chosen = config.get("project_id") or (context.project_ids[0] if context is not None and context.project_ids
                                           else None)

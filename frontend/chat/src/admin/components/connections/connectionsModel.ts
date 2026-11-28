@@ -1,7 +1,3 @@
-// Admin › Connections. One connection = type + access + where it
-// is available + its uses (Knowledge, Tickets, Agent tools, Repositories). Every field name the page relies on is
-// read here; the page never computes the effective
-// value (the server's effective() does).
 import type { StatusTone } from "../../../layout/StatusLabel";
 import { humanize, scheduleText } from "./connectionTypes";
 
@@ -18,9 +14,6 @@ export type ConnectionRow = {
   deviationCount: number; problemsCount: number;
 };
 
-// `values` holds the non-secret access fields as the server sends them in access.fields (keyed like the type's
-// access_fields; bools as "true"/"false", lists joined with ", "); `secrets` says per secret field whether one is
-// stored (access.secrets). A secret value is never read back.
 export type Access = { baseUrl: string; auth: string; account: string; secretSet: boolean; values: Record<string, string>;
   secrets: Record<string, boolean> };
 export type KnowledgeUse = { enabled: boolean; scope: unknown; schedule: string; scheduleCron: string; lastSyncAt: string | null;
@@ -31,19 +24,14 @@ export type TicketsUse = { enabled: boolean; filter: string; schedule: string; s
   statusMap: Array<{ source: string; ours: string }>;
   // Write-back belongs to the Workspace's work item workflow (422 write_back_on_workflow): shown here, never sent.
   writeBack: { enabled: boolean; transitions: Array<{ ours: string; source: string }> };
-  // The intakes behind this use: each row has its own "Sync now".
   intakes: Intake[] };
 export type AgentToolsUse = { level: ToolLevel; tools: Array<{ name: string; level: ToolLevel }> };
 export type Repository = { name: string; build: string; test: string; owners: string[]; branchRule: string };
-// canEdit: deviations[].can_edit — whether this person may reset this workspace's deviation (platform admins, and
-// the workspace's own admin for its own deviation); null when the server does not say, then the connection's.
 export type Deviation = { workspace: WorkspaceRef; fields: Record<string, unknown>; canEdit: boolean | null };
-// code: the fixed code when the server sends one (tooltip); message: the sentence, or a bare code (errorSentence).
 export type RecentError = { at: string | null; use: string; message: string; code: string };
 
 export type ConnectionDetail = Omit<ConnectionRow, "uses" | "deviationCount" | "problemsCount"> & {
   access: Access;
-  // The keys this connection serves (bound_scopes); [] = not bound.
   boundScopes: string[];
   knowledge: KnowledgeUse | null; tickets: TicketsUse | null; agentTools: AgentToolsUse | null;
   repositories: Repository[]; deviations: Deviation[]; recentErrors: RecentError[];
@@ -58,7 +46,6 @@ const str = (value: unknown): string => (typeof value === "string" ? value : "")
 const list = (value: unknown): unknown[] => (Array.isArray(value) ? value : []);
 const num = (value: unknown): number | null => (typeof value === "number" && Number.isFinite(value) ? value : null);
 
-/** One access field value as the form edits it (text). */
 function fieldText(value: unknown): string | null {
   if (typeof value === "string") return value;
   if (typeof value === "boolean") return value ? "true" : "false";
@@ -148,8 +135,6 @@ export function readTestResult(payload: unknown): TestResult {
     checks: list(row.checks).map((entry) => ({ use: str(rec(entry)?.use), ok: rec(entry)?.ok === true, message: str(rec(entry)?.message) })) };
 }
 
-// ---- words ---------------------------------------------------------------------------------------------------
-
 const STATE_WORDS: Record<ConnectionState, { label: string; tone: StatusTone }> = {
   ok: { label: "Working", tone: "neutral" },
   failing: { label: "Failing", tone: "problem" },
@@ -169,10 +154,8 @@ export function usesText(uses: ConnectionRow["uses"]): string {
   return parts.filter(Boolean).join(" · ") || "—";
 }
 
-/** Whether this person may reset a workspace's deviation: its can_edit, else the connection's. */
 export const canResetDeviation = (detail: ConnectionDetail, deviation: Deviation) => deviation.canEdit ?? detail.canEdit;
 
-/** One readable line for a deviation's fields, e.g. "Knowledge scope: BRD-sub · Tickets schedule: Off". */
 export function deviationText(fields: Record<string, unknown>): string {
   const flat: string[] = [];
   const walk = (prefix: string, value: unknown) => {
@@ -184,18 +167,15 @@ export function deviationText(fields: Record<string, unknown>): string {
   return flat.join(" · ") || "—";
 }
 
-/** The scope of a use as one line ("Projects: BRD, OPS"); the raw value stays in the tooltip. */
 export function scopeText(scope: unknown): string {
   const row = rec(scope);
   if (!row) return typeof scope === "string" && scope ? scope : "Everything the connection can read";
   return Object.entries(row).map(([key, value]) => `${humanize(key)}: ${Array.isArray(value) ? value.join(", ") : String(value)}`).join(" · ") || "Everything the connection can read";
 }
 
-/** Where write-back is changed: the Workspace's work item workflow (write_back_on_workflow), today Work › write-back. */
 export const writeBackHrefFor = (workspaceId: string) =>
   `/chat?area=work&work_view=writeback${workspaceId ? `&workspace_id=${encodeURIComponent(workspaceId)}` : ""}`;
 
-/** The answer to a delete as one sentence; a connection still in use lists where (409 connection_in_use). */
 export function deleteResultText(status: number, payload: unknown): { ok: boolean; text: string } {
   if (status >= 200 && status < 300) return { ok: true, text: "The connection was deleted." };
   const detail = rec(rec(payload)?.detail);
@@ -211,13 +191,9 @@ export function deleteResultText(status: number, payload: unknown): { ok: boolea
   return { ok: false, text: str(detail?.message) || "The connection could not be deleted." };
 }
 
-/**
- * Where "needs approval" is set today: Rules › Tool & approval policies. The one rule list filtered to a connection
- * (?tab=adminRules&connection=<id>) waits for the server's central rules.
- */
+/** A rule list filtered to one connection waits for the server's central rules. */
 export const rulesHrefFor = (_connectionId: string) => "/chat?area=admin&tab=policies";
 
-/** The result of an intake's "Sync now" as one sentence. */
 export function intakeSyncText(status: number, payload: unknown): string {
   if (status >= 200 && status < 300) {
     const summary = rec(rec(payload)?.summary);
@@ -232,8 +208,6 @@ export function intakeSyncText(status: number, payload: unknown): string {
   return "The sync could not be started.";
 }
 
-// ---- address -------------------------------------------------------------------------------------------------
-
 export function readConnectionAddress(search: string): { id: string; page: boolean } {
   const params = new URLSearchParams(search);
   return { id: params.get("connection") || "", page: params.get("connection_view") === "page" };
@@ -247,10 +221,6 @@ export function connectionAddress(search: string, id: string, page = false): str
   return query ? `?${query}` : "";
 }
 
-/**
- * The address of the connector settings page for one type: `?connector=<type>` opens
- * that connector there; the open connection is dropped so returning to Connections does not reopen its panel.
- */
 export function connectorSettingsAddress(search: string, type: string): string {
   const params = new URLSearchParams(search);
   params.delete("connection");
@@ -260,13 +230,8 @@ export function connectorSettingsAddress(search: string, type: string): string {
   return query ? `?${query}` : "";
 }
 
-// Words that keep their capitals in a tool name.
 const TOOL_WORD_CASE: Record<string, string> = { pr: "PR", prs: "PRs", url: "URL", id: "ID", ids: "IDs", api: "API", jql: "JQL", cql: "CQL" };
 
-/**
- * A tool's function name in words, without the connection's own type:
- * add_bitbucket_pull_request_comment on a Bitbucket connection → "Add pull request comment".
- */
 export function connectionToolLabel(name: string, type: string): string {
   const own = type.toLowerCase();
   const words = name.split(/[_\s-]+/).filter((word) => word && word.toLowerCase() !== own);

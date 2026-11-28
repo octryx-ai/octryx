@@ -1,15 +1,4 @@
-"""Access to records that belong to a chat session: orchestrator runs, clarifications.
-
-A session-owned record is readable and actionable exactly by those who may read or write its
-session, following the chat-session rule (``collaboration.require_session_access``): the owner,
-a collaborator, a team member of a team Workspace, or the holder of an explicit grant — plus a
-global admin, who sees every session. The answers are the chat-session ones:
-
-* 404 when the caller cannot see the session, with the record's own "not found" detail, so an
-  unseen record is indistinguishable from an unknown id;
-* 403 when the caller can see the session but holds a lower role than an action needs
-  (an ``observer`` collaborator or a ``read`` grant writing).
-"""
+"""Access to records that belong to a chat session, by the chat-session access rule."""
 
 from __future__ import annotations
 
@@ -37,7 +26,6 @@ async def require_session_resource_access(
     require_write: bool = False,
     not_found_detail: str = SESSION_NOT_FOUND_DETAIL,
 ) -> Session:
-    """The session when ``user_id`` may read it (or write it), else 404/403."""
     if await is_global_admin(db, user_id):
         from ..project.private_workspace import refuse_foreign_private  # noqa: PLC0415
 
@@ -65,7 +53,6 @@ async def require_record_access(
     not_found_detail: str,
     require_write: bool = False,
 ) -> Session:
-    """The record's session when the caller may use the record; an unknown record is a 404 too."""
     if record is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=not_found_detail)
     return await require_session_resource_access(
@@ -78,7 +65,7 @@ async def require_record_access(
 
 
 def require_matching_project(session: Session, project_id: str | None) -> str | None:
-    """A record created for a session belongs to the session's Workspace, never to another one."""
+    # A record created for a session belongs to the session's Workspace, never to another one.
     if project_id is not None and project_id != session.project_id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="project_id does not match the session")
     return session.project_id

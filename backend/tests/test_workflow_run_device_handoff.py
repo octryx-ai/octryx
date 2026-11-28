@@ -1,10 +1,4 @@
-"""Review fixes of S7/S10: a device run's change is what the reviewer reviews and exactly what the platform pushes.
-
-The octryx-claude launcher reports the working copy as a patch against the run's base, untracked files included
-(the review found new files invisible to the reviewer); the server applies it to its own working copy of the run's
-branch, the reviewer reviews that copy, and ``scm.push`` pushes only the reviewed tree (the review found the server
-would push its own, unchanged copy). A device run without a reviewed change is never pushed.
-"""
+"""Review fixes of S7/S10: a device run's change is what the reviewer reviews and exactly what the platform pushes."""
 
 from __future__ import annotations
 
@@ -23,8 +17,11 @@ from app.services.workflow_runs.platform.dispatch import read_outcome
 from app.services.workflow_runs.review.runner import run_due_reviews
 from app.time_utils import utc_now
 from tests.phased_workflow_fixtures import PHASE
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_support import _bound_run, _call
 from tests.workflow_run_review_support import PASS, ScriptedReviewer
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _git(cwd: Path, *args: str, env: dict | None = None) -> str:
@@ -68,7 +65,6 @@ def _repos(tmp_path: Path) -> tuple[Path, Path, str]:
 
 
 def _device_patch(device: Path, base: str) -> str:
-    """What the launcher reports: everything against the base, new files included (a temporary index)."""
     env = {**os.environ, "GIT_INDEX_FILE": str(device / ".git" / "facts-index")}
     _git(device, "read-tree", "HEAD", env=env)
     _git(device, "add", "-A", env=env)
@@ -76,8 +72,6 @@ def _device_patch(device: Path, base: str) -> str:
 
 
 class Pushes:
-    """The SCM push tool: commits the staged working copy and reports the commit it pushed."""
-
     def __init__(self, monkeypatch):
         self.commits: list[str] = []
 
@@ -99,7 +93,7 @@ async def test_the_device_change_with_its_new_files_is_reviewed_and_exactly_that
     run.repository, run.branch = "github:acme/pay", "bugfix/PAY-1-totals"
     run.context = {**run.context, "local_path": str(server), "base_sha": base}
     (device / "pay" / "totals.py").write_text("def total(x):\n    return round_half_up(x)\n")
-    (device / "pay" / "rounding.py").write_text("def round_half_up(x):\n    return int(x + 0.5)\n")  # untracked
+    (device / "pay" / "rounding.py").write_text("def round_half_up(x):\n    return int(x + 0.5)\n")
 
     at = utc_now() + timedelta(seconds=5)
     facts = {"node_id": "fix", "entry": run.node_state["entry"],
@@ -112,15 +106,14 @@ async def test_the_device_change_with_its_new_files_is_reviewed_and_exactly_that
 
     reviewer = ScriptedReviewer(PASS)
     assert await run_due_reviews(db, model_factory=reviewer.factory) == 1
-    assert "+def round_half_up(x):" in reviewer.tasks[0][1]  # the new file is part of what was reviewed
+    assert "+def round_half_up(x):" in reviewer.tasks[0][1]
     run = await db.get(WorkflowRun, run.id)
     assert (run.status, run.outcome) == ("completed", "done")
     reviewed = run.context["review"]["tree"]
-    assert _git(server, "rev-parse", f"{pushes.commits[0]}^{{tree}}") == reviewed  # pushed == reviewed
+    assert _git(server, "rev-parse", f"{pushes.commits[0]}^{{tree}}") == reviewed
     assert run.context["head_sha"] == pushes.commits[0]
     assert (server / "pay" / "rounding.py").exists()
 
-    # The working copy moved on after the review: the push refuses instead of pushing an unreviewed change.
     (server / "pay" / "late.py").write_text("x = 1\n")
     refused = await scm.push(db, run, {})
     assert refused.state == "failed" and "no longer the change the reviewer reviewed" in refused.reason
@@ -139,7 +132,6 @@ async def test_a_device_run_without_a_reviewed_change_is_never_pushed(db, tmp_pa
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)

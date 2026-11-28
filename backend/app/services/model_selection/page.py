@@ -1,7 +1,4 @@
-"""The Default & fallback page payload: platform order, fallback choice, task models and the enabled models.
-
-Models are shown by display name; the catalog key is the only identifier the page sends back.
-"""
+"""The Default & fallback page payload: platform order, fallback choice, task models and the enabled models."""
 
 from __future__ import annotations
 

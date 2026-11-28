@@ -1,10 +1,6 @@
-// Designer model groups: hand-made groups of boxes (display only), created, renamed or dissolved.
 import { clone, nodeIds, uniqueId, withoutMembers, type DesignGroup, type DesignModel } from "./modelCore";
 
-/**
- * A new group of these boxes (each box belongs to one group: it leaves its old one). ``current`` are the groups the
- * canvas draws now: the first hand-made change keeps them instead of dropping back to none.
- */
+/** `current` keeps the drawn groups, so the first hand-made change does not drop back to none. */
 export function createGroup(model: DesignModel, members: string[], label: string, current: DesignGroup[]): { model: DesignModel; id: string | null } {
   const known = new Set(nodeIds(model));
   const chosen = [...new Set(members.filter((id) => known.has(id)))];

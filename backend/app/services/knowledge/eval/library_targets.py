@@ -27,11 +27,10 @@ _HIT_TYPES = {
 
 
 class RefusedTargetError(ValueError):
-    """The capture target or output location is not allowed."""
+    pass
 
 
 def check_base_url(base_url: str) -> str:
-    """HTTPS anywhere, HTTP only on loopback; never userinfo, a path, a query or a fragment."""
     parts = urlsplit(base_url)
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise RefusedTargetError("base URL must be http(s)://host[:port]")
@@ -51,7 +50,6 @@ def check_base_url(base_url: str) -> str:
 
 
 def check_private_output(path: str | Path) -> Path:
-    """A capture holds real source content: refuse any location inside a git working tree."""
     target = Path(path).expanduser().resolve()
     for parent in (target.parent, *target.parent.parents):
         if (parent / ".git").exists():
@@ -69,6 +67,5 @@ def search_path(project_id: str) -> str:
 
 
 def _guard(request: httpx.Request) -> None:
-    """Defence in depth: the client may only ever POST to the search route."""
     if request.method != "POST" or not SEARCH_PATH.match(request.url.path):
         raise RefusedTargetError(f"refused {request.method} outside the search route")

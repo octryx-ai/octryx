@@ -29,7 +29,6 @@ CURSOR_TIME_FIELDS = ("pass_started_at", "last_completed_at", "changes_since", "
 
 
 async def connection_candidates(db: AsyncSession, project_id: str, scope: dict | None) -> list[dict[str, str]]:
-    """The usable connections that could read an unlinked repository source (id, name, type), for the picker."""
     return describe_candidates(await git_connection_candidates(db, project_id, scope))
 
 
@@ -62,13 +61,6 @@ def _described_cursor(cursor: SyncCursor) -> dict:
 
 
 def _freshness(cursor: SyncCursor) -> dict:
-    """When the source was last fully reconciled; every time in UTC with offset.
-
-    ``last_full_pass_at`` is the last *clean* listing pass (no failed or deferred item): deletions,
-    moves and ACL changes are reconciled at least then. ``last_pass_closed_at`` and
-    ``last_pass_failures`` describe the last closed pass, clean or not. "Run now" always runs the
-    header listing pass (never the change accelerator), resuming an open pass.
-    """
     return {
         "last_full_pass_at": utc_iso(cursor.last_completed_at),
         "last_pass_closed_at": utc_iso(cursor.last_pass_closed_at),

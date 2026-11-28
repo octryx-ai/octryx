@@ -1,11 +1,4 @@
-"""``jira_release_status``: the live status of one release of a product, queried from Jira now.
-
-Read-only. The Workspace is the session's (server-owned, as for the Knowledge tools); the Jira
-connection is that Workspace's own, and the product resolves to a Jira project only through the
-explicit release configuration of the Workspace's Jira connector. Status is never answered from
-stored knowledge: this is a live query, and its answer says when it was made. Explicit states:
-``ok``, ``needs_configuration``, ``not_found``, ``denied``, ``unavailable``, ``invalid_request``.
-"""
+"""``jira_release_status``: the live status of one release of a product, queried from Jira now."""
 
 from __future__ import annotations
 

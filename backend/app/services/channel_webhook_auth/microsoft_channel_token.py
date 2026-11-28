@@ -1,23 +1,4 @@
-"""Verification of the JWT Microsoft sends with every Teams channel webhook.
-
-Two senders post to a Teams channel's webhook, each signing with its own published keys:
-
-* **Bot Framework** (chat activities, ``callStateChange``): keys from the Bot Framework OpenID
-  metadata, issuer ``https://api.botframework.com``. The token's ``serviceUrl`` claim must equal
-  the activity's ``serviceUrl``, and a key that carries ``endorsements`` must endorse the
-  activity's ``channelId``.
-* **Graph calling** (``commsNotifications`` sent to the call's ``callbackUri``): keys from the
-  Skype OpenID metadata, issuer ``https://graph.microsoft.com`` or
-  ``https://api.botframework.com``.
-
-For both: ``Authorization: Bearer <JWT>``, RS256 only, the audience is the channel's
-``app_id``, ``exp`` is required and checked, ``nbf`` when present, with
-:data:`CLOCK_SKEW_SECONDS` leeway. The key id decides the profile: a token verifies only with a
-key of the source that published it, so a Bot Framework token cannot pass as a Graph calling
-notification or the other way round. :func:`verify_microsoft_channel_token` authenticates the
-header before the body is parsed; :func:`require_bound_to_payload` then binds the verified
-claims to the parsed body before any handler runs.
-"""
+"""Verification of the JWT Microsoft sends with every Teams channel webhook."""
 
 from __future__ import annotations
 
@@ -105,7 +86,6 @@ _DECODE_REASONS: tuple[tuple[type[Exception], str], ...] = (
 async def verify_microsoft_channel_token(
     authorization: str | None, *, app_id: str, key_sources: Mapping[str, SigningKeySource]
 ) -> VerifiedMicrosoftToken:
-    """The verified claims of the request's bearer token; raise ``ChannelWebhookRefusedError`` otherwise."""
     token = _bearer_token(authorization)
     try:
         header = jwt.get_unverified_header(token)
@@ -144,7 +124,6 @@ def _normalized_service_url(value: object) -> str:
 
 
 def require_bound_to_payload(verified: VerifiedMicrosoftToken, payload: dict[str, Any]) -> None:
-    """The verified token must belong to this body: its sender profile, serviceUrl and channel."""
     is_graph_notification = payload.get("@odata.type") == GRAPH_COMMS_NOTIFICATIONS
     if verified.profile == GRAPH_CALLING.name:
         if not is_graph_notification:

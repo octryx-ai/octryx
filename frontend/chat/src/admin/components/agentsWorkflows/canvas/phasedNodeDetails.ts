@@ -39,7 +39,6 @@ const TOOL_GROUPS: Array<[string, RegExp]> = [
   ["run the tests", /^run_test_suite$/],
   ["search the knowledge base", /^knowledge_(search|read)$/],
   ["read the ticket", /^(get_jira_ticket|work_item_context|jira_.*)$/],
-  ["use helper agents", /^(spawn_sub_agent|get_context_from_subthreads)$/],
   ["keep a to-do list", /^todo_(read|write)$/],
 ];
 
@@ -114,7 +113,7 @@ function checksOf(raw: unknown): NodeCheck[] {
   });
 }
 
-function whoAndWhat(node: PhasedNode, config: Json, workflowKey?: string): [string, string] {
+function whoAndWhat(node: PhasedNode, config: Json): [string, string] {
   const contract = record(config.workflow_contract);
   switch (node.kind) {
     case "start":
@@ -135,7 +134,7 @@ function whoAndWhat(node: PhasedNode, config: Json, workflowKey?: string): [stri
     case "user_confirmation": {
       const subject = text(config.subject) || node.subject || "";
       const what = SUBJECT_WORDS[subject] ?? `The requester confirms the ${words(subject) || "result"}.`;
-      return ["The requester", [what, onOpenHighSentence(config, workflowKey)].filter(Boolean).join(" ")];
+      return ["The requester", [what, onOpenHighSentence(config)].filter(Boolean).join(" ")];
     }
     case "user_conversation":
       return ["The requester", text(config.question) || node.question || "Answers a question."];
@@ -174,11 +173,11 @@ function rulesOf(node: PhasedNode, config: Json): string[] {
   return rules;
 }
 
-export function describeNode(node: PhasedNode, edges: PhasedEdge[], nodes: PhasedNode[], workflowKey?: string): NodeDetails {
+export function describeNode(node: PhasedNode, edges: PhasedEdge[], nodes: PhasedNode[]): NodeDetails {
   const config = record(node.config);
   const byId = new Map(nodes.map((item) => [item.id, item]));
   const title = (id: string) => byId.get(id)?.title || id;
-  const [who, what] = whoAndWhat(node, config, workflowKey);
+  const [who, what] = whoAndWhat(node, config);
   const contract = record(config.workflow_contract);
   const checks = node.kind === "phase" ? checksOf(contract.checks) : node.kind === "gate" ? checksOf(config.checks) : [];
   const exits = edges

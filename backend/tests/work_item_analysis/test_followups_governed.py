@@ -33,8 +33,6 @@ UPSTREAM = f"BedrockException - `temperature` is deprecated for this model. api_
 
 
 class Failing:
-    """A provider whose every request is refused by the gateway with ``body`` (as the LiteLLM client raises it)."""
-
     def __init__(self, body: bytes, *, safe_detail: str | None = None) -> None:
         self.body = body
         self.safe_detail = safe_detail
@@ -57,8 +55,6 @@ class Failing:
 
 
 class Bounded(Scripted):
-    """``Scripted`` that also records the ``max_tokens`` of each request."""
-
     def __call__(self, **_kwargs: Any) -> Any:
         scripted = self
 

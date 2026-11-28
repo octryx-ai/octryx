@@ -128,7 +128,6 @@ if __name__ == "__main__":
 
 
 def render_word_script_template_render() -> str:
-    """The generated script text, assembled from its blocks in script order."""
     return _word_script_render_sections() + _word_script_render_sections_visual_layouts() + _word_script_main()
 
 

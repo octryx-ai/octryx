@@ -20,9 +20,10 @@ from app.services.workflow_runs.handoff import allocation, lifecycle, owner_life
 from app.services.workflow_runs.phase_outputs import submit_output
 from app.tools.context import ToolContext
 from app.tools.registry import execute_tool
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.team_handoff_support import action, counts, rights, setup_case
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 
 
 @pytest.fixture(autouse=True)
@@ -39,7 +40,6 @@ def edge(name, source, target, when=None):
 
 
 async def graph_case(db, *, detached=False, legacy=False):
-    """Seed confirmed source state, then enter the real typed/legacy sub-workflow handler."""
     c = await setup_case(db, pool=True, detach=detached)
     contract, child_descriptor = c.row.contract, c.row.child_descriptor
     await db.delete(c.row)

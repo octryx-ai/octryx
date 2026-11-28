@@ -1,28 +1,4 @@
-"""Publish & prove: the graph's server steps and the seams to the write-intent and proof functions.
-
-The publish & prove version of workflow B names these definition-only platform actions. Their routes are wired
-here (``graph.route_values`` reads :data:`S1_ACTION_ROUTES`); their catalog entries and the one
-dispatch line (:func:`run_s1_action`) are in the platform-action registry.
-
-- ``documentation.tree_unchanged`` (``tree_check``): the read-only pre-push draft left the reviewed tree untouched;
-- ``documentation.preflight`` (``preflight``): every configuration the publication needs, before card (a)/(b),
-  else ``needs_configuration``;
-- ``documentation.reserve_publication``: reserves the stable operation id and marker **before** card (b) is
-  rendered, so the confirmed body is the sent body;
-- ``documentation.publish_v2``: reconciles every potentially sent intent first, then publishes the approved one
-  (Cloud v2); a changed page or target routes ``reconfirm`` (a new card (b) on the new base);
-- ``documentation.sync_published_version``: syncs and pins the published version;
-- ``documentation.audience_proof`` (``principal_role``: ``audience`` | ``outsider``): issues the server-owned
-  challenge; the run waits (``audience_receipt``) until the expected principal's real retrieval was recorded, then
-  consumes the receipt once (:func:`check_audience_receipt`);
-- ``documentation.acceptance_open``, ``followup_create``, ``followup_readback``, ``done_check``
-  (``acceptance``): the deferred statement (a), the authorised follow-up, and ``done`` only with a resolved (a) and a
-  valid, currently bound publication proof.
-
-The write-intent and proof functions are reached by name (:func:`interface`); a test replaces them in
-:data:`OVERRIDES`. A function that is not integrated yet fails the step closed (``not_configured``), never silently
-succeeds.
-"""
+"""Publish & prove: the graph's server steps and the seams to the write-intent and proof functions."""
 
 from __future__ import annotations
 
@@ -47,7 +23,6 @@ ROUTE_ACCEPTED, ROUTE_REJECTED = "accepted", "rejected"
 ROUTE_BLOCKED, ROUTE_EXCEPTION = "blocked", "exception"
 ROLE_AUDIENCE, ROLE_OUTSIDER = "audience", "outsider"
 
-# The closed routes of each publish & prove action (``graph.route_values``).
 S1_ACTION_ROUTES: dict[str, frozenset[str]] = {
     TREE_UNCHANGED: frozenset({SUCCEEDED, FAILED}),
     PREFLIGHT: frozenset({SUCCEEDED, FAILED}),
@@ -60,7 +35,6 @@ S1_ACTION_ROUTES: dict[str, frozenset[str]] = {
     FOLLOWUP_READBACK: frozenset({ROUTE_BLOCKED, ROUTE_EXCEPTION, FAILED}),
     DONE_CHECK: frozenset({SUCCEEDED, FAILED}),
 }
-# The capability class and the closed params of each (the catalog entries, all definition-only).
 S1_ACTION_CLASSES: dict[str, str] = {
     TREE_UNCHANGED: "read_only", PREFLIGHT: "read_only", RESERVE_PUBLICATION: "change", PUBLISH_V2: "deliver",
     SYNC_PUBLISHED_VERSION: "change", AUDIENCE_PROOF: "change", ACCEPTANCE_OPEN: "read_only",
@@ -84,9 +58,6 @@ RECONFIRM_CLASSES = frozenset({CLASS_PAGE_CHANGED, CLASS_TARGET_DRIFT})
 
 CONTEXT_KEY = "publish_prove"
 
-# --- The write-intent / proof seams -----------------------------------------------------------------------------------
-
-# name -> module under ``documentation`` (the interface note's fixed names).
 INTERFACES: dict[str, str] = {
     "reserve_publication_intent": "write_intent",
     "approve_publication_intent": "write_intent",
@@ -97,12 +68,11 @@ INTERFACES: dict[str, str] = {
     "consume_audience_receipt": "audience_receipt",
     "validate_current_publication_proof": "audience_receipt",
 }
-# A test's stand-ins, by name.
 OVERRIDES: dict[str, Callable[..., Any]] = {}
 
 
 class NotIntegratedError(LookupError):
-    """A write-intent or proof function this step needs is not in this build yet."""
+    pass
 
 
 def interface(name: str) -> Callable[..., Any]:
@@ -128,7 +98,6 @@ def _not_integrated(name: str):
 
 
 async def _call(name: str, *args: Any, **kwargs: Any) -> Any:
-    """The write-intent or proof function's result, or a failed outcome (not integrated, or it raised)."""
     from ..platform.dispatch import ToolOutcome, class_of_exception
 
     try:
@@ -157,8 +126,6 @@ def _is_outcome(value: Any) -> bool:
     return isinstance(value, ToolOutcome)
 
 
-# --- Run facts ------------------------------------------------------------------------------------------------
-
 def facts(run: Any) -> dict[str, Any]:
     return dict(dict(run.context or {}).get(CONTEXT_KEY) or {})
 
@@ -170,7 +137,6 @@ def set_facts(run: Any, **values: Any) -> dict[str, Any]:
 
 
 async def active_intent(db: Any, run: Any) -> Any:
-    """The run's active documentation write intent (one per run and slot), else ``None``."""
     from sqlalchemy import select
 
     from ....models.runtime.documentation_publication import (
@@ -185,7 +151,6 @@ async def active_intent(db: Any, run: Any) -> Any:
 
 
 async def latest_intent(db: Any, run: Any) -> Any:
-    """The run's newest documentation write intent in any state (the one a proof must be bound to)."""
     from sqlalchemy import select
 
     from ....models.runtime.documentation_publication import DOCUMENTATION_SLOT, DocumentationWriteIntent
@@ -208,8 +173,6 @@ async def latest_intent(db: Any, run: Any) -> Any:
 
 
 
-# --- Handlers -------------------------------------------------------------------------------------------------
-
 async def _reserve(db: Any, run: Any) -> tuple[Any, str]:
     from ..platform.dispatch import ToolOutcome
 
@@ -230,7 +193,6 @@ def _publish_route(outcome: Any) -> str:
 
 
 async def _publish(db: Any, run: Any) -> tuple[Any, str]:
-    """Reconcile every potentially sent intent before any new write, then publish the approved one."""
     from ....models.runtime.documentation_publication import INTENT_POTENTIALLY_SENT_STATES, INTENT_SENDABLE_STATES
     from ....time_utils import utc_now
     intent = await active_intent(db, run)
@@ -299,7 +261,6 @@ def _waiting_view(receipt: Any, role: str) -> dict[str, Any]:
 
 
 async def _audience(db: Any, run: Any, params: dict[str, Any], node: Any) -> tuple[Any, str]:
-    """Issue the server-owned challenge and wait (``audience_receipt``) for the principal's own retrieval."""
     from ....time_utils import utc_now
     from ..platform.dispatch import ToolOutcome
     from ..platform_actions import WAIT
@@ -323,9 +284,6 @@ async def _audience(db: Any, run: Any, params: dict[str, Any], node: Any) -> tup
 
 
 async def check_audience_receipt(db: Any, run: Any, *, actor_id: str | None) -> str:
-    """Consume the waiting challenge's receipt once: ``succeeded`` / ``failed`` route on, ``pending`` keeps waiting.
-
-    Called by the requester's "check now" action and by the proof route once P's retrieval was recorded."""
     from ....time_utils import utc_now
     from ..action_failures import record_failure
     from ..engine import resolve_current_node
@@ -360,7 +318,6 @@ async def check_audience_receipt(db: Any, run: Any, *, actor_id: str | None) -> 
 
 
 async def audience_receipt_recorded(db: Any, run_id: str) -> str:
-    """The proof route's hook: P's retrieval was recorded, so the waiting run consumes it now."""
     from ....models import WorkflowRun
     from ..records import lock_run
 
@@ -372,7 +329,6 @@ async def audience_receipt_recorded(db: Any, run_id: str) -> str:
 
 
 async def approve_publication(db: Any, run: Any, decision: Any, payload: dict[str, Any]) -> None:
-    """Card (b) confirmed: bind the exact confirmed card, output and body hashes to the reserved intent."""
     from ..records import WorkflowRunError
 
     try:
@@ -380,14 +336,13 @@ async def approve_publication(db: Any, run: Any, decision: Any, payload: dict[st
     except NotIntegratedError as error:
         raise WorkflowRunError("publication_not_integrated", "The publication cannot be approved in this build.",
                                409) from error
-    await db.flush()  # the decision's id
+    await db.flush()
     await approve(db, run, decision_id=decision.id, card_hash=decision.payload_hash,
                   output_hash=str(payload.get("output_hash") or ""), body_hash=str(payload.get("canonical_hash") or ""))
     set_facts(run, publication_decision_id=decision.id)
 
 
 async def run_s1_action(db: Any, run: Any, key: str, params: dict[str, Any], node: Any) -> tuple[Any, str]:
-    """``(outcome, route)`` of a publish & prove action (``WAIT``: the run now waits for a person or a receipt)."""
     from . import acceptance, followup_exception, preflight, publish_prove_state, tree_check
 
     if key == TREE_UNCHANGED:

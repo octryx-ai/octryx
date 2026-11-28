@@ -1,18 +1,4 @@
-"""Governed LLM generate function for knowledge extraction/summarization.
-
-Builds a ``generate(prompt) -> str`` callable backed by the control plane:
-runtime targets tagged with the requested role (``use_case_tags``, e.g.
-``extract`` or ``summarize``) are preferred; otherwise the normal prioritized
-runtime order applies. Runtimes are tried in order; if all fail (or none is
-configured) the call raises loudly — extraction never silently degrades.
-
-``project_ids`` is a required Workspace scope, not an optional hint: every caller
-knows which Workspace (or federated candidate set) it is extracting for, and the
-admission boundary admits a governed gateway alias only when *every* project in
-that scope grants it. An empty scope is a configuration gap, so it raises
-:class:`KnowledgeLLMUnavailableError` with the explicit admission state instead of
-resolving to an unverifiable admission that could only fail at dispatch.
-"""
+"""Governed LLM generate function for knowledge extraction/summarization."""
 
 from __future__ import annotations
 
@@ -35,13 +21,7 @@ ROLE_KEYWORDS = "keywords"
 
 
 class KnowledgeLLMUnavailableError(RuntimeError):
-    """No governed LLM runtime could serve the knowledge role.
-
-    A Workspace-policy refusal carries the boundary's bounded
-    ``DispatchAdmission.to_result()`` payload, so a caller can report the explicit
-    admission state instead of flattening it into a free-text error. The payload is
-    empty for an ordinary configuration or provider outcome.
-    """
+    """No governed LLM runtime could serve the knowledge role."""
 
     def __init__(self, message: str, *, admission_result: Mapping[str, Any] | None = None):
         super().__init__(message)
@@ -64,11 +44,7 @@ KNOWLEDGE_RUNTIME_FAILED = "knowledge_runtime_failed"
 
 
 class KnowledgeLLMRuntimeFailedError(KnowledgeLLMUnavailableError):
-    """Every admitted runtime failed; carries a closed code and the last error's class only.
-
-    The provider's own error stays reachable as ``__cause__`` (for tracebacks in operator
-    logs); its message never enters this error's message, a stored record or a response.
-    """
+    """Every admitted runtime failed; carries a closed code and the last error's class only."""
 
     def __init__(
         self,
@@ -91,7 +67,6 @@ class KnowledgeLLMRuntimeFailedError(KnowledgeLLMUnavailableError):
 async def _admitted_runtimes(
     db: AsyncSession, project_ids: Sequence[str] | str | None
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """``(dispatchable runtimes, refusal result)`` after the Workspace admission boundary."""
     # Imported lazily: control_plane_service and the provider registry pull large
     # dependency graphs and this module sits on the knowledge hot path.
     from ..control_plane_service import resolve_control_plane_runtimes
@@ -197,14 +172,8 @@ async def build_generate_fn(
     max_tokens: int = 1600,
     require_role_match: bool = False,
 ) -> Callable[[str], Awaitable[str]]:
-    """Resolve governed runtimes now; return an async generate(prompt) callable.
-
-    Resolution happens eagerly so a missing configuration surfaces immediately
-    (needs_configuration semantics), not in the middle of an ingestion run.
-    ``require_role_match=True`` restricts to runtimes explicitly tagged with the
-    role — for per-query features (keyword split, global synthesis) that must be
-    an explicit admin opt-in rather than silently consuming the default runtime.
-    """
+    """Resolve governed runtimes now; return an async generate(prompt) callable. Eager, so missing configuration
+    surfaces at once."""
     runtimes, refusal_result = await _admitted_runtimes(db, project_ids)
 
     normalized_role = str(role or "").strip().lower()

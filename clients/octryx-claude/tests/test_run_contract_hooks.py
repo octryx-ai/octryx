@@ -1,5 +1,3 @@
-"""The run contract in hooks, prompts and banners: digests, pending decisions, phases and the read-only assistant."""
-
 from __future__ import annotations
 
 import hashlib
@@ -207,9 +205,6 @@ def test_a_session_whose_read_only_assistant_is_lifted_is_told_once(state):
 
 def test_a_stop_that_passes_into_the_next_phase_goes_on_in_this_turn_with_its_compact_contract(state, tmp_path,
                                                                                               monkeypatch, capsys):
-    """(size class ``phase_change: same_turn``): the launcher says it can go on, and a
-    ``next_phase`` answer blocks the Stop with the next phase's prompt and its compact contract, without counting
-    as a refused Stop."""
     run_contract.remember(state, KEY, {"workflow_run": _contract()})
     _env(monkeypatch, {"hook_event_name": "Stop", "stop_hook_active": False}, tmp_path)
     nxt = {**_contract(digest="sha256:next"), "detail_paths": ["phase.code_style"]}

@@ -1,14 +1,4 @@
-"""Which platform user a channel message runs as.
-
-* A sender linked to a platform user (``sender_identity.py``) runs as that user.
-* An unresolved sender on a channel with ``require_registered_user`` is refused
-  (``channel_sender_unresolved``), silently.
-* Any other unresolved sender runs as the channel's own service user
-  (``services/channel_config/service_user.py``: a ``viewer``, read-only in the channel's
-  Workspace). A channel without a valid service user refuses with
-  ``channel_service_user_not_configured``; there is no other fallback, never an arbitrary active
-  user or an admin.
-"""
+"""Which platform user a channel message runs as."""
 
 from __future__ import annotations
 
@@ -25,8 +15,6 @@ SERVICE_USER_NOT_CONFIGURED_REPLY = (
 
 @dataclass(frozen=True, slots=True)
 class ChannelRunAs:
-    """``user_id`` to run as, or the refusal ``state`` (and the reply to send, if any)."""
-
     user_id: str | None
     state: str | None = None
     reply: str | None = None

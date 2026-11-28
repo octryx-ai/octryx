@@ -26,7 +26,6 @@ def _exact_replace(content: str, old: str, new: str, replace_all: bool) -> str |
 
 
 def _line_trimmed_replace(content: str, old: str, new: str, replace_all: bool) -> str | None:
-    """Match after trimming each line individually."""
     old_trimmed = "\n".join(line.strip() for line in old.splitlines())
     content_lines = content.splitlines(keepends=True)
     content_trimmed_lines = [line.rstrip("\r\n").strip() for line in content_lines]
@@ -53,7 +52,6 @@ def _line_trimmed_replace(content: str, old: str, new: str, replace_all: bool) -
 
 
 def _whitespace_normalized_replace(content: str, old: str, new: str, replace_all: bool) -> str | None:
-    """Normalize runs of whitespace before matching."""
     norm_old = re.sub(r"\s+", " ", old).strip()
     norm_content = re.sub(r"\s+", " ", content).strip()
     if norm_old not in norm_content:
@@ -74,7 +72,6 @@ def _whitespace_normalized_replace(content: str, old: str, new: str, replace_all
 
 
 def _indentation_flexible_replace(content: str, old: str, new: str, replace_all: bool) -> str | None:
-    """Match ignoring leading indentation prefix on every line."""
     old_lines = old.splitlines()
     if not old_lines:
         return None
@@ -89,7 +86,6 @@ def _indentation_flexible_replace(content: str, old: str, new: str, replace_all:
 
 
 def _escape_normalized_replace(content: str, old: str, new: str, replace_all: bool) -> str | None:
-    """Unescape \\n, \\t etc. in old_string before matching."""
     unescaped = old.encode("raw_unicode_escape").decode("unicode_escape")
     if unescaped == old:
         return None
@@ -101,7 +97,6 @@ def _escape_normalized_replace(content: str, old: str, new: str, replace_all: bo
 
 
 def _block_anchor_replace(content: str, old: str, new: str, replace_all: bool) -> str | None:
-    """Use first and last lines of old_string as anchors; accept fuzzy middle lines."""
     old_lines = old.splitlines()
     if len(old_lines) < 3:
         return None
@@ -130,7 +125,6 @@ def _block_anchor_replace(content: str, old: str, new: str, replace_all: bool) -
 
 
 def _trimmed_boundary_replace(content: str, old: str, new: str, replace_all: bool) -> str | None:
-    """Trim only leading whitespace of first line and trailing whitespace of last line."""
     old_lines = old.splitlines(keepends=True)
     if not old_lines:
         return None
@@ -148,7 +142,6 @@ def _trimmed_boundary_replace(content: str, old: str, new: str, replace_all: boo
 
 
 def _context_aware_replace(content: str, old: str, new: str, replace_all: bool) -> str | None:
-    """Find the best-matching position using the middle line as a unique anchor."""
     old_lines = old.splitlines()
     if len(old_lines) < 2:
         return None
@@ -182,7 +175,6 @@ def _context_aware_replace(content: str, old: str, new: str, replace_all: bool) 
 
 
 def _multi_occurrence_replace(content: str, old: str, new: str, replace_all: bool) -> str | None:
-    """When old_string occurs multiple times, pick the first occurrence."""
     occurrences = []
     start = 0
     while True:
@@ -213,7 +205,6 @@ _REPLACERS = [
 
 
 def _apply_edit(content: str, old_string: str, new_string: str, replace_all: bool) -> tuple[str, str]:
-    """Try each replacer in order. Returns (new_content, strategy_used)."""
     for replacer in _REPLACERS:
         try:
             result = replacer(content, old_string, new_string, replace_all)

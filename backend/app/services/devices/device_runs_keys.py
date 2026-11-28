@@ -1,49 +1,4 @@
-"""The ``device_runs`` section of ``agent_gateway_policy``: names, defaults and validation.
-
-Kept free of other imports because ``agent_gateway/policy`` validates it on every admin write.
-
-- ``enabled`` (default **true**, because defaults must let work run): members may send chat
-  requests of this Workspace to their own devices; a Workspace admin switches it off (stored ``false`` stays off);
-- ``allowed_profiles`` (default governed and seat): which octryx-claude profiles a device job may use; seat
-  still needs the Workspace's seat decision (``seat_mode``, classification) for every call;
-- ``approval_timeout_s`` (300): an unanswered approval is a deny after this time;
-- ``max_job_minutes`` (60): a turn is interrupted after this time;
-- ``allow_job_edit_scope`` (true): the owner may answer an edit approval with "Allow edits for this job";
-- ``chat_approvals_confirm_changes`` (true): on the owner's own device, the owner's chat approval (Allow once /
-  Allow edits for this job) counts as the change confirmation the governed capability rule asks for
-  (``devices/chat_confirmation``); off, writes need a confirmed change workflow as in any governed session;
-- ``stale_turn_minutes`` (10): a delivered turn without any device event for this long ends as failed and the
-  job goes back to idle (``devices/job_recovery``);
-- ``sensitive_content_requires_governed`` (default **false**, a team opt-in): a seat turn in a thread that already
-  holds sensitive content (PII, PCI, …) is refused and needs the governed profile; a workflow run then continues
-  governed on the same device by itself (``workflow_runs/octryx/continuation``);
-- ``run_turns_ask_before_edits`` (default **false**, a team opt-in): a workflow run's own turns on a device ask the
-  person before each file change. Off, they run in Claude Code's ``acceptEdits`` mode: the platform's hooks still
-  decide every change (phase path rules, protected tests, folder), the shell stays restricted and bypass is never
-  used (an unattended run would otherwise wait for an approval nobody is there to give);
-- ``run_turn_models`` (per capability class of the phase, governed profile): the model a workflow run's own turn
-  uses on a device instead of the device's default (so a tiny task does not run on the largest model). A
-  phase's own ``model`` (designer) wins; a model the Workspace does not admit falls back to the device default.
-- ``browser_phases`` (default none): the phases that get a browser of their
-  own in this Workspace's runs, as ``"<workflow_key>.<node_id>"`` (e.g. ``"epic-delivery.implement"``; at most
-  :data:`MAX_BROWSER_PHASES`, each up to :data:`MAX_BROWSER_PHASE_CHARS` characters). A listed phase gets the browser
-  even when its node says ``browser: false``; a node with ``browser: true`` has it everywhere
-  (``workflow_runs/octryx/browser``).
-- ``research_phases`` (default none; without it a spec-writing ``draft`` can write its SPEC.md
-  without one web search): the phases that must research on the web in this Workspace's runs, same form
-  as ``browser_phases``. A listed phase gets the platform's ``web_search`` and ``web_fetch`` at runtime (also a
-  running run pinned to an older version), a research note in its contract and two blocking checks: at least
-  ``research_min_sources`` (default 3, 1..20) web calls and as many distinct http(s) URLs cited in what it wrote
-  (``workflow_runs/octryx/research``).
-- ``tool_defaults`` (allow by default, blocking is an admin option): what a device session may do without a rule
-allowing it. The defaults allow; a call that only the default lets through is
-  logged as ``allowed_by_default`` in the run. Each key is the admin's switch back to blocking:
-  ``unknown_tools`` (allow | deny; ``allowed_tools``: tools allowed while it denies), ``web_tools`` (all |
-  research_only | off), ``shell`` (free | strict: only tests and the admin's read commands), ``path_rules`` (log |
-  strict: an edit outside the phase's paths), ``device_models`` (nearest | list_only), ``network`` (open | allowlist:
-  the sandbox reaches only ``sandbox.allowed_domains``), ``browser`` (read_external | loopback). Hard rules
-  (credentials, uploads, deleting outside the folder, destructive patterns, push by the platform) are not here.
-"""
+"""The ``device_runs`` section of ``agent_gateway_policy``: names, defaults and validation."""
 
 from __future__ import annotations
 
@@ -73,6 +28,10 @@ DEFAULTS: dict[str, Any] = {
     "browser_phases": [],
     "research_phases": [],
     "research_min_sources": 3,
+    # How often a failed check sends a run's work back before it pauses as checks_failed (workflow_runs/check_attempts).
+    "check_attempts": 3,
+    # Path classes whose change needs an approved plan (workflow_runs/plan_scope); None = the platform's, {} = none.
+    "expensive_paths": None,
     "tool_defaults": {},
 }
 # The first value of each choice is the default (allow by default, block as an admin option).
@@ -94,7 +53,7 @@ CAPABILITY_CLASSES = ("read_only", "change", "deliver")
 _FLAGS = ("enabled", "allow_job_edit_scope", "chat_approvals_confirm_changes", "sensitive_content_requires_governed",
           "run_turns_ask_before_edits", "run_memory")
 _BOUNDS = {"approval_timeout_s": (30, 3600), "max_job_minutes": (1, 1440), "stale_turn_minutes": (1, 1440),
-           "research_min_sources": (1, 20)}
+           "research_min_sources": (1, 20), "check_attempts": (1, 20)}
 
 
 class DeviceRunsPolicyError(ValueError):
@@ -114,7 +73,6 @@ def _seat_models(value: Any, path: str) -> dict[str, str]:
 
 
 def normalize_device_runs(value: Any, path: str) -> dict[str, Any]:
-    """The validated section (only the keys present); raises ``DeviceRunsPolicyError``."""
     if not isinstance(value, dict) or set(value) - set(DEFAULTS):
         raise DeviceRunsPolicyError("invalid_device_runs", path)
     normalized: dict[str, Any] = {}
@@ -143,6 +101,9 @@ def normalize_device_runs(value: Any, path: str) -> dict[str, Any]:
                                                         reason="invalid_research_phases")
     if "tool_defaults" in value:
         normalized["tool_defaults"] = _tool_defaults(value["tool_defaults"], f"{path}.tool_defaults")
+    if "expensive_paths" in value:  # None goes back to the platform's classes
+        normalized["expensive_paths"] = (None if value["expensive_paths"] is None else
+                                         _expensive_paths(value["expensive_paths"], f"{path}.expensive_paths"))
     for key, (low, high) in _BOUNDS.items():
         if key in value:
             if type(value[key]) is not int or not low <= value[key] <= high:
@@ -151,9 +112,16 @@ def normalize_device_runs(value: Any, path: str) -> dict[str, Any]:
     return normalized
 
 
+def _expensive_paths(value: Any, path: str) -> dict[str, list[str]]:
+    if not isinstance(value, dict) or len(value) > 20 or any(
+            not isinstance(key, str) or not re.fullmatch(r"[a-z][a-z0-9_]{0,39}", key) or not isinstance(globs, list)
+            or len(globs) > 50 or any(not isinstance(glob, str) or not glob.strip() or len(glob) > 200
+                                      for glob in globs) for key, globs in value.items()):
+        raise DeviceRunsPolicyError("invalid_expensive_paths", path)
+    return {key: [glob.strip() for glob in globs] for key, globs in value.items()}
+
+
 def _browser_phases(value: Any, path: str, *, reason: str = "invalid_browser_phases") -> list[str]:
-    """``"<workflow_key>.<node_id>"`` entries, stripped and without repeats (``browser_phases``,
-    ``research_phases``)."""
     if not isinstance(value, list) or len(value) > MAX_BROWSER_PHASES or any(
             not isinstance(item, str) or len(item.strip()) > MAX_BROWSER_PHASE_CHARS
             or not _BROWSER_PHASE.fullmatch(item.strip()) for item in value):
@@ -184,9 +152,6 @@ def _tool_defaults(value: Any, path: str) -> dict[str, Any]:
 
 
 def merge_tool_defaults(stored: Any, patch: dict[str, Any]) -> dict[str, Any]:
-    """``stored`` with the keys ``patch`` sends; ``None`` or the default's own value removes the key, so a later
-    change of the platform's default reaches the Workspace (a remedy must not pin ``web_tools:
-    "all"`` explicitly)."""
     merged = dict(stored) if isinstance(stored, dict) else {}
     for key, item in patch.items():
         default = TOOL_DEFAULT_CHOICES[key][0] if key in TOOL_DEFAULT_CHOICES else []
@@ -198,7 +163,6 @@ def merge_tool_defaults(stored: Any, patch: dict[str, Any]) -> dict[str, Any]:
 
 
 def tool_defaults(device_runs: Any) -> dict[str, Any]:
-    """The effective ``tool_defaults`` of a ``device_runs`` section (stored or not): every key, defaults filled."""
     stored = dict(device_runs.get("tool_defaults") or {}) if isinstance(device_runs, dict) else {}
     effective: dict[str, Any] = {key: choices[0] for key, choices in TOOL_DEFAULT_CHOICES.items()}
     effective.update({key: stored[key] for key in TOOL_DEFAULT_CHOICES if stored.get(key) in
@@ -209,12 +173,10 @@ def tool_defaults(device_runs: Any) -> dict[str, Any]:
 
 
 def browser_phase_key(workflow_key: str, node_id: str) -> str:
-    """The ``browser_phases`` entry that names one phase of a workflow."""
     return f"{workflow_key}.{node_id}"
 
 
 def device_runs_section(raw_policy: Any) -> dict[str, Any]:
-    """The effective section of a loaded policy: the stored keys over the defaults."""
     stored = raw_policy.get(DEVICE_RUNS_KEY) if isinstance(raw_policy, dict) else None
     return {**DEFAULTS, **(stored if isinstance(stored, dict) else {})}
 

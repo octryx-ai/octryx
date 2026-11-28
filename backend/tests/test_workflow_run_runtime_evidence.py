@@ -1,21 +1,4 @@
-"""Every phase check of workflows A–E is satisfiable on an octryx device job, and only by recorded tool calls.
-
-What a device run must satisfy:
-
-- Claude Code's own Read/Grep/Glob count as the platform read tools only when the server recorded them: the
-  PostToolUse hook's payload, a path inside the bound repository computed on the server, the transcript's
-  tool_use; a model's claim, a read outside the repository or a failed read never count;
-- a device grant (no ``work:manage``) reads its run's own Work item with ``work_item_context``, nothing else;
-- A's Understand: ``submit_definition_of_ready`` over MCP for the session's run, only in a phase that offers it;
-- E's Hypothesis: ``citations_present`` judges the observed answer against the platform's sources (before it was
-  never applicable on octryx, so it passed without a citation), and the hypothesis is submitted as data.
-
-The end-to-end case runs B from its start against the Jira and GitHub stubs and plays a device job session through
-Clarify: no read → blocked; a claimed or out-of-repository read → blocked; a recorded read but no submitted test
-contract → blocked (the contract only as chat text); the contract submitted over MCP with the
-device's own scopes → passed, the server drafts the Work item's change plan from it, the confirmation shows exactly
-that plan, the requester confirms it and the run goes on to Tests first with the contract as the phase's input.
-"""
+"""Every phase check of workflows A–E is satisfiable on an octryx device job, and only by recorded tool calls."""
 
 from __future__ import annotations
 
@@ -30,6 +13,7 @@ from app.services.agent_gateway.read_evidence import native_read_use, read_targe
 from app.services.mcp_run_work_item import run_bound_work_tool, run_work_item
 from tests.knowledge_evidence_seed_support import fetch_user, seed_member, seed_workspace
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_runtime_evidence_support import (  # noqa: F401
     DEVICE_SCOPES,
     ROOT,
@@ -41,7 +25,7 @@ from tests.workflow_run_runtime_evidence_support import (  # noqa: F401
     _server_pipeline,
 )
 
-# --- native reads: recorded by the server, inside the repository ---------------------------------------------------
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def test_the_read_target_is_computed_on_the_server_from_the_hook_payload():
@@ -52,8 +36,8 @@ def test_the_read_target_is_computed_on_the_server_from_the_hook_payload():
 
     assert target("Read", {"file_path": f"{ROOT}/textkit/core.py"}) == {
         "tool": "Read", "in_root": True, "path": "textkit/core.py"}
-    assert target("Read", {"file_path": "textkit/core.py"})["path"] == "textkit/core.py"  # relative to the cwd
-    assert target("Grep", {"pattern": "def wrap"})["in_root"] is True  # no path: the cwd, inside the root
+    assert target("Read", {"file_path": "textkit/core.py"})["path"] == "textkit/core.py"
+    assert target("Grep", {"pattern": "def wrap"})["in_root"] is True
     assert target("Glob", {"pattern": "**/*.py", "path": f"{ROOT}/textkit"})["path"] == "textkit"
     for tool, tool_input, cwd in (("Read", {"file_path": "/etc/passwd"}, ROOT),
                                   ("Read", {"file_path": "../other/secret.py"}, ROOT),
@@ -63,8 +47,7 @@ def test_the_read_target_is_computed_on_the_server_from_the_hook_payload():
                                   ("Read", {"file_path": f"{ROOT}-evil/core.py"}, ROOT)):
         assert target(tool, tool_input, cwd)["in_root"] is False, (tool, tool_input, cwd)
     assert read_target(Session(metadata_={}), {"tool_name": "Read", "tool_input": {"file_path": f"{ROOT}/a.py"},
-                                               "cwd": ROOT})["in_root"] is False  # no bound root, no evidence
-    # a plain shell read is a read target too (``shell_read``); any other shell call is none
+                                               "cwd": ROOT})["in_root"] is False
     assert read_target(session, {"tool_name": "Bash", "tool_input": {"command": "cat a.py"}, "cwd": ROOT})[
         "read_tool"] == "read_workspace_file"
     assert read_target(session, {"tool_name": "Bash", "tool_input": {"command": "pytest -q"}, "cwd": ROOT}) is None
@@ -87,16 +70,12 @@ async def test_a_native_read_counts_only_with_the_hook_the_transcript_and_a_path
         assert native_read_use(rows[0]).succeeded is False
 
 
-# --- a device grant reads its run's own Work item, nothing else -----------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_a_device_session_reads_only_its_runs_own_work_item_without_work_manage(db, monkeypatch):
     run, gateway, key, workspace_id = await _run_with_session(db, _one_phase("feature-delivery-tdd", "clarify"),
                                                               item=True)
     admin = await admin_user(db)
     assert "work:manage" not in DEVICE_SCOPES and run_bound_work_tool("work_item_context", DEVICE_SCOPES)
-    # Writes only with workflow:execute, and the run's current phase decides (``_phase_allows``); no other tool.
     assert run_bound_work_tool("work_item_note", DEVICE_SCOPES) and not run_bound_work_tool("work_item_find",
                                                                                           DEVICE_SCOPES)
     assert not run_bound_work_tool("work_item_create", ("workflow:read",))
@@ -109,18 +88,17 @@ async def test_a_device_session_reads_only_its_runs_own_work_item_without_work_m
     db.add(other)
     await db.flush()
     refusals = [
-        (caller, admin, "BRD-8"),  # another item of the same Workspace
-        (_caller(admin, workspace_id, None), admin, "BRD-7"),  # no launcher session on the connection
-        (_caller(admin, workspace_id, str(uuid.uuid4())), admin, "BRD-7"),  # a session that follows no run
+        (caller, admin, "BRD-8"),
+        (_caller(admin, workspace_id, None), admin, "BRD-7"),
+        (_caller(admin, workspace_id, str(uuid.uuid4())), admin, "BRD-7"),
     ]
     outsider = await fetch_user(db, await seed_member(db, workspace_id=await seed_workspace(db), role="member"))
-    refusals.append((_caller(outsider, workspace_id, key), outsider, "BRD-7"))  # someone else's session key
+    refusals.append((_caller(outsider, workspace_id, key), outsider, "BRD-7"))
     for refused_caller, user, reference in refusals:
         with pytest.raises(HTTPException) as refused:
             await run_work_item(db, caller=refused_caller, user=user, workspace_id=workspace_id, requested=reference)
         assert refused.value.status_code == 403
 
-    # The protocol routes a device grant's work_item_context to the run-bound read; every other Work tool stays 403.
     import app.services.mcp_knowledge_protocol as protocol
 
     seen = []
@@ -142,9 +120,6 @@ async def test_a_device_session_reads_only_its_runs_own_work_item_without_work_m
 
 @pytest.mark.asyncio
 async def test_a_run_creates_tickets_in_its_workspace_only_while_its_phase_allows_it(db):
-    """Spec writing: the device grant has no work:manage; the run's phase is the authority. The
-    shipped spec-writing does not offer work_item_create (the server creates the stories), so the
-    phase here is its split phase as an admin's workflow that offers the tools."""
     from app.services.mcp_run_work_item import _phase_allows, _write
 
     definition = _one_phase("spec-writing", "split")
@@ -163,9 +138,9 @@ async def test_a_run_creates_tickets_in_its_workspace_only_while_its_phase_allow
     ticket = await db.get(WorkItem, created["id"])
     assert (ticket.project_id, ticket.source_type, ticket.title) == (workspace_id, "platform", "Packmate T11: templates")
     again = await _write(db, run, item, member, "work_item_create", {"title": "Packmate T11: templates"})
-    assert again["already_existed"] is True and again["id"] == created["id"]  # no twin on a repeated call
+    assert again["already_existed"] is True and again["id"] == created["id"]
     await _write(db, run, item, member, "work_item_note", {"note": "Tickets: T11"})
     assert item.source_fields_json["platform_notes"][-1]["note"] == "Tickets: T11"
 
     drafting, *_ = await _run_with_session(db, _one_phase("spec-writing", "interview"))
-    assert not await _phase_allows(db, drafting, "work_item_create")  # the interview phase creates nothing
+    assert not await _phase_allows(db, drafting, "work_item_create")

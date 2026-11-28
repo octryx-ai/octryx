@@ -1,11 +1,5 @@
-"""A workflow run's opened pull request moves its Work item to Review on the board.
-
-A story's epic-delivery run that ends done with its pull request open must not leave the story in Intake. So:
-
-- a platform Work item with no write-back definition in scope moves along the shared states (the board's columns),
-  recorded as a state event; a done item stays done;
-- ``scm.open_pr`` moves the run's story to ``review`` and records the outcome on the run; an epic is not moved.
-"""
+"""A workflow run's opened pull request moves its Work item to Review on the board; an epic is not moved
+and a done item stays done."""
 
 from __future__ import annotations
 
@@ -18,9 +12,10 @@ from app.models import WorkflowRunEvent, WorkItemStateEvent
 from app.models.runtime.secure_work import WorkItem
 from app.services.secure_work.lifecycle_transitions import SOURCE_PLATFORM_LIFECYCLE, auto_transition_work_item
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_platform_actions import FakeTools, _repository, _run
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 
 PR_FLOW = {
     "execution_kind": "phased",

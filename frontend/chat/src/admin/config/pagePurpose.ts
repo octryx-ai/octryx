@@ -34,7 +34,6 @@ export const ADMIN_PAGE_PURPOSE: Partial<Record<AdminTab, string>> = {
   workflowList: "The workflows agents run, step by step.",
   workflowChecks: "Results of the checks that run at the end of each turn.",
   workflowDesigner: "Draw a workflow box by box, save it as a draft and publish it.",
-  scenarios: "Scenarios that test agents against expected results.",
   instructions: "Standing instructions agents read before they answer.",
   skills: "Skills agents can use, with their versions and where they are available.",
   toolCatalog: "Every tool agents can use, with what it does.",
@@ -65,6 +64,7 @@ export const ADMIN_PAGE_PURPOSE: Partial<Record<AdminTab, string>> = {
   observabilityDecisions: "What was allowed, denied or approved, and why.",
   approvalDetail: "One approval: what was asked, who asked and who decided.",
   observabilityAudit: "Who changed what in the platform's settings.",
+  complianceAudit: "Compliance records: who did what to which resource, with what outcome.",
   usage: "Usage and estimated costs of agent runs.",
   // Runtime
   providers: "The model providers the platform can call.",
@@ -74,7 +74,6 @@ export const ADMIN_PAGE_PURPOSE: Partial<Record<AdminTab, string>> = {
   runtimePolicyLists: "Lists that policies refer to, such as approved models.",
   runtimeExecution: "How and where agent runs execute.",
   runtimeLimits: "Limits and budgets for runs, people and Workspaces.",
-  runtimeCompression: "How tool results are shortened before they reach the model.",
   mcp: "MCP servers that add tools for agents.",
   restApis: "REST APIs agents may read: which role gets which operation, limited to which data.",
   restApiCalls: "Every call to a REST API: who, where, within which scope, and what came back.",

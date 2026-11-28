@@ -1,10 +1,5 @@
-"""Source-authorized, bounded visualization of the current facts of the Workspace graph.
-
-No projection data is emitted without resolving its cited episode against the current SQL
-ledger and source ACL. ``shown_*`` counts describe the displayed window; ``total_nodes``/``total_edges``
-are the facts of every episode the reader may see (one COUNT read, cached briefly per window), null only
-when the store could not answer. The explorer shows "150 of N" and needs a value for N.
-"""
+"""Source-authorized, bounded visualization of the current facts of the Workspace graph. Every cited episode is resolved
+against the ledger and source ACL."""
 
 from __future__ import annotations
 
@@ -32,7 +27,6 @@ _totals_cache: dict[str, tuple[float, dict]] = {}
 
 
 async def _totals(driver, workspace_id: str, episodes: list[str]) -> dict | None:
-    """``{nodes, edges}`` of the visible window; the same window is not recounted within a minute."""
     key = hashlib.sha256("\0".join([workspace_id, *sorted(episodes)]).encode()).hexdigest()
     hit = _totals_cache.get(key)
     if hit and time.monotonic() - hit[0] < TOTALS_SECONDS:
@@ -116,7 +110,6 @@ def _present(workspace_id, cited, rows, query, max_nodes, truncated):
 
 
 async def build_current_graph(db, *, runtime, authorized, query="", focus_node_id="", max_nodes=150):
-    """An authorized Workspace only: no instance-global fallback and no SQL graph reads."""
     query = query.strip().casefold()[:500]
     max_nodes = max(2, min(int(max_nodes), MAX_NODES))
     def empty(state):

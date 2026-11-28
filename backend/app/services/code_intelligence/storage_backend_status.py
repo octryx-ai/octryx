@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from app.services.code_intelligence.storage_runtime import _coerce_dict, _coerce_list
+from app.services.code_intelligence.storage_runtime import _coerce_dict
 
 # (available, artifact_status, detail, mode) as reported for one backend layer.
 BackendState = tuple[bool, str | None, str, str]
@@ -104,29 +104,7 @@ def _semantic_state(effective_value: str, capabilities: dict[str, Any], artifact
     artifact_status: str | None = None
     detail = ""
     mode = "native"
-    if effective_value == "scip":
-        scip_caps = _coerce_dict(_coerce_dict(capabilities.get("semantic")).get("scip"))
-        languages = _coerce_list(_coerce_dict(artifacts.get("scip")).get("languages"))
-        ready_languages = [
-            str(item.get("language") or "").strip()
-            for item in languages
-            if isinstance(item, dict) and item.get("status") == "ready"
-        ]
-        available = any(bool(value) for value in _coerce_dict(scip_caps.get("languages")).values())
-        artifact_status = str(_coerce_dict(artifacts.get("scip")).get("status") or "").strip().lower() or None
-        if ready_languages:
-            detail = f"SCIP ready: {', '.join(sorted(ready_languages)[:4])}"
-            mode = "indexed"
-        elif artifact_status and artifact_status != "ready":
-            detail = f"SCIP artifact {artifact_status}"
-            mode = "fallback"
-        elif not available:
-            detail = "SCIP indexers not installed"
-            mode = "fallback"
-        else:
-            detail = "SCIP selected but no ready language artifacts"
-            mode = "degraded"
-    elif effective_value == "regex":
+    if effective_value == "regex":
         available = True
         detail = "Regex symbol heuristics"
         mode = "fallback"

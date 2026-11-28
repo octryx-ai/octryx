@@ -1,12 +1,4 @@
-"""The names a device phase's model calls for its tools (``phase.tools.on_device`` of the run contract).
-
-A phase's ``tool_policy.allowlist`` names the platform's server tools (``list_workspace_directory``,
-``read_workspace_file``, ...). On a device those do not exist: Claude Code reads and edits with its own Read / Grep /
-Glob / LS / Write / Edit, and the launcher's ``octryx-knowledge`` MCP server offers only the platform tools
-it registers. When the contract showed only
-the server names, the model called ``mcp__octryx-knowledge__list_workspace_directory`` and got "No such tool
-available". ``allow`` / ``deny`` stay the policy names the gates read; ``on_device`` is what the model calls.
-"""
+"""The names a device phase's model calls for its tools (``phase.tools.on_device`` of the run contract)."""
 
 from __future__ import annotations
 
@@ -34,17 +26,16 @@ NATIVE_EQUIVALENT = {
 
 @lru_cache(maxsize=1)
 def knowledge_mcp_tools() -> frozenset[str]:
-    """The tools the launcher's ``octryx-knowledge`` server really registers (built once per process)."""
     from ...mcp_knowledge_protocol import build_knowledge_mcp_server
+    from ...mcp_registry_tools import served_definitions
 
-    return frozenset(build_knowledge_mcp_server().code_tool_descriptions())
+    # A phase lists its registry tools in full on the session endpoint (``mcp_session_surface.listed``).
+    registry = {str(definition["function"]["name"]) for definition in served_definitions()}
+    return frozenset(build_knowledge_mcp_server().code_tool_descriptions()) | registry
 
 
 def device_tool_names(allow: Iterable[str], deny: Iterable[str] = (), *,
                       mcp_tools: frozenset[str] | None = None) -> list[str]:
-    """The allowed tools as the device model calls them: native ones with the policy names they stand for, then
-    the knowledge MCP tools the server offers. A server-only tool without either (``analyze_workspace_repository``)
-    is left out rather than named as a tool that does not exist."""
     offered = knowledge_mcp_tools() if mcp_tools is None else mcp_tools
     denied = set(deny)
     native: dict[str, list[str]] = {}

@@ -52,8 +52,6 @@ async def _list_accessible_chat_projects(db: AsyncSession, *, user: User) -> lis
 
 @dataclass(frozen=True, kw_only=True)
 class _ChatThreads:
-    """The sidebar threads of a chat state and the thread it shows."""
-
     selected_session: AgentSession | None
     requested_session_missing: bool
     row_payload: Any
@@ -65,7 +63,6 @@ class _ChatThreads:
 async def _load_sorted_thread_sessions(
     db: AsyncSession, *, user: User, selected_session: AgentSession | None
 ) -> tuple[list[AgentSession], dict[str, int]]:
-    """The first thread page of every group with descendants, newest activity first, and the group counts."""
     selected_root_session = await _resolve_root_session(db, selected_session)
     group_counts_by_project_id = await count_chat_thread_groups(db, user=user)
     top_level_sessions = await load_initial_chat_thread_pages(
@@ -153,7 +150,6 @@ async def _resolve_chat_selection(
     agent_id: str,
     agent_type: str,
 ):
-    """The runtime selection, the person's own private Workspace and the default Workspace id."""
     if project_id and not await workspace_visible(db, user.id, project_id):
         # An unknown Workspace and one the person is no member of are not selected: the chat opens as without one,
         # and nothing of a foreign Workspace (its runtimes, agents, archive state) shapes the answer.
@@ -174,7 +170,7 @@ async def _resolve_chat_selection(
         agent_id=agent_id,
         agent_type=agent_type,
     )
-    # P6a: the person's own private Workspace is their default; the Instance default only without one.
+    # The person's own private Workspace is their default; the Instance default only without one.
     own_private = next((project for project in projects if project.access_mode == "private"
                         and str(project.owner_user_id) == str(user.id)), None)
     default_project_id = own_private.id if own_private is not None else await default_workspace_id(db)
@@ -229,7 +225,7 @@ async def _chat_state_payload(
         "newThread": new_thread,
         "settingsUrl": "/admin/settings",
         "toolsUrl": "/admin/tools",
-        "controlPlaneUrl": "/admin/control-plane",
+        "controlPlaneUrl": "/chat?area=admin&tab=providers",
         "dashboardUrl": "/chat",
         "agentOptions": agent_options,
         "agentGroups": agent_groups,

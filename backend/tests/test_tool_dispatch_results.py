@@ -160,13 +160,6 @@ async def test_plugin_tool_exception_is_typed_and_redacted(monkeypatch) -> None:
 
 
 async def test_direct_mcp_provider_failure_is_typed_and_redacted(db, monkeypatch) -> None:
-    """The provider-failure taxonomy, reached through MCP capability governance.
-
-    Direct ``mcp__*`` dispatch needs a verifiable workspace and an enabled capability binding, so this
-    test runs against a real one whose ``resolve-library-id`` tool is mirrored and enabled; its subject is the
-    error taxonomy, not the governance decision.
-    """
-
     class FakeManager(RecordingMcpManager):
         async def call_tool(self, _server_name, _tool_name, _params):
             return {
@@ -178,7 +171,6 @@ async def test_direct_mcp_provider_failure_is_typed_and_redacted(db, monkeypatch
 
     monkeypatch.setattr("app.plugins.mcp.client.mcp_client_manager", FakeManager())
     workspace = await create_mcp_workspace(db)
-    # Direct dispatch connects only through the persisted Workspace registry.
     await mirror_tools(db, workspace, ["resolve-library-id"], server_name="context7")
     await enable_capability(db, workspace, "resolve-library-id", risk="read", server_name="context7")
 

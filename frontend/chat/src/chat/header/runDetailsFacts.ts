@@ -1,12 +1,7 @@
 import type { ChatMessage } from "../../chatThreadTypes";
 
-// Run details: names the model(s) the thread's answers actually came from — the
-// label each answer carries (`runtimeLabel`, else provider / model, else its turn trace) — and the current selection
-// separately, as label/value pairs in words. Pure: no React.
-
 export type RunFact = { key: string; label: string; value: string; title?: string };
 
-/** The model an answer came from, as its message header names it ("bedrock / anthropic.claude-haiku-5-5"). */
 export function answerModelLabel(message: ChatMessage): string {
   const runtime = (message.runtimeLabel || "").trim();
   if (runtime) return runtime;
@@ -19,7 +14,6 @@ export function answerModelLabel(message: ChatMessage): string {
   return "";
 }
 
-/** Every model the loaded answers came from, once each, in the order they were first used. */
 export function modelsUsed(messages: ChatMessage[] | null | undefined): string[] {
   const used: string[] = [];
   for (const message of messages ?? []) {
@@ -30,7 +24,6 @@ export function modelsUsed(messages: ChatMessage[] | null | undefined): string[]
   return used;
 }
 
-/** The model of the latest answer that names one; "" when no answer does. */
 export function lastModelUsed(messages: ChatMessage[] | null | undefined): string {
   const list = messages ?? [];
   for (let index = list.length - 1; index >= 0; index -= 1) {
@@ -41,7 +34,6 @@ export function lastModelUsed(messages: ChatMessage[] | null | undefined): strin
   return "";
 }
 
-/** The model part of "provider / model" for the one-line header ("anthropic.claude-haiku-5-5"). */
 export function modelShortLabel(label: string): string {
   const value = (label || "").trim();
   const slash = value.lastIndexOf(" / ");
@@ -51,11 +43,6 @@ export function modelShortLabel(label: string): string {
 const MODEL_VENDORS = /^(?:[a-z]{2}\.)?(?:anthropic|amazon|meta|mistral|cohere|ai21|google|openai|deepseek|qwen|writer)\./i;
 const MODEL_ACRONYMS: Record<string, string> = { gpt: "GPT", oss: "OSS", llm: "LLM" };
 
-/**
- * A model id in words for the one-line header: "anthropic.claude-haiku-5-5" → "Claude Haiku 5.5",
- * "us.anthropic.claude-sonnet-4-5-20250929-v1:0" → "Claude Sonnet 4.5", "gemma-4" → "Gemma 4". A label that is already
- * words ("Automatic · Gemma 4") stays as it is; the raw id remains the tooltip.
- */
 export function modelDisplayName(id: string): string {
   const raw = (id || "").trim();
   if (!raw || /\s/.test(raw)) return raw;
@@ -73,14 +60,12 @@ export function modelDisplayName(id: string): string {
   return words.map((word) => MODEL_ACRONYMS[word.toLowerCase()] ?? (/^\d/.test(word) ? word : word.charAt(0).toUpperCase() + word.slice(1))).join(" ");
 }
 
-/** "Route · Diagnosis" → "Diagnosis": the fact's label already says what it is. */
 export function withoutPrefix(value: string, prefix: string): string {
   const text = (value || "").trim();
   const head = `${prefix} · `;
   return text.toLowerCase().startsWith(head.toLowerCase()) ? text.slice(head.length) : text;
 }
 
-/** The thread's state in one word where both labels say the same ("Active · Done" → "Done"). */
 export function runStatusText(threadStatus: string, runStatus: string): string {
   const thread = (threadStatus || "").trim();
   const run = (runStatus || "").trim();
@@ -106,8 +91,7 @@ export function runDetailsFacts({
     facts.push({ key: "used", label: used.length === 1 ? "Model used" : "Models used", value: used.join(", ") });
   }
   if (selection) {
-    // Before the first answer the selection is simply the model; in a thread it is what is selected now, which is
-    // not necessarily what answered ("Automatic" picks a model per message).
+    // In a thread the selection is not necessarily what answered: "Automatic" picks a model per message.
     facts.push({
       key: "selection", label: hasSession ? "Selected model" : "Model", value: selection,
       title: hasSession ? "The model selected for this chat now. The answers above name the model they came from." : undefined,

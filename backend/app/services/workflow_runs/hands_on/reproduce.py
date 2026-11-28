@@ -1,19 +1,5 @@
-"""The bug flow's reproduce check (``hands_on.run`` with ``config.mode: reproduce``): before
-any fix, the device runs only the bug's own scenarios (``tests/hands_on/bugs/<KEY>*.json`` the reproduce phase wrote)
-on the unchanged app.
-
-- **reproduced**: a scenario failed at a symptom step (a step marked ``"symptom": true``, else one of its closing
-  expect steps after its last action: the phase writes the correct behaviour there), the symptom for the right
-  reason. A red expect before it is a setup failure (e.g. "'M1' is not shown" while adding the
-  grinder must not count as reproduced). A launcher that does not report ``failed_symptom`` yet: any red expect step, as
-  before. The reproduction the phase submitted is confirmed automatically (the tests the TDD gates judge), unless
-  the node asks a person (``config.confirm: true``) - then route ``skipped`` to the confirmation;
-- **cannot reproduce**: every bug scenario passed: route ``cannot_reproduce`` (the reporter is told, with the
-  screenshots; no blind fix);
-- **setup failed** (the app did not start, a step before the symptom failed, a file that is no scenario): route
-  ``failed`` back to the reproduce phase (``repro_setup_failed``, a loop of at most 2), never "cannot reproduce";
-- **no bug scenario** (a bug only a unit test shows): route ``skipped`` to the person's confirmation.
-"""
+"""The bug flow's reproduce check (``hands_on.run`` with ``config.mode: reproduce``): before any fix, the device runs
+only the bug's own scenarios (``tests/hands_on/bugs/<KEY>*.json`` the reproduce phase wrote) on the unchanged app."""
 
 from __future__ import annotations
 
@@ -30,7 +16,6 @@ REPRO_SETUP_FAILED = "repro_setup_failed"
 
 
 def verdict(report: dict[str, Any]) -> tuple[str, str]:
-    """``(outcome, why)``: reproduced | cannot_reproduce | setup_failed | no_scenarios."""
     state = str(report.get("state") or "")
     if state == "no_scenarios":
         return "no_scenarios", "the reproduce phase wrote no hands-on scenario for this bug"
@@ -58,7 +43,6 @@ def _setup_failure(item: dict[str, Any]) -> str:
 
 
 async def confirm_automatically(db: AsyncSession, run: WorkflowRun) -> None:
-    """The phase's submitted reproduction becomes the confirmed tests, as a person's confirmation would make it."""
     from ..confirmation_payloads import _reproduction
     from ..confirmation_steps import _bind_confirmed_tests
     from ..graph import graph_for_run
@@ -71,7 +55,6 @@ async def confirm_automatically(db: AsyncSession, run: WorkflowRun) -> None:
 
 async def record(db: AsyncSession, run: WorkflowRun, node_config: dict[str, Any], report: dict[str, Any]
                  ) -> tuple[str, str, str]:
-    """``(state, route, reason)`` of a reproduce report."""
     outcome, why = verdict(report)
     if outcome == "reproduced":
         if node_config.get("confirm") is True:

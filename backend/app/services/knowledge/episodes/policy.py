@@ -1,19 +1,5 @@
-"""Whether a Workspace accepts session episodes, and where their citations link to.
-
-Both are explicit configuration, and both default to "no":
-
-- **The Workspace switch** ``projects.config.knowledge_episode_policy.accept_session_episodes``. It is
-  read from the Workspace row itself, never from the merged turn configuration (agent-writable
-  entries are merged into that one), and only an explicit ``true`` enables it. A Workspace admin or
-  owner sets it. Without it, an episode write is ``needs_configuration``.
-- **Automatic capture of platform chat turns**
-  ``knowledge_episode_policy.capture_platform_turns``, a sub-setting of the switch above: only when
-  both are an explicit ``true`` does a completed platform chat turn write or update its session's
-  episode (``turn_capture.py``). Accepting episodes alone never captures anything automatically.
-- **The platform's public origin** (``platform_public_origin`` / ``OCTRYX_PUBLIC_ORIGIN``).
-  Every citation must carry a link a person can open, so an episode without an absolute session link
-  is not written: the state is ``needs_configuration``.
-"""
+"""Whether a Workspace accepts session episodes, and where their citations link to. Both are explicit configuration on
+the Workspace row and default to no."""
 
 from __future__ import annotations
 
@@ -44,7 +30,7 @@ def episodes_accepted_by(config: object) -> bool:
 
 
 def platform_turn_capture_by(config: object) -> bool:
-    """Both switches explicitly ``true``; the sub-setting alone never enables capture."""
+    # The sub-setting alone never enables capture.
     policy = _policy_of(config)
     return policy.get(ACCEPT_SESSION_EPISODES) is True and policy.get(CAPTURE_PLATFORM_TURNS) is True
 
@@ -62,7 +48,6 @@ async def platform_turn_capture_enabled(db: AsyncSession, project_id: str) -> bo
 
 
 async def platform_turn_capture_stored(db: AsyncSession, project_id: str) -> bool:
-    """The stored sub-setting as is (for the settings view), independent of the main switch."""
     return _policy_of(await _workspace_config(db, project_id)).get(CAPTURE_PLATFORM_TURNS) is True
 
 
@@ -74,11 +59,7 @@ async def set_episode_policy(
     capture_platform_turns: bool | None = None,
     actor_id: str | None = None,
 ) -> None:
-    """Store the given switches on the Workspace row; ``None`` leaves one as is. Flushes; the caller commits.
-
-    With ``actor_id``, a change is audited as ``knowledge.episode_policy.update``: the switch keys with
-    their old and new booleans only, never any other text.
-    """
+    # The audit records only the switch keys and their booleans, never any other text.
     project = await db.get(Project, project_id)
     if project is None:
         return
@@ -110,12 +91,10 @@ async def set_episode_policy(
 
 
 async def set_episodes_accepted(db: AsyncSession, project_id: str, *, accepted: bool) -> None:
-    """Store the main switch on the Workspace row. Flushes; the caller commits."""
     await set_episode_policy(db, project_id, accepted=accepted)
 
 
 def public_origin(raw: object = None) -> str | None:
-    """The configured origin if it is exactly ``scheme://host[:port]``; otherwise ``None``."""
     value = str(get_settings().platform_public_origin if raw is None else raw or "").strip()
     if not value:
         return None

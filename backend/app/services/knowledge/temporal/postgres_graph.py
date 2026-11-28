@@ -1,15 +1,4 @@
-"""The Workspace temporal knowledge graph read from PostgreSQL (graph on Postgres, part B).
-
-The product reads the graph through a handful of fixed, one-hop Cypher statements
-(``changes._FACTS``/``_FACTS_OF_KINDS``, ``fact_expansion._DIRECT``/``_HOP``,
-``visualization_queries.FACTS_QUERY``) and through the ranked edge search of
-``changes.ranked_edge_uuids``. :class:`PostgresGraphDriver` answers exactly those statements
-from ``kg_node``/``kg_edge`` with the same record shape, so the read paths keep their contracts.
-Any other statement is refused as a contract violation; nothing here interprets Cypher.
-
-Every statement is scoped by the driver's Workspace (``project_id``), never by a caller value.
-Failures are :class:`GraphStoreError` with a fixed state and no driver text.
-"""
+"""The Workspace temporal knowledge graph read from PostgreSQL."""
 
 from __future__ import annotations
 
@@ -75,7 +64,6 @@ SQL_SIMILAR = (
 
 
 def _statements() -> dict[str, tuple[str, tuple[str, ...]]]:
-    """Cypher statement -> (SQL, the parameter names it takes). Imported on use: no cycles."""
     from .changes import _FACTS, _FACTS_OF_KINDS
     from .fact_expansion import _DIRECT, _HOP
     from .visualization_queries import FACTS_QUERY
@@ -99,8 +87,6 @@ def _vector_text(vector: list[float]) -> str:
 
 
 class PostgresGraphDriver:
-    """Read-only graph access for one Workspace, shaped like the Graphiti driver's ``execute_query``."""
-
     def __init__(self, project_id: str, session_factory: Callable[[], AsyncSession] | None = None) -> None:
         if session_factory is None:
             from ....db.core import async_session_factory
@@ -113,7 +99,7 @@ class PostgresGraphDriver:
         return "PostgresGraphDriver(configured=True)"
 
     async def close(self) -> None:
-        """Nothing to release: sessions are per call."""
+        pass
 
     async def execute_query(self, statement: str, **parameters: Any) -> tuple[list[dict[str, Any]], None, None]:
         known = _statements().get(statement)
@@ -127,7 +113,6 @@ class PostgresGraphDriver:
         return [{key: _plain(value) for key, value in row.items()} for row in rows], None, None
 
     async def ranked_edges(self, query: str, group: str, vector: list[float] | None, limit: int) -> list[list[str]]:
-        """Full-text and semantic edge rankings inside ``group``, as two uuid lists."""
         words = sorted({word.casefold() for word in _WORD.findall(query)})[:32]
         lexical: list[str] = []
         if words:

@@ -218,12 +218,15 @@ def _audit(
     resource_type: str,
     resource_id: str,
     details: dict[str, Any],
+    *,
+    project_id: str | None,
 ) -> AuditLog:
     return AuditLog(
         user_id=user_id,
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,
+        project_id=project_id,
         details=details,
     )
 

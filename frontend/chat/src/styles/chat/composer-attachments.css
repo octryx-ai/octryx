@@ -19,7 +19,7 @@
   gap: 0.5rem;
   max-width: 100%;
   padding: 0.25rem 0.5rem 0.25rem 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   border: 1px solid var(--border);
   background: var(--surface-overlay-strong);
 }
@@ -53,7 +53,7 @@
   width: 1.4rem;
   height: 1.4rem;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-hover);
   color: var(--text);
   line-height: 1;

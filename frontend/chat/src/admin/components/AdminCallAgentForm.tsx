@@ -11,8 +11,6 @@ export type CallAgentFormFields = {
   setFormLlmModel: (value: string) => void;
   formMaxToolCalls: number;
   setFormMaxToolCalls: (value: number) => void;
-  formCallingWebhookUrl: string;
-  setFormCallingWebhookUrl: (value: string) => void;
   formThinkingMessage: string;
   setFormThinkingMessage: (value: string) => void;
   formSystemPrompt: string;
@@ -29,7 +27,7 @@ type AdminCallAgentFormProps = {
 export function AdminCallAgentForm({ fields, isEditing, availableChannels, runtimeModels }: AdminCallAgentFormProps) {
   const {
     formName, setFormName, formChannelId, setFormChannelId, formLlmModel, setFormLlmModel,
-    formMaxToolCalls, setFormMaxToolCalls, formCallingWebhookUrl, setFormCallingWebhookUrl,
+    formMaxToolCalls, setFormMaxToolCalls,
     formThinkingMessage, setFormThinkingMessage, formSystemPrompt, setFormSystemPrompt,
   } = fields;
   return (
@@ -79,11 +77,6 @@ export function AdminCallAgentForm({ fields, isEditing, availableChannels, runti
         </label>
       </FormSection>
       <FormSection title="Microsoft Teams">
-        <label className="admin-panel__field">
-          <span>Calling webhook URL</span>
-          <input className="admin-panel__input" type="text" value={formCallingWebhookUrl}
-            onChange={(e) => setFormCallingWebhookUrl(e.target.value)} disabled={!isEditing} />
-        </label>
         <label className="admin-panel__field">
           <span>Thinking message</span>
           <input className="admin-panel__input" type="text" value={formThinkingMessage}

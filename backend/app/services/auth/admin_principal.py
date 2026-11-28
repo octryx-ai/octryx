@@ -1,10 +1,4 @@
-"""The API dependency for admin-only mutations.
-
-``Depends(get_current_admin_user)`` authenticates like :func:`get_current_user` (bearer, cookie
-or API key) and then requires the global admin role, answering 403 ``Admin access required``
-otherwise. As a dependency it runs before request-body validation, so a non-admin is refused
-whatever it sends.
-"""
+"""The API dependency for admin-only mutations."""
 
 from __future__ import annotations
 

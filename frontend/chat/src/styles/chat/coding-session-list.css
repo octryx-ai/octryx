@@ -92,7 +92,7 @@
   min-width: 0;
   color: var(--text);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   line-height: 1.22;
 }
 
@@ -110,7 +110,7 @@
   border-color: var(--brand-cream);
   background: var(--brand-cream);
   color: var(--brand-taupe-deep);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .work-area__button--primary:hover:not(:disabled) {
@@ -136,6 +136,6 @@
   border-color: var(--border);
   background: var(--surface-overlay-strong);
   color: var(--muted);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: not-allowed;
 }

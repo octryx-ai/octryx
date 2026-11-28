@@ -6,7 +6,7 @@
 }
 .entity-graph__detail .entity-graph__detail-header { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 8px 12px; }
 .entity-graph__detail-title {
-  flex: 1 1 12rem; margin: 0; font-size: var(--ds-text-lg); font-weight: 600; letter-spacing: -0.02em; overflow-wrap: anywhere;
+  flex: 1 1 12rem; margin: 0; font-size: var(--ds-text-lg); font-weight: var(--ds-weight-strong); letter-spacing: -0.02em; overflow-wrap: anywhere;
   border-radius: var(--ds-radius-sm);
 }
 .entity-graph__detail-title:focus { outline: none; }
@@ -18,7 +18,7 @@
 .entity-graph__relation:first-child { border-top: 0; padding-top: 0; }
 .entity-graph__relation-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 0.5rem; }
 .entity-graph__relation-dir { min-width: 1.1em; text-align: center; color: var(--muted-strong); }
-.entity-graph__relation-type { font-weight: 600; }
+.entity-graph__relation-type { font-weight: var(--ds-weight-strong); }
 .entity-graph__relation-this { color: var(--muted-strong); }
 .entity-graph__relation-scope { margin-left: auto; font-size: var(--ds-text-xs); color: var(--muted); }
 .entity-graph__relation--outside .entity-graph__relation-head,

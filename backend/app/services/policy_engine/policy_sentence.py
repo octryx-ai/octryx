@@ -1,14 +1,4 @@
-"""Plain-language lines for policies: the list's "Who · What · Where", scope and warnings.
-
-A sentence is a list of segments ``{"text", "emphasis"}`` (``emphasis``: ``"verb"`` for Block/Allow, ``"value"``
-for a named value, ``None`` for connecting words), so the UI renders the bold parts without any markup in the
-data. Ids are shown by name through :class:`entity_listing.NameIndex`; an id that no longer exists is shown as
-"unknown …" and raises a warning.
-
-:func:`outline` describes any statement from its EST alone (hand-written and generated policies): effect, who,
-the actions, and whether further conditions exist. Builder policies get the full sentence of their model
-(``builder_sentence``).
-"""
+"""Plain-language lines for policies: the list's "Who · What · Where", scope and warnings."""
 
 from __future__ import annotations
 

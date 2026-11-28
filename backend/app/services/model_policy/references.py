@@ -1,8 +1,4 @@
-"""A Model Policy reference: ``name@revision`` (a missing ``@revision`` means unpinned).
-
-A Workspace setting that uses a Model Policy (the work item analysis ``model_policy``) stores it as
-such a reference; :func:`parse_reference` checks its shape and the registry resolves it.
-"""
+"""A Model Policy reference: ``name@revision`` (a missing ``@revision`` means unpinned)."""
 
 from __future__ import annotations
 
@@ -15,8 +11,6 @@ _REVISION = re.compile(r"[1-9][0-9]{0,8}")
 
 @dataclass(frozen=True, slots=True)
 class ResourceRef:
-    """A parsed ``name@revision`` reference; ``revision`` None means unpinned."""
-
     name: str
     revision: int | None
 
@@ -31,7 +25,6 @@ class ReferenceShapeError(ValueError):
 
 
 def parse_reference(text: str) -> ResourceRef:
-    """Parse ``name@revision``; a missing ``@revision`` yields ``revision=None``."""
     name, separator, revision = text.rpartition("@")
     if not separator:
         name, revision = text, ""

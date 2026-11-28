@@ -5,6 +5,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, String, Text
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 from ..json_text import safe_json_list
 
@@ -13,7 +14,7 @@ def uuid_pk():
     return str(uuid.uuid4())
 
 
-class DesignTraceSyncTemplate(Base):
+class DesignTraceSyncTemplate(WorkspaceBound, Base):
     __tablename__ = "design_trace_sync_templates"
 
     id = Column(String(64), primary_key=True, default=uuid_pk)

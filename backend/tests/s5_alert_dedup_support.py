@@ -15,8 +15,6 @@ from app.time_utils import utc_now
 
 
 class QueueOnly:
-    """``run_task_now`` that only queues the run row (nothing executes)."""
-
     def __init__(self, db, *, assign_run: bool = True):
         self.db, self.assign_run, self.runs = db, assign_run, []
 
@@ -31,7 +29,6 @@ class QueueOnly:
 
 def am(*alerts: tuple[str, str], severity: str = "warning", service: str = "checkout", namespace: str = "shop",
        status: str = "firing") -> dict:
-    """An Alertmanager v4 group: one alert per ``(fingerprint, startsAt)``."""
     common = {"alertname": "CheckoutErrors", "service": service, "namespace": namespace}
     return {
         "version": "4", "status": status, "receiver": "octryx", "groupKey": "{}:{alertname=\"CheckoutErrors\"}",
@@ -51,7 +48,6 @@ async def deliver(db, webhook_id: str, payload: dict, scheduler=None, *, is_test
 
 async def bind_workflow_run(db, task_run_id: str, owner_id: str, *, status: str = "waiting",
                             minutes_ago: int | None = None) -> WorkflowRun:
-    """The Action's workflow run, bound to the task run's session like ``start_action_run`` leaves it."""
     run = await db.get(TaskRun, task_run_id)
     run.session_id = run.session_id or str(uuid.uuid4())
     workflow = WorkflowRun(workflow_kind="phased", workflow_key="incident-analysis", title="Incident",

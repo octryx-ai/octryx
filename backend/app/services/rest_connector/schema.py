@@ -1,9 +1,4 @@
-"""The tool's parameter schema and the check of a call's arguments.
-
-The model sees only what the operation declares: its path, query and header parameters (after the admin's
-overlay) and, for a read-only POST, a ``body`` object. The base URL and host are never parameters, and the
-parameters of the caller's data scope are not offered as free fields (``authorization.scope_schema``).
-"""
+"""The tool's parameter schema and the check of a call's arguments."""
 
 from __future__ import annotations
 
@@ -22,11 +17,10 @@ _PRIMITIVES = {"string", "integer", "number", "boolean", "array", "object"}
 
 
 class ArgumentError(ValueError):
-    """A call's arguments do not fit the declared parameters; the message is authored here and safe to return."""
+    pass
 
 
 def clean_schema(raw: Any, depth: int = 0) -> dict[str, Any]:
-    """A JSON schema reduced to the keys a tool schema needs (nested ``properties`` and ``items`` included)."""
     if not isinstance(raw, dict) or depth > 12:
         return {"type": "object"} if depth > 12 else {"type": "string"}
     schema = {key: value for key, value in raw.items() if key in _SCHEMA_KEYS}
@@ -53,9 +47,6 @@ def clean_schema(raw: Any, depth: int = 0) -> dict[str, Any]:
 
 
 def declared_parameters(operation: Any) -> dict[str, dict[str, Any]]:
-    """The operation's parameters by model name, with the admin overlay applied (description, hidden, fixed value).
-
-    ``wire`` is the name the value is sent under (``$filter`` for the model's ``filter``, ``param_names``)."""
     overlay = dict(operation.params_overlay or {})
     raws = [raw for raw in operation.parameters or [] if isinstance(raw, dict) and raw.get("name")]
     names = model_names([str(raw["name"]) for raw in raws])
@@ -89,11 +80,6 @@ def build_parameters_schema(
     scope_choices: dict[str, list[Any]] | None = None,
     paginated: bool = False,
 ) -> dict[str, Any]:
-    """The JSON schema the model sees for this caller.
-
-    ``scope_choices``: per scoped parameter, the values the caller's grants allow; one value is injected and hidden,
-    several become an enum the model must choose from.
-    """
     choices = scope_choices or {}
     declared = declared_parameters(operation)
     properties: dict[str, Any] = {}
@@ -149,7 +135,6 @@ def _fits(value: Any, schema: dict[str, Any]) -> bool:
 
 
 def check_arguments(schema: dict[str, Any], arguments: Any) -> dict[str, Any]:
-    """The arguments when they fit ``schema`` (no unknown name, every required one, the declared types)."""
     if not isinstance(arguments, dict):
         raise ArgumentError("The arguments must be an object.")
     properties = schema.get("properties") or {}

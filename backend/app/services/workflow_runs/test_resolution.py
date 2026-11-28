@@ -1,16 +1,4 @@
-"""The run's canonical test ids.
-
-Every test id a run stores or compares is canonical (``workflow_checks.test_ids``). A result reported by a dotted
-name (JUnit ``classname``, unittest, Jenkins) resolves against the files the run knows:
-
-- the run's working copy on the server (``context.local_path``), when it exists;
-- the files the confirmed tests, the submitted test contract and the reproduction name;
-- the files of the results earlier runs keyed, and the files the launcher found next to a device report.
-
-A test run is resolved when it is recorded and again whenever it is read (:func:`recorded_runs`): a result left
-unresolved in Clarify (before any contract named its file) resolves as soon as the run knows the file. What still
-does not resolve stays ``unresolved`` with its reason; the gates never match it (``test_results``).
-"""
+"""The run's canonical test ids."""
 
 from __future__ import annotations
 
@@ -49,7 +37,6 @@ def resolver_for(run: WorkflowRun, extra_ids: list[str] | tuple[str, ...] = (),
 
 
 def resolve_entry(entry: dict[str, Any], resolver: Resolver) -> dict[str, Any]:
-    """``entry`` with each unresolved result keyed when the resolver now knows its file."""
     pending = [item for item in entry.get("unresolved") or [] if isinstance(item, dict)]
     if not pending:
         return entry
@@ -64,7 +51,6 @@ def resolve_entry(entry: dict[str, Any], resolver: Resolver) -> dict[str, Any]:
 
 
 def recorded_runs(run: WorkflowRun, extra_ids: list[str] | tuple[str, ...] = ()) -> list[dict[str, Any]]:
-    """The run's recorded test runs, oldest first, each resolved with everything the run knows now."""
     runs = [dict(item) for item in dict(dict(run.context or {}).get("tests") or {}).get("runs") or []]
     if not any(item.get("unresolved") for item in runs):
         return runs
@@ -73,8 +59,7 @@ def recorded_runs(run: WorkflowRun, extra_ids: list[str] | tuple[str, ...] = ())
 
 
 def canonical_ids(raw: list[str], resolver: Resolver) -> tuple[list[str], list[str]]:
-    """Submitted test ids as canonical selectors (``(ids, problems)``); one that cannot be is the submitter's to
-    fix, so it is refused with the reason, never stored as given."""
+    # Refused with the reason, never stored as given.
     ids: list[str] = []
     problems: list[str] = []
     for item in raw:

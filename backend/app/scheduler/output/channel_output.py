@@ -93,6 +93,7 @@ async def deliver_task_output_channel(db, task, task_run) -> dict[str, Any] | No
 
     from ...plugins import plugin_manager
     from ...services.channel_config import ChannelConfigService
+    from ...services.channel_config.credentials import CHANNEL_SEND, channel_runtime_config
 
     channel_model = await ChannelConfigService.get_model(db, int(channel_id))
     if channel_model is None:
@@ -112,12 +113,8 @@ async def deliver_task_output_channel(db, task, task_run) -> dict[str, Any] | No
 
     plugin = plugin_manager.get_channel(str(channel_model.id))
     if plugin is None:
-        reload_config = dict(channel_config)
-        reload_config["enabled"] = channel_model.enabled
-        reload_config["__channel_id"] = str(channel_model.id)
-        reload_config["__channel_name"] = channel_model.name
-        reload_config["__channel_project_id"] = channel_model.project_id
-        await plugin_manager.reload_channel(str(channel_model.id), channel_model.plugin_id, reload_config)
+        await plugin_manager.reload_channel(str(channel_model.id), channel_model.plugin_id,
+                                            await channel_runtime_config(db, channel_model, purpose=CHANNEL_SEND))
         plugin = plugin_manager.get_channel(str(channel_model.id))
     if plugin is None:
         return {
@@ -130,7 +127,12 @@ async def deliver_task_output_channel(db, task, task_run) -> dict[str, Any] | No
     kwargs: dict[str, Any] = {}
     if channel_model.plugin_id == "email":
         kwargs["subject"] = f"Task output · {task.name} · {task_run.status}"
-    sent = await plugin.send_message(target, format_task_output_message(task, task_run), **kwargs)
+    message = format_task_output_message(task, task_run)
+    if dict(task_run.output if isinstance(task_run.output, dict) else {}).get("response"):
+        from ...services.ai_marking_channels import marked_message
+
+        message = await marked_message(db, message, user_id=task.owner_id)
+    sent = await plugin.send_message(target, message, **kwargs)
     return {
         "status": "sent" if sent else "error",
         "channel_id": channel_model.id,

@@ -151,6 +151,5 @@ EXECUTION_DEFINITIONS: dict[str, dict] = {
 
 
 def get_execution_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for execution tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy(EXECUTION_DEFINITIONS)

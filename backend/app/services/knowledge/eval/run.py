@@ -20,6 +20,7 @@ import time
 from sqlalchemy import select
 
 from ....models import User
+from ...data_access import as_viewer
 from ..access.authorization import authorize_workspace
 from ..embedding.selection import SPACE_ENV
 from ..ledger.errors import EvidenceLedgerError
@@ -70,19 +71,20 @@ async def main(args: argparse.Namespace) -> dict:
     reports: list[ConfigurationReport] = []
     async with database.async_session_factory() as db:
         admin = (await db.execute(select(User).where(User.username == args.user))).scalar_one()
-        authorized = await authorize_workspace(db, current_user=admin, workspace_id=args.workspace)
-        base = build_evidence_runtime({**os.environ, SPACE_ENV: "", RERANKER_ENV: ""})
-        reports.append(await _evaluate(db, base, authorized, golden, "lexical", "lexical"))
-        for space in [item for item in args.spaces.split(",") if item]:
-            runtime = build_evidence_runtime({**os.environ, SPACE_ENV: space, RERANKER_ENV: ""})
-            embedded = await embed_workspace(db, runtime=runtime, authorized=authorized)
-            reports.append(await _evaluate(db, runtime, authorized, golden, f"vector:{space}", "vector"))
-            reports.append(await _evaluate(db, runtime, authorized, golden, f"hybrid:{space}", "hybrid"))
-            if args.reranker:
-                ranked = build_evidence_runtime({**os.environ, SPACE_ENV: space, RERANKER_ENV: args.reranker})
-                name = f"hybrid+{args.reranker}:{space}"
-                reports.append(await _evaluate(db, ranked, authorized, golden, name, "hybrid"))
-            print(json.dumps({"embedded": space, "spans": embedded}), flush=True)
+        with as_viewer(admin.id):
+            authorized = await authorize_workspace(db, current_user=admin, workspace_id=args.workspace)
+            base = build_evidence_runtime({**os.environ, SPACE_ENV: "", RERANKER_ENV: ""})
+            reports.append(await _evaluate(db, base, authorized, golden, "lexical", "lexical"))
+            for space in [item for item in args.spaces.split(",") if item]:
+                runtime = build_evidence_runtime({**os.environ, SPACE_ENV: space, RERANKER_ENV: ""})
+                embedded = await embed_workspace(db, runtime=runtime, authorized=authorized)
+                reports.append(await _evaluate(db, runtime, authorized, golden, f"vector:{space}", "vector"))
+                reports.append(await _evaluate(db, runtime, authorized, golden, f"hybrid:{space}", "hybrid"))
+                if args.reranker:
+                    ranked = build_evidence_runtime({**os.environ, SPACE_ENV: space, RERANKER_ENV: args.reranker})
+                    name = f"hybrid+{args.reranker}:{space}"
+                    reports.append(await _evaluate(db, ranked, authorized, golden, name, "hybrid"))
+                print(json.dumps({"embedded": space, "spans": embedded}), flush=True)
     return {
         "golden": args.golden,
         "summaries": [report.summary() for report in reports],

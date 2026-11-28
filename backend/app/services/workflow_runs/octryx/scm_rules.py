@@ -22,7 +22,6 @@ DEFAULT_SCM_HOSTS = frozenset({"github.com", "api.github.com", "gitlab.com", "bi
 
 
 async def scm_hosts(db: AsyncSession, workspace_id: str | None) -> frozenset[str]:
-    """The SCM and Jira hosts of the Workspace's tool configurations plus the public ones."""
     from ....models import BuiltInToolConfig
 
     rows = (await db.execute(select(BuiltInToolConfig.config).where(
@@ -65,8 +64,6 @@ _WORD = re.compile(r"[A-Za-z0-9_.:/@-]+")
 
 
 def _words_as_segment(command: str) -> list[tuple[str, ...]]:
-    """An unparseable command's words as segments the delivery rules can judge: every SCM / HTTP client word starts
-    one with the words after it, and ``git … push`` / ``git … send-pack`` counts as a push."""
     words = _WORD.findall(str(command or ""))
     segments: list[tuple[str, ...]] = []
     for index, word in enumerate(words):

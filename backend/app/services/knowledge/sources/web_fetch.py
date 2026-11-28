@@ -1,22 +1,5 @@
-"""Fetch one public web document for Knowledge ingestion, safely (research packages).
-
-Research proposes URLs from web search results, so every URL is untrusted. The fetch is closed:
-
-- ``https`` only, default or explicit port 443, no credentials in the URL;
-- the fetch goes through the pinned ``public_web`` client (``services/outbound_egress/public_web.py``)
-  with its stricter address rule : the host is resolved **once** per request
-  and redirect hop, every address must be globally routable (private, loopback, link-local,
-  multicast, reserved, shared and documentation addresses are refused), and the connection goes
-  only to the checked address, so a DNS answer that changes after the check (rebinding) is never
-  connected. Environment proxies are never read; the admin-named web fetch proxy is used when one
-  is configured;
-- redirects are followed by hand, at most :data:`MAX_REDIRECTS`, and each hop is checked again;
-- the body is bounded by the ingestion limits and read as a stream;
-- the answer's content type decides the path: HTML and PDF go to the Docling sandbox, plain text,
-  Markdown and AsciiDoc are text-native. Anything else is refused.
-
-A refusal is a fixed reason token; no server text, header or body is kept.
-"""
+"""Fetch one public web document for Knowledge ingestion, safely. Every URL is untrusted: ``https`` only, pinned egress,
+every address globally routable."""
 
 from __future__ import annotations
 
@@ -102,11 +85,7 @@ def _media_of(content_type: str, url: str) -> tuple[str, int]:
 async def fetch_public_document(
     url: str, *, network_backend: httpcore.AsyncNetworkBackend | None = None
 ) -> FetchedDocument:
-    """GET one public document; follows at most :data:`MAX_REDIRECTS` checked redirects.
-
-    ``network_backend`` replaces the socket layer under the pinned transport (a test seam for the
-    connect address); it cannot skip the check.
-    """
+    # ``network_backend`` is a test seam under the pinned transport; it cannot skip the check.
     current = url
     async with _client(network_backend) as client:
         for _ in range(MAX_REDIRECTS + 1):
@@ -138,7 +117,6 @@ async def fetch_public_document(
 
 
 async def probe_public_document(url: str, *, network_backend: httpcore.AsyncNetworkBackend | None = None) -> str:
-    """The media type ``url`` would be ingested as, reading only the headers; refuses like a fetch."""
     current = url
     async with _client(network_backend) as client:
         for _ in range(MAX_REDIRECTS + 1):

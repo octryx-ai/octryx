@@ -34,7 +34,6 @@ def default_runner(argv: Sequence[str]) -> subprocess.CompletedProcess:
                           timeout=BUILD_TIMEOUT_SECONDS, check=False)
 
 def build_commands(venv: Path, wheel: Path, env: MutableMapping[str, str]) -> list[list[str]]:
-    """``create_venv`` of install.sh: uv when present (or the installer's Python override), never a package cache."""
     python = venv / "bin" / "python"
     override = env.get(PYTHON_OVERRIDE_ENV, "").strip()
     uv = None if override else shutil.which("uv")
@@ -47,7 +46,6 @@ def build_commands(venv: Path, wheel: Path, env: MutableMapping[str, str]) -> li
              str(wheel)]]
 
 def pet_command(venv: Path, wheel: Path, env: MutableMapping[str, str]) -> list[str]:
-    """The extra on top of a built venv, the same way ``build_commands`` installs (uv or pip, no cache)."""
     python = venv / "bin" / "python"
     requirement = PET_REQUIREMENT.format(url=wheel.resolve().as_uri())
     override = env.get(PYTHON_OVERRIDE_ENV, "").strip()
@@ -58,8 +56,6 @@ def pet_command(venv: Path, wheel: Path, env: MutableMapping[str, str]) -> list[
             requirement]
 
 def pet_autostart_command(venv: Path) -> list[str]:
-    """After the switch: the pet on (and restarted on the new version) unless the person turned it off; without the
-    extra its login item goes (``pet autostart``)."""
     return [str(venv / "bin" / "octryx-claude"), "pet", "autostart", "--restart"]
 
 def venv_version_command(venv: Path) -> list[str]:
@@ -82,7 +78,6 @@ def _reports(runner: Runner, venv: Path, version: str) -> bool:
     return done is not None and done.returncode == 0 and (done.stdout or "").strip() == version
 
 def download(http: httpx.Client, base_url: str, release: update_check.Release, target: Path) -> None:
-    """The wheel, written only after its sha256 matched the published one."""
     try:
         response = http.get(f"{base_url}/octryx-claude/package/{release.version}", timeout=DOWNLOAD_TIMEOUT_SECONDS)
     except httpx.HTTPError as exc:

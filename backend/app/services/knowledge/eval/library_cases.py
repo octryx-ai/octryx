@@ -23,7 +23,6 @@ from .library_inputs import (
 
 
 def _items(value: Any) -> list[Any]:
-    """A JSON list as given; anything else contributes no items (its type is reported separately)."""
     return value if isinstance(value, list) else []
 
 

@@ -1,20 +1,4 @@
-"""The alert on a workflow run: one versioned shape, and the readers every consumer uses.
-
-An Action started by an inbound alert binds its session to a workflow run (``automation.start_action_run``); the
-run's ``context`` then carries:
-
-* ``alert``: what the alert says, bounded and data only (title, status, severity, source, reference, summary,
-  fingerprint, the ``(alert fingerprint, startsAt)`` occurrence pairs, the common labels), plus what the server
-  decided about it: the time ``window`` evidence is read in, the mapped ``target_id`` and the ``dedup`` decision;
-* ``alert_target``: the mapped target's server-side context (``inbound_alerts.targets.AlertTarget.as_context``), or
-  nothing when the alert maps to no target.
-
-The window is ``startsAt − lookback`` (the target's ``lookback_minutes``, default 30, at most 24 h) up to the end of
-a resolved alert, or open ("up to the query time") while it fires. An alert without a start (an older run input, a
-source that sends none) starts its window ``lookback`` before the run started.
-
-Nothing here is ever taken from the model: the readers read the run the session is bound to.
-"""
+"""The alert on a workflow run: one versioned shape, and the readers every consumer uses."""
 
 from __future__ import annotations
 
@@ -43,7 +27,6 @@ def _lookback(value: Any) -> int:
 
 
 def alert_window(alert: dict, *, lookback_minutes: int, now: datetime) -> dict:
-    """``{"start", "end"}`` as ISO UTC instants; ``end`` is ``None`` while the alert fires (up to the query time)."""
     current = _aware(now)
     started = parse_instant((alert or {}).get("starts_at"))
     anchor = min(started, current) if started else current  # a start in the future never opens a future window
@@ -64,7 +47,6 @@ def _occurrences(raw: Any) -> list[list[str]]:
 
 
 def alert_run_context(inbound_alert: dict, *, now: datetime) -> dict:
-    """The run context of an alert-started run: ``{"alert": {...}, "alert_target": {...} | None}``."""
     inbound = inbound_alert if isinstance(inbound_alert, dict) else {}
     alert = inbound.get("alert") if isinstance(inbound.get("alert"), dict) else {}
     target = inbound.get("target") if isinstance(inbound.get("target"), dict) else None
@@ -104,7 +86,6 @@ def alert_target_of(run: Any) -> dict | None:
 
 
 def alert_window_of(run: Any) -> tuple[datetime, datetime | None] | None:
-    """The run's alert window as aware UTC datetimes; ``None`` without an alert or a readable window."""
     window = (alert_of(run) or {}).get("window")
     if not isinstance(window, dict):
         return None

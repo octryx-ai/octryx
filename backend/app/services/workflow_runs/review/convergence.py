@@ -1,23 +1,4 @@
-"""Reviews that converge: follow-up rounds answer the previous findings, and only real problems in scope count.
-
-In benchmark runs (Haiku as reviewer) 23 of 28 verdicts were "changes", with ~205 findings; the
-automatic revisions converged in 2 of 7 cases, and only 0-3 of 23 findings sat at the file and line of the round
-before: every round was a fresh full audit that found new details. A prompt rule alone
-(FOLLOW_UP_RULE) did not stop it. So the round is enforced here, in code:
-
-- every finding of a node gets a stable id (``F1``, ``F2``, ...);
-- a follow-up review (the node's previous verdict was "changes") gets those findings and answers each id
-  ``fixed`` or ``not_fixed``; a fixed one is dropped, an open one keeps its words and severity; a new finding
-  counts only when it is ``high``; a ``partly_fixed`` one stays open with only its ``remaining`` part (otherwise
-  "not rounded, and no tests" stayed open whole after the rounding came in); a finding people
-  answered in its thread (``replies``) may be ``withdrawn`` (dropped like a fixed one, its own reason) unless the
-  reviewer names new evidence;
-- a finding about a file or a screenshot the change does not touch counts only when it is ``high`` (otherwise a
-  foreign app's screenshot and other stories' screens were reported);
-- the verdict follows the findings that remain: "changes" while a high or medium one is open, else "pass".
-
-What is dropped is kept on the record (``dropped``, with the reason), never silently lost.
-"""
+"""Reviews that converge: follow-up rounds answer the previous findings, and only real problems in scope count."""
 
 from __future__ import annotations
 
@@ -61,15 +42,12 @@ FOLLOW_UP_RULE = (
 
 @dataclass(frozen=True)
 class Scope:
-    """What the change touches: its changed paths and the screenshots the reviewer was shown."""
-
     changed: tuple[str, ...] = ()
     screens: tuple[str, ...] = ()
     root: Path | None = None
 
     def covers(self, file: str) -> bool:
-        """Whether a finding on ``file`` is about this change; unsure (no change known, a file the change should
-        add, the work item as a whole) counts as covered."""
+        # Unsure counts as covered.
         path = _LINE_SUFFIX.sub("", str(file or "").strip()).lstrip("./")
         if not self.changed or not path or path.startswith("("):
             return True
@@ -79,10 +57,10 @@ class Scope:
         if any(item == path or item.endswith(f"/{path}") or path.endswith(f"/{item}") for item in self.changed):
             return True
         if _IMAGE.search(path):
-            return False  # a screenshot the reviewer was not shown for this change
+            return False
         if self.root is not None:
             try:
-                return not (self.root / path).exists()  # an existing file the change does not touch
+                return not (self.root / path).exists()
             except OSError:
                 return True
         return True
@@ -92,10 +70,9 @@ class Scope:
 class Settled:
     verdict: Verdict
     dropped: tuple[dict[str, Any], ...] = ()
-    answers: tuple[dict[str, Any], ...] = field(default=())  # a follow-up's answer per previous id
+    answers: tuple[dict[str, Any], ...] = field(default=())
 
     def record(self) -> dict[str, Any]:
-        """The verdict as stored on the run (``context.review``), with what was dropped and why."""
         record = self.verdict.to_dict()
         if self.dropped:
             record["dropped"] = list(self.dropped)
@@ -105,8 +82,6 @@ class Settled:
 
 
 def previous_findings(run: Any, node: Any) -> tuple[Finding, ...]:
-    """The node's previous "changes" verdict's findings with their ids (``F<n>`` by position for a record from
-    before ids); empty when this is the node's first round."""
     previous = dict(dict(getattr(run, "context", None) or {}).get("review") or {})
     if node is None or previous.get("node_id") != node.id or previous.get("verdict") != VERDICT_CHANGES:
         return ()
@@ -128,7 +103,6 @@ def follow_up_task(previous: tuple[Finding, ...]) -> str:
 
 
 def settle_first(verdict: Verdict, scope: Scope) -> Settled:
-    """A first round: number the findings, drop the out-of-scope ones that are not high, derive the verdict."""
     numbered = [_with_id(item, f"F{index}") for index, item in enumerate(verdict.findings, 1)]
     kept, dropped = _in_scope(numbered, scope)
     # The bot's walkthrough rides along (``verdict.WALKTHROUGH_RULE``); a follow-up answer carries none.
@@ -138,11 +112,6 @@ def settle_first(verdict: Verdict, scope: Scope) -> Settled:
 
 
 def settle_follow_up(answer: Any, previous: tuple[Finding, ...], scope: Scope) -> Settled | None:
-    """A follow-up round's answer, or ``None`` when it breaks the schema.
-
-    The follow-up shape (``previous`` + ``findings``) is the contract; a first-round shaped answer is still read:
-    its ``pass`` means every previous finding is fixed, its ``changes`` that none is (a previous id the answer does
-    not mention stays open either way)."""
     if not isinstance(answer, dict):
         return None
     raw_new = answer.get("findings") if answer.get("findings") is not None else []
@@ -162,7 +131,7 @@ def settle_follow_up(answer: Any, previous: tuple[Finding, ...], scope: Scope) -
         status = statuses.get(item.id, default)
         if status in (FIXED, WITHDRAWN):
             dropped.append({**item.to_dict(), "dropped": status})
-        elif status == PARTLY:  # it stays open with only what is still to do
+        elif status == PARTLY:
             rest = next(answer["remaining"] for answer in answers if answer["id"] == item.id)
             kept.append(replace(item, fix=rest, suggestion="", start_line=0))
         else:
@@ -171,7 +140,7 @@ def settle_follow_up(answer: Any, previous: tuple[Finding, ...], scope: Scope) -
     number = max([int(match.group(1)) for item in previous if (match := _ID.match(item.id))] or [0])
     for item in new:
         if (item.file, item.fix) in known:
-            continue  # a previous finding restated: it is answered by its id
+            continue
         if item.severity != "high":
             dropped.append({**item.to_dict(), "dropped": "new_not_high"})
             continue
@@ -220,12 +189,10 @@ def _derived(summary: str, findings: list[Finding], assumptions: tuple[str, ...]
 
 
 def _with_id(finding: Finding, ident: str) -> Finding:
-    """The finding numbered; its optional extras (a ``suggestion`` with its ``start_line``) are kept."""
     return replace(finding, id=ident)
 
 
 def changed_paths(diff: str) -> tuple[str, ...]:
-    """The paths a unified diff touches (``diff --git a/x b/y``: both sides of a rename)."""
     paths: list[str] = []
     for match in re.finditer(r"^diff --git a/(\S+) b/(\S+)$", diff or "", re.MULTILINE):
         for path in match.groups():

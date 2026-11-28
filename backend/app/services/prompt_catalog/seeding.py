@@ -1,15 +1,4 @@
-"""Seed the prompt catalog from the code constants, idempotently, never over an admin edit.
-
-For each registered key at global scope:
-
-* no template yet: create it with version 1 = the seed, published;
-* the seed text already exists as some version (any state): nothing to do;
-* the published version is a seed and the code seed changed: publish the new seed
-  (the old seed version is retired);
-* otherwise (an admin or imported version is published, or nothing is published
-  because an admin retired it): add the new seed as a **draft** only, so an admin can
-  diff and decide. A published admin edit is never replaced.
-"""
+"""Seed the prompt catalog from the code constants, idempotently, never over an admin edit."""
 
 from __future__ import annotations
 

@@ -1,19 +1,4 @@
-"""The model gates of one Workspace: may this catalog model answer here?
-
-``CANDIDATES = enabled models ∩ Workspace allowed ∩ cleared for the Workspace's data class ∩ required capability``.
-The same gates apply to every driver: a direct provider model (Bedrock, OpenRouter, Ollama) is bounded by the
-Workspace allowlist and the data clearance exactly like a gateway alias. The gateway alias keeps its own admission
-on top (project ``model_policy`` grant, alias catalog, Cedar ``call_model``), which reads the same clearance.
-
-"Workspace allowed" includes that ``model_policy`` grant for a gateway alias (``model_alias_access_decision``, the
-gateway admission's own rule) when the scope carries it: a model the gateway refuses is never chosen, named in the
-chat's "Automatic · <model>" label or offered as the Workspace default.
-
-Data class: a Workspace with a class needs a model cleared at or above it. A Workspace without a class (not set
-yet) needs a model cleared for some data (at least ``public``): an uncleared model never answers anywhere.
-
-Pure: the caller loads a ``SelectionSnapshot`` and a ``WorkspaceScope`` once and asks per model.
-"""
+"""The model gates of one Workspace: may this catalog model answer here?"""
 
 from __future__ import annotations
 
@@ -66,8 +51,6 @@ class CatalogModel:
 
 @dataclass(frozen=True, slots=True)
 class AliasGrant:
-    """A Workspace's ``projects.config.model_policy``, frozen: which company-gateway aliases it grants."""
-
     allowed: frozenset[str] = frozenset()
     denied: frozenset[str] = frozenset()
     allow_all: bool = False
@@ -125,7 +108,6 @@ def cleared_for_workspace(model: CatalogModel, scope: WorkspaceScope) -> bool:
 
 
 def meets_capability(model: CatalogModel, capability: str) -> bool:
-    """Catalog capabilities are explicit (no name heuristic); another catalog key reads the target tags."""
     if not capability:
         return True
     if capability in CAPABILITY_KEYS:
@@ -134,7 +116,6 @@ def meets_capability(model: CatalogModel, capability: str) -> bool:
 
 
 def gate(model: CatalogModel | None, scope: WorkspaceScope, *, capability: str = "") -> str:
-    """The first reason the model may not answer in this Workspace, or ``""``."""
     if model is None:
         return REASON_NOT_IN_CATALOG
     if not model.enabled:

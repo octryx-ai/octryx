@@ -1,10 +1,4 @@
-"""Prompt-cache rates travel from the alias cost contract to the model row and into usage accounting.
-
-The alias contract may declare ``cache_read_per_million_usd`` / ``cache_write_per_million_usd``.
-Model sync persists that pair on the model row (and clears it when the contract stops declaring
-it), and ``compute_usage_event_cost_attribution`` charges a ``UsageEvent``'s cache tokens at it.
-A row without cache rates keeps the previous charge exactly.
-"""
+"""Prompt-cache rates travel from the alias cost contract to the model row and into usage accounting."""
 
 from __future__ import annotations
 

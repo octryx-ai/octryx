@@ -1,7 +1,5 @@
 import type { ThreadSummary } from "../chatThreadTypes";
 
-// The thread list's status dot (moved unchanged from ThreadGroupSection.tsx; adds
-// "turn-stopped"). Current activity (running, waiting for input) and failures come first.
 export function getThreadSignalKind(thread: ThreadSummary) {
   const runStatus = String(thread.runStatus || "")
     .trim()
@@ -49,10 +47,7 @@ export function getThreadSignalKind(thread: ThreadSummary) {
   return "done";
 }
 
-/**
- * The row markers (WP chat sidebar S3): a marker only where it means something, shape plus colour,
- * each with a text label; this list is also the legend. `done` and `stopped` carry no marker.
- */
+/** This list is also the legend; `done` and `stopped` carry no marker. */
 export const THREAD_MARKERS = [
   { kind: "running", label: "Running", hint: "A turn is in progress." },
   { kind: "attention", label: "Needs you", hint: "Waiting for your approval or answer." },
@@ -60,7 +55,6 @@ export const THREAD_MARKERS = [
   { kind: "error", label: "Failed", hint: "The last turn failed." },
 ] as const;
 
-/** Signal kinds that are shown without a marker: finished, or stopped by the user. */
 export const UNMARKED_THREAD_SIGNALS = ["done", "stopped"] as const;
 
 export type ThreadMarkerKind = (typeof THREAD_MARKERS)[number]["kind"];
@@ -70,9 +64,7 @@ export function threadMarkerKind(kind: string): ThreadMarkerKind | null {
 }
 
 /** Accessible label of a row marker; null where the row shows no marker. */
-// The cause, named only from the closed runtime stop reasons
-// (turn_execution_snapshot.RUNTIME_STOP_REASONS). The thread list does not send a reason today, so the
-// generic label is the normal case; an unknown or missing reason never gets a guessed cause.
+// An unknown or missing stop reason never gets a guessed cause.
 const STOP_CAUSE: Record<string, string> = {
   agent_reply_not_json: "reply format not met",
   agent_reply_schema_mismatch: "reply format not met",

@@ -17,6 +17,7 @@ export const ObservabilityAuditPage = lazyAdminPanel(async () => {
   const module = await import("./observability/ObservabilityAuditPage");
   return { default: module.ObservabilityAuditPage };
 });
+export const ComplianceAuditPage = lazyAdminPanel(async () => ({ default: (await import("./observability/ComplianceAuditPage")).ComplianceAuditPage }));
 export const ApprovalDetailPage = lazyAdminPanel(async () => {
   const module = await import("../../chat/approval/ApprovalDetailPage");
   return { default: module.ApprovalDetailPage };
@@ -164,10 +165,6 @@ export const AdminApprovalRule = lazyAdminPanel(async () => {
 export const AdminCedarPolicies = lazyAdminPanel(async () => {
   const module = await import("./policyEngine/AdminCedarPolicies");
   return { default: module.AdminCedarPolicies };
-});
-export const AdminScenariosTab = lazyAdminPanel(async () => {
-  const module = await import("./AdminScenariosTab");
-  return { default: module.AdminScenariosTab };
 });
 export const AdminSkillsTab = lazyAdminPanel(async () => {
   const module = await import("./AdminSkillsTab");

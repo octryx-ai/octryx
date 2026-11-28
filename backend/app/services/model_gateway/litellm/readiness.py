@@ -1,13 +1,4 @@
-"""Gateway-specific readiness evidence for the LiteLLM provider driver.
-
-A LiteLLM provider stays non-runnable until every governed input is valid: a
-validated endpoint inside the required host allowlist, a virtual key behind a
-Secret Reference, a pinned probe contract, an explicit transport trust store with
-its optional governed proxy, a content-logging posture that retains neither
-prompts nor credentials, and at least one admitted alias. The reasons returned
-here feed the existing ``needs_configuration`` readiness branch in
-``services/provider/readiness.py``.
-"""
+"""Gateway-specific readiness evidence for the LiteLLM provider driver."""
 
 from __future__ import annotations
 

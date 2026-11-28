@@ -15,8 +15,6 @@ class TransportType(StrEnum):
 
 @dataclass
 class OAuthConfig:
-    """OAuth 2.0 configuration for an MCP server."""
-
     client_id: str = ""
     client_secret: str = ""
     token_url: str = ""
@@ -66,8 +64,6 @@ class OAuthConfig:
 
 @dataclass
 class MCPServerConfig:
-    """Configuration for an MCP server."""
-
     name: str
     command: str
     args: list[str] = field(default_factory=list)
@@ -139,29 +135,14 @@ class MCPServerConfig:
 
 @dataclass
 class MCPTool:
-    """Represents a tool exposed by an MCP server."""
-
     name: str
     description: str
     input_schema: dict[str, Any]
     server_name: str
     server_id: str
 
-    def to_openrouter_format(self) -> dict[str, Any]:
-        return {
-            "type": "function",
-            "function": {
-                "name": f"mcp_{self.server_id}_{self.name}",
-                "description": f"[{self.server_name}] {self.description}",
-                "parameters": self.input_schema,
-            },
-        }
-
-
 @dataclass
 class MCPResource:
-    """Represents a resource exposed by an MCP server."""
-
     uri: str
     name: str
     description: str
@@ -172,8 +153,6 @@ class MCPResource:
 
 @dataclass
 class MCPPrompt:
-    """Represents a prompt template from an MCP server."""
-
     name: str
     description: str
     arguments: list[dict[str, Any]]

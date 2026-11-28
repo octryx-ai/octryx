@@ -1,8 +1,5 @@
-"""Hard delete of a chat session tree: the sessions, their messages and every row referencing them.
-
-Rows with a nullable foreign key to a deleted session or message are kept and unlinked; rows with a required
-foreign key are deleted. Used by thread deletion and by the live validation harness cleanup.
-"""
+"""Hard delete of a chat session tree: the sessions, their messages and every row referencing them. Rows with a nullable
+foreign key are unlinked and kept; rows with a required one are deleted."""
 
 from __future__ import annotations
 
@@ -26,9 +23,6 @@ class CleanupOperation:
     column_name: str
     mode: str
     target: str
-
-
-_MANUAL_SESSION_DELETE_COLUMNS: tuple[tuple[str, str], ...] = (("session_tool_cache", "session_id"),)
 
 
 def _referencing_operations(target_table_name: str) -> list[CleanupOperation]:
@@ -125,13 +119,6 @@ async def cleanup_session_descendants(db: AsyncSession, root_session_id: str) ->
     }
 
 
-async def run_referencing_cleanup(
-    db: AsyncSession, target_table_name: str, ids: list[str], deleted: dict[str, int], nullified: dict[str, int]
-) -> None:
-    """Delete or nullify every row referencing ``ids`` of ``target_table_name``."""
-    await _run_operations(db, _referencing_operations(target_table_name), ids, deleted, nullified)
-
-
 async def _run_operations(
     db: AsyncSession,
     operations: Iterable[CleanupOperation],
@@ -139,7 +126,6 @@ async def _run_operations(
     deleted: dict[str, int],
     nullified: dict[str, int],
 ) -> None:
-    """Delete or nullify the rows referencing ``ids``, counting affected rows per ``table.column``."""
     if not ids:
         return
     for operation in operations:
@@ -161,14 +147,6 @@ async def _run_operations(
 async def _delete_session_rows(
     db: AsyncSession, session_ids: list[str], message_ids: list[str], deleted: dict[str, int]
 ) -> None:
-    """Delete the session-owned rows without a foreign key, then the messages and the sessions themselves."""
-    for table_name, column_name in _MANUAL_SESSION_DELETE_COLUMNS:
-        table = _table_by_name(table_name)
-        result = await db.execute(_delete_where_ids(table, column_name, session_ids))
-        count = int(result.rowcount or 0)
-        if count > 0:
-            deleted[f"{table_name}.{column_name}"] = deleted.get(f"{table_name}.{column_name}", 0) + count
-
     if message_ids:
         result = await db.execute(delete(Message).where(Message.id.in_(message_ids)))
         if int(result.rowcount or 0) > 0:

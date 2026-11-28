@@ -1,27 +1,4 @@
-"""Answer an exact Work Plan's open questions into a new reviewable version.
-
-Contract:
-
-- the source plan is addressed by id and must be open and the Work Item's newest version, equal to
-  the version the client saw (``expected_latest_version``); its stored workflow is loaded through the scoped
-  loader (``related_rows``) for the Work Item's Workspace (missing or invisible: the same 404; an authorized
-  workflow of another Workspace: the workflow mismatch 409) and must be active; otherwise a refusal before any
-  model call;
-- every answer names a question of the source plan by index and repeats its exact text; partial
-  answers are allowed, at least one non-blank answer is required, nothing is truncated;
-- the model call reuses Workspace runtime admission and runs without tools; the prompt carries the
-  source plan's own bounded context (``clarification_revision``); answers are user data for the
-  prompt only and never change tools, permissions, runtimes or approvals; no model parameter comes
-  from this request;
-- unanswered source questions stay open in the revision, whatever the model returned;
-- after the model returned, the plan write lock is taken and the source is re-read; any change to
-  its status, version, questions or update marker, or a newer version, refuses with 409 and
-  writes nothing; only the exact source plan is superseded;
-- the new plan keeps the answers in ``evidence_json["clarification"]`` and still needs review;
-- an exhausted runtime chain is a 503 without provider text (see ``_is_runtime_exhaustion``).
-
-Refusals carry a closed code as the start of ``detail`` (``<code>: <message>``).
-"""
+"""Answer an exact Work Plan's open questions into a new reviewable version."""
 
 from __future__ import annotations
 
@@ -78,11 +55,8 @@ def _source_marker(plan: WorkChangePlan) -> tuple[Any, ...]:
 
 
 def _is_runtime_exhaustion(exc: RuntimeError) -> bool:
-    """The engine's exhausted-chain error: a ``RuntimeError`` carrying ``runtime_attempts``.
-
-    The class is local to ``_chat_with_runtime_fallback`` and cannot be imported; its message
-    lists provider errors, so only this shape is recognised and the text is never forwarded.
-    """
+    # The exhausted chain (``runtime_fallback.RuntimeFallbackError``) and a refused context guard both carry the
+    # attempts; their message lists provider errors, so only this shape is recognised and the text is never forwarded.
     return isinstance(getattr(exc, "runtime_attempts", None), list)
 
 
@@ -102,7 +76,6 @@ async def _check_source(db: AsyncSession, plan: WorkChangePlan, expected_latest_
 async def _source_workflow(
     db: AsyncSession, plan: WorkChangePlan, item: WorkItem, viewer: User
 ) -> WorkItemWorkflowDefinition | None:
-    """The source plan's stored workflow, through the scoped loader for the item's Workspace, and active."""
     if not plan.workflow_id:
         return None
     workflow = await load_related(db, viewer, WORKFLOW, plan.workflow_id, for_workspace=item.project_id)
@@ -126,7 +99,7 @@ async def answer_plan_clarifications(
     chat_func: ChatFunc | None = None,
     runtime_resolver_func: RuntimeResolverFunc = resolve_control_plane_runtimes,
 ) -> dict[str, Any]:
-    """Generate the next version from answers to ``change_plan_id``; the caller checked role and scope."""
+    # The caller checked role and scope.
     source = await reread_plan(db, change_plan_id)
     item = await db.get(WorkItem, source.work_item_id) if source is not None else None
     if source is None or item is None:
@@ -153,6 +126,7 @@ async def answer_plan_clarifications(
             503, "plan_generation_unavailable", "No admitted runtime produced a Work Plan. Your answers were not saved."
         ) from None
 
+    # Taken after the model call, never across it; the re-read then sees any change committed meanwhile
     await lock_work_item_for_plan_write(db, item.id)
     current = await reread_plan(db, source.id)
     if (

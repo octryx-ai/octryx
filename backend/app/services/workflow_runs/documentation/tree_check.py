@@ -1,12 +1,4 @@
-"""``documentation.tree_unchanged``: the read-only pre-push documentation draft left the reviewed change untouched.
-
-Freeze proposal §3.1 and acceptance case 13. ``doc_draft`` lies between the independent review and the push, so the
-platform proves, before it pushes, that the working copy is still exactly the tree the reviewer reviewed
-(``review.tree``; the same staged-tree hash ``platform/scm.push`` compares). A mismatch is a ``safety`` refusal: the
-run ends ``blocked`` (the global ``safety`` class is never relaxed), nothing is pushed. The push itself still checks
-the working copy before and the pushed commit's tree after (``scm._reviewed_tree``), so the pushed commit's tree
-equals ``review.tree``.
-"""
+"""``documentation.tree_unchanged``: the read-only pre-push documentation draft left the reviewed change untouched."""
 
 from __future__ import annotations
 

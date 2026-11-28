@@ -1,9 +1,4 @@
-"""Who holds the hands-on test's serve port.
-
- serves on a free port when the serve command names its port; a command that does not keeps the declared URL,
-and a foreign process there makes the pass refuse. The refusal now names that process (``port N is used by <command>
-(pid P)``), so a person can stop it without searching (decyra on 8090).
-"""
+"""Who holds the hands-on test's serve port, so a refusal can name the process."""
 
 from __future__ import annotations
 
@@ -14,7 +9,6 @@ LSOF_TIMEOUT = 5
 
 
 def holder(url: str) -> str:
-    """``port N is used by <command> (pid P)`` for the process listening on ``url``'s port; ``""`` when unknown."""
     parsed = urlparse(url)
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     try:

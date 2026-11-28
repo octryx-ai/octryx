@@ -1,8 +1,5 @@
-"""The seat analysis runner (``octryx-claude analyze <KEY>``).
-
-Registration with ``purpose: work_item_analysis``, the fixed tool set at the PreToolUse boundary, and
-``work_item_analysis_submit`` with the governed runner's schema, citation and secret rules. No model call.
-"""
+"""The seat analysis runner (``octryx-claude analyze <KEY>``): registration, the fixed tool set, and the governed
+submit rules. No model call."""
 
 from __future__ import annotations
 
@@ -20,14 +17,14 @@ from app.services import mcp_work_analysis_tools as tools
 from app.services.mcp_work_access import WorkGrantScope
 from app.services.work_item_analysis.seat_submit import submit_seat_analysis
 from tests.agent_gateway.seat_presence_support import REGISTER, _gateway_headers
-from tests.test_agent_gateway_control_plane import _pre_tool_use
+from tests.services.agent_gateway.test_agent_gateway_control_plane import _pre_tool_use
 from tests.work_item_analysis.support import MANUAL_HIT, POLICY, analysis, seed_env
 
 TOOL_CHECK = "/api/v1/agent-gateway/sessions/tool-check"
 SEAT_CONFIG = {"agent_gateway_policy": {"seat_mode": "allowed"}, "data_policy": {"classification": "internal"}}
 SEAT_SETTINGS = {"model_policy": f"{POLICY}@1", "runner": "seat"}
 SEARCH = "mcp__octryx-knowledge__knowledge_search"
-EVIDENCE = "knowledge_search"  # the server-side name of a read tool run the MCP server recorded
+EVIDENCE = "knowledge_search"
 
 
 async def _seat_env(db, monkeypatch, *, settings: dict[str, Any] | None = None, config: dict[str, Any] | None = None):
@@ -62,9 +59,6 @@ def _observed(session: Session, tool: str, excerpt: str, *, is_error: bool = Fal
     return ToolCall(session_id=session.id, tool_name=tool, request_id=uuid.uuid4().hex,
                     parameters={"source": source, "input": {}}, status="error" if is_error else "success",
                     result={"is_error": is_error, "excerpt": excerpt})
-
-
-# --- registration -------------------------------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -102,7 +96,6 @@ async def test_an_analysis_session_is_refused_with_a_fixed_reason(client, db, mo
 @pytest.mark.asyncio
 async def test_a_key_two_sources_share_is_refused_instead_of_pinning_one(client, db, monkeypatch):
     env = await _seat_env(db, monkeypatch)
-    # The same key from a second Jira instance of the Workspace: the key no longer names one item.
     db.add(WorkItem(id=str(uuid.uuid4()), project_id=env.workspace_id, source_type=env.item.source_type,
                     source_instance="second-instance", source_key=env.item.source_key, title="Other item"))
     await db.commit()
@@ -110,9 +103,6 @@ async def test_a_key_two_sources_share_is_refused_instead_of_pinning_one(client,
     assert response.status_code == 403 and response.json()["reason"] == "analysis_work_item_ambiguous"
     assert (await db.execute(select(AgentPresence).where(
         AgentPresence.session_key == headers["x-octryx-session"]))).scalar_one_or_none() is None
-
-
-# --- the fixed tool set -------------------------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -142,9 +132,6 @@ async def test_a_normal_seat_session_keeps_its_tools(client, db, monkeypatch):
     assert response.status_code == 200 and "purpose" not in response.json()
     answer = (await client.post(TOOL_CHECK, headers=headers, json=_pre_tool_use("Bash", {"command": "ls"}))).json()
     assert answer["decision"] == "allow"
-
-
-# --- submit -------------------------------------------------------------------------------------------------------
 
 
 async def _registered(client, db, monkeypatch, **options):
@@ -218,7 +205,7 @@ async def test_only_the_callers_own_active_analysis_session_may_submit(client, d
     plain = await _submit(db, env, plain_headers["x-octryx-session"], analysis())
     assert plain["error_code"] == "seat_analysis_session_required"
     presence = (await db.execute(select(AgentPresence).where(AgentPresence.session_key == key))).scalar_one()
-    presence.profile = "governed"  # a pinned session that is not a seat session
+    presence.profile = "governed"
     await db.commit()
     assert (await _submit(db, env, key, analysis()))["error_code"] == "seat_analysis_session_required"
     presence.profile = "seat"

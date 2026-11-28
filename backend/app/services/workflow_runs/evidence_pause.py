@@ -1,22 +1,4 @@
-"""A TDD check the platform could not judge pauses the run ``evidence_unresolved``.
-
-Example, on a device: the declared command's JUnit report keyed every result ``tests.test_textkit.test_x`` while the
-confirmed tests were ``tests/test_textkit.py::test_x``; every confirmed test was "not seen", the red gate failed
-three times on the platform's own mapping and the run paused at its loop limit with a follow-up issue. Ids are
-canonical (``workflow_checks.test_ids``); what still cannot be keyed — a result whose file the run cannot
-resolve, a report it cannot read, output listing fewer tests than its runner ran — is a platform/data problem, not
-the agent's (``test_results.evidence_unresolved``):
-
-- a gate whose blocking check failed only for that reason records its result and pauses here instead of taking its
-  loop edge: no loop iteration, no failed-round comment, no follow-up issue;
-- a phase turn reporting such a check pauses the same way before its result is applied;
-- a paused run gets no automatic device continuation (``octryx.continuation`` starts only for a running run), and
-  octryx-claude's Stop answers ``not_applicable`` so the session ends.
-
-**Re-check** (``continue``) runs the evidence again: at a gate it re-enters the gate's phase (a
-``pytest -q`` run names no passing test; re-reading the same runs could never resolve it, the phase's new pass runs
-the corrected test command), a phase runs again as a new pass. Change plan and abort as usual.
-"""
+"""A TDD check the platform could not judge pauses the run ``evidence_unresolved``."""
 
 from __future__ import annotations
 
@@ -36,9 +18,6 @@ CONCURRENT_MARK = "the test files ran concurrently"
 
 
 def concurrent_hint() -> str:
-    """The hint after a concurrent run (``run.evidence.concurrent``): the stacks' evidence commands
-    (``test_runner.evidence_args``), which the shell policy allows in every phase and whose output the platform
-    attributes per test even when files run concurrently (policy and hint from the same data)."""
     from ..engineering_knowledge.stacks import evidence_commands
     from .run_texts import run_text
 
@@ -56,12 +35,7 @@ def _last_run(run: WorkflowRun) -> dict[str, Any]:
 
 
 async def deferred_to_pipeline(db: AsyncSession, run: WorkflowRun, results: list[Any], *, node_id: str) -> bool:
-    """``True`` (and a ``check_uncertain`` note) when the checks failed only because the agent's own test output names
-    no test the platform can attribute and a pipeline step comes after ``node_id``: the pipeline runs the tests itself
-    with a per-test report (``stacks.json`` ``report_env``) and judges them there.
-
-    A ``pytest -q | tail`` that names none of the tests must not pause a run whose fix is green: the agent's output
-    format is never a reason to stop the run or to give it work."""
+    # The agent's output format is never a reason to stop the run: the pipeline judges the tests per test.
     from . import uncertain
     from .graph import graph_for_run
     from .size_class.tests_scope import pipeline_later
@@ -83,7 +57,6 @@ async def deferred_to_pipeline(db: AsyncSession, run: WorkflowRun, results: list
 
 
 async def pause_unresolved(db: AsyncSession, run: WorkflowRun, results: list[Any], *, node_id: str) -> None:
-    """Pause the run at ``node_id`` for the blocking checks in ``results`` the platform could not judge."""
     from .limits import pause_run
 
     checks = [{"type": result.type, "description": result.description, "detail": result.detail}
@@ -115,10 +88,6 @@ async def pause_unresolved(db: AsyncSession, run: WorkflowRun, results: list[Any
 
 async def _rerun_concurrent(db: AsyncSession, run: WorkflowRun, node_id: str, last: dict[str, Any],
                             detail: str) -> bool:
-    """A run of concurrent test files with failures named only its failures: the agent's command, fixable by the
-    agent. A pause ``evidence_unresolved`` would make a person
-    re-check each time. Back into the phase with the hint in the contract instead (``test_evidence_hint``), at most
-    ``MAX_RERUNS`` times per phase, then the pause."""
     from .engine import restart_at
     from .records import record_event
 
@@ -139,14 +108,11 @@ async def _rerun_concurrent(db: AsyncSession, run: WorkflowRun, node_id: str, la
 
 
 def rerun_hint(run: WorkflowRun, phase_id: str) -> str | None:
-    """The hint for the phase's next pass after an automatic evidence re-run."""
     return dict(dict(dict(run.context or {}).get(RERUN_KEY) or {}).get(phase_id) or {}).get("hint") or None
 
 
 async def _rerun_node(run: WorkflowRun, node_id: str, db: AsyncSession) -> str:
-    """The node whose new pass produces fresh evidence: a gate's phase (its ``phase``, else the phase that leads into
-    it, else the run's last phase), else the node itself. A gate like the bug flow's ``green``
-    names no phase; a re-check at the gate would re-judge the same old run and pause again, a dead end."""
+    # A gate names no phase; re-checking at the gate would re-judge the same run and pause again.
     from .graph import NODE_GATE, NODE_PHASE, graph_for_run
 
     graph = await graph_for_run(db, run)

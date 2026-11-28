@@ -1,26 +1,4 @@
-"""Structural gate: no provider dispatch outside the registered owners.
-
-The admission boundary only works if every dispatch owner goes through it, which
-is a *structural* property — so it is checked structurally. ``dispatch_site_scan``
-parses every module under ``app/`` and reports where a provider client is
-constructed, where a ``.chat`` dispatch happens, and where the governed gateway
-driver is named; this module compares that with the pinned inventory in
-``app/services/model_gateway/dispatch_owners.py``.
-
-Two things make this more than a plain text search:
-
-- construction counts, not just dispatch. A module that builds a client and hands
-  it to a helper is the owner, whichever file finally awaits ``chat``;
-- the detector itself is under test. ``test_the_detector_catches_…`` mutates real
-  evasion shapes (multi-line call, wrapper function, aliased client, ``driver=``
-  from a constant, a bare ``.chat`` reference) and requires each to be reported,
-  and ``test_the_detector_does_not_flag_…`` requires the look-alikes that are not
-  dispatch sites (a ``chat`` method definition, a comment, a docstring, an
-  unrelated ``_get_provider`` database helper) to stay unreported.
-
-A gate whose detector is not itself tested can only be trusted as far as the
-shapes someone thought of; these mutation controls are what that claim rests on.
-"""
+"""Structural gate: no provider dispatch outside the registered owners."""
 
 from __future__ import annotations
 
@@ -37,6 +15,7 @@ from app.services.model_gateway.dispatch_owners import (
     DISPATCH_OWNERS,
     owners_for_mode,
 )
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 
 from .dispatch_site_scan import (
     APP_ROOT,
@@ -48,11 +27,13 @@ from .dispatch_site_scan import (
     scan_source,
 )
 
+pytestmark = pytest.mark.usefixtures("scripted_pool")
+
 # Modules that legitimately hold the machinery rather than consume it.
 _BOUNDARY_PREFIXES = (
     "app/services/model_gateway/",
     "app/agent/providers/",
-    "app/agent/core/runtime/runtime_admission_contract.py",
+    "app/agent/runtime/runtime_admission_contract.py",
 )
 
 # Every way an owner may reach the admission authority. All of them live inside
@@ -93,8 +74,6 @@ def test_no_module_outside_the_provider_factory_constructs_the_gateway_driver():
 
 
 def test_a_module_that_only_forwards_the_factory_never_dispatches_itself():
-    """Transport into an owner is allowed; transport that also dispatches is not."""
-
     handoff = modules_with_kinds(KIND_FACTORY_HANDOFF, exclude_prefixes=_BOUNDARY_PREFIXES)
     dispatching = modules_with_kinds(
         KIND_CLIENT_CONSTRUCTION, KIND_CHAT_DISPATCH, exclude_prefixes=_BOUNDARY_PREFIXES
@@ -139,13 +118,10 @@ def test_inventory_entries_are_well_formed():
         assert owner.category.strip(), f"{key} has no category"
         for module in owner.modules:
             assert (APP_ROOT.parent / module).is_file(), f"{key} points at a missing module {module}"
-    # Exactly one module is allowed to consume the contract without resolving it.
     assert len(owners_for_mode(DISPATCH_MODE_AUTHORITY)) == 1
 
 
 def test_every_issue_category_has_a_registered_owner():
-    """The categories the owner inventory names, each mapped to at least one real owner."""
-
     categories = {owner.category for owner in DISPATCH_OWNERS.values()}
     for expected in (
         "main chat turn",
@@ -153,14 +129,11 @@ def test_every_issue_category_has_a_registered_owner():
         "knowledge graph extraction/summarization/keywords",
         "secure-work worker",
         "sub-agent/call-agent",
-        "summarizer",
         "risk analysis",
         "admin test surface",
     ):
         assert expected in categories, f"no registered dispatch owner for category {expected!r}"
 
-
-# --- mutation controls: the detector under test ------------------------------
 
 _EVASIONS = {
     # The receiver on its own line: a per-line regular expression sees only

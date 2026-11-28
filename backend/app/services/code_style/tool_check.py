@@ -35,8 +35,6 @@ def install_hint(tool: str, os_name: str = "") -> str:
 
 
 def output_levels(output: str, tool: dict[str, Any]) -> set[str] | None:
-    """The levels (``tool.levels``: a regex per level over one output line) a failed run's output names; ``None``
-    when the tool declares no levels or no line matches one (then the run blocks)."""
     levels = dict(tool.get("levels") or {})
     if not levels:
         return None
@@ -46,10 +44,6 @@ def output_levels(output: str, tool: dict[str, Any]) -> set[str] | None:
 
 
 def tool_findings(results: Any, style: dict[str, Any] | None = None) -> list[Finding]:
-    """The official formatters' and linters' verdicts the device reports (``style_tools``: ``[{language, kind, tool,
-    state, config, output, os}]``, ``state``: ok | failed | missing | timeout). A tool that found problems is red.
-    A tool that is not installed is a warning with how to install it (``missing_tool: error``, per
-    language or general, makes it red)."""
     found: list[Finding] = []
     for item in results if isinstance(results, list) else []:
         if not isinstance(item, dict) or item.get("state") in ("ok", "skipped"):  # skipped: the pipeline runs it

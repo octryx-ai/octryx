@@ -1,34 +1,18 @@
-"""The hands-on scenarios: what a person would do with the built app, as fixed steps the device runs in a browser
-(an app can pass every pipeline and review and still lose all data on reload).
-
-A scenario::
-
-    {"id": "S1", "part": "feature" | "regression", "title": "...", "fresh_profile": true | false,
-     "seed": [steps], "viewport": {"width": 390, "height": 844}, "covers": ["persistence_reload", ...],
-     "steps": [steps]}
-
-- ``fresh_profile: true`` starts the app with empty storage (a new browser profile: a first start); ``false`` starts
-  it **with existing data**: the ``seed`` steps run first in the same profile (they create the data through the app
-  itself), then the app is restarted and the ``steps`` run;
-- a step is ``{"do": <op>, ...}``: ``goto`` (``path``), ``click`` (``text``), ``fill`` (``label``, ``value``),
-  ``press`` (``key``), ``reload``, ``restart`` (close the browser, open it again on the same profile), ``expect_text``
-  / ``expect_no_text`` (``text``), ``wait`` (``ms``, at most 5000), ``screenshot`` (``name``). A screenshot is also
-  taken after every scenario and at a failed step;
-- ``part``: ``feature`` scenarios come from the work item's acceptance criteria and the decisions this work
-  introduced; ``regression`` scenarios guard the app's core and together cover :data:`REQUIRED_REGRESSION`.
-"""
+"""The hands-on scenarios: what a person would do with the built app, as fixed steps the device runs in a browser (an
+app can pass every pipeline and review and still lose all data on reload)."""
 
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from typing import Any
 
 OPS = ("goto", "click", "fill", "press", "reload", "restart", "expect_text", "expect_no_text", "wait", "screenshot")
 PARTS = ("feature", "regression")
-# data survives a reload and a restart, the main page loads, an empty state, a phone and a desktop
-# width, a form refusing an invalid value.
-REQUIRED_REGRESSION = ("app_loads", "persistence_reload", "empty_state", "mobile_390", "desktop_1280",
-                       "invalid_input")
+#: The regression checks a scenario can cover; which ones a run requires is its hands-on node's
+#: ``regression_covers`` (the workflow definition).
+COVERS = ("app_loads", "persistence_reload", "empty_state", "mobile_390", "desktop_1280", "invalid_input")
+COVERS_KEY = "regression_covers"
 VIEWPORT_OF = {"mobile_390": 390, "desktop_1280": 1280}
 MAX_SCENARIOS = 20
 MAX_STEPS = 40
@@ -100,7 +84,7 @@ def scenario(raw: Any, index: int) -> dict[str, Any]:
     covers = raw.get("covers") or []
     if not isinstance(covers, list) or any(not isinstance(item, str) for item in covers):
         raise ScenarioError(f"{where}.covers: a list of names")
-    covers = [item for item in covers if item in REQUIRED_REGRESSION]
+    covers = [item for item in covers if item in COVERS]
     for name, width in VIEWPORT_OF.items():
         if name in covers and viewport["width"] != width:
             raise ScenarioError(f"{where}: {name} needs the viewport width {width}")
@@ -114,9 +98,7 @@ def scenario(raw: Any, index: int) -> dict[str, Any]:
             "covers": covers, "steps": steps}
 
 
-def validate(answer: Any, *, keeps_data: bool = True) -> list[dict[str, Any]]:
-    """The scenarios of a generated answer, numbered; raises :class:`ScenarioError` with what is wrong. An app that
-    keeps no data across a restart needs no ``persistence_reload`` cover and no scenario that seeds before one."""
+def validate(answer: Any, *, required: Sequence[str] = (), keeps_data: bool = True) -> list[dict[str, Any]]:
     raw = answer.get("scenarios") if isinstance(answer, dict) else None
     if not isinstance(raw, list) or not raw or len(raw) > MAX_SCENARIOS:
         raise ScenarioError(f"scenarios: 1 to {MAX_SCENARIOS} scenarios")
@@ -124,8 +106,7 @@ def validate(answer: Any, *, keeps_data: bool = True) -> list[dict[str, Any]]:
     if not any(item["part"] == "feature" for item in scenarios):
         raise ScenarioError("at least one feature scenario (the work item's acceptance criteria)")
     covered = {name for item in scenarios if item["part"] == "regression" for name in item["covers"]}
-    required = [name for name in REQUIRED_REGRESSION if keeps_data or name != "persistence_reload"]
-    missing = [name for name in required if name not in covered]
+    missing = [name for name in required if name not in covered and (keeps_data or name != "persistence_reload")]
     if not keeps_data and (seeded := [item["id"] for item in scenarios if item.get("seed")]):
         raise ScenarioError("this app keeps no data across a restart: create the data in the scenario's own steps "
                             "(fresh_profile true, no seed) in " + ", ".join(seeded))
@@ -134,10 +115,25 @@ def validate(answer: Any, *, keeps_data: bool = True) -> list[dict[str, Any]]:
     return scenarios
 
 
+def covers_errors(graph: Any) -> list[dict[str, str]]:
+    # A misspelt name would silently require nothing.
+    from ..graph_node_rules import _error, _name
+
+    errors = []
+    for node in graph.nodes.values():
+        value = dict(node.config or {}).get(COVERS_KEY)
+        if value is None:
+            continue
+        if not isinstance(value, list) or any(item not in COVERS for item in value):
+            errors.append(_error(COVERS_KEY, f"{_name(node)}: {COVERS_KEY} is a list of: {', '.join(COVERS)}.",
+                                 node_id=node.id))
+    return errors
+
+
 def render_step(step: dict[str, Any]) -> str:
     detail = " ".join(f"{key}={value!r}" for key, value in step.items() if key != "do")
     return f"{step['do']} {detail}".strip()
 
 
-__all__ = ["DEFAULT_VIEWPORT", "OPS", "PARTS", "REQUIRED_REGRESSION", "ScenarioError", "render_step", "scenario",
-           "validate"]
+__all__ = ["COVERS", "COVERS_KEY", "DEFAULT_VIEWPORT", "OPS", "PARTS", "ScenarioError", "covers_errors", "render_step",
+           "scenario", "validate"]

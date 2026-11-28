@@ -1,54 +1,4 @@
-"""Explicit transport trust policy for the governed LiteLLM gateway client.
-
-The transport boundary is part of the credential boundary: the
-``Authorization: Bearer <virtual key>`` header travels over whatever trust store
-and whatever proxy the transport was built with. ``client.py`` therefore runs
-httpx with ``trust_env=False``, which removes ``HTTP_PROXY``, ``HTTPS_PROXY``,
-``ALL_PROXY``, ``NO_PROXY``, ``SSL_CERT_FILE``, ``SSL_CERT_DIR`` and ``.netrc``
-from the picture. This module supplies the governed alternative so that removal
-does not leave an internal deployment without a usable option:
-
-``config_json["litellm_gateway"]["tls"]``
-    ``{"mode": "private_ca_bundle", "ca_bundle_path": "/etc/octryx/ca/internal.pem"}``
-        Trust exactly the certificates in that file and nothing else.
-    ``{"mode": "public_ca_bundle", "ca_bundle_path": "/etc/ssl/certs/ca-certificates.crt"}``
-        Trust exactly the certificates in that public root-program bundle. The
-        path is explicit for the same reason the private one is: OpenSSL's
-        default paths — and therefore ``SSL_CERT_FILE``/``SSL_CERT_DIR`` — are
-        never consulted, and the recorded bundle digest stays auditable. The mode
-        only records the operator's statement about *what kind* of anchor set the
-        file holds; both modes are validated and digested identically.
-    ``{"mode": "plaintext_loopback"}``
-        Admitted only for an ``http`` loopback endpoint (local fixture / dev).
-    ``{"mode": "plaintext_cluster_internal", "node_encryption": "wireguard",
-       "attested_on": "2026-11-06", "attestation_reference": "cluster-attestation-2026-11-06"}``
-        "Cluster-internal": admitted only for an ``http`` endpoint whose host is a
-        fully qualified Kubernetes Service name (``<svc>.<ns>.svc.cluster.local``,
-        exact suffix, no IP, no ``.svc`` short form) that is also on the host
-        allowlist, and only with the operator's attestation that node-to-node
-        traffic is encrypted underneath (``node_encryption``; ``wireguard`` is the
-        one admitted value). The virtual key travels in clear on the pod network,
-        so this is *declared* transport protection, not a verified TLS chain:
-        evidence records ``tls_mode``, ``tls_node_encryption`` and the
-        attestation, and the qualification report states the transport assurance
-        as operator-attested. No governed proxy is admitted with this mode — the
-        only path is direct.
-
-``config_json["litellm_gateway"]["proxy"]`` (optional)
-    ``{"mode": "direct"}`` or
-    ``{"mode": "governed_proxy", "url": "https://egress.internal:3128",
-       "host_allowlist": ["egress.internal"]}``
-
-    A governed proxy is two connections. The proxy's *own* TLS leg is a separate
-    trust decision, taken explicitly in ``proxy_trust`` and recorded as
-    ``proxy_tls_trust_source``: an ``https`` proxy is admitted only when a
-    validated trust store exists to verify it against, so ``verify=False`` is
-    never used for a proxy TLS leg.
-
-Every rejection is a fixed reason code. Neither the configured URL nor an
-OpenSSL error string is ever echoed: an operator can paste a credential into a
-proxy URL, and an OpenSSL message can carry a filesystem path.
-"""
+"""Explicit transport trust policy for the governed LiteLLM gateway client: ``tls`` and ``proxy``."""
 
 from __future__ import annotations
 
@@ -111,17 +61,11 @@ def _resolve_tls_policy(raw: Any, *, endpoint: GatewayEndpoint) -> tuple[TlsTrus
     return TlsTrustPolicy(mode, path, count, digest), ""
 
 
+# The host is re-checked here, not trusted from the endpoint's flag, so this rule does not depend on another module's;
+# the allowlist was enforced by validate_gateway_endpoint.
 def _resolve_cluster_internal_plaintext(
     raw: Mapping[str, Any], *, endpoint: GatewayEndpoint
 ) -> tuple[TlsTrustPolicy | None, str]:
-    """Admit ``plaintext_cluster_internal`` for a cluster Service name, attested.
-
-    The host is re-checked here from ``endpoint.host`` rather than trusted from the
-    endpoint's flag, so this rule does not depend on another module's rule (the
-    same reasoning as the loopback branch). The host allowlist was already
-    enforced by ``validate_gateway_endpoint``.
-    """
-
     if endpoint.scheme != "http":
         # TLS to a cluster Service needs a CA bundle mode, not this one.
         return None, TLS_DENIAL_MODE_CONFLICTS_WITH_ENDPOINT
@@ -154,15 +98,9 @@ def _resolve_cluster_internal_plaintext(
     )
 
 
+# Only a declaration: it lets validate_gateway_endpoint admit an http cluster Service host far enough for
+# resolve_transport_policy to judge the full contract.
 def declares_cluster_internal_plaintext(section: Any) -> bool:
-    """True when the gateway section's ``tls.mode`` is ``plaintext_cluster_internal``.
-
-    Only a *declaration*: it lets ``validate_gateway_endpoint`` admit an ``http``
-    cluster Service host far enough for ``resolve_transport_policy`` to judge the
-    full contract (host shape, attestation, direct path). It admits nothing on
-    its own.
-    """
-
     tls = section.get("tls") if isinstance(section, Mapping) else None
     mode = tls.get("mode") if isinstance(tls, Mapping) else None
     return isinstance(mode, str) and mode.strip().lower() == TLS_MODE_PLAINTEXT_CLUSTER_INTERNAL

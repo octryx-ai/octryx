@@ -12,7 +12,6 @@ from app.services.budget.unpriced_guard import POLICY_WARN, set_unpriced_model_p
 
 
 async def _seed(db: AsyncSession) -> None:
-    """Seed like the suite baseline: the fake model is unpriced, so unpriced models warn."""
     await seed_database(db)
     await set_unpriced_model_policy(db, POLICY_WARN)
 
@@ -42,7 +41,6 @@ def _has_verified_coding_completion(events: list[tuple[str, str]]) -> bool:
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)

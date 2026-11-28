@@ -1,19 +1,4 @@
-"""The batched audit of a session that decides its tool calls on the device (``POST sessions/tool-audit``).
-
-The story session decides its tool calls in the launcher (the hard-deny list only,
-``octryx_claude.local_decisions``) instead of asking ``sessions/tool-check`` per call; the round trip costs about
-0.8 s per call, minutes per story. What the platform recorded per call it still records, from the
-launcher's spool, a few seconds later and in batches:
-
-- ``post``: a tool's execution evidence, exactly as ``sessions/tool-executed`` records it (``record_tool_execution``:
-  the outcome, what a read read, the JUnit report of a test run), so the verification at Stop and the review's
-  evidence are the same;
-- ``pre`` with ``decision: deny``: the launcher's denial as a ``denied_by_policy`` ToolCall row like the server's own
-  (``record_denial``), its rule ``local:<reason>``. An allow is recorded only by the model gateway's
-  tool_use row and the execution evidence: the server never stored allows.
-
-An event that does not validate is skipped and counted; the batch never fails for one bad line.
-"""
+"""The batched audit of a session that decides its tool calls on the device (``POST sessions/tool-audit``)."""
 
 from __future__ import annotations
 
@@ -36,7 +21,6 @@ SOURCE_LAUNCHER = "launcher"
 
 
 async def record_tool_audit(db: AsyncSession, *, session: Session, events: Any) -> dict[str, Any]:
-    """Record the batch; ``{"recorded", "denials", "skipped"}``. Flushes only (the route commits)."""
     recorded = denials = skipped = 0
     for event in list(events)[:MAX_EVENTS] if isinstance(events, list) else []:
         hook_input = event.get("hook_input") if isinstance(event, dict) else None

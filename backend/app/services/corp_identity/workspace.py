@@ -1,11 +1,4 @@
-"""Which Corporate Identity a Workspace uses, and which of its values the Spec Studio may not change.
-
-The existing CI is the default look of the products specified in the Spec Studio. The installation default is
-``agent.corp_identity_default_profile_id``; a Workspace can name its own profile in
-``Project.config.corp_identity_profile_id`` (empty: the installation default). A profile's ``studio_locks``
-(token paths such as ``light.accent`` or ``fonts.head``) are read-only in the Studio. Disk hygiene keeps every
-profile a Workspace uses, not only the default.
-"""
+"""Which Corporate Identity a Workspace uses, and which of its values the Spec Studio may not change."""
 
 from __future__ import annotations
 
@@ -35,7 +28,6 @@ class CorporateIdentityError(ValueError):
 
 
 def normalize_workspace_profile_id(value: Any) -> str:
-    """The Workspace setting's shape (the project-config owner hook); that the profile exists is checked on save."""
     found = str(value or "").strip()
     if found and not _ID.match(found):
         raise CorporateIdentityError("corp_identity_profile_invalid", "corp_identity_profile_id: a profile id")
@@ -47,10 +39,6 @@ async def _profiles(db: AsyncSession) -> dict[str, dict[str, Any]]:
 
 
 async def effective_profile(db: AsyncSession, project_id: str | None) -> dict[str, Any]:
-    """``{profile_id, profile_name, source, locks}`` for a Workspace; ``profile_id`` is empty without any profile.
-
-    A Workspace's profile that no longer exists falls back to the installation default (never an error: a deleted
-    profile must not stop a spec)."""
     profiles = await _profiles(db)
     chosen, source = "", SOURCE_INSTALLATION
     if project_id:
@@ -71,7 +59,6 @@ async def effective_profile(db: AsyncSession, project_id: str | None) -> dict[st
 
 
 async def assigned_profile_ids(db: AsyncSession) -> set[str]:
-    """The installation default and every profile a Workspace names (disk hygiene keeps them all)."""
     from ...models import Project
 
     ids = {str(await get_system_config_value(db, CORP_IDENTITY_DEFAULT_PROFILE_KEY) or "").strip()}
@@ -87,7 +74,6 @@ async def require_profile(db: AsyncSession, profile_id: str) -> None:
 
 
 async def set_studio_locks(db: AsyncSession, profile_id: str, paths: Any) -> list[str]:
-    """Store the profile's locked token paths; unknown paths are refused, not dropped."""
     if not isinstance(paths, list) or not all(isinstance(path, str) for path in paths):
         raise CorporateIdentityError("studio_locks_invalid", "paths: a list of token paths")
     unknown = sorted(set(paths) - LOCKABLE)

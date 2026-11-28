@@ -1,10 +1,5 @@
-"""One bounded governed JSON answer from the Model Control Plane, for automatic memory capture.
-
-Capture never gets a provider of its own: the control-plane runtimes are resolved, admitted for the
-one Workspace of the turn (``knowledge_memory_capture`` is a registered dispatch owner), and at most
-``MAX_RUNTIME_ATTEMPTS`` of them are tried in priority order, ``memory``-tagged runtimes first. The
-answer must contain a JSON object. No prompt, answer or provider message is logged.
-"""
+"""One bounded governed JSON answer from the Model Control Plane, for automatic memory capture. No prompt, answer or
+provider message is logged."""
 
 from __future__ import annotations
 
@@ -33,12 +28,6 @@ class CaptureModelUnavailableError(Exception):
 
 
 class CaptureModel:
-    """Bounded JSON answers from already admitted runtimes.
-
-    The session episode summary (``knowledge/episodes/summary_model``) reuses it under its own dispatch
-    owner, admission and log label.
-    """
-
     def __init__(
         self,
         runtimes: list[dict[str, Any]],

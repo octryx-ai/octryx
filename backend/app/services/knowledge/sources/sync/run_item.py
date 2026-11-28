@@ -50,7 +50,6 @@ async def _sync_page(
     enforce: bool,
     fetch_budget: int | None = None,
 ) -> int:
-    """Handle one listed page; returns how many items were fetched (the budget it spent, at most ``fetch_budget``)."""
     report.count_listed(page.items)
     fetched = 0
     for item in page.items:
@@ -80,11 +79,7 @@ async def _sync_item(
     enforce: bool,
     may_fetch: bool = True,
 ) -> int:
-    """Sync one item; returns 1 when its content was fetched (it spent budget), else 0.
-
-    ``may_fetch`` False (a scheduled run past its budget): the ACL step and version check still run,
-    but a needed fetch is deferred; the item keeps its old marker, so the next run fetches it.
-    """
+    # A deferred fetch keeps the item's old marker, so the next run fetches it.
     seen = await _seen_item(db, ref, item, pass_number, report)
     if seen is None:
         return 0
@@ -126,7 +121,6 @@ async def _sync_item(
 
 
 async def _seen_item(db: AsyncSession, ref: ConnectorRef, item: SourceItem, pass_number: int, report: RunReport):
-    """The item's ledger row marked seen in this pass with its id, or ``None`` when nothing more is to be done."""
     if type(item) is not SourceItem:
         report.record(None, "failed", reason=REASON_SOURCE_CONTRACT_VIOLATION)
         return None
@@ -157,7 +151,6 @@ async def _acl_step(
     report: RunReport,
     enforce: bool,
 ) -> tuple[bool, str | None]:
-    """The ACL step first: ``(False, None)`` when the item stops here, else ``(True, its report title)``."""
     external_id = item.external_id
     if item.acl.audience not in (ACL_AUDIENCE_SCOPE, ACL_AUDIENCE_RESTRICTED):
         await _fail(db, state, external_id, None, REASON_ACL_UNRESOLVED, report)
@@ -197,7 +190,6 @@ async def _ingest_item(
     report: RunReport,
     actor_id: str | None,
 ) -> None:
-    """Ingest the fetched bytes as one new revision and record the item (and a code file's index row)."""
     external_id = item.external_id
     code_file = content.code_file if type(content.code_file) is CodeFileFacet else None
     try:
@@ -234,7 +226,6 @@ async def _ingest_item(
 
 
 async def _ingest(db, runtime, authorized, ref: ConnectorRef, item: SourceItem, content, code_file, actor_id):
-    """The ingestion of the item's kind: code, sandboxed documents, or text in-process."""
     if code_file is not None:
         ingest = functools.partial(ingest_code_source, language=code_file.language, path=code_file.path)
     elif is_sandboxed_media_type(content.media_type):
@@ -258,14 +249,11 @@ async def _ingest(db, runtime, authorized, ref: ConnectorRef, item: SourceItem, 
 
 
 def source_title(title: str) -> str:
-    """The item's title for the ledger, without invisible characters such as an emoji's variation selector U+FE0F
-    (a Jira summary starting with the gear emoji). The ledger refuses such a title rather than strip it, which
-    would fail the item on every pass and leave the source "never synced"."""
+    # The ledger refuses invisible characters rather than strip them, which would fail the item on every pass.
     return remove_unsafe_chars(title, allow_line_breaks=False)
 
 
 async def _fail(db: AsyncSession, state, external_id: str, title: str | None, reason: str, report: RunReport) -> None:
-    """Record a failed item. A source it served stays served at the revision it already had."""
     if state.source_id is None:
         state.state = ITEM_STATE_FAILED
     state.last_outcome = reason[:40]

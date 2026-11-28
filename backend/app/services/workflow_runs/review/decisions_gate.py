@@ -16,8 +16,6 @@ DECISIONS_TABLE_RULE = (
 
 
 def missing_findings(check: DecisionCheck | None) -> list[dict[str, Any]]:
-    """High findings for the hard decisions the code lacks, low ones (visible, not blocking: medium blocks) for decided
-    values the code differs from."""
     if check is None:
         return []
     found = [{"severity": "high", "file": check.spec, "line": 1,
@@ -34,9 +32,6 @@ def missing_findings(check: DecisionCheck | None) -> list[dict[str, Any]]:
 
 
 def decisions_gate(settled: Any, check: DecisionCheck | None) -> Any:
-    """The settled verdict with every missing hard decision as a high finding (``D<n>`` ids), the verdict then
-    ``changes``, and every differing value as a low one (not blocking); the platform's check decides it in every
-    round, whatever the model answered."""
     import dataclasses
 
     from .verdict import VERDICT_CHANGES, Finding
@@ -61,10 +56,6 @@ def decisions_gate(settled: Any, check: DecisionCheck | None) -> Any:
 
 
 def _drop_settled_decisions(settled: Any, check: DecisionCheck | None, added: list[dict[str, Any]]) -> Any:
-    """A platform decision finding (``D<n>``) carried from an earlier round whose decision is no longer missing now
-    leaves the verdict. Example: after the drift/SQLite decision was context (not implemented at the base
-    either), the follow-up rounds still carried the first round's open finding (high) and the review stayed
-    ``changes``. Without any other blocking finding the verdict is ``pass`` again."""
     import dataclasses
 
     from .verdict import BLOCKING_SEVERITIES, VERDICT_CHANGES, VERDICT_PASS

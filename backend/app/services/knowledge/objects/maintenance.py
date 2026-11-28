@@ -1,30 +1,5 @@
-"""Operator-owned inventory of one Workspace's Knowledge objects.
-
-Why this is a separate class and not one more method on
-:class:`~.store.KnowledgeObjectStore`: the store is the immutable path the agent runtime
-reaches through ``EvidenceRuntime``, and it must keep needing exactly ``PutObject`` and
-``GetObject``. This capability is constructed only by the retention reconciliation, which no
-route, tool, MCP capability, prompt or loop imports.
-
-**Exactly one S3 action, narrowed.** ``ListObjectsV2`` is always sent with ``Prefix`` set to
-*one* Workspace's derived key prefix and a bounded ``MaxKeys``. There is no bucket-wide list, no
-delimiter listing of other prefixes, and no way to pass a caller-supplied prefix: it is derived
-from the validated :class:`WorkspaceId` exactly like a write key is.
-
-Least-privilege identity. The operator identity that runs this capability needs
-``s3:ListBucket`` restricted by an ``s3:prefix`` condition — and *not* ``s3:GetObject``:
-nothing here ever downloads bytes, so the reconciliation identity cannot read Workspace
-content at all. Credentials are
-resolved by boto3 from the process it runs in and never enter a product object, so the
-identity is chosen by deployment, not by configuration this code carries.
-
-What is deliberately absent: no ``HeadObject``, no delete, no lifecycle or
-bucket API, no overwrite, no copy, no presign.
-
-Nothing read from the server is retained beyond narrow, validated facts: a derived key, its
-content address, an integer size and a timestamp. A key that is not the product's
-derivation is **counted, never returned**, so no foreign text can travel out of this module.
-"""
+"""Operator-owned inventory of one Workspace's Knowledge objects. One prefix-bound ``ListObjectsV2``; foreign keys are
+counted, never returned."""
 
 from __future__ import annotations
 
@@ -137,7 +112,6 @@ class KnowledgeObjectMaintenance:
         return response
 
     def _page(self, response: dict, workspace: WorkspaceId, prefix: str) -> InventoryPage:
-        """Turn one ``ListObjectsV2`` answer into validated facts, dropping the rest."""
         contents = response.get("Contents")
         if contents is None:
             contents = []
@@ -175,7 +149,6 @@ class KnowledgeObjectMaintenance:
         )
 
     def _inventory_object(self, key: str, entry: dict, workspace: WorkspaceId) -> InventoryObject | None:
-        """One validated entry, or ``None`` when it is not a product-derived object."""
         digest = content_digest_from_key(key)
         if digest is None or not is_key_inside_workspace(key, self._config.prefix, workspace):
             return None

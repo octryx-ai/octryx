@@ -1,24 +1,4 @@
-"""Reviewer approval gate from explicit review decisions only.
-
-Requirements (fail closed):
-- the latest Change Plan must exist; each active Change Unit is one review scope (the whole Work
-  Item when it has no active units), and a unit's required reviewers are its
-  ``reviewer_policy.required_reviewers`` or else ``default_reviewers`` (as the plan producer uses);
-- every ``code_review`` requirement on the latest plan must map to an active unit of the same
-  repository, and its named reviewers are required too; an unmatched or malformed requirement keeps
-  the gate open.
-
-Eligible decisions carry the server-owned record (``review_decision_record``, see
-``review_decision_record.py``) whose actor, decision, plan id and version, scope and unit update
-marker match the event and the current state. Feedback without a decision, prose, free status,
-overrides and PR approvals never approve. Per actor and scope the latest eligible decision counts; a timestamp tie
-keeps all tied decisions so a negative one wins. A named reviewer is satisfied only by exactly one
-authenticated user (by username, e-mail, display name or a linked account of that user); a name
-that resolves to several users is ambiguous and not satisfied.
-
-Limit: decisions are bound to the plan version and the Change Unit, not to a pull-request head
-commit; the runtime keeps no trustworthy PR head. A pass is not merge readiness.
-"""
+"""Reviewer approval gate from explicit review decisions only."""
 
 from __future__ import annotations
 
@@ -49,8 +29,6 @@ HEAD_BINDING_LIMIT = (
 
 @dataclass
 class ReviewerIdentities:
-    """Authenticated identity aliases: lower-cased name or email -> the user ids it names."""
-
     aliases: dict[str, set[str]] = field(default_factory=dict)
     labels: dict[str, str] = field(default_factory=dict)
 
@@ -75,13 +53,10 @@ def required_reviewer_names(bundle: dict[str, Any]) -> set[str]:
 
 
 async def load_reviewer_identities(db: AsyncSession, bundle: dict[str, Any]) -> ReviewerIdentities:
-    """Two batched queries, independent of the number of events or reviewers."""
     return await load_reviewer_identities_for(db, [bundle])
 
 
 async def load_reviewer_identities_for(db: AsyncSession, bundles: list[dict[str, Any]]) -> ReviewerIdentities:
-    """The same two queries for several Work Items at once: actors of their review events and
-    names their requirements use; the engineering-profile directory is read once."""
     actor_ids = {event.created_by for bundle in bundles for event in bundle["review_events"] if event.created_by}
     names = set().union(*(required_reviewer_names(bundle) for bundle in bundles)) if bundles else set()
     named = await users_named(db, names)
@@ -100,7 +75,6 @@ async def load_reviewer_identities_for(db: AsyncSession, bundles: list[dict[str,
 
 
 def _unit_required_reviewers(unit: Any) -> tuple[list[str], bool]:
-    """(names, well_formed) from the unit policy: required_reviewers, else default_reviewers."""
     policy = unit.reviewer_policy_json if isinstance(unit.reviewer_policy_json, dict) else None
     if policy is None:
         return [], False
@@ -134,7 +108,7 @@ def _eligible_record(event: Any, plan: Any, scope_key: tuple[str, str | None], u
 
 
 def _current_decisions(events: list[Any]) -> list[Any]:
-    """Latest decision per actor; a timestamp tie keeps every tied decision."""
+    # A timestamp tie keeps every tied decision.
     latest: dict[str, list[Any]] = {}
     for event in events:
         group = latest.get(event.created_by)
@@ -146,7 +120,6 @@ def _current_decisions(events: list[Any]) -> list[Any]:
 
 
 def evaluate_reviewer_gate(bundle: dict[str, Any], identities: ReviewerIdentities) -> dict[str, Any]:
-    """Return {status, reason, evidence, approvers} for the reviewer_approval gate."""
     plan = bundle["change_plans"][0] if bundle["change_plans"] else None
     events = list(bundle["review_events"])
     overrides = len(bundle.get("reviewer_overrides") or [])
@@ -221,13 +194,10 @@ def evaluate_reviewer_gate(bundle: dict[str, Any], identities: ReviewerIdentitie
 
 
 def _apply_plan_requirements(plan: Any, scopes: list[dict], units: dict[str, Any], gaps: list[str]) -> None:
-    """Explicit code_review requirements on the latest plan are kept, never silently dropped.
-
-    A requirement applies to every active unit of its repository. An unreadable container or entry
-    (not a list, not an object, no type) is a gap that keeps the gate open, not "no requirements"."""
     raw = plan.required_approvals_json
     if raw is None:
         return
+    # An unreadable requirement keeps the gate open; it never reads as no requirement
     if not isinstance(raw, list):
         gaps.append("The plan's approval requirements are not readable.")
         return

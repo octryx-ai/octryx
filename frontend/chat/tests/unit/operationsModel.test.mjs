@@ -149,12 +149,14 @@ test("emergency stop: preview, result and history in words", () => {
       { id: "dj2", folder: "/x/shell", status: "running", workspace: null }] });
   assert.deepEqual(preview.runs[0], { id: "r1", title: "Team delivery", workspace: "Kitchen helper", status: "running", node: "work" });
   assert.equal(preview.jobs[0].folder, ".octryx-items/core-domain");
-  assert.equal(previewSentence(preview), "1 run pauses and 2 device jobs stop.");
-  assert.match(previewSentence(readStopPreview({})), /^Nothing runs here right now/);
+  assert.equal(previewSentence(preview), "Of what you can see, 1 run pauses and 2 device jobs stop.");
+  assert.equal(previewSentence(readStopPreview({ hidden_device_jobs_stopped: 2 })),
+    "Nothing you can see runs right now; the stop records your reason and holds new starts.");
   assert.equal(stopResultText({ paused_runs: ["a", "b"], stopped_device_jobs: ["c"] }), "Stopped: 2 runs paused, 1 device job stopped.");
-  const [row] = readStopHistory({ stops: [{ id: "k1", at: "2026-11-13T07:51:00Z", reason: "R1 loop", by: { id: "u1", name: "Alex" }, paused_runs: ["a"], stopped_device_jobs: [] }] });
-  assert.deepEqual(row, { id: "k1", at: "2026-11-13T07:51:00Z", reason: "R1 loop", by: "Alex", runs: 1, jobs: 0 });
-  assert.equal(stopCountText(row), "1 run · 0 jobs");
+  assert.equal(stopResultText({ paused_runs: [], stopped_device_jobs: ["c"], hidden_device_jobs_stopped: 2 }), "Stopped: 0 runs paused, 3 device jobs stopped.");
+  const [row] = readStopHistory({ stops: [{ id: "k1", at: "2026-11-13T07:51:00Z", reason: "R1 loop", by: { id: "u1", name: "Alex" }, paused_runs: ["a"], hidden_runs_paused: 1, stopped_device_jobs: [], hidden_device_jobs_stopped: 0 }] });
+  assert.deepEqual(row, { id: "k1", at: "2026-11-13T07:51:00Z", reason: "R1 loop", by: "Alex", runs: 2, jobs: 0 });
+  assert.equal(stopCountText(row), "2 runs · 0 jobs");
 });
 
 test("a run paused by the emergency stop reads so in Live and in the run view; Continue stays its own action", () => {

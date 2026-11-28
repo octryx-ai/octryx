@@ -1,16 +1,4 @@
-"""Data clearance on the model: "cleared up to <level>", and the per-level model lists derived from it.
-
-A model's ``cleared_up_to`` is the highest data classification it may process; it implies every lower level.
-The classification policy's per-level model list (``allowed_model_aliases``) is not stored: level L
-lists every *enabled* gateway model cleared at or above L (rank by ``DATA_CLASSIFICATION_ORDER``).
-
-A gateway alias that has no catalog row yet (an alias added on the Providers page and not synced) keeps the
-clearance its alias entry declares (``data_policy_class``, the field the catalog mirrors into); as soon as a
-catalog row exists, the row decides, including "not enabled".
-
-Clearance stops at ``restricted``: the alias catalog admits no higher ``data_policy_class`` and the ``secret``
-level is defined as "no external model is approved for it".
-"""
+"""Data clearance on the model: "cleared up to <level>", and the per-level model lists derived from it."""
 
 from __future__ import annotations
 
@@ -30,7 +18,6 @@ ERROR_CLEARANCE_INVALID = "model_catalog_clearance_invalid"
 
 
 def normalized_clearance(value: Any) -> str | None:
-    """A clearance level, ``None`` for "not cleared"; raises ``ValueError`` for anything else."""
     if value is None or (isinstance(value, str) and not value.strip()):
         return None
     level = str(value).strip().lower()
@@ -40,7 +27,6 @@ def normalized_clearance(value: Any) -> str | None:
 
 
 def cleared_for(cleared_up_to: Any, level: str) -> bool:
-    """Whether a model cleared up to ``cleared_up_to`` may process data of ``level``."""
     cleared, wanted = classification_rank(cleared_up_to), classification_rank(level)
     return cleared is not None and wanted is not None and cleared >= wanted
 
@@ -51,15 +37,10 @@ def _rank(level: Any) -> int:
 
 
 def is_raise(before: Any, after: Any) -> bool:
-    """A clearance change that lets the model see more sensitive data than before."""
     return _rank(after) > _rank(before)
 
 
 async def cleared_aliases_by_level(db: AsyncSession) -> dict[str, tuple[str, ...]]:
-    """``{level: aliases}`` for every level: the enabled gateway models cleared at or above it.
-
-    Empty (no level narrows) when no gateway provider is active.
-    """
     providers = (
         await db.execute(
             select(LLMProvider.id, LLMProvider.config_json).where(

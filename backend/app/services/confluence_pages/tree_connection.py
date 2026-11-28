@@ -1,12 +1,4 @@
-"""Which saved connection the page picker reads a space with.
-
-The picker edits a Confluence entry's ``confluence_allowed_pages`` (the global entry, or a Workspace's limits); a
-space is read with the connection that serves it, by the one resolver's rule (``named_connections/resolver.py``):
-a named connection that binds the space (in a Workspace its own first, then the global ones it does not override),
-else the default entry when its own allowlist allows the space, else the read is refused
-(``connection_not_configured_for_scope``). Nothing is tried in turn and no other connection's credential is used.
-Only saved values count: a space typed but not saved is not readable yet.
-"""
+"""Which saved connection the page picker reads a space with."""
 
 from __future__ import annotations
 
@@ -33,6 +25,7 @@ from .tree import refuse
 
 CODE_NOT_CONFIGURED = "connector_not_configured"
 CODE_NOT_ENABLED_IN_WORKSPACE = "connector_not_enabled_in_workspace"
+_PAGE_TREE = "confluence.page_tree"
 
 
 async def _serving_config(
@@ -56,11 +49,11 @@ async def _global_base(db: AsyncSession) -> dict[str, Any]:
     entry = await get_tool_config(db, CONFLUENCE, None)
     if entry is None or not entry.is_active or not entry.config:
         return {}
-    return await resolve_secret_refs(db, dict(entry.config), tool_name=CONFLUENCE, project_id=None)
+    return await resolve_secret_refs(db, dict(entry.config), tool_name=CONFLUENCE, project_id=None,
+                                     purpose=_PAGE_TREE)
 
 
 async def global_space_config(db: AsyncSession, space_key: str) -> dict[str, Any]:
-    """The effective config of the connection that serves ``space_key`` globally (secrets of that one only)."""
     base = await _global_base(db)
     if not base:
         raise refuse(409, CODE_NOT_CONFIGURED, "Save and test the Confluence connector first.")
@@ -77,7 +70,6 @@ async def global_space_config(db: AsyncSession, space_key: str) -> dict[str, Any
 
 
 async def workspace_space_config(db: AsyncSession, project_id: str, space_key: str) -> dict[str, Any]:
-    """The same for a Workspace: its saved entry over the global one, its named connections before the global ones."""
     entry = await get_tool_config(db, CONFLUENCE, project_id)
     if entry is None or not entry.is_active:
         raise refuse(409, CODE_NOT_ENABLED_IN_WORKSPACE,
@@ -85,7 +77,8 @@ async def workspace_space_config(db: AsyncSession, project_id: str, space_key: s
     own = dict(entry.config or {})
     base = global_config_for_scope(CONFLUENCE, await _global_base(db), own)
     if own:
-        base.update(await resolve_secret_refs(db, own, tool_name=CONFLUENCE, project_id=project_id))
+        base.update(await resolve_secret_refs(db, own, tool_name=CONFLUENCE, project_id=project_id,
+                                               purpose=_PAGE_TREE))
     if not base:
         raise refuse(409, CODE_NOT_CONFIGURED, "Save and test the Confluence connector first.")
     routes = await workspace_routes(db, project_id, (CONFLUENCE,), secrets=False)

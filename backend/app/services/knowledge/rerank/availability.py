@@ -1,10 +1,5 @@
-"""After the reranker fails, searches skip it for a while.
-
-A reranker that is down would otherwise cost every search, and every Workspace in a search's scope, its full
-timeout. After one unavailable answer the reranker is skipped for ``SUSPEND_SECONDS``; a skipped search reports
-``rerank: unavailable`` exactly like a failed one, so the state stays visible and nothing degrades silently. The
-window is per process and per reranker key; the next search after it tries the reranker again.
-"""
+"""After the reranker fails, searches skip it for a while. A skipped search reports ``rerank: unavailable`` like a
+failed one."""
 
 from __future__ import annotations
 
@@ -20,7 +15,6 @@ def _now() -> float:
 
 
 def rerank_suspended(reranker_key: str) -> bool:
-    """Whether the reranker failed less than ``SUSPEND_SECONDS`` ago."""
     until = _suspended_until.get(reranker_key)
     return until is not None and _now() < until
 
@@ -34,7 +28,6 @@ def record_rerank_ok(reranker_key: str) -> None:
 
 
 def reset_rerank_availability() -> None:
-    """Forget every suspension (tests)."""
     _suspended_until.clear()
 
 

@@ -1,7 +1,5 @@
-"""Admin panel routes for identity providers and command execution policies.
-
-Included by ``chat_approvals.router``, so both mounts of that router serve these routes too.
-"""
+"""Admin panel routes for identity providers and command execution policies. Included by ``chat_approvals.router``, so
+both mounts of that router serve them."""
 
 from fastapi import APIRouter, Body, Depends, Request
 from fastapi.responses import JSONResponse

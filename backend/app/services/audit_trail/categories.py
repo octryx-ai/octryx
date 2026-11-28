@@ -1,11 +1,4 @@
-"""Which audit rows are administrative changes, and their category (O5).
-
-The audit log also holds operational events (connector runs, flow steps, MCP knowledge reads, seeding, bootstrap
-writes, generic rows of ordinary API calls). Observability → Audit log lists administrative changes only: a row
-belongs to the first category whose action pattern it matches; a row that matches none (or an exclusion) is not
-an administrative change and is not listed. Patterns are SQL ``LIKE`` patterns over ``audit_log.action``; generic
-middleware rows have the form ``METHOD /path`` and are matched by their path.
-"""
+"""Which audit rows are administrative changes, and their category (O5)."""
 
 from __future__ import annotations
 

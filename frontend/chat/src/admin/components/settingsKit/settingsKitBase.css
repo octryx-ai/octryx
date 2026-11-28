@@ -3,11 +3,11 @@
 .sk-page .admin-panel__card { display: grid; gap: 0.5rem; grid-template-columns: minmax(0, 1fr); }
 .sk-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
 .sk-between { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
-.sk-name { font-weight: 600; }
+.sk-name { font-weight: var(--ds-weight-strong); }
 .sk-sub { color: var(--muted); font-size: var(--ds-text-xs); margin-top: 0.12rem; line-height: 1.45; }
 .sk-muted { color: var(--muted); font-size: var(--ds-text-xs); }
 .sk-hint { font-size: var(--ds-text-xs); color: var(--muted-strong); line-height: 1.55; margin: 0; }
-.sk-hint b { color: var(--text); font-weight: 600; }
+.sk-hint b { color: var(--text); font-weight: var(--ds-weight-strong); }
 .sk-link {
   padding: 0;
   border: 0;
@@ -15,7 +15,7 @@
   background: transparent;
   color: var(--accent-strong);
   font: inherit;
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: pointer;
 }
 [data-theme="light"] .sk-link { color: var(--accent); }
@@ -62,7 +62,7 @@
 /* Live checks. */
 .sk-checks { display: grid; gap: 0.25rem; margin: 0; padding: 0; list-style: none; font-size: var(--ds-text-xs); }
 .sk-checks li { display: flex; gap: 0.5rem; align-items: flex-start; color: var(--muted-strong); }
-.sk-checks li::before { content: "✓"; color: var(--status-active-ink); font-weight: 600; }
+.sk-checks li::before { content: "✓"; color: var(--status-active-ink); font-weight: var(--ds-weight-strong); }
 .sk-checks li.is-bad::before { content: "✕"; color: var(--status-error-ink); }
 .sk-checks li.is-info::before { content: "•"; color: var(--muted); }
 
@@ -77,8 +77,8 @@
   background: var(--surface-overlay);
   padding: 0.75rem 0.75rem;
 }
-.sk-kpi__l { font-size: var(--ds-text-2xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
-.sk-kpi__v { font-size: var(--ds-text-lg); font-weight: 600; letter-spacing: -0.02em; }
+.sk-kpi__l { font-size: var(--ds-text-2xs); font-weight: var(--ds-weight-strong); text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+.sk-kpi__v { font-size: var(--ds-text-lg); font-weight: var(--ds-weight-strong); letter-spacing: -0.02em; }
 
 /* Draft bar. */
 .sk-draftbar {
@@ -97,7 +97,7 @@
 
 /* Classification level dot. The colour key is stored with the level. */
 .sk-lv { display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
-.sk-dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: 999px; flex: 0 0 auto; }
+.sk-dot { display: inline-block; width: 0.55rem; height: 0.55rem; border-radius: var(--ds-radius-pill); flex: 0 0 auto; }
 .sk-c-public { background: var(--status-active); }
 .sk-c-internal { background: var(--status-running); }
 .sk-c-confidential { background: var(--status-attention); }
@@ -113,14 +113,14 @@
 .sk-matrix { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--ds-text-xs); min-width: 44rem; }
 .sk-matrix th,
 .sk-matrix td { padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--border-soft); text-align: left; vertical-align: middle; }
-.sk-matrix thead th { color: var(--muted-strong); font-size: var(--ds-text-xs); font-weight: 600; background: var(--surface-overlay); }
-.sk-matrix th small { display: block; color: var(--muted); font-weight: 500; font-size: var(--ds-text-2xs); margin-top: 0.1rem; }
-.sk-matrix tbody th { font-weight: 600; color: var(--text); width: 15rem; background: var(--surface-overlay); }
+.sk-matrix thead th { color: var(--muted-strong); font-size: var(--ds-text-xs); font-weight: var(--ds-weight-strong); background: var(--surface-overlay); }
+.sk-matrix th small { display: block; color: var(--muted); font-weight: var(--ds-weight-medium); font-size: var(--ds-text-2xs); margin-top: 0.1rem; }
+.sk-matrix tbody th { font-weight: var(--ds-weight-strong); color: var(--text); width: 15rem; background: var(--surface-overlay); }
 .sk-matrix tr.sk-fam th {
   background: var(--surface-overlay-strong);
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   padding: 0.5rem 0.75rem;

@@ -1,19 +1,4 @@
-"""``sync`` problems: knowledge source connectors whose sync fails or whose schedule is overdue.
-
-- The latest ``knowledge_source_sync_runs`` row per connector decides: ``failed`` is a problem (reason: the run's
-  ``reason``), ``needs_configuration`` needs attention. ``since``/``count`` are the failed runs after the last
-  run in another state, inside the window.
-- A connector with ``schedule_enabled`` and state ``active`` whose ``next_scheduled_at`` lies more than two
-  intervals in the past needs attention (``overdue``): its schedule is not running.
-- An active connector without a running schedule whose last completed sync is older than :data:`STALE_AFTER`
-  (or that never completed one and exists that long) needs attention (``stale``): nothing fails, but the
-  knowledge is old. A connector whose latest run failed is reported as failed, not also as stale.
-- A ``git_repository`` source in ``local_snapshot`` mode records no sync run: the launcher uploads it. It is stale
-  when its last upload (the snapshot pass the upload completed, ``cursor``; else the source's ``updated_at``) is
-  older than :data:`STALE_AFTER`, and the fix is a new upload, not a sync or a schedule.
-- A source is named as Knowledge › Sources names it (a repository by ``<name> (<version>, <commit>)``, else its key),
-  and a title carries no date: the row's "Since" shows it in the reader's format.
-"""
+"""``sync`` problems: knowledge source connectors whose sync fails or whose schedule is overdue."""
 
 from __future__ import annotations
 
@@ -42,7 +27,6 @@ _REPORTED = (RUN_STATE_FAILED, RUN_STATE_NEEDS_CONFIGURATION)
 
 
 def source_name(connector: KnowledgeSourceConnector) -> str:
-    """The source as Knowledge › Sources lists it: a repository by its display label, any other by its key."""
     if connector.kind == CONNECTOR_KIND_GIT_REPOSITORY and isinstance(connector.scope, dict):
         return display_label(connector.scope)
     return connector.connector_key
@@ -126,7 +110,6 @@ def _is_snapshot(connector: KnowledgeSourceConnector) -> bool:
 
 
 def _uploaded_at(connector: KnowledgeSourceConnector) -> datetime | None:
-    """When the last snapshot upload completed (naive UTC): its pass in the cursor, else ``updated_at``."""
     cursor = connector.cursor if isinstance(connector.cursor, dict) else {}
     for key in ("last_pass_closed_at", "last_completed_at"):
         try:

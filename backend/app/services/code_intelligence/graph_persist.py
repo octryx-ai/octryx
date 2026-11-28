@@ -97,7 +97,6 @@ async def _persist_graph_rows(
     snapshot: dict[str, Any],
     persisted_payload: dict[str, Any],
 ) -> tuple[dict[str, Any], int, dict[str, int]]:
-    """Write every row of the run; returns the file lookup, the source node count and the row counts."""
     nodes_to_persist = _coerce_list(persisted_payload.get("nodes"))
     edges_to_persist = _coerce_list(persisted_payload.get("edges"))
     unresolved_to_persist = _coerce_list(persisted_payload.get("unresolved_references"))

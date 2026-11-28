@@ -1,7 +1,4 @@
-"""Spec Studio model: the artefact's shape, the spec gates from Bench Coffee and the product owner's audited changes.
-
-Fixture: a real Flutter spec from a benchmark run as Studio data (``fixtures/spec_studio/caf44``).
-"""
+"""Spec Studio model: the artefact's shape, the spec gates from Bench Coffee and the product owner's audited changes."""
 
 from __future__ import annotations
 
@@ -43,7 +40,6 @@ def test_the_caf44_spec_is_a_complete_studio_with_no_open_point():
 
 
 def test_the_tools_name_it_spec_mode_and_the_record_keeps_mode():
-    """No MCP tool has a "mode" property (test_mcp_claude_code_parity: a mode reads as an agent mode)."""
     raw = _raw()
     raw.pop("mode", None)
     raw["spec_mode"] = "feature"
@@ -68,12 +64,12 @@ def test_a_malformed_proposal_lists_every_problem_at_once():
 
 def test_the_bench_coffee_gaps_are_open_points():
     raw = _raw()
-    raw["requirements"][1].pop("how")  # X1–X4: a prompt verb without a default that works on first launch
-    raw["rules"][0]["examples"] = [{"given": "8.4 °dH", "expect": "149.9 ppm"}]  # C1: no realistic example
-    raw["screens"][1]["empty"] = []  # C12/C15: no empty state
+    raw["requirements"][1].pop("how")
+    raw["rules"][0]["examples"] = [{"given": "8.4 °dH", "expect": "149.9 ppm"}]
+    raw["screens"][1]["empty"] = []
     raw["screens"][2]["next_step"] = ""
-    raw["screens"][0]["filled"].append({"type": "text", "text": "Dein letzter Brew"})  # C14: glossary says Brühung
-    raw["conditions"][0]["definition"] = ""  # X5/X8: undefined condition word
+    raw["screens"][0]["filled"].append({"type": "text", "text": "Dein letzter Brew"})
+    raw["conditions"][0]["definition"] = ""
     points = " | ".join(_points(_record(raw)))
     assert "P2" in points and "zero configuration" in points
     assert "R1 Härte-Umrechnung: add one realistic example" in points
@@ -101,7 +97,7 @@ def test_each_change_is_validated_and_audited_with_before_and_after():
     run = _run(record)
     detail = apply_change(run, record, {"op": "answer", "question": "purge", "value": "24"}, by="po")
     assert detail == {"op": "answer", "target": "question:purge", "from": None, "to": {"value": "24"}, "by": "po"}
-    apply_change(run, record, {"op": "answer", "question": "purge", "value": "2"}, by="po")  # back to the proposal
+    apply_change(run, record, {"op": "answer", "question": "purge", "value": "2"}, by="po")
     assert current_state(run)["answers"] == {}
     apply_change(run, record, {"op": "design", "theme": "light", "key": "accent", "value": "#7a3f20"}, by="po")
     assert current_state(run)["tokens"] == {"light": {"accent": "#7A3F20"}}
@@ -139,4 +135,4 @@ def test_a_feature_without_its_own_design_uses_the_approved_apps_tokens():
     record = _record(raw)
     design = effective_design(record, {}, base)
     assert design["direction"] == "crema" and design["light"]["accent"] == "#8A4B2A"
-    assert not any("requirement" in p for p in _points(record))  # a feature lists only its own requirements
+    assert not any("requirement" in p for p in _points(record))

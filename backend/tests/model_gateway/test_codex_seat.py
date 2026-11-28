@@ -1,8 +1,5 @@
-"""The Codex seat route: Codex on the person's own ChatGPT login through the platform (variant A).
-
-ChatGPT's Codex backend is an ``httpx.MockTransport`` that records every request, so a refusal is proven to send
-nothing upstream and the forwarded header set and path are checked exactly. No live ChatGPT call is made.
-"""
+"""The Codex seat route: Codex on the person's own ChatGPT login through the platform, against a recording
+``httpx.MockTransport`` (no live ChatGPT call)."""
 
 from __future__ import annotations
 
@@ -28,8 +25,6 @@ from tests.model_gateway.codex_seat_support import (  # noqa: F401
     chatgpt,
 )
 
-# --- the happy path ---------------------------------------------------------------------------------------
-
 
 @pytest.mark.asyncio
 async def test_a_codex_seat_call_is_forwarded_with_only_allowed_headers_and_relayed_unchanged(client, db, chatgpt):  # noqa: F811
@@ -47,10 +42,10 @@ async def test_a_codex_seat_call_is_forwarded_with_only_allowed_headers_and_rela
     transport = {"host", "content-length", "accept-encoding", "connection"}
     assert set(sent.headers) - transport == {
         "authorization", "chatgpt-account-id", "openai-beta", "originator", "session_id", "session-id", "version",
-        "accept", "content-type", "user-agent"}  # user-agent: the test client's own
+        "accept", "content-type", "user-agent"}
     assert sent.headers["authorization"] == f"Bearer {CHATGPT_TOKEN}"
     assert sent.headers["chatgpt-account-id"] == ACCOUNT
-    assert json.loads(sent.content) == _body()  # unchanged, namespace tools not flattened
+    assert json.loads(sent.content) == _body()
 
     [usage] = (await db.execute(select(UsageEvent).where(UsageEvent.user_id == user_id))).scalars().all()
     assert (usage.provider, usage.model, float(usage.cost), usage.cost_source) == (
@@ -58,8 +53,8 @@ async def test_a_codex_seat_call_is_forwarded_with_only_allowed_headers_and_rela
     assert (usage.tokens_in, usage.tokens_out, usage.cache_read_tokens, usage.request_id) == (
         1000, 500, 200, "req_codex_1")
     [call] = (await db.execute(select(ToolCall).where(ToolCall.session_id == usage.session_id))).scalars().all()
-    assert (call.request_id, call.tool_name, call.status) == ("call_1", "Bash", "success")  # Codex shell calls are recorded as Bash
-    assert call.parameters["block_index"] == 0  # read evidence reads these rows
+    assert (call.request_id, call.tool_name, call.status) == ("call_1", "Bash", "success")
+    assert call.parameters["block_index"] == 0
     messages = (await db.execute(select(Message).where(Message.session_id == usage.session_id))).scalars().all()
     # The answer called a tool, so it is not a final assistant message yet (as on every route).
     assert [(item.role, item.content) for item in messages] == [("user", "Now summarize.")]

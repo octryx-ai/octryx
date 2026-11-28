@@ -1,8 +1,4 @@
-"""MASH master-side SQLAlchemy models.
-
-Tables live in the master's database and track platforms,
-policies, audit logs, stats, peer permissions and quotas.
-"""
+"""MASH master-side SQLAlchemy models."""
 
 from __future__ import annotations
 
@@ -32,11 +28,6 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-# ---------------------------------------------------------------------------
-# Platform
-# ---------------------------------------------------------------------------
-
-
 class MashPlatform(Base):
     __tablename__ = "mash_platforms"
 
@@ -60,11 +51,6 @@ class MashPlatform(Base):
     audit_logs = relationship("MashAuditLogEntry", back_populates="platform", cascade="all, delete-orphan")
 
 
-# ---------------------------------------------------------------------------
-# Platform Credentials (OAuth2 client credentials)
-# ---------------------------------------------------------------------------
-
-
 class MashPlatformCredential(Base):
     __tablename__ = "mash_platform_credentials"
 
@@ -78,11 +64,6 @@ class MashPlatformCredential(Base):
     revoked_at = Column(DateTime, nullable=True)
 
     platform = relationship("MashPlatform", back_populates="credentials")
-
-
-# ---------------------------------------------------------------------------
-# Policy
-# ---------------------------------------------------------------------------
 
 
 class MashPolicy(Base):
@@ -105,11 +86,6 @@ class MashPolicy(Base):
     released_at = Column(DateTime, nullable=True)
 
 
-# ---------------------------------------------------------------------------
-# Policy Assignment (which platform gets which policy at what priority)
-# ---------------------------------------------------------------------------
-
-
 class MashPolicyAssignment(Base):
     __tablename__ = "mash_policy_assignments"
     __table_args__ = (
@@ -121,11 +97,6 @@ class MashPolicyAssignment(Base):
     policy_id = Column(String(36), ForeignKey("mash_policies.id"), nullable=False)
     priority = Column(Integer, nullable=False, default=0)
     assigned_at = Column(DateTime, nullable=False, default=utc_now)
-
-
-# ---------------------------------------------------------------------------
-# Master Change Log (monotonic sequence for incremental sync)
-# ---------------------------------------------------------------------------
 
 
 class MashChangeLog(Base):
@@ -145,11 +116,6 @@ class MashChangeLog(Base):
     payload = Column(JSON, nullable=False)
     checksum = Column(String(80), nullable=False)
     changed_at = Column(DateTime, nullable=False, default=utc_now)
-
-
-# ---------------------------------------------------------------------------
-# Audit Log Entry (received from platforms)
-# ---------------------------------------------------------------------------
 
 
 class MashAuditLogEntry(Base):
@@ -172,11 +138,6 @@ class MashAuditLogEntry(Base):
     platform = relationship("MashPlatform", back_populates="audit_logs")
 
 
-# ---------------------------------------------------------------------------
-# Platform Stats (aggregated usage from platforms)
-# ---------------------------------------------------------------------------
-
-
 class MashPlatformStats(Base):
     __tablename__ = "mash_platform_stats"
     __table_args__ = (Index("ix_mash_stats_platform_period", "platform_id", "period_start"),)
@@ -196,11 +157,6 @@ class MashPlatformStats(Base):
     platform = relationship("MashPlatform", back_populates="stats")
 
 
-# ---------------------------------------------------------------------------
-# Peer Permission
-# ---------------------------------------------------------------------------
-
-
 class MashPeerPermission(Base):
     __tablename__ = "mash_peer_permissions"
     __table_args__ = (
@@ -218,11 +174,6 @@ class MashPeerPermission(Base):
     revoked_at = Column(DateTime, nullable=True)
 
 
-# ---------------------------------------------------------------------------
-# Platform Quota (rate limits)
-# ---------------------------------------------------------------------------
-
-
 class MashPlatformQuota(Base):
     __tablename__ = "mash_platform_quotas"
 
@@ -233,11 +184,6 @@ class MashPlatformQuota(Base):
     max_stats_ingests_per_hour = Column(Integer, nullable=False, default=100)
     max_peer_requests_per_hour = Column(Integer, nullable=False, default=50)
     max_ws_connections = Column(Integer, nullable=False, default=3)
-
-
-# ---------------------------------------------------------------------------
-# Platform Budget (token / cost quotas)
-# ---------------------------------------------------------------------------
 
 
 class MashPlatformBudget(Base):
@@ -255,11 +201,6 @@ class MashPlatformBudget(Base):
     max_cost_usd = Column(Float, nullable=True)
     alert_threshold_pct = Column(Integer, nullable=False, default=80)
     hard_limit = Column(Boolean, nullable=False, default=False)
-
-
-# ---------------------------------------------------------------------------
-# Idempotency Record (for dedup of audit/stats push)
-# ---------------------------------------------------------------------------
 
 
 class MashIdempotencyRecord(Base):

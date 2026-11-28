@@ -12,6 +12,8 @@ from app.services.error_facts import error_text
 from .db import async_session_factory
 from .models import CodeRepository
 from .services.code_intelligence.indexing import run_code_index
+from .services.data_access import platform_maintenance
+from .services.observability.logging import configure_text_logging
 
 log = logging.getLogger("octryx.code_indexer")
 
@@ -53,15 +55,16 @@ async def _run_once() -> None:
 
 
 async def main() -> None:
-    logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO"))
+    configure_text_logging(os.environ.get("LOG_LEVEL", "INFO"))
     poll_seconds = max(5, int(os.environ.get("CODE_INDEXER_POLL_SECONDS", "60")))
     log.info("code indexer started with poll interval %ss", poll_seconds)
-    while True:
-        try:
-            await _run_once()
-        except Exception as exc:
-            log.exception("code indexer loop failed: %s", exc)
-        await asyncio.sleep(poll_seconds)
+    async with platform_maintenance("code graph: reindex the repositories of every Workspace"):
+        while True:
+            try:
+                await _run_once()
+            except Exception as exc:
+                log.exception("code indexer loop failed: %s", exc)
+            await asyncio.sleep(poll_seconds)
 
 
 if __name__ == "__main__":

@@ -54,7 +54,6 @@ def run_written(row: Any) -> Callable[[], None] | None:
 
 
 def _size_class(context: Any) -> str | None:
-    """The class the run started in (``context.size_class.initial``), else its current one; ``None`` when unknown."""
     entry = dict(context.get("size_class") or {}) if isinstance(context, dict) else {}
     value = entry.get("initial") or entry.get("class")
     return str(value) if value else None

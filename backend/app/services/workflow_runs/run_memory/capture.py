@@ -1,11 +1,4 @@
-"""What a run learns, captured at event time (never by reading events back for a metric).
-
-- ``pipeline_green``: every command that exited 0 in the platform's own pipeline is a verified test command of the
-  app; an environment error that paused this run earlier (``environment_failed``) is kept with the commands that ran
-  past it.
-- ``denial_answered``: the first call of a tool the platform allows after it refused the same tool in the same
-  phase pass is kept with the refusal (what was refused, why, and what worked).
-"""
+"""What a run learns, captured at event time (never by reading events back for a metric)."""
 
 from __future__ import annotations
 
@@ -15,7 +8,7 @@ from ....models import WorkflowRun
 from ...redaction_policy import redact_secret_text
 from .store import bounded, data, remember
 
-OPEN_KEY = "run_memory_environment_open"  # the environment error of this run that no green pipeline passed yet
+OPEN_KEY = "run_memory_environment_open"
 EDIT_TOOLS = frozenset({"Edit", "Write", "MultiEdit", "NotebookEdit"})
 
 
@@ -88,7 +81,7 @@ async def denial_answered(db: Any, run: WorkflowRun, hook_input: dict[str, Any])
         "message": bounded(detail.get("message"))})
     from ..corrections import refused_call
 
-    # Every answered refusal is a correction (From Correction to Check), a known one too: its repeats count.
+    # Every answered refusal is a correction, a known one too: its repeats count.
     await refused_call(db, run, str(detail.get("reason")), refused, worked)
 
 
@@ -97,9 +90,7 @@ def _head(command: str) -> tuple[str, ...]:
 
 
 async def large_outputs(db: Any, session_id: str, tools: list[Any]) -> None:
-    """A measured turn's Bash results (``token_profile``): one of at least ``large_output_kb`` is kept with a later
-    run of the same command (first two words) in the turn that printed at most ``short_output_kb``. Called when the
-    profile is complete (the turn ended); the run is found by its session."""
+    """A measured turn's large Bash results, kept with a later shorter run of the same command in that turn."""
     from sqlalchemy import select
 
     from ....models import WorkflowRun, WorkflowRunSession

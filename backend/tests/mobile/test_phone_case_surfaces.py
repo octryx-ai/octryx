@@ -12,9 +12,11 @@ from app.services.mobile.session import phone_may_use
     ("GET", "/api/v1/workflow-runs", True),
     ("GET", "/api/v1/workflow-runs/3f2a1b4c-0000-4000-8000-000000000001", True),
     ("POST", "/api/v1/workflow-runs/3f2a1b4c-0000-4000-8000-000000000001/actions", True),
-    # A task's detail and its plans; every other per-item route stays off.
+    # A task's detail, its plans and an Epic's progress; every other per-item route stays off.
     ("GET", "/api/v1/secure-work/work-items/33c34a5b-561c-4de3-a13c-effdf315b5d6", True),
     ("GET", "/api/v1/secure-work/work-items/33c34a5b-561c-4de3-a13c-effdf315b5d6/change-plans", True),
+    ("GET", "/api/v1/secure-work/work-items/33c34a5b-561c-4de3-a13c-effdf315b5d6/progress", True),
+    ("POST", "/api/v1/secure-work/work-items/33c34a5b/progress", False),
     ("POST", "/api/v1/secure-work/work-items/33c34a5b/change-plans", False),
     ("GET", "/api/v1/secure-work/work-items/33c34a5b/coding-pipeline", False),
     ("POST", "/api/v1/secure-work/work-items/33c34a5b/transition", False),

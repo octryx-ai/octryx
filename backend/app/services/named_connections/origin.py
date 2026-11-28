@@ -1,8 +1,4 @@
-"""Where a connection came from (``config["connection_origin"]``).
-
-Connections created through the connections API carry ``{"kind": "connections_api"}``; an update keeps the stored
-origin (``services/connections/writes.py``). It is provenance only, never read for a secret.
-"""
+"""Where a connection came from (``config["connection_origin"]``)."""
 
 from __future__ import annotations
 

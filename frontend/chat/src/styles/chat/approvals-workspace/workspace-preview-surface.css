@@ -16,7 +16,7 @@
 .workspace-sidepanel__preview-eyebrow {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.09em;
   text-transform: uppercase;
 }
@@ -28,7 +28,7 @@
   white-space: nowrap;
   color: var(--text);
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .workspace-sidepanel__preview-meta {
@@ -65,7 +65,7 @@
   background: var(--surface-overlay);
   color: var(--muted-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-decoration: none;
 }
 
@@ -153,7 +153,7 @@
 .workspace-sidepanel__preview-empty-title {
   color: var(--text);
   font-size: var(--ds-text-lg);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .workspace-sidepanel__preview-empty-copy {

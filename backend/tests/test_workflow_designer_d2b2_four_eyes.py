@@ -74,8 +74,7 @@ async def test_the_author_cannot_publish_without_review_and_a_seed_marker_does_n
 @pytest.mark.asyncio
 async def test_the_single_admin_rule_lets_the_author_publish(client, db):
     author = await make_admin(db)
-    await set_system_config_value(db, key=APPROVAL_RULE_CONFIG_KEY, value="single_admin",
-                                  record_prompt_revision=False)
+    await set_system_config_value(db, key=APPROVAL_RULE_CONFIG_KEY, value="single_admin")
     await db.commit()
     version = await _draft(client, author)
     published = await client.post(f"{FLOWS}/versions/{version['id']}/publish", headers=bearer(author.id))

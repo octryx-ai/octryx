@@ -1,10 +1,4 @@
-"""Task models as the role tags the background consumers read.
-
-The summarizer, the episode/memory summaries and the knowledge extraction ask the control-plane chain for a runtime
-tagged with their role (``use_case_tags``). Those tags are not typed by an admin on a runtime target: each
-runtime carries the roles whose Task model it is (Runtime → Default & fallback → Task models). A task without its
-own model uses the platform default (the consumer's untagged path), never a hard-coded model.
-"""
+"""Task models as the role tags the background consumers read."""
 
 from __future__ import annotations
 
@@ -18,7 +12,6 @@ TASK_ROLE_TAGS = {TASK_SUMMARIZE: "summarize", TASK_MEMORY: "memory", TASK_KNOWL
 
 
 async def role_tags_by_ref(db: AsyncSession) -> dict[tuple[str, str], list[str]]:
-    """``{(provider id, model id): [role tag]}`` for the models that are a role's Task model."""
     chosen = {task: key for task, key in (await load_task_models(db)).items() if task in TASK_ROLE_TAGS}
     if not chosen:
         return {}
@@ -38,7 +31,6 @@ async def role_tags_by_ref(db: AsyncSession) -> dict[tuple[str, str], list[str]]
 
 
 async def task_model_id(db: AsyncSession, task: str) -> str:
-    """The provider model id of a task's own model, or ``""`` (the platform default applies)."""
     key = (await load_task_models(db)).get(task)
     if not key:
         return ""

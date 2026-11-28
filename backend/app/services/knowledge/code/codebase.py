@@ -1,27 +1,5 @@
-"""Which codebase a code question is about: one resolver, explicit precedence.
-
-``knowledge_code_impact`` and the launcher's MCP tool both call :func:`resolve_codebase`, so both
-paths resolve the same codebase the same way. The order is fixed; nothing is guessed:
-
-1. an explicit ``path`` inside the session workspace (a checkout on disk);
-2. an explicit ``repository`` (the connector key of one of the Workspace's ``git_repository``
-   sources, the answer to a ``needs_clarification``); naming both 1 and 2 is ``invalid_request``;
-3. the session's own checkout: its workspace root is a git checkout;
-4. the session's recorded repository target (the octryx-claude launcher's binding): the caller
-   passes what ``session_repository_target`` answered, a target with a ``connector_id`` or a
-   :class:`CodebaseRefusal`, which is returned as is;
-5. the Workspace's single ``git_repository`` source;
-6. several sources: ``needs_clarification`` with the candidates; none: ``needs_configuration``.
-
-A repository source is read at its ``head_commit``, the commit its last completed pass listed. A
-source that never completed a pass (``repository_not_synced``) or has a pass open
-(``repository_sync_in_progress``, its files would mix two commits) is ``needs_configuration``.
-
-Impact locations link the host blob at ``head_commit`` only when the files are exactly that commit
-on a known host: always for ``remote_git``, and for a ``local_snapshot`` only when its head was
-neither dirty nor unpushed. Otherwise the link is the platform's source viewer, which the snapshot
-slice owns; until it lands such a location carries no link (``None``), never a wrong one.
-"""
+"""Which codebase a code question is about: one resolver, explicit precedence. The order is fixed and nothing is
+guessed."""
 
 from __future__ import annotations
 
@@ -75,8 +53,6 @@ class RepositorySource:
         return {"repository": self.connector_key, "repository_url": self.repository_url, "commit": self.head_commit}
 
     def blob_link(self, path: str, line: int) -> str | None:
-        """The host blob at ``head_commit`` opened at ``line``; ``None`` when the content may differ
-        from that blob (a dirty or unpushed snapshot) or the host is not a known one."""
         if self.head_commit is None:
             return None
         if self.fetch_mode != FETCH_REMOTE_GIT and (self.head_dirty or not self.head_pushed):
@@ -90,8 +66,6 @@ class RepositorySource:
 
 @dataclass(frozen=True, slots=True)
 class Codebase:
-    """A resolved codebase: a checkout ``root`` on disk, or a Workspace ``repository`` source."""
-
     kind: str
     commit: str | None
     root: Path | None = None
@@ -164,7 +138,6 @@ async def resolve_codebase(
     session_root: Path | None = None,
     session_target: object | None = None,
 ) -> Codebase | CodebaseRefusal:
-    """The codebase by the fixed precedence above, or the explicit refusal with its candidates."""
     if explicit_root is not None and repository is not None:
         return CodebaseRefusal(STATE_INVALID_REQUEST, "path_and_repository")
     if explicit_root is not None:

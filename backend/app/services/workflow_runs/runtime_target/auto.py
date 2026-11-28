@@ -1,19 +1,4 @@
-"""Target ``auto``: device-first with a seat, governed only by rule or as fallback.
-
-The resolver picks where a run starts and says why:
-
-1. A rule forbids the seat in this Workspace (data classification, seat mode, governed routing only): the run uses
-   governed via Bedrock: the requester's device with the governed profile when one is usable, else the Server.
-2. The requester's device with a seat profile and seat allowance left: online, not paused, below its parallel limit,
-   and with a folder known for the run's repository (the folder of the requester's most recent run of that
-   repository on that device; ``workspace.prepare`` verifies the folder's repository on the device).
-3. (Team pool: once devices can be shared, another opted-in device with a seat.)
-4. No seat available (allowance used up, device offline or busy, no folder known): governed as fallback, on the
-   requester's usable device when there is one, else on the Server.
-
-The answer is a concrete target (``server`` or ``device``) plus ``resolved_from: auto`` and a readable ``reason``,
-stored on the run like any chosen target, so the run card, the run events and the audit show it.
-"""
+"""Target ``auto``: device-first with a seat, governed only by rule or as fallback."""
 
 from __future__ import annotations
 
@@ -38,7 +23,6 @@ def _aware(value: datetime | None) -> datetime | None:
 
 
 async def seat_exhausted(db: AsyncSession, user_id: str) -> bool:
-    """The requester's latest observed seat allowance is at or above 99 % in a window that has not reset yet."""
     row = (await db.execute(select(AgentPresence).where(
         AgentPresence.user_id == user_id, AgentPresence.profile == PROFILE_SEAT,
         AgentPresence.allowance_updated_at.is_not(None),
@@ -56,7 +40,6 @@ async def seat_exhausted(db: AsyncSession, user_id: str) -> bool:
 
 
 async def _known_folders(db: AsyncSession, user_id: str, repository: str | None) -> dict[str, str]:
-    """``device_id → folder`` of the requester's most recent runs of ``repository`` on a device."""
     from .target import KIND_DEVICE, stored_target
 
     if not repository:
@@ -108,7 +91,6 @@ def _device_target(device: UserDevice, folder: str, profile: str, reason: str) -
 
 async def resolve_auto(db: AsyncSession, *, user: User, project_id: str | None,
                        repository: str | None) -> dict[str, Any]:
-    """The concrete target ``auto`` stands for here, with ``resolved_from`` and a readable ``reason``."""
     from ...agent_gateway.seat_policy import workspace_seat_decision
     from ...devices.device_policy import _codex_engine
 

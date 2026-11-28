@@ -6,7 +6,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.25rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   border: 1px solid var(--border);
   font-size: var(--ds-text-xs);
   color: var(--muted-strong);
@@ -24,10 +24,10 @@
   place-items: center;
   width: 1.1rem;
   height: 1.1rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   border: 1px solid var(--border-strong);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 /* Generated policy text and the rule sentence. */
@@ -54,9 +54,9 @@
 .sk-out {
   display: inline-block;
   padding: 0.12rem 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   border: 1px solid var(--border);
   color: var(--muted-strong);
 }
@@ -90,22 +90,22 @@
 .sk-cov > .h {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   background: var(--surface-overlay);
 }
-.sk-cov .s { font-weight: 600; background: var(--surface-overlay); }
-.sk-cov .s small { display: block; color: var(--muted); font-weight: 400; font-size: var(--ds-text-2xs); }
+.sk-cov .s { font-weight: var(--ds-weight-strong); background: var(--surface-overlay); }
+.sk-cov .s small { display: block; color: var(--muted); font-weight: var(--ds-weight-regular); font-size: var(--ds-text-2xs); }
 .sk-pipe { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
 .sk-pipe h4 { margin: 0; font-size: var(--ds-text-md); }
-.sk-pipe__n { font-size: var(--ds-text-2xs); font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.sk-pipe__n { font-size: var(--ds-text-2xs); font-weight: var(--ds-weight-strong); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
 
 /* Score bar of the AI risk review. */
 .sk-bar {
   position: relative;
   height: 0.45rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: linear-gradient(
     90deg,
     color-mix(in srgb, var(--status-active) 45%, transparent) 0 var(--sk-ask, 40%),

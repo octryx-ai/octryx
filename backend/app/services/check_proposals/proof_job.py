@@ -1,16 +1,4 @@
-"""The proof of a proposed ast-grep check as one device tool job, and its verdict (From Correction to Check, step 2).
-
-Pure and standard library only, so the launcher's tests run the real job on the real pinned ast-grep with it:
-
-- :func:`rule_file`: the draft's rule as an ast-grep rule file with severity ``error``, so ``ast-grep scan`` exits 1
-  exactly when it matches;
-- :func:`steps`: one scan per case archive: ``red-<n>`` holds an occurrence's files as they were when the mistake
-  was corrected, ``green-<n>`` the same files after the correction;
-- :func:`verdict`: ``proven`` when every red case matches and no green case does, else ``failed`` with the reason
-  (the contract's ``red_on`` lists the red cases the check caught).
-
-Only data runs on the device: the rule is the draft's JSON, never code a model wrote.
-"""
+"""The proof of a proposed ast-grep check as one device tool job, and its verdict (From Correction to Check, step 2)."""
 
 from __future__ import annotations
 
@@ -23,7 +11,6 @@ LOCATIONS = 5
 
 
 def rule_file(rule: dict[str, Any]) -> bytes:
-    """The ast-grep rule file (JSON is YAML) of a ``pattern`` draft's ``rule``; ``ValueError`` when it is none."""
     body = rule.get("rule") if isinstance(rule, dict) else None
     language = str(rule.get("language") or "") if isinstance(rule, dict) else ""
     if rule.get("tool") != TOOL or not isinstance(body, dict) or not body or not language:
@@ -33,14 +20,12 @@ def rule_file(rule: dict[str, Any]) -> bytes:
 
 
 def steps(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """One ``ast-grep scan`` per case archive (``case["archive"]``), in the cases' order."""
     return [{"id": f"scan-{case['archive']}", "tool": TOOL,
              "args": ["scan", "--rule", f"{{archive:{RULE_ARCHIVE}}}/{RULE_FILE}", "--json=stream",
                       f"{{archive:{case['archive']}}}"]} for case in cases]
 
 
 def _matches(step: dict[str, Any], archive: str) -> list[str]:
-    """``path:line`` of each match the step's output still holds (the output's end is kept; the exit code counts)."""
     found = []
     for line in str(step.get("stdout") or "").splitlines():
         try:
@@ -54,7 +39,6 @@ def _matches(step: dict[str, Any], archive: str) -> list[str]:
 
 
 def _outcome(step: dict[str, Any] | None, archive: str) -> tuple[str, list[str]]:
-    """``("match" | "clean" | "error", locations)`` of one scan."""
     if step is None or step.get("status") not in ("ok",) or step.get("exit") not in (0, 1):
         return "error", []
     found = _matches(step, archive)
@@ -65,7 +49,6 @@ def _outcome(step: dict[str, Any] | None, archive: str) -> tuple[str, list[str]]
 
 
 def verdict(cases: list[dict[str, Any]], reported: list[dict[str, Any]], *, at: str) -> dict[str, Any]:
-    """The contract's proof from the job's steps: ``{state, red_on, green_on, at}`` plus ``reason`` unless proven."""
     by_id = {str(step.get("id")): step for step in reported}
     red_on, missed, flagged, errors, files = [], [], [], [], 0
     green_commit = ""

@@ -1,30 +1,5 @@
-"""The git work of a ``parallel_work`` node in the device's main folder (teamwork design, section 4, WP-B).
-
-The device's main folder is the story's integration copy, on the run's branch. Each work item runs in its own git
-worktree inside it (``<main>/.octryx-items/<key>``, on ``<run branch>--<key>``), so several Claude Code sessions build
-at the same time without touching each other's files. Every git operation on the main folder runs here, as a launcher
-step before any agent on the main thread (like the pipeline): one job per thread serializes them for free.
-
-The run contract carries ``work_git: {node_id, entry, seq, ops: [...]}``; each op is
-
-- ``{"op": "branch", "key", "branch"}``: commit the main working copy (the coordinator's ``docs/stories/*``) with the
-  platform identity and the run's AI trailer, then ``git worktree add -B <branch> <main>/.octryx-items/<key> HEAD``,
-  with
-  ``/.octryx-items/`` in ``.git/info/exclude`` so the worktrees never become part of the change. A worktree that already
-  exists on its branch is kept when it belongs to the same run (a re-run, or an item reopened after a conflict
-  continues its own work); one left by an earlier run is replaced (D3). A kept worktree always gets the main folder's
-  current HEAD merged in when it does not have it yet (``"sync": true``, the item's retry after its merge conflicted
-  or after a replan, also keeps a branch whose worktree is gone); any conflict markers are left in the worktree for
-  the item's agent to resolve (D1);
-- ``{"op": "merge", "key", "branch"}``: commit the item's worktree, ``git merge --no-ff <branch>`` in the main folder;
-  a conflict aborts the merge and lists the files; a merged item's worktree is removed (before the pipeline runs, so
-  JS test runners never pick up ``.octryx-items``). An item already merged is ``merged`` again (a re-run is idempotent).
-
-The report (``POST sessions/work-git``) carries each op's result and the main folder's change against the run's base
-(``run_contract.change``), which the server stores as ``device_change``: the review and the push see the whole story.
-
-The platform's own commits of the main folder are ``work_git_commit``.
-"""
+"""The git work of a ``parallel_work`` node: one worktree per work item inside the device's main folder.
+Every git operation on the main folder runs here as a launcher step, so one job per thread serializes them."""
 
 from __future__ import annotations
 
@@ -66,7 +41,6 @@ def item_folder(root: Path, key: str) -> Path:
 
 
 def is_item_folder(folder: str | Path) -> bool:
-    """Whether ``folder`` is an item's worktree: its turns never carry the run's work in progress or base patch."""
     return Path(os.path.realpath(folder)).parent.name == ITEMS_DIR
 
 
@@ -96,11 +70,7 @@ def _mark_run(path: Path, run_id: str) -> None:
 
 
 def _kept(path: Path, name: str, run_id: str) -> bool:
-    """An existing worktree is the item's own work only on its branch and not started by another run (a rerun of a
-    story must not inherit an aborted run's worktrees). Every branch op of a run marks its worktree (``_mark_run``), so
-    within a
-    run only a worktree marked with this run is kept; the run's preparation removes an earlier run's worktrees
-    (``workspace_prep``)."""
+    # A rerun of a story must not inherit an aborted run's worktrees.
     if not path.is_dir() or _worktree_branch(path) != name:
         return False
     owner = _worktree_run(path)
@@ -113,10 +83,6 @@ def _conflicted_in(folder: Path) -> list[str]:
 
 
 def _sync(root: Path, path: Path, key: str, trailer: str) -> dict[str, Any]:
-    """Bring the main folder's current HEAD into the item's branch; conflict markers stay for the item's agent.
-
-    A retried item after a merge conflict thus sees the merged main folder instead of conflicting again.
-    A merge already in progress (a re-sent op) is left as it is."""
     if _git(path, "rev-parse", "-q", "--verify", "MERGE_HEAD").returncode == 0:
         return {"conflicts": _conflicted_in(path)}
     if problem := commit_all(path, _message(f"Item {key}", trailer)):
@@ -136,7 +102,6 @@ def _sync(root: Path, path: Path, key: str, trailer: str) -> dict[str, Any]:
 
 
 def environment_dirs(contract: dict[str, Any] | None) -> list[str]:
-    """The top folders of the run's declared environment (``.venv`` of ``path: [".venv/bin"]``), inside the folder."""
     prep = dict((contract or {}).get("preparation") or {})
     environment = prep.get("environment") if isinstance(prep.get("environment"), dict) else {}
     tops = []
@@ -148,13 +113,7 @@ def environment_dirs(contract: dict[str, Any] | None) -> list[str]:
 
 
 def share_environment(root: Path, path: Path, dirs: list[str]) -> list[str]:
-    """Link the main folder's prepared environment (its ``.venv``) into the item's worktree instead of building one
-    per item; the names linked. Without it every item job created its own
-    venv and installed pytest, Playwright and the package first, 8-10 s from the job's offer to its acceptance, for an
-    environment the main folder already had. The link is excluded like the folder (``/.venv`` without the slash: a
-    symlink is no folder for git), so it never enters an item's commit; ``git worktree remove`` deletes the link,
-    never its target. An editable install of the package still points at the main folder's sources, so the item's
-    agent gets its own ``src`` first on ``PYTHONPATH`` (``workspace_prep.child_path``)."""
+    # A venv per item cost seconds per job; /.venv has no trailing slash because git sees the link as a file.
     linked = []
     for name in dirs:
         source, target = root / name, path / name
@@ -172,18 +131,12 @@ def share_environment(root: Path, path: Path, dirs: list[str]) -> list[str]:
 
 
 def _behind(root: Path, path: Path) -> bool:
-    """Whether the item's worktree lacks the main folder's current HEAD (an item merged since it was branched)."""
     main_head = _git(root, "rev-parse", "HEAD").stdout.strip()
     return _git(path, "merge-base", "--is-ancestor", main_head, "HEAD").returncode != 0
 
 
 def branch(root: Path, key: str, name: str, trailer: str = "", *, run_id: str = "",
            sync: bool = False, base: str = "", environment: list[str] | None = None) -> dict[str, Any]:
-    """Start (or keep) the item's worktree on its branch from the main folder's HEAD; a kept worktree gets the main
-    folder's HEAD merged in when it lacks it; ``sync``: an item retried after its merge conflicted (or after a replan)
-    also keeps its branch when its worktree is gone.
-
-    So every item works on top of the items merged before it."""
     result: dict[str, Any] = {"op": "branch", "key": key, "branch": name}
     if not _KEY.match(key or "") or not _BRANCH.match(name or ""):
         return {**result, "state": "failed", "detail": "invalid item key or branch"}
@@ -220,7 +173,6 @@ def branch(root: Path, key: str, name: str, trailer: str = "", *, run_id: str = 
 
 
 def merge(root: Path, key: str, name: str, trailer: str = "", *, base: str = "", **_: Any) -> dict[str, Any]:
-    """Merge the item's branch into the main folder; a conflict aborts and names the files."""
     result: dict[str, Any] = {"op": "merge", "key": key, "branch": name}
     if not _KEY.match(key or "") or not _BRANCH.match(name or ""):
         return {**result, "state": "failed", "detail": "invalid item key or branch"}
@@ -252,7 +204,6 @@ _OPS = {"branch": branch, "merge": merge}
 
 def run(view: dict[str, Any], root: Path, *, base: str, trailer: str = "", run_id: str = "",
         environment: list[str] | None = None) -> dict[str, Any]:
-    """Every op in order (one failing does not stop the next: the scheduler decides per item) and the report."""
     root = Path(os.path.realpath(root))
     results = []
     for op in view.get("ops") or []:
@@ -273,7 +224,6 @@ def run(view: dict[str, Any], root: Path, *, base: str, trailer: str = "", run_i
 
 def run_for_session(state: LocalState, context: SessionContext, contract: dict[str, Any] | None, folder: str, *,
                     http: Any, trailer: str = "") -> dict[str, Any] | None:
-    """Run the pending ops, report them and return the answered contract; the contract unchanged otherwise."""
     view = pending(contract)
     if view is None:
         return contract

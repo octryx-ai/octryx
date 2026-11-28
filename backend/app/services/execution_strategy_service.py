@@ -1,26 +1,5 @@
-"""Top-level execution strategy routing for task-oriented chat entrypoints.
-
-Execution routing is explicit-first: the platform never guesses user intent
-from prompt text. A turn's routing intent is decided by, in order, an explicit
-routing override, the workflow run's current phase, an explicit UI/caller
-mode, or the support-request signature of the current prompt. When none of
-those decide, the turn runs as a plain governed direct/diagnosis turn.
-
-There is no keyword classifier. The single allowed matcher is the
-support-request error-signature classifier
-(``workflow_routing.support_signature``): pattern recognition on factual
-error evidence, with its own config switch, never a workflow selection.
-
-The workflow family comes only from the routing resolution: the
-resolution is read into a closed ``WorkflowSelection``
-(``workflow_routing.workflow_selection``) and only a ``selected`` workflow gets a
-contract. "No workflow", an unknown key, a pending or disabled proposal select none;
-the decision records the selection state and reason code instead of guessing a
-family from the prompt.
-
-Routing never calls a chat model; the workflow proposal is its own governed call
-(``workflow_routing/proposal``). (The knowledge-prefetch embedding lookup is a separate path.)
-"""
+"""Top-level execution strategy routing for task-oriented chat entrypoints. Explicit-first: the platform never guesses
+user intent from prompt text."""
 
 from __future__ import annotations
 
@@ -75,22 +54,7 @@ def resolve_execution_strategy(
     workflow_routing_policy_resolution: dict[str, Any] | None = None,
     workflow_decisions: dict[str, str] | None = None,
 ) -> ExecutionStrategyDecision:
-    """Resolve the turn's execution strategy from explicit inputs of this turn only.
-
-    ``workflow_decisions`` are the session's recorded closed workflow decisions; the selected
-    family's contract builder reads them exactly as the standard loop's does.
-
-    Decision order: routing override > the workflow run's phase > explicit
-    UI/caller coding mode > support-request signature of the current prompt.
-    When none of these decide, the turn defaults to a plain direct/diagnosis
-    outcome; no keyword classifier decides.
-
-    There is no stored-hint input: the runtime re-resolves from session
-    metadata that an earlier turn may have written, so routing hints of any
-    source (heuristic defaults, stale policy or signature results) never carry into this turn.
-    ``support_request_signature`` must be this turn's ``support_request_signature_applies`` result; it is
-    re-checked against the current prompt.
-    """
+    # Inputs of this turn only: no stored routing hint carries into this turn, and no keyword classifier decides.
     clean_prompt = str(prompt or "").strip()
     normalized_agent_type = str(requested_agent_type or DEFAULT_AGENT_MODE_KEY).strip() or DEFAULT_AGENT_MODE_KEY
     routing = _routing_for_turn(
@@ -154,7 +118,7 @@ def _strategy_decision(
     explicit_target_selected: bool,
     effective_agent_type: str,
 ) -> ExecutionStrategyDecision:
-    """The execution strategy of the routed turn; a disabled workflow contract falls back to direct."""
+    # A disabled workflow contract falls back to direct.
     workflow_id = str(workflow_contract.get("workflow_id") or "").strip()
     common = {
         "routing_intent": routing.intent,

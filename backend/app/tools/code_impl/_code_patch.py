@@ -19,7 +19,6 @@ PATCH_APPLY_FAILED = "patch_apply_failed"
 
 
 def _file_failure(code: str, exc: BaseException) -> dict[str, Any]:
-    """A per-file read/write failure as a closed code and the exception class, never its message."""
     return {"error": code, **error_facts(code, exc)}
 
 

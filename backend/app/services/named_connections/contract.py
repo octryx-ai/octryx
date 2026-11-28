@@ -1,21 +1,4 @@
-"""The contract of a named connection: which connectors, which fields, which names and bound scopes.
-
-A named connection is one more account of a connector in one scope (a Workspace, or global): the
-connector's *connection unit* (the fields its descriptor declares, ``descriptor.py``: target, auth,
-principal, options and secret refs) plus ``bound_scopes``, the keys it serves (Confluence space keys,
-Jira project keys, ServiceNow tables, Kubernetes clusters, ...; the descriptor's binding). Everything
-else (allowlists of pages, limits) comes from the connector's default entry; a descriptor may add settings that
-describe how its instance is read (ServiceNow's API style and Scripted REST paths) to the unit.
-
-The connector's single tool entry is the implicit connection named ``default``. A named
-connection may not use that name, and a scope key is bound by at most one named connection per
-connector and scope (refused at save, never resolved by order).
-
-Secrets of a named connection are stored in the secret store under the field name
-``<field>#<connection id>`` (:func:`named_secret_field`), so a ref copied from another connection, the
-default entry or another Workspace never resolves (the store refuses a ref outside its expected tool,
-field and project).
-"""
+"""The contract of a named connection: which connectors, which fields, which names and bound scopes."""
 
 from __future__ import annotations
 
@@ -46,8 +29,6 @@ CODE_TOO_MANY = "named_connection_limit_reached"
 
 
 class NamedConnectionError(ValueError):
-    """A refused named connection; ``code`` is fixed and the message names fields and keys, never values."""
-
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
@@ -55,8 +36,6 @@ class NamedConnectionError(ValueError):
 
 @dataclass(frozen=True, slots=True)
 class NamedConnection:
-    """One stored named connection; ``config`` holds secret refs, never a secret value."""
-
     id: str
     tool_name: str
     project_id: str | None
@@ -78,7 +57,6 @@ def require_connector(tool_name: object) -> str:
 
 
 def editable_fields(tool_name: str) -> tuple[str, ...]:
-    """The non-secret fields of a named connection, as its connector's descriptor declares them."""
     return require_descriptor(tool_name).editable_fields
 
 
@@ -88,17 +66,14 @@ def secret_fields(tool_name: str) -> tuple[str, ...]:
 
 
 def connection_keys(tool_name: str) -> frozenset[str]:
-    """Every key a named connection replaces in the default entry: its fields, secrets and secret refs."""
     return require_descriptor(tool_name).unit_keys
 
 
 def named_secret_field(field_name: str, connection_id: str) -> str:
-    """The secret-store field name of one named connection's secret: bound to that connection alone."""
     return f"{field_name}#{connection_id}"
 
 
 def scope_key(tool_name: str, value: object) -> str:
-    """The canonical form a bound scope is stored and compared in (the descriptor's binding case)."""
     descriptor = descriptor_of(tool_name)
     return descriptor.scope_key(value) if descriptor is not None else str(value or "").strip()
 
@@ -115,7 +90,6 @@ def validate_name(raw: object) -> str:
 
 
 def validate_bound_scopes(tool_name: str, raw: object) -> tuple[str, ...]:
-    """The canonical, de-duplicated scope keys in their given order; at least one."""
     binding = require_descriptor(tool_name).binding
     if isinstance(raw, str):
         raw = raw.replace(",", " ").split()
@@ -134,7 +108,6 @@ def validate_bound_scopes(tool_name: str, raw: object) -> tuple[str, ...]:
 def bound_elsewhere(
     tool_name: str, keys: Iterable[str], others: Iterable[NamedConnection]
 ) -> list[tuple[str, str]]:
-    """``(scope key, other connection name)`` for every key another connection of the same scope binds."""
     clashes = []
     for other in others:
         for key in keys:

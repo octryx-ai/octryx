@@ -1,12 +1,5 @@
-"""Write an accepted upload's bytes under the publication boundary.
-
-Shared by text-native and sandboxed ingestion, so both keep the same order: the Workspace's
-ownership row, then the content address derived without a request, then the transaction-scoped
-advisory lock on ``(Workspace, object key)``, then the retention-hold check, and only then the
-write. The caller registers the revision in the same transaction, which is what makes the write
-and the reference one critical section a retention pass cannot interleave with
-(``text_ingest.py`` explains the cost).
-"""
+"""Write an accepted upload's bytes under the publication boundary. Fixed order: ownership row, content address,
+advisory lock, retention-hold check, write."""
 
 from __future__ import annotations
 
@@ -37,7 +30,6 @@ logger = logging.getLogger(__name__)
 async def publish_object(
     db: AsyncSession, *, runtime: EvidenceRuntime, authorized: AuthorizedWorkspace, data: bytes
 ) -> StoredObject:
-    """Store ``data`` for this Workspace with the publication boundary held; it stays held."""
     planned_key = _planned_key(runtime, authorized, data)
     await lock_object_publication(db, project_id=authorized.project_id, object_key=planned_key)
     # Under the boundary: a retention hold means an operator pass owns this exact key, so
@@ -57,13 +49,7 @@ async def publish_object(
 
 
 def _planned_key(runtime: EvidenceRuntime, authorized: AuthorizedWorkspace, data: bytes) -> str:
-    """The content address the write will use, mapped to this slice's states.
-
-    Hashes the payload a second time (the write hashes it too) on purpose: one derivation
-    that cannot reach the wire is worth more than saving a SHA-256 over at most
-    ``MAX_UPLOAD_BYTES``, and the alternative — locking the key the write reports — would
-    leave the write itself outside the boundary.
-    """
+    # Hashes the payload a second time on purpose: a derivation that cannot reach the wire is worth one more SHA-256.
     failure: Exception | None = None
     try:
         return runtime.object_store.planned_key(authorized.workspace, data)
@@ -78,7 +64,6 @@ def _planned_key(runtime: EvidenceRuntime, authorized: AuthorizedWorkspace, data
 
 
 async def _store(runtime: EvidenceRuntime, authorized: AuthorizedWorkspace, data: bytes) -> StoredObject:
-    """Write-if-absent, mapping object-store failures to the slice's states."""
     failure: Exception | None = None
     try:
         return await runtime.object_store.put_if_absent(authorized.workspace, data)

@@ -1,13 +1,9 @@
 import type { FormEvent } from "react";
-import { loadLocalBootstrap, loadSetupGuideStatus, refreshBootstrap } from "./adminBootstrapRequests";
 import type { UseAdminBootstrapUserApprovalArgs } from "./adminBootstrapUserTypes";
 import { type AdminUserUpdate, changeUserRoles, createUser, resetUserPassword, updateUser } from "./adminUserRequests";
 
 export function useAdminBootstrapUserApproval(args: UseAdminBootstrapUserApprovalArgs) {
   const { readJson, setUsers } = args;
-  const loadSetupGuide = () => loadSetupGuideStatus(args);
-  const loadLocalBootstrapState = () => loadLocalBootstrap(args);
-  const refreshBootstrapContext = () => refreshBootstrap(args);
 
   // The User accounts page confirms in place before it calls this; a refusal is thrown so the
   // confirmation shows it, never an alert.
@@ -33,8 +29,5 @@ export function useAdminBootstrapUserApproval(args: UseAdminBootstrapUserApprova
     handleResetUserPassword,
     handleRoleChange,
     handleUpdateUser,
-    loadLocalBootstrapState,
-    loadSetupGuide,
-    refreshBootstrapContext,
   };
 }

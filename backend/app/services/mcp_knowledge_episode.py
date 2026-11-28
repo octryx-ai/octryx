@@ -1,26 +1,5 @@
-"""``episode_summary`` on the Knowledge MCP: an external CLI session returns what it learned.
-
-Claude Code, Codex and OpenCode sessions write their session summary into the Workspace Knowledge as a
-governed source revision (``services/knowledge/episodes``), so it becomes searchable and
-graph-extractable through the normal projection outbox and is cited with a link to its session.
-
-Governance, in order:
-
-- the grant needs ``knowledge:write`` and an active user; else ``denied``;
-- the Workspace is the connection's (grant binding or ``X-Octryx-Workspace`` header), never a
-  tool argument, and is authorized for the user like a chat run; else ``needs_configuration`` or
-  ``not_found``;
-- the writer's own refusals (role, the Workspace switch, the public origin) come before anything is
-  created, so a refused call leaves no shadow session behind.
-
-**Provenance.** The episode's session is the platform's shadow session of the client session
-(``client_session_id``, the id the CLI itself uses, e.g. a Claude Code session UUID). The same shadow
-session ``session_ingest`` creates and updates for usage, so both land on one platform session. The
-client label is the one the MCP handshake reported, not a tool argument.
-
-The summary is never written to the activity row or the audit log: the activity row keeps argument
-names, the audit log the Workspace id and the state.
-"""
+"""``episode_summary`` on the Knowledge MCP: an external CLI session returns what it learned. Written as a governed
+source revision of the Workspace Knowledge."""
 
 from __future__ import annotations
 
@@ -104,7 +83,6 @@ async def _record(
 
 
 async def run_episode_summary(db: AsyncSession, *, caller: McpCaller, arguments: dict[str, Any]) -> dict[str, Any]:
-    """Record one episode for an MCP caller; the caller commits."""
     if WRITE_SCOPE not in caller.scopes:
         return failure("scope_required")
     user = await db.get(User, caller.user_id)

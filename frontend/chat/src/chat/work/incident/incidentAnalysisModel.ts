@@ -2,23 +2,8 @@ import { safeHttpUrl } from "../workItemDetailModel";
 import type { WorkItem } from "../workItemTypes";
 import { readReporterQuestion, type ReporterQuestion } from "../../../admin/components/securityControls/securityControlsModel";
 
-// The incident analysis of a Work Item (B/C/D). Pure: no requests, no React.
-//
-// Backend (37f7 `work_item_analysis.runner.analysis_view`, 28c3 `secure_work/servicenow/worknote`):
-//   POST /api/v1/secure-work/work-items/{id}/analyze  -> the analysis view (the run is synchronous)
-//   GET  /api/v1/secure-work/work-items/{id}/analysis -> the latest analysis view, {status: none} while there is none
-//     (a 404 is read as none yet too)
-//     view = {id, status: running|succeeded|failed|needs_configuration|denied|skipped, error_code, error_detail,
-//             runner: governed|seat, model, created_at, finished_at, analysis: {summary, impact, likely_cause: {text,
-//             confidence}, affected_components, evidence: [{claim, source: {kind, title, locator, url}, kind, title,
-//             locator, url, verified}], similar_tickets: [{key, url, why, verified}], next_steps, open_questions} | null,
-//             reused}
-//     A Workspace whose runner is `seat` answers the POST with {status: skipped, error_code: analysis_runs_in_seat,
-//     runner: seat, command: "octryx-claude analyze <KEY>" | null}: the server never starts the run itself.
-//   POST /api/v1/secure-work/work-items/{id}/servicenow-worknote {note_at?, confirm}
-//     without confirm: {state: needs_confirmation, preview: {table, sys_id, number, text}} (nothing is sent);
-//     with confirm: {state: posted}; refusals are coded 409/404/422 (`servicenow_worknote_*`).
-// The analysis is agent-written data (a note `author_type: agent`, `kind: analysis`): it never changes the item.
+// The server never starts a seat-runner analysis itself; it answers with the command instead.
+// The analysis is agent-written data: it never changes the item.
 
 export type AnalysisState = "none" | "running" | "done" | "failed" | "needs_configuration" | "denied" | "skipped";
 const STATUS_STATE: Record<string, AnalysisState> = {
@@ -52,21 +37,17 @@ export type IncidentAnalysis = {
 };
 
 export type AnalysisView = {
-  // The analysis row's id (the ask-reporter route names it); null for an answer without one.
   id: string | null;
   state: AnalysisState;
   reason: string | null;
-  // A short sanitized cause of a failure (the provider's refusal), when the server gives one.
   detail: string | null;
   runner: "governed" | "seat" | null;
   model: string | null;
-  // The seat command (`octryx-claude analyze <KEY>`) of an `analysis_runs_in_seat` answer.
   command: string | null;
   startedAt: string | null;
   finishedAt: string | null;
   analysis: IncidentAnalysis | null;
   reused: boolean;
-  // What happened to the open questions for the reporter (an automatic analysis only proposes them).
   reporterQuestion: ReporterQuestion | null;
 };
 
@@ -76,8 +57,6 @@ const text = (value: unknown) => (typeof value === "string" ? value.trim() : typ
 const texts = (value: unknown) => (Array.isArray(value) ? value.map(text).filter(Boolean) : []);
 const flag = (value: unknown) => (typeof value === "boolean" ? value : null);
 
-/** One citation in words: "<title>, <locator>" (a manual page, a repository file and lines, a ticket), with a link
- * when it is http(s) and whether a tool result confirmed it. */
 export function citationOf(value: unknown, verified: unknown = null): Citation | null {
   if (!isRecord(value)) return null;
   const label = [text(value.title), text(value.locator)].filter(Boolean).join(", ");
@@ -98,7 +77,6 @@ export function readAnalysis(value: unknown): IncidentAnalysis | null {
       .map((entry): EvidenceLine | null => {
         if (!isRecord(entry)) return null;
         const line = text(entry.claim);
-        // The nested source first; the flat title/locator/url next to the claim otherwise.
         return line ? { text: line, citation: citationOf(entry.source, entry.verified) ?? citationOf(entry, entry.verified) } : null;
       })
       .filter((entry): entry is EvidenceLine => entry !== null),
@@ -137,7 +115,6 @@ export const NO_ANALYSIS: AnalysisView = {
   analysis: null, reused: false, reporterQuestion: null,
 };
 
-/** The latest analysis note stored on the item (`source_fields.platform_notes`, `kind: analysis`), as a fallback. */
 export function latestAnalysisNote(item: Pick<WorkItem, "source_fields">): { at: string | null; text: string } | null {
   const notes = (item.source_fields as Record<string, unknown> | undefined)?.platform_notes;
   if (!Array.isArray(notes)) return null;
@@ -150,7 +127,6 @@ export function latestAnalysisNote(item: Pick<WorkItem, "source_fields">): { at:
 
 export const ANALYSIS_POLL_MS = 5_000;
 
-/** Whether the view should be polled: an analysis is running. */
 export function analysisInProgress(view: AnalysisView | null): boolean {
   return view?.state === "running";
 }
@@ -167,13 +143,11 @@ export function analysisStateText(view: AnalysisView): string {
   return "No analysis yet.";
 }
 
-/** The failure's cause from the server (`error_detail`), shown with a state that is not done or running. */
 export function analysisCauseText(view: AnalysisView): string | null {
   if (!view.detail || view.state === "done" || view.state === "running" || view.state === "none") return null;
   return `Cause: ${view.detail}`;
 }
 
-/** Where a finished analysis ran, when it ran in a user's seat session. */
 export function analysisRunnerText(view: AnalysisView): string | null {
   if (view.runner !== "seat") return null;
   return `Ran in a seat session${view.model ? ` (model ${view.model})` : ""}.`;
@@ -182,20 +156,16 @@ export function analysisRunnerText(view: AnalysisView): string | null {
 // The backend's key rule for a printable command (work_item_analysis.runner._COMMAND_KEY).
 const COMMAND_KEY = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 
-/** The seat command of an item (`octryx-claude analyze <KEY>`), or null for a key unsafe to print. */
 export function seatCommand(sourceKey: string | null | undefined): string | null {
   const key = String(sourceKey ?? "");
   return COMMAND_KEY.test(key) ? `octryx-claude analyze ${key}` : null;
 }
 
-/** The command to show instead of the start button: the server's answer first, else the item's own while the
- * Workspace's runner is `seat`; null for a governed Workspace. */
 export function seatCommandToShow(view: AnalysisView | null, runner: string | null, sourceKey: string): string | null {
   if (view?.reason === SEAT_RUNNER_CODE && view.command) return view.command;
   return runner === "seat" ? seatCommand(sourceKey) : null;
 }
 
-// The runner's closed codes (work_item_analysis: runner, contract, governed_run).
 const REASON_TEXT: Record<string, string> = {
   model_policy_unresolved: "no model policy is set for the analysis in this Workspace",
   item_closed: "closed items are not analysed automatically",
@@ -215,7 +185,6 @@ export function reasonText(reason: string | null): string {
   return REASON_TEXT[reason] ?? `refused (${reason})`;
 }
 
-/** A refused start, in words. */
 export function analyzeRefusalText(error: unknown): string {
   const record = isRecord(error) ? error : null;
   if (record?.status === 404) return "This server does not offer the incident analysis yet.";
@@ -225,8 +194,6 @@ export function analyzeRefusalText(error: unknown): string {
   const message = typeof record?.message === "string" && record.message ? record.message : "the request failed";
   return `Not started: ${message}.`;
 }
-
-// ---- ServiceNow work note (28c3 section C) -----------------------------------------------------------
 
 export type WorknotePreview = { available: true; number: string; text: string } | { available: false; reason: string };
 
@@ -240,7 +207,6 @@ const WORKNOTE_REASON_TEXT: Record<string, string> = {
   servicenow_worknote_failed: "ServiceNow did not accept the work note",
 };
 
-/** The work-note preview (no `confirm`: nothing is sent) as availability with the exact text, or the reason. */
 export function readWorknotePreview(payload: unknown): WorknotePreview | null {
   if (!isRecord(payload) || text(payload.state) !== "needs_confirmation" || !isRecord(payload.preview)) return null;
   const preview = payload.preview;
@@ -248,7 +214,6 @@ export function readWorknotePreview(payload: unknown): WorknotePreview | null {
   return body ? { available: true, number: text(preview.number), text: body } : null;
 }
 
-/** A refused work note (preview or post), in words; the server's message for an unknown code. */
 export function worknoteRefusalText(error: unknown): string {
   const record = isRecord(error) ? error : null;
   if (record?.status === 404 && !record.code) return "This server does not offer work notes to ServiceNow yet";

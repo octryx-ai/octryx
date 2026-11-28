@@ -36,13 +36,6 @@ async def resolve_runtime_repository(
     repository_id: str | None,
     local_search_roots: list[str | Path] | None = None,
 ) -> RepositoryResolution:
-    """The repository from explicit sources only; the prompt never names it.
-
-    In order: the session's bound repository id; else the single active repository registered for
-    the Workspace (or globally); else the single repository under the configured local search
-    roots. Several candidates are an ``ambiguous`` resolution and none a missing one: the caller
-    turns either into a closed clarification blocker, never into a guess.
-    """
     if repository_id:
         repo = await db.get(CodeRepository, repository_id)
         if repo is None or repo.is_active is False:

@@ -1,18 +1,4 @@
-"""Where to look closely, and why.
-
-Every carefully read file of the pull request (``triage``) gets a score from deterministic signals, each with its
-reason; the top ``MAX_HOTSPOTS`` are listed in the summary ("Look closely here") and given to the reviewer first:
-
-- **churn**: changed in at least ``CHURN_MIN`` commits of the last ``DAYS`` days of the target branch (up to the
-  merge base: the pull request's own commits say nothing about the file's past, and would
-  inflate the count);
-- **bug fixes**: commits of those days whose subject says fix / bug / hotfix / regression, also before the merge base;
-- **sensitive**: the path names an area where a mistake costs most (``DEFAULT_SENSITIVE``, plus the repository's own
-  ``hotspot_paths`` globs);
-- **size**: at least ``LARGE_LINES`` changed lines in the file.
-
-The line named is the first changed line of the file in the pull request's head.
-"""
+"""Where to look closely, and why."""
 
 from __future__ import annotations
 
@@ -43,7 +29,6 @@ class Hotspot:
 
 
 def sensitive(path: str, extra: tuple[str, ...] = ()) -> str:
-    """The sensitive area the path names (``''`` for none). Pure."""
     lowered = path.lower()
     word = next((word for word in DEFAULT_SENSITIVE if re.search(rf"(^|[/_.\-]){word}", lowered)), "")
     if word:
@@ -52,7 +37,6 @@ def sensitive(path: str, extra: tuple[str, ...] = ()) -> str:
 
 
 def score(path: str, *, commits: int, bug_fixes: int, area: str, lines: int) -> tuple[float, tuple[str, ...]]:
-    """``(score, reasons)`` of one file from its signals. Pure."""
     reasons, points = [], 0.0
     if area:
         reasons.append(f"touches a sensitive area ({area})")
@@ -83,7 +67,6 @@ async def _first_line(root: str, base: str, head: str, path: str) -> int:
 
 async def hotspots(root: str, base: str, head: str, files: list[dict[str, Any]],
                    extra: tuple[str, ...] = ()) -> list[Hotspot]:
-    """The pull request's hotspots, highest score first (``files``: ``triage`` records; careful ones count)."""
     found = []
     for item in files:
         if item.get("kind") != "careful" or not int(item.get("lines") or 0):
@@ -100,7 +83,6 @@ async def hotspots(root: str, base: str, head: str, files: list[dict[str, Any]],
 
 
 def section(spots: list[Hotspot]) -> str:
-    """The reviewer's list: look at these first. Pure."""
     return "\n".join(f"{spot.path}:{spot.line}: {'; '.join(spot.reasons)}" for spot in spots)
 
 

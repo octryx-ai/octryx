@@ -51,7 +51,6 @@ _FOREIGN_BUILD_EXEMPT_TOOLS = frozenset({"run_kubectl"})
 
 
 def _server_build_refusal(tool_name: str, command: str | list[str], context: ToolContext) -> dict[str, Any] | None:
-    """Repository build/test tooling never runs on the server (``foreign_build_guard``)."""
     if tool_name in _FOREIGN_BUILD_EXEMPT_TOOLS:
         return None
     from ...services.execution_runtime.foreign_build_guard import guard_server_command
@@ -65,7 +64,6 @@ def _command_text(command: str | list[str]) -> str | list[str]:
 
 
 async def _read_only_refusal(tool_name: str, command: str | list[str], context: ToolContext) -> tuple[Any, Any]:
-    """The refusal of a command in a read-only run (or None) and the security analysis made for it."""
     from app.tools.capability_requirements import CAPABILITY_CHANGE, CAPABILITY_READ_ONLY
 
     from ...services.run_capability.escalation import read_only_rule_refusal

@@ -1,4 +1,4 @@
-"""Observability O1: Runs over turn_traces + tool_calls (all sources, SQL read model, admin-only)."""
+"""Runs over turn_traces + tool_calls (all sources, SQL read model, admin-only)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 from sqlalchemy import select
 
-from app.agent.core.runtime.trace_runtime import persist_turn_trace
+from app.agent.runtime.trace_runtime import persist_turn_trace
 from app.models import AuditLog, Message, ToolCall, TurnTrace, UsageEvent
 from app.services.devices.run_trace import record_device_turn
 from app.services.observability.run_summary import gateway_run_summary, run_summary_fields, turn_outcome

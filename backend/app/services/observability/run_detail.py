@@ -1,10 +1,4 @@
-"""Observability → Runs → run drawer (O1).
-
-The drawer shows what a run did without its content: steps (one per ``turn_traces`` row: model, tokens, outcome,
-the gate that stopped it), tool calls (name, status, duration; never arguments or results), cost per model from
-``usage_events``, and the effective setup the run was frozen under (the bounded, redacted execution-profile
-projection). Content is a separate, admin-only read that writes an audit event (``run_content``).
-"""
+"""Observability → Runs → run drawer (O1)."""
 
 from __future__ import annotations
 
@@ -65,7 +59,6 @@ async def _rows(db: AsyncSession, run_key: str) -> list[tuple[TurnTrace, TurnTra
 
 
 async def _in_private_workspace(db: AsyncSession, session_id: str | None) -> bool:
-    """Runs in private Workspaces are their owner's alone: no admin detail, no content."""
     session = await db.get(Session, session_id) if session_id else None
     project = await db.get(Project, session.project_id) if session is not None and session.project_id else None
     return bool(project is not None and project.access_mode == "private")
@@ -157,7 +150,6 @@ async def _cost(db: AsyncSession, run_key: str, session_id: str, since: Any) -> 
 
 
 async def read_run_content(db: AsyncSession, run_key: str, *, viewer_id: str, ip_address: str | None) -> dict | None:
-    """The newest step's stored messages and output, secrets redacted; the read is audited."""
     pairs = await _rows(db, run_key)
     if not pairs or await _in_private_workspace(db, pairs[-1][0].session_id):
         return None

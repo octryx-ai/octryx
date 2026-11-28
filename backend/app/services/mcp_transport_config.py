@@ -6,7 +6,6 @@ from mcp.server.fastmcp.server import TransportSecuritySettings
 
 
 def mcp_transport_config(*, port: int, public_origin: str | None) -> tuple[str, TransportSecuritySettings]:
-    """Exact configured deployment authority; local-only defaults when no origin was supplied."""
     if not public_origin:
         origin = f"http://localhost:{port}"
         return origin, TransportSecuritySettings(

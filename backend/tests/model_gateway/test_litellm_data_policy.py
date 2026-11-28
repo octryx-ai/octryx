@@ -1,11 +1,4 @@
-"""Data policy: the alias ``data_policy_class`` is a control, not a label.
-
-Every denial in this suite must produce *zero* HTTP requests, carry a fixed
-closed code, and reach the canonical runtime trace. The caller-override cases
-prove the classification is server-owned: neither a model argument, nor
-agent-writable knowledge merged into the turn project config, nor a session
-metadata write, nor a look-alike admission object can choose or lower it.
-"""
+"""Data policy: the alias ``data_policy_class`` is a control, not a label."""
 
 from __future__ import annotations
 
@@ -33,11 +26,6 @@ from tests.model_gateway.litellm_data_policy_support import EXCESSIVE_CLASSIFICA
 
 # The alias in the shared fixtures is approved for ``internal`` data.
 PERMITTED_CLASSIFICATIONS = ("public", "internal")
-
-
-# ---------------------------------------------------------------------------
-# The closed order and the comparison rule
-# ---------------------------------------------------------------------------
 
 
 def test_the_compatibility_order_is_closed_and_ascending() -> None:
@@ -130,11 +118,6 @@ def test_a_session_may_only_raise_the_project_floor() -> None:
     assert (equal.classification, equal.source) == ("internal", CLASSIFICATION_SOURCE_PROJECT_CONFIG)
 
 
-# ---------------------------------------------------------------------------
-# The server-owned source
-# ---------------------------------------------------------------------------
-
-
 async def test_the_classification_is_read_from_the_project_row(db) -> None:
     project = Project(
         id="project-data-policy", name="data-policy-project", config={"data_policy": {"classification": "confidential"}}
@@ -161,14 +144,6 @@ async def test_a_missing_project_or_classification_resolves_unusable(db) -> None
 
 
 async def test_the_source_ignores_a_classification_the_merged_turn_config_carries(db) -> None:
-    """The caller-override case that matters: agent-writable state cannot lower it.
-
-    ``services/project/service.get_project_config`` merges every ``KnowledgeMap``
-    entry in category ``environment`` into the config, and run preparation patches
-    the same mapping from session metadata. So the merged turn ``project_config``
-    is reachable by model-written state — and the source never reads it.
-    """
-
     project = Project(
         id="project-override-attempt",
         name="override-attempt-project",
@@ -180,7 +155,6 @@ async def test_the_source_ignores_a_classification_the_merged_turn_config_carrie
     resolved = await resolve_workspace_data_classification(
         db,
         project_id=project.id,
-        # A session-metadata write claiming the workspace is public.
         session_metadata={"data_policy": {"classification": "public"}},
     )
 

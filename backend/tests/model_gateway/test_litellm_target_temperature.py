@@ -1,8 +1,5 @@
-"""The LiteLLM gateway body honours the temperature choice.
-
-The gateway never adds a temperature on its own (model default); the model's catalog value is sent exactly,
-over the caller's; "never send" (``accepts_temperature=False``) omits even a caller's temperature.
-"""
+"""The LiteLLM gateway body honours the temperature choice: catalog value over the caller's, none added, and
+``accepts_temperature=False`` omits even a caller's."""
 
 from __future__ import annotations
 
@@ -12,7 +9,7 @@ import pytest
 
 from tests.model_gateway.conftest import ALIAS
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
 
 MESSAGES = [{"role": "user", "content": "hi"}]

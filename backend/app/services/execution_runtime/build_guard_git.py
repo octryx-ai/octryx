@@ -19,7 +19,6 @@ from .build_guard_rules import (
 
 
 def _git_config_verdict(args: Sequence[str]) -> ForeignBuildVerdict:
-    """``git config``: reads run; a write of a key that makes git run a program, an edit or a rename never does."""
     if any(arg in _GIT_CONFIG_WRITE_ONLY for arg in args):
         return _blocked(CLASS_GIT_COMMAND, "git", "git config --edit/--rename-section changes git's configuration")
     words = [arg for arg in args if not arg.startswith("-")]

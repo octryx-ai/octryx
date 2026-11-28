@@ -1,10 +1,4 @@
-"""Observability → Usage & costs (O3): one cost source, ``usage_events``, over a chosen window.
-
-Every figure is a SQL aggregate over ``usage_events`` in the window (7 days, 30 days, or this month, UTC):
-spend counts priced events only; **priced coverage** is the share of platform-billed tokens that carry a price
-(seat and device usage is not billed to the platform and is left out); tokens include cache reads and writes.
-Budgets are shown read-only: the caps are declared in Runtime → Limits & budgets.
-"""
+"""Observability → Usage & costs (O3): one cost source, ``usage_events``, over a chosen window."""
 
 from __future__ import annotations
 
@@ -181,7 +175,6 @@ async def _by_user(db: AsyncSession, start: datetime, end: datetime) -> list[dic
 
 
 async def _monthly_budgets(db: AsyncSession) -> dict[str | None, dict[str, Any]]:
-    """Active Workspace budget policies with a monthly cost limit (declared in Runtime → Limits & budgets)."""
     month_start, now = window_bounds("month")
     result: dict[str | None, dict[str, Any]] = {}
     for policy in (await db.execute(select(BudgetPolicy).where(
@@ -199,7 +192,6 @@ async def _monthly_budgets(db: AsyncSession) -> dict[str | None, dict[str, Any]]
 
 
 async def _budgets(db: AsyncSession, start: datetime, end: datetime) -> list[dict[str, Any]]:
-    """The platform caps with the highest cost they met in the window (read-only)."""
     request_cap = (await agent_request_cost_limit(db, project_id=None)).value
     session_cap = (await agent_session_cost_limit(db, project_id=None)).value
     max_request = (await db.execute(select(func.max(UsageEvent.cost)).where(

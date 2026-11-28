@@ -1,31 +1,4 @@
-"""A Workspace's content handling as its admins see and change it (``GET``/``PUT .../content-handling``).
-
-- :func:`handling_view` — the Workspace's governance alias (``governance_alias``: the one governed model alias every
-  ``reroute`` / ``mask_reroute`` kind is sent to, or ``None``) and the governed aliases it may name
-  (``governance_aliases``); per kind the effective action on platform model calls with its shipped default
-  (``default_action``, possibly ``none``), whether it is the default, the points where
-  ``reroute`` / ``mask_reroute`` answers ``content_route_unavailable`` and where it masks instead (the reply
-  direction); per enforcement point what the kind's current action actually does there (``surface_defaults``) and
-  what each choice would do there before it is saved (``surface_choices``), both from the point table
-  (``handling_preview``): e.g. credentials refused on the coding-agent gateway while platform calls mask them,
-  mask/reroute left to the model entrance at tool-result receipt, a mask sent for review and a refusal denied by
-  Command safety, the Claude Code built-in tool definition report rule and the older-history mask (``conditions``);
-  the five actions and per point what the fixed rules do there (``fixed``).
-- :func:`set_handling` — one kind's action, or ``default`` (the stored row is deleted); ``reroute`` /
-  ``mask_reroute`` need the Workspace's governance alias to be set (422 ``content_handling_alias_required``).
-- :func:`set_governance_alias` — the Workspace's governance alias, or ``None`` to clear it: an alias of an active
-  gateway catalog (the same aliases content obligations route to, ``policy_engine.runtime.alias_approvals``; else 422
-  ``content_handling_alias_unknown``); clearing it while a kind is set to ``reroute`` / ``mask_reroute`` is 409
-  ``content_handling_alias_in_use`` (the kinds first).
-
-Refusals carry ``detail.code``. Every change writes an AuditLog row ``content_handling.changed`` (``kind``: the content
-kind, or ``governance_alias``) whose old→new is the real transition: edits are serialized (the stored row is read
-``FOR UPDATE`` and written only while it still holds the value read; a kind edit to a rerouting action first locks
-the governance alias row, as clearing the alias does, so the two cannot interleave); an edit that lost a race (the
-row changed or appeared meanwhile) is 409 ``content_handling_conflict`` and changes nothing.
-
-Who may read or change it is the route's rule (``api.routes.workspace_content_handling``).
-"""
+"""A Workspace's content handling as its admins see and change it (GET/PUT .../content-handling)."""
 
 from __future__ import annotations
 
@@ -44,6 +17,7 @@ from .handling import (
     KINDS,
     REROUTING,
     SHIPPED_DEFAULTS,
+    SURFACE_GATEWAY,
     SURFACE_PLATFORM,
     ContentKind,
     governance_alias,
@@ -67,12 +41,20 @@ def _invalid(code: str, message: str) -> HTTPException:
     return HTTPException(status_code=422, detail={"code": code, "message": message})
 
 
+_DEFAULT_PATHS = ((SURFACE_PLATFORM, "Platform calls"), (SURFACE_GATEWAY, "Coding agent gateway routes"))
+
+
 def _default(kind: str) -> str:
     return SHIPPED_DEFAULTS[SURFACE_PLATFORM].get(kind, "none")
 
 
+# The shipped defaults differ by path (email: masked on platform calls, recorded on gateway routes).
+def _defaults(kind: str) -> list[dict[str, str]]:
+    return [{"surface": surface, "label": label, "action": SHIPPED_DEFAULTS[surface].get(kind, "none")}
+            for surface, label in _DEFAULT_PATHS]
+
+
 def _choices(kind: str, settings: dict[str, str]) -> dict[str, list[dict[str, Any]]]:
-    """Per choice (each action and ``default``) what it would do at every point, before it is saved."""
     others = {key: value for key, value in settings.items() if key != kind}
     choices = {action: surface_actions(kind, {**others, kind: action}) for action in ACTIONS}
     return {**choices, ACTION_DEFAULT: surface_actions(kind, others)}
@@ -82,7 +64,7 @@ def _entry(info: ContentKind, settings: dict[str, str]) -> dict[str, Any]:
     stored = settings.get(info.kind)
     default = _default(info.kind)
     return {"kind": info.kind, "label": info.label, "action": stored or default,
-            "default_action": default, "is_default": stored is None,
+            "default_action": default, "default_actions": _defaults(info.kind), "is_default": stored is None,
             "reroute_unavailable": reroute_unavailable(info.kind),
             "reroute_masked_at": reroute_masked_at(info.kind),
             "surface_defaults": surface_actions(info.kind, settings),
@@ -102,16 +84,15 @@ async def handling_view(db: AsyncSession, workspace_id: str, *, can_edit: bool) 
             "fixed": fixed_outcomes()}
 
 
+# A kind edit to a rerouting action locks this row first, as clearing the alias does, so the two cannot interleave.
 async def governance_row(db: AsyncSession, workspace_id: str) -> WorkspaceContentGovernance | None:
-    """The Workspace's governance alias row, locked until the edit commits (as :func:`stored_row`)."""
     return (await db.execute(select(WorkspaceContentGovernance).where(
         WorkspaceContentGovernance.workspace_id == workspace_id)
         .with_for_update().execution_options(populate_existing=True))).scalar_one_or_none()
 
 
+# FOR UPDATE where the database has row locks: a concurrent edit of the same kind waits, then reads this edit's value.
 async def stored_row(db: AsyncSession, workspace_id: str, kind: str) -> WorkspaceContentHandling | None:
-    """The stored setting of one Workspace/kind, locked until the edit commits (``FOR UPDATE`` where the database has
-    row locks): a concurrent edit of the same kind waits and then reads this edit's value."""
     return (await db.execute(select(WorkspaceContentHandling).where(
         WorkspaceContentHandling.workspace_id == workspace_id, WorkspaceContentHandling.kind == kind)
         .with_for_update().execution_options(populate_existing=True))).scalar_one_or_none()
@@ -124,8 +105,6 @@ def _conflict() -> HTTPException:
 
 
 async def _apply(db: AsyncSession, write: Any) -> None:
-    """Run one conditional ``write`` (an awaitable returning the result, or ``None`` for an insert): a row created
-    meanwhile, or a write that matched no row any more, is :func:`_conflict` and rolls the transaction back."""
     try:
         result = await write
     except IntegrityError:  # created by a concurrent edit meanwhile
@@ -141,14 +120,10 @@ async def _insert(db: AsyncSession, row: Any) -> None:
     await db.flush()
 
 
+# Writes only while the row still holds the value read, so the audited old -> new is the real transition. No savepoint:
+# write and audit row commit together, and a SQLite savepoint outside a driver transaction would commit on release.
 async def _write(db: AsyncSession, row: WorkspaceContentHandling | None, workspace_id: str, kind: str,
                  new: str | None, user_id: str) -> None:
-    """Write the change only while the stored row still holds the value read (or is still absent): an edit that
-    lost a race changes nothing and is :func:`_conflict`, so the audited old→new is the real transition.
-
-    No savepoint: the write and its AuditLog row are one outer transaction on every backend, committed together by
-    the caller (a SQLite savepoint opened outside a driver transaction would commit the write on release). A refused
-    write rolls the whole transaction back."""
     table = WorkspaceContentHandling
     if row is None:
         await _apply(db, _insert(db, table(workspace_id=workspace_id, kind=kind, action=new, updated_by=user_id,
@@ -164,7 +139,7 @@ async def _write(db: AsyncSession, row: WorkspaceContentHandling | None, workspa
 
 def _audit(db: AsyncSession, user_id: str, workspace_id: str, kind: str, old: str | None, new: str | None) -> None:
     db.add(AuditLog(user_id=user_id, action=AUDIT_ACTION, resource_type=AUDIT_RESOURCE,
-                    resource_id=f"{workspace_id}:{kind}",
+                    resource_id=f"{workspace_id}:{kind}", project_id=workspace_id,
                     details={"workspace_id": workspace_id, "kind": kind, "old": old, "new": new}))
 
 
@@ -173,7 +148,6 @@ def _label(action: str | None, kind: str) -> str:
 
 
 async def set_handling(db: AsyncSession, workspace_id: str, kind: str, body: Any, *, user_id: str) -> dict[str, Any]:
-    """Store one kind's action (``default``: delete the row), audit the change; the updated kind entry."""
     info = next((item for item in KINDS if item.kind == kind), None)
     if info is None:
         raise _invalid(CODE_KIND_UNKNOWN, "This content kind is not configurable.")
@@ -199,7 +173,6 @@ async def _rerouting_kinds(db: AsyncSession, workspace_id: str) -> list[str]:
 
 
 async def set_governance_alias(db: AsyncSession, workspace_id: str, body: Any, *, user_id: str) -> dict[str, Any]:
-    """Store the Workspace's governance alias (``None``: clear it), audit the change; the stored alias."""
     if not isinstance(body, dict) or "alias" not in body:
         raise _invalid(CODE_ALIAS_UNKNOWN, "The body names the governance alias, or null to clear it.")
     alias = body["alias"].strip() if isinstance(body["alias"], str) else body["alias"]

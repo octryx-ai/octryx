@@ -7,11 +7,12 @@ import uuid
 import pytest
 from fastapi import HTTPException
 
-from app.agent.core.runtime.runtime_errors import ProviderRuntimeError
+from app.agent.runtime.runtime_errors import ProviderRuntimeError
 from app.models import LLMProvider
 from app.models.runtime.llm_provider import LLMModel
 from app.services.admin.provider import _admin_provider_models, admin_provider_service
 from tests.admin_provider_service_contract_support import _assert_provider_audit_has_no_secret_values, _audit_log
+from tests.model_gateway.conftest import gateway_provider
 
 
 @pytest.mark.asyncio
@@ -84,14 +85,7 @@ async def test_provider_model_add_update_and_sync_record_audit_logs(db):
 
 @pytest.mark.asyncio
 async def test_provider_model_sync_failure_records_structured_audit(db, monkeypatch):
-    provider = LLMProvider(
-        id=str(uuid.uuid4()),
-        name="openrouter",
-        display_name="OpenRouter Failure",
-        driver="openrouter_api",
-        is_global=True,
-        is_active=True,
-    )
+    provider = gateway_provider(display_name="Gateway Failure", is_global=True)
     model = LLMModel(
         id=str(uuid.uuid4()),
         provider_id=provider.id,
@@ -103,12 +97,12 @@ async def test_provider_model_sync_failure_records_structured_audit(db, monkeypa
     await db.commit()
 
     async def fake_build_provider_client_kwargs(_db, _provider):
-        return {"provider_name": "openrouter", "api_key": "test-key"}
+        return {"provider_name": "litellm_gateway", "api_key": "test-key"}
 
     class FailingClient:
         async def list_models(self):
             raise ProviderRuntimeError(
-                "OpenRouter API error (503): bearer token sk-admin-secret failed", error_class="transient",
+                "Gateway error (503): bearer token sk-admin-secret failed", error_class="transient",
                 status_code=503,
             )
 

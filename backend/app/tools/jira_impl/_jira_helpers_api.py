@@ -210,7 +210,6 @@ def _jira_user_matches_query(user: dict[str, Any], query: str) -> bool:
 def _user_search_endpoints(
     normalized_query: str, *, project_key: str | None, limit: int, cloud: bool
 ) -> list[tuple[str, dict[str, Any]]]:
-    """User search requests in the order they are tried; the first one that finds someone wins."""
     endpoints: list[tuple[str, dict[str, Any]]] = []
     if cloud:
         # Jira Cloud: people are found by ``query`` and identified by ``accountId``; ``username`` does not exist.

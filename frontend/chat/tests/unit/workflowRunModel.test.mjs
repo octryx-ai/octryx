@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import { actionReady, runActionRequest, startRunBody } from "../../src/chat/workflowRun/workflowRunRequests.ts";
-import { runAdoptedTexts, runStopText, sampleRunBadge, followUpFailure, INSTALL_LAUNCHER_HREF, SAMPLE_RUN_LABEL, runGateText, runLoopTexts, runFragmentText, runPositionText, runSliceTexts, reviewerNoticeView } from "../../src/chat/workflowRun/workflowRunModel.ts";
+import { runAdoptedTexts, runStopText, sampleRunBadge, followUpFailure, INSTALL_LAUNCHER_HREF, SAMPLE_RUN_LABEL, runGateText, runLoopTexts, runFragmentText, runPositionText, reviewerNoticeView } from "../../src/chat/workflowRun/workflowRunModel.ts";
 import { runFlagText, runStatusLabel, pauseTitle, runStatusTone } from "../../src/chat/workflowRun/workflowRunStatus.ts";
 import { INBOX_KIND_LABELS } from "../../src/chat/inbox/inboxModel.ts";
 
@@ -41,12 +41,6 @@ test("a run starts with an optional repository and branch", () => {
     workflow_key: "pr-fix", work_item_id: "w1", repository: "github:o/r", branch: "feature/x" });
 });
 
-test("the run shows the slices its phase delegated to sub-agents", () => {
-  assert.deepEqual(runSliceTexts(run), []);
-  const sliced = { ...run, slices: [{ key: "s1", title: "Totals", status: "merged", iteration: 2 }] };
-  assert.deepEqual(runSliceTexts(sliced), ["Slice Totals · merged · iteration 2"]);
-});
-
 test("a runtime pause names its cause from the code, not a generic runtime failure", () => {
   const paused = { ...run, status: "paused", pause_reason: "runtime_failed" };
   assert.equal(runStatusLabel({ ...paused, pause: { code: "agent_loop", loop_kind: "repeat" } }),
@@ -67,6 +61,7 @@ test("a runtime pause names its cause from the code, not a generic runtime failu
 
 test("status labels and tones make paused and waiting runs stand out", () => {
   assert.equal(runStatusLabel({ ...run, status: "paused", pause_reason: "loop_limit" }), "Paused · A loop reached its limit");
+  assert.equal(runStatusLabel({ ...run, status: "paused", pause_reason: "checks_failed" }), "Paused · The checks stayed red");
   assert.equal(runStatusLabel({ ...run, status: "paused", pause_reason: "evidence_unresolved" }),
     "Paused · The platform could not match the test evidence — fix it, then re-check");
   assert.equal(runStatusLabel({ ...run, status: "waiting", waiting_kind: "awaiting_confirmation" }), "Waiting for your confirmation");

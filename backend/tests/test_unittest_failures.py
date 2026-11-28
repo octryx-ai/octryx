@@ -1,7 +1,5 @@
-"""A red unittest run shows its failing test for the reproduction confirmation, in either id form (a
-`python3 -m unittest` run failing 40.0 != 45.0 must not read as "The last test run shows no test failing on an
-assertion yet" without a Confirm). The outputs are real (Python 3.9 and 3.14, with and without -v), run in the app
-folder demo-shop/."""
+"""A red unittest run shows its failing test for the reproduction confirmation, in either id form,
+from real outputs of Python 3.9 and 3.14, with and without -v."""
 
 from __future__ import annotations
 
@@ -30,7 +28,7 @@ def test_the_failed_unittest_is_a_failing_test_with_its_assertion(name):
 def test_the_dotted_and_the_path_form_name_the_same_test():
     dotted = "tests.test_pricing.PricingTest.test_discount_applies"
     assert same_test(TEST_ID, dotted) and same_test(dotted, TEST_ID)
-    assert same_test("demo-shop/" + TEST_ID, dotted)  # submitted from the repository root
+    assert same_test("demo-shop/" + TEST_ID, dotted)
     assert not same_test(TEST_ID, "tests.test_pricing.PricingTest.test_total")
     tests, symptom = reproduction_tests({"failing_tests": [{"id": TEST_ID, "message": "AssertionError: 40.0 != 45.0"}],
                                          "tests": [dotted]})

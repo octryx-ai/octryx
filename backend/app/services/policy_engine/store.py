@@ -1,32 +1,4 @@
-"""Custom policy-set versions: draft → in_review → published → retired, four-eyes publish.
-
-One instance-wide custom policy set, versioned. A draft is edited freely (every save is validated:
-``custom_policies.check_custom_policies``); submitting freezes its text and digest and opens a governance
-approval (the platform ``Approval`` row, ``workspace_id`` NULL so only platform admins see and decide it) whose
-action binds the version id **and** its digest. Publishing then requires that approval ``approved`` by a
-platform admin who is neither the version's author nor its submitter.
-
-Whether the author or submitter may approve their own version is the platform approval rule, decided by the
-shared four-eyes gate (``services.governance.four_eyes.decide_four_eyes``). Under the ``single_admin`` rule
-``publish_version(..., self_approve=True)`` approves the pending review and publishes in one step; the publish
-audit records ``approval_mode`` and a self-approval adds its own audit row.
-
-Every draft save runs the saved test cases (``test_cases``) and stores the report on the version; publishing runs
-them again and refuses with ``policy_set_tests_failed`` when one fails.
-
-Publishing retires the previously published version in the same transaction, so at most one is published.
-Rollback creates a new draft from any earlier version; it goes through review like every other draft.
-
-A version also carries its custom content detectors and categories (``content_detectors``): validated on
-every save and again on submit, covered by the digest, copied into a rollback draft — reviewed and published with
-the policies they give meaning to.
-
-Retiring the published version would drop every custom ``forbid`` at once, a widening one admin must not do
-alone: :func:`retire_version` refuses it (``policy_set_retire_requires_review``). The reviewed way is a draft
-with no policies, published through the same four-eyes gate (publishing retires the previous version). Only an
-unpublished draft or a version in review may be retired directly (withdrawn). The publish step and its
-four-eyes gate are ``store_publish``.
-"""
+"""Custom policy-set versions: draft → in_review → published → retired, four-eyes publish."""
 
 from __future__ import annotations
 
@@ -37,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.content_detection.custom_definitions import DetectorDefinitions
 from app.services.content_detection.custom_validation import check_detector_set
+from app.services.content_detection.stored_types import StoredDetectorSet
 
 from ...models import Approval, AuditLog, PolicySetVersion
 from ...models.runtime.governed_revision import (
@@ -114,12 +87,10 @@ async def published(db: AsyncSession) -> PolicySetVersion | None:
 
 
 def detector_definitions(row: PolicySetVersion | None) -> DetectorDefinitions:
-    """The version's custom detectors (raises ``DetectorSetError`` when stored ones no longer validate)."""
     return check_detector_set(row.content_detectors if row is not None else None)
 
 
 async def check_targets(db: AsyncSession, text: str, definitions: DetectorDefinitions) -> None:
-    """Obligation targets and masks against the version's detectors and the active alias catalogs."""
     from .obligation_checks import check_obligation_targets
     from .policy_text import index_statements, split_statements
     from .runtime import alias_approvals
@@ -131,7 +102,7 @@ async def check_targets(db: AsyncSession, text: str, definitions: DetectorDefini
         raise CustomPolicyError(ERROR_INVALID, issues)
 
 
-def _stored(definitions: DetectorDefinitions) -> dict[str, Any] | None:
+def _stored(definitions: DetectorDefinitions) -> StoredDetectorSet | None:
     return None if definitions.empty else definitions.to_json()
 
 
@@ -139,7 +110,6 @@ async def create_draft(
     db: AsyncSession, *, text: Any, note: Any, actor_id: str, rollback_of: int | None = None,
     detectors: DetectorDefinitions | None = None,
 ) -> PolicySetVersion:
-    """A new draft; raises ``CustomPolicyError`` when the text does not validate. Flushes."""
     checked = check_custom_policies(text)
     definitions = detectors or DetectorDefinitions()
     await check_targets(db, checked.text, definitions)
@@ -163,7 +133,6 @@ async def create_draft(
 
 async def save_draft(db: AsyncSession, row: PolicySetVersion, *, text: Any, note: Any, actor_id: str,
                      detectors: DetectorDefinitions | None = None) -> None:
-    """Save the text (and, when given, the custom detectors; else they stay as they are)."""
     if row.state != REVISION_STATE_DRAFT:
         raise PolicyStoreRefusalError(REFUSAL_NOT_DRAFT)
     checked = check_custom_policies(text)
@@ -178,7 +147,6 @@ async def save_draft(db: AsyncSession, row: PolicySetVersion, *, text: Any, note
 
 
 async def save_note(db: AsyncSession, row: PolicySetVersion, *, note: Any, actor_id: str) -> None:
-    """Change only the draft's note: the text (and its digest) is not re-sent, so no concurrent edit is lost."""
     if row.state != REVISION_STATE_DRAFT:
         raise PolicyStoreRefusalError(REFUSAL_NOT_DRAFT)
     row.note, row.updated_at = _note(note), utc_now()
@@ -204,7 +172,6 @@ async def submit_version(db: AsyncSession, row: PolicySetVersion, *, actor_id: s
 
 
 async def retire_version(db: AsyncSession, row: PolicySetVersion, *, actor_id: str) -> None:
-    """Withdraw a draft or a version in review; the published version is replaced only through review."""
     if row.state == REVISION_STATE_RETIRED:
         raise PolicyStoreRefusalError(REFUSAL_ALREADY_RETIRED)
     if row.state == REVISION_STATE_PUBLISHED:

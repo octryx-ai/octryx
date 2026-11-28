@@ -1,18 +1,4 @@
-"""Banded flow layout for AWS detail diagrams (selections without a VPC).
-
-Uses the same curated, architecture-style approach as the overview:
-
-- nodes of the same type with identical wiring (same neighbors, edge types,
-  and ports) fold into one counted node, so 12 nodegroups sharing one
-  security group render as a single "12 x EKS nodegroup" icon;
-- every node goes into a full-width role band (traffic sources, security
-  groups, ingress, load balancing, compute, integration, data) stacked
-  top-down in traffic order;
-- within a band, nodes are ordered by the barycenter of their neighbors in
-  the bands above, so edges stay short and mostly vertical.
-
-Geometry only; icon/edge/legend cells come from the shared AWS topology cell modules.
-"""
+"""Banded flow layout for AWS detail diagrams (selections without a VPC)."""
 
 from __future__ import annotations
 
@@ -162,8 +148,6 @@ def render_detail_topology_xml(
 def _summarize_egress_all(
     selected_edges: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], str]:
-    """Default egress-all-traffic rules carry no architectural information but
-    add one dashed edge per security group; summarize them into a note."""
     kept: list[dict[str, Any]] = []
     dropped = 0
     for edge in selected_edges:
@@ -181,8 +165,6 @@ def _drop_unwired_cidrs(
     selected_nodes: list[dict[str, Any]],
     selected_edges: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """A CIDR node only exists as a traffic peer; once its edges are
-    summarized away it carries no information and is dropped."""
     wired: set[str] = set()
     for edge in selected_edges:
         for side in ("source", "target"):
@@ -201,9 +183,6 @@ def _fold_identical_wiring(
     selected_nodes: list[dict[str, Any]],
     selected_edges: list[dict[str, Any]],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], str]:
-    """Merge same-type nodes whose edge sets are identical (same peers, edge
-    types, and port attributes) into one counted node; rewrite the edges onto
-    the representative and drop the duplicates this creates."""
     signatures: dict[str, set[tuple[str, str, str, str]]] = {}
     for edge in selected_edges:
         edge_type = str(edge.get("type") or "").strip()
@@ -303,9 +282,6 @@ def _barycenter_order(
     nodes: list[dict[str, Any]],
     edges: list[dict[str, Any]],
 ) -> dict[int, list[str]]:
-    """Classic barycenter sweeps: order every band's members by the mean slot
-    index of their neighbors (any band, including their own), sweeping
-    down-up-down so related nodes align vertically and crossings shrink."""
     label_of = {
         str(node.get("ref") or node.get("id") or "").strip(): str(node.get("label") or "")
         for node in nodes

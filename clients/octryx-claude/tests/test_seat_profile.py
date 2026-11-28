@@ -1,14 +1,3 @@
-"""The ``seat`` profile (S0, root re-freeze 1b): the user's own subscription, a session-bound credential.
-
-- ``--profile governed`` stays the default and keeps ``apiKeyHelper``;
-- ``--profile seat`` is refused up front when the Workspace's client policy says so (nothing is
-  registered, Claude Code never starts);
-- otherwise the session is registered; the seat credential goes only into the child's
-  ``ANTHROPIC_CUSTOM_HEADERS`` (and the session's private settings file), never into a log line;
-- the seat child uses its own ``CLAUDE_CONFIG_DIR`` and has no ``apiKeyHelper``, so the subscription login
-  owns ``Authorization``; nothing is written to ``~/.claude*`` (G1).
-"""
-
 from __future__ import annotations
 
 import json
@@ -148,7 +137,6 @@ def _session_end(state, monkeypatch, *, reason: str, transcript_root: Path) -> l
 
 @pytest.mark.parametrize("profile", ["governed", "seat"])
 def test_a_real_session_end_finalizes_with_the_profiles_transcript(state, monkeypatch, profile):
-    """C1: the seat profile's transcript lives in ``claude-config-seat/`` and still yields the digest."""
     [body] = _session_end(state, monkeypatch, reason="prompt_input_exit",
                           transcript_root=state.claude_config_dir_for(profile))
 
@@ -157,7 +145,6 @@ def test_a_real_session_end_finalizes_with_the_profiles_transcript(state, monkey
 
 @pytest.mark.parametrize("profile", ["governed", "seat"])
 def test_clear_never_finalizes_so_the_session_stays_alive(state, monkeypatch, profile):
-    """C2: /clear ends a conversation, not the session: no finalize, so no stop and no revocation."""
     assert _session_end(state, monkeypatch, reason="clear", transcript_root=state.claude_config_dir_for(profile)) == []
 
 
@@ -168,8 +155,7 @@ def test_a_transcript_outside_the_octryx_config_dirs_is_never_read(state, monkey
 
 
 def test_a_second_instance_reuses_the_first_instances_seat_login_dir(tmp_path, monkeypatch):
-    """Local dev loop: Claude Code keys the seat login by the exact config dir string, so a second
-    launcher instance with its own OCTRYX_CLAUDE_HOME names the first one's seat dir verbatim instead of a new login."""
+    # Claude Code keys the seat login by the exact config dir string.
     from octryx_claude.state import LocalState
 
     first = tmp_path / "team" / "claude-config-seat"

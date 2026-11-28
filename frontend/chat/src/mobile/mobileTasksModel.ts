@@ -60,6 +60,7 @@ export type Case = {
   source: string;
   // Carries the intake's automation label: the platform may run it automatically.
   automatic: boolean;
+  issueType?: string;
   run: CaseRun | null;
 };
 
@@ -91,6 +92,7 @@ export function readCases(itemsRaw: unknown, runsRaw: unknown, { keepOrder = fal
       assignee: caseText(item.assignee_display) || caseText(item.assignee), priority: caseText(item.priority),
       projectId: caseText(item.project_id), source: caseText(item.source_type),
       automatic: Array.isArray(item.labels) && item.labels.some((label) => String(label).toLowerCase() === "octryx"),
+      issueType: caseText(item.issue_type),
       run: latest.get(caseText(item.id)) ?? null,
     });
   }

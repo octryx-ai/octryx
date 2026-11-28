@@ -1,12 +1,4 @@
-"""A passed phase goes on into the next one inside the running turn (size class ``phase_change: same_turn``).
-
-each phase change in the shared session of a small item ended the turn,
-pushed the WIP, dispatched a new turn and resumed the same Claude session, about 20-30 s for nothing new. With the
-class's ``phase_change: same_turn`` the Stop that passes a phase answers ``next_phase`` with the next phase's prompt;
-the launcher blocks the Stop with it, so the agent goes on in the same turn and the platform takes the running turn as
-the next phase's pass (its marker becomes that pass's ``started`` one). Only a launcher that says it can
-(``capabilities``) gets it; every other one ends its turn.
-"""
+"""A passed phase goes on into the next one inside the running turn (size class ``phase_change: same_turn``)."""
 
 from __future__ import annotations
 
@@ -22,7 +14,6 @@ SAME_TURN = "same_turn"
 
 
 async def continue_in_turn(db: AsyncSession, run: WorkflowRun, hook_input: dict[str, Any]) -> str:
-    """The next phase's prompt when this Stop's turn goes on with it; ``""`` when the turn ends as usual."""
     from app.services.devices.job_state import ACTIVE_STATUSES
 
     from ...devices.jobs import thread_job

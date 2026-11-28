@@ -20,7 +20,6 @@ def build_change_request_fingerprint(tool_name: str, payload: Any) -> str:
 
 
 def enforced_approval_mark(tool_name: str, payload: Any) -> str:
-    """The mark the central approval gate leaves for a call it admitted with the person's grant."""
     return "tool:" + build_change_request_fingerprint(tool_name, payload)
 
 
@@ -66,21 +65,7 @@ async def consume_change_preview_grant(
     mark_payload: Any = None,
     consumed: dict[str, Any] | None = None,
 ) -> bool:
-    """Consume one matching approval grant of the session; ``True`` when one was consumed.
-
-    ``context``: a tool that runs its own approval round trip passes its tool context. When the central approval gate
-    (``tool_approval_gate``) already consumed the person's grant for exactly this call, it left a mark there
-    (``ToolContext.enforced_approval_fingerprints``, keyed by the tool and ``mark_payload``, default ``payload``);
-    that mark is consumed instead, so one call costs one confirmation (a chat's ``create_jira_ticket``
-    passes the central gate and then Jira's own diagnosis-mode gate).
-
-    Guarantee: one grant admits one execution for **sequential** dispatches. The grants live in the
-    session's metadata JSON and are read and rewritten without a compare-and-set or row lock, so two
-    concurrent dispatches of the same approved request can both see the grant. Do not rely on this for
-    exactly-once delivery under concurrency.
-
-    ``consumed``: receives the consumed grant's ``approval_id`` (for the caller's audit).
-    """
+    """Consume one matching approval grant of the session; ``True`` when one was consumed."""
     if consume_enforced_approval_mark(context, tool_name, payload if mark_payload is None else mark_payload):
         return True
     if db is None or not session_id:

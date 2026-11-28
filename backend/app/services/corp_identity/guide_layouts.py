@@ -1,10 +1,4 @@
-"""The "when to use which layout" table of the corporate identity guide.
-
-Built from the template's own layouts: each goal lists the corporate-safe
-layouts whose structural ``content_shape`` serves it, by the names this
-template gives them. A goal the template has no layout for is left out — the
-guide never names a layout the template does not ship.
-"""
+"""The "when to use which layout" table of the corporate identity guide."""
 
 from __future__ import annotations
 
@@ -28,7 +22,6 @@ _GOALS: tuple[tuple[str, tuple[str, ...]], ...] = (
 
 
 def layout_choice_lines(safe_layouts: list[dict[str, Any]]) -> list[str]:
-    """Markdown table: goal -> the template's own layout names for it."""
     rows: list[str] = []
     for goal, prefixes in _GOALS:
         names = [
@@ -44,7 +37,6 @@ def layout_choice_lines(safe_layouts: list[dict[str, Any]]) -> list[str]:
 
 
 def first_layout(layouts: list[dict[str, Any]], *prefixes: str) -> dict[str, Any] | None:
-    """The first layout (template order) whose ``content_shape`` starts with a prefix."""
     for prefix in prefixes:
         for layout in layouts:
             if str(layout.get("content_shape") or "").startswith(prefix):

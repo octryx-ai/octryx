@@ -1,9 +1,4 @@
-"""Provider-neutral source-control operation contracts.
-
-This module is intentionally secret-free. Provider implementations may hold
-credentials behind their connector boundary, but runtime/tool/model/audit
-payloads should only carry normalized operation contracts and safe evidence.
-"""
+"""Provider-neutral source-control operation contracts."""
 
 from __future__ import annotations
 

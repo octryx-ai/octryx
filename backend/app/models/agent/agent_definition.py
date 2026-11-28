@@ -4,6 +4,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, T
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 from ..json_text import dump_json_dict, dump_string_list, safe_json_dict, safe_string_list
 
@@ -12,7 +13,7 @@ def uuid_pk():
     return str(uuid.uuid4())
 
 
-class AgentDefinition(Base):
+class AgentDefinition(WorkspaceBound, Base):
     __tablename__ = "agent_definitions"
     __table_args__ = (UniqueConstraint("builtin_key", name="uq_agent_definitions_builtin_key"),)
 
@@ -31,11 +32,11 @@ class AgentDefinition(Base):
     output_prompt = Column(Text, default="")
     skill_preferences_json = Column(Text, default="{}")
     require_self_review = Column(Boolean, default=False)
-    # governed | none (services/agent_tool_surface.py); none is an enforced text-only boundary.
+    # governed | none (services/agent_tool_surface_contract.py); none is an enforced text-only boundary.
     tool_surface = Column(String(16), nullable=False, default="governed", server_default="governed")
     # Optional checked reply (services/agent_reply_contract.py): NULL is free text, else canonical JSON.
     reply_contract_json = Column(Text, nullable=True)
-    # A built-in agent ships with the platform (``agent_builtins``);
+    # A built-in agent ships with the platform (``platform_agents``);
     # the ceiling caps the run class a workflow may give this agent; the default workflow applies when a turn
     # names the agent explicitly and no workflow; the execution mode names the agent's work-item envelope.
     builtin_key = Column(String(40), nullable=True)
@@ -75,7 +76,9 @@ class AgentDefinition(Base):
         self.skill_preferences_json = dump_json_dict(value)
 
 
-class AgentStep(Base):
+class AgentStep(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"agent_id": "agent_definitions"}
     __tablename__ = "agent_steps"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)

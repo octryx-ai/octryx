@@ -1,14 +1,5 @@
-"""``octryx-claude login --seat`` (alias ``seat-login``): the seat profile signs in to your own Claude subscription.
-
-Runs ``claude auth login --claudeai`` (Claude Code's own login command) with ``CLAUDE_CONFIG_DIR`` pointing at
-``claude-config-seat/``, so the subscription login lands in the seat profile only: plain ``claude`` and ``~/.claude*``
-stay untouched (G1), and the launcher never sees or reads the credential. The platform login is not needed. The
-child gets no ``ANTHROPIC_*`` variable and no provider switch, so the login talks to Anthropic directly.
-
-On success the launcher writes its seat marker and clears a stored seat problem, so ``--profile auto`` picks seat
-again. In ``--profile auto`` with a Workspace that allows seat but no working seat login, an interactive start asks
-once per seat state (``offer_login``); a non-interactive start only prints the hint.
-"""
+"""``octryx-claude login --seat``: Claude Code's own subscription login into the seat profile's config dir.
+The child gets no ``ANTHROPIC_*`` variable, so it talks to Anthropic directly; the launcher never reads it."""
 
 from __future__ import annotations
 
@@ -40,7 +31,6 @@ def login_env(parent: Mapping[str, str], state: LocalState) -> dict[str, str]:
 
 
 def run_seat_login(state: LocalState, claude: str, *, out: TextIO | None = None) -> int:
-    """Claude Code's own subscription login in the seat config dir; ``0`` when it succeeded."""
     stream = out or sys.stderr
     stream.write(f"octryx-claude: seat login: signing in to your Claude subscription in "
                  f"{state.claude_config_dir_for(launch_process.PROFILE_SEAT)} (your plain `claude` login is not used "
@@ -66,7 +56,6 @@ def run_seat_login(state: LocalState, claude: str, *, out: TextIO | None = None)
 
 def offer_login(state: LocalState, seat: seat_status.SeatState, *, interactive: bool,
                 ask: Callable[[str], str]) -> bool:
-    """``True`` when the user wants to log in now. Asked once per seat state; never without a terminal."""
     if seat.code not in OFFERED_STATES or not interactive:
         return False
     if read_json(state.root / DECLINED_FILE).get("state") == seat.code:

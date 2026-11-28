@@ -108,8 +108,6 @@ def _session_payload(session: Any) -> dict[str, Any]:
         "parent_session_id": session.parent_session_id,
         "sub_agent_depth": session.sub_agent_depth,
         "recovery_policy": session.recovery_policy,
-        "flow_definition_version_id": session.flow_definition_version_id,
-        "flow_node_id": session.flow_node_id,
         "metadata": session.metadata_ or {},
     }
 

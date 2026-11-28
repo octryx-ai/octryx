@@ -1,9 +1,4 @@
-"""Read and write the classification policy matrix for the admin API.
-
-The write path validates the whole submitted matrix (``policy_matrix.normalize_policy_levels``), stores only
-the rules that differ from the defaults (no row at all when nothing differs) and writes one audit row with the
-level/rule changes. Nothing here decides at runtime; the decision points read ``load_classification_policy``.
-"""
+"""Read and write the classification policy matrix for the admin API."""
 
 from __future__ import annotations
 
@@ -33,7 +28,6 @@ _DESCRIPTION = "Classification policy matrix: rules per data classification leve
 
 
 def _level_info(level: str) -> dict[str, Any]:
-    """Label, colour, description and the model switch of a level."""
     found = level_registry().get(level)
     if found is None:
         return {}
@@ -42,7 +36,6 @@ def _level_info(level: str) -> dict[str, Any]:
 
 
 def policy_payload(policy: ClassificationPolicy, *, can_edit: bool, model_aliases: list[str]) -> dict[str, Any]:
-    """The ``GET/PUT /api/v1/admin/data-classification/policy`` body."""
     return {
         "state": policy.state,
         "levels": [
@@ -63,7 +56,6 @@ def policy_payload(policy: ClassificationPolicy, *, can_edit: bool, model_aliase
 
 
 async def policy_view(db: AsyncSession, policy: ClassificationPolicy, *, can_edit: bool) -> dict[str, Any]:
-    """The payload with ``model_aliases``: every alias of the active LiteLLM gateway providers, for the editor."""
     aliases = sorted({alias for alias, _allowance in await gateway_aliases(db)})
     return policy_payload(policy, can_edit=can_edit, model_aliases=aliases)
 
@@ -81,7 +73,6 @@ def _changes(before: ClassificationPolicy, after: ClassificationPolicy) -> list[
 
 
 async def set_classification_policy(db: AsyncSession, *, levels: Any, actor_id: str) -> ClassificationPolicy:
-    """Validate, store and audit a submitted matrix. Raises ``ClassificationPolicyError``; flushes, never commits."""
     overrides = normalize_policy_levels(levels)
     before = await load_classification_policy(db)
     await set_system_config_value(
@@ -89,8 +80,6 @@ async def set_classification_policy(db: AsyncSession, *, levels: Any, actor_id: 
         key=POLICY_MATRIX_CONFIG_KEY,
         value=encoded_overrides(overrides, updated_by=actor_id) if overrides else None,
         description=_DESCRIPTION,
-        updated_by=actor_id,
-        record_prompt_revision=False,
     )
     after = await load_classification_policy(db)
     db.add(

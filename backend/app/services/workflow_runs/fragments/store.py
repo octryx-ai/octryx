@@ -1,25 +1,4 @@
-"""Fragment storage, pins and the publish rules.
-
-A fragment is a normal flow definition whose ``definition_json.execution_kind`` is ``phased_fragment``; a
-composite is a phased definition whose *source* references published fragment versions by pin (version id +
-canonical checksum). A composite version stores the compiled graph in ``definition_json`` and the source plus
-provenance in ``runtime_settings["composition"]``. This module is the database side of the pure compiler
-(``fragments.compiler`` / ``fragments.validation``):
-
-- :func:`resolve_fragment_pins` turns a source's references into resolved fragment versions, refusing anything
-  that is not exactly the pinned, published content (a new fragment version can never satisfy an old pin);
-- :func:`compose_for_save` compiles a composite source on create and on every draft;
-- :func:`verify_composition_at_publish` recompiles the stored source against the stored pins at publish and
-  refuses any drift between the stored compiled graph and the recompile;
-- the four-eyes rule for API-authored fragment publish is the one for every phased version
-  (``flow_publish_review``); :func:`is_seeded_fragment` is the fragment seed's exemption.
-
-Concurrency: at publish the pinned fragment version rows are read ``FOR SHARE`` (``lock=True``), so a concurrent
-unpublish of a pinned fragment waits for the composite's publish transaction instead of racing its check; a
-fragment version's own publish locks its row ``FOR UPDATE`` (:func:`lock_version_for_publish`), so two concurrent
-publishes of one version are serialised and the second sees ``already_published``. SQLite has no row locks and
-serialises writers itself.
-"""
+"""Fragment storage, pins and the publish rules."""
 
 from __future__ import annotations
 
@@ -70,7 +49,6 @@ def composition_of(version: FlowDefinitionVersion | None) -> dict[str, Any] | No
 
 
 def requires_version_id(runtime_settings: Any) -> bool:
-    """The API path pins by version id + checksum; only a shipped seed may pin by checksum alone."""
     return not (isinstance(runtime_settings, dict) and runtime_settings.get("seed"))
 
 
@@ -84,7 +62,6 @@ async def _pinned_version(db: AsyncSession, version_id: str, *, lock: bool) -> F
 async def _version_by_checksum(
     db: AsyncSession, key: str, checksum: str, *, project_id: str | None, lock: bool
 ) -> FlowDefinitionVersion | None:
-    """The seed path (no version id): the published fragment version of ``key`` whose content is ``checksum``."""
     from ..handoff.contract import canonical_hash
 
     stmt = (
@@ -110,12 +87,6 @@ async def resolve_fragment_pins(
     require_version_id: bool = True,
     lock: bool = False,
 ) -> dict[str, ResolvedFragment]:
-    """Resolve every reference of ``source`` to exactly the pinned, published fragment version.
-
-    Per reference: the version exists, belongs to a flow with ``fragment_key`` that is a fragment, is visible from
-    ``project_id`` (global or the same Workspace), is ``published`` on an active flow, and its canonical checksum
-    equals the pin. All refusals are collected into one :class:`FragmentError`. ``lock`` reads the pinned rows
-    ``FOR SHARE`` (used at publish)."""
     from ..handoff.contract import canonical_hash
     from .format import FragmentError, ResolvedFragment, fragment_refs, is_fragment_definition, parse_fragment
 
@@ -171,10 +142,6 @@ async def compose_for_save(
     project_id: str | None,
     require_version_id: bool = True,
 ) -> tuple[dict, dict | None]:
-    """A plain definition → ``(definition, None)``; a composite source → ``(compiled, composition block)``.
-
-    The source is resolved, then validated as composed (compile + the unchanged phased validation + the port,
-    requires/provides and instance refusals); an invalid composition raises :class:`FragmentError`."""
     if not is_composite(definition):
         return definition, None
     from .compiler import compile_composite, composition_settings
@@ -193,8 +160,6 @@ async def compose_for_save(
 async def validate_source(
     db: AsyncSession, definition: dict, *, project_id: str | None
 ) -> tuple[dict[str, Any], dict | None]:
-    """``POST /validate`` for a composite source: the composed report (with ``composition``) and the compiled graph
-    when it compiles, else the refusals as an invalid report."""
     from .compiler import compile_composite
     from .format import FragmentError
     from .validation import validate_composition
@@ -211,8 +176,6 @@ async def validate_source(
 async def verify_composition_at_publish(
     db: AsyncSession, version: FlowDefinitionVersion, *, project_id: str | None
 ) -> list[dict]:
-    """Recompile the stored source with its stored pins; it must equal ``definition_json`` (digest), and every pin
-    must still resolve (published, same checksum). ``[]`` when valid (or when the version is no composite)."""
     block = composition_of(version)
     if block is None:
         return []
@@ -237,7 +200,6 @@ async def verify_composition_at_publish(
 
 
 async def lock_version_for_publish(db: AsyncSession, version: FlowDefinitionVersion) -> FlowDefinitionVersion:
-    """Re-read the version ``FOR UPDATE`` so its state check and publish are one serialised step."""
     stmt = (select(FlowDefinitionVersion).where(FlowDefinitionVersion.id == version.id)
             .with_for_update().execution_options(populate_existing=True))
     return (await db.execute(stmt)).scalar_one()
@@ -253,8 +215,7 @@ def without_seed_markers(settings: dict[str, Any]) -> dict[str, Any]:
 
 
 def draft_runtime_settings(base: dict[str, Any], definition: dict, composition: dict | None) -> dict[str, Any]:
-    """A new draft's runtime settings: the base's, with the composition block of *this* definition only (a plain
-    graph carries none) and, for a fragment, never the seed marker (a human's draft is not shipped code)."""
+    # A human's draft never carries the seed marker: it is not shipped code.
     settings = {key: value for key, value in base.items() if key != COMPOSITION_KEY}
     if composition is not None:
         settings[COMPOSITION_KEY] = composition
@@ -281,8 +242,6 @@ def fragment_origin_nodes(version: FlowDefinitionVersion | None) -> frozenset[st
 
 
 def pinned_source(block: dict[str, Any]) -> dict[str, Any]:
-    """The stored source with every reference's resolved version id filled in (a seed source may pin by checksum
-    alone), so an edit saved through the API path keeps exactly the same pins."""
     import copy
 
     source = copy.deepcopy(block.get("source") or {})

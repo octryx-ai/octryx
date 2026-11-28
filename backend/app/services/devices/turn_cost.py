@@ -1,21 +1,4 @@
-"""The cost of one device turn, priced by the platform from the turn's own token usage.
-
-Claude Code's ``total_cost_usd`` is the running total of
-its whole session, restored on every ``--resume`` (the transcript's ``cost-state`` lines keep one start time across
-process restarts); added up per turn, a job's cost would grow with the square of its length. The
-device's figure is therefore never added up; it stays on the turn's usage as ``reported_cost_usd``, for
-information. The platform prices the turn's ``usage`` (per turn, not cumulative) instead, for every engine and driver:
-
-- per model when the launcher sent ``usage.by_model`` (read from the transcript, subagents included), else the whole
-  usage at the model the turn reported;
-- at the model catalog's rates (``budget.model_pricing``, the rates every usage event is priced at), else at the
-  dated list price (``budget.list_prices``); a model neither knows adds nothing and is named in
-  ``usage.unpriced_models`` — never a guess;
-- a 1-hour prompt-cache write costs 2x the base input price (Anthropic's rule; the catalog's ``cache_write`` is the
-  5-minute rate), a 5-minute write the catalog's cache-write rate.
-
-A turn with no usage, or with only unpriced models, adds no cost.
-"""
+"""The cost of one device turn, priced by the platform from the turn's own token usage."""
 
 from __future__ import annotations
 
@@ -42,8 +25,6 @@ def _tokens(value: Any) -> int:
 
 
 async def catalog_pricing(db: AsyncSession, model: str) -> ModelPricing:
-    """The catalog row of the model the device named: its own id, else a provider-prefixed id of it
-    (``eu.anthropic.claude-…`` on Bedrock, ``anthropic/claude-…``); a global, active, priced row first."""
     exact = LLMModel.model_id == model
     stmt = (
         select(LLMModel.pricing_input, LLMModel.pricing_output, LLMModel.pricing_cache_read,
@@ -59,7 +40,6 @@ async def catalog_pricing(db: AsyncSession, model: str) -> ModelPricing:
 
 
 async def model_pricing(db: AsyncSession, model: str) -> ModelPricing:
-    """The catalog's rates of the model, else its dated list price; an empty ``ModelPricing`` when neither has one."""
     pricing = await catalog_pricing(db, model)
     if pricing.priced:
         return pricing
@@ -70,7 +50,6 @@ async def model_pricing(db: AsyncSession, model: str) -> ModelPricing:
 
 
 def one_hour_writes(usage: dict[str, Any]) -> int:
-    """The 1-hour cache writes of a usage row: the launcher's flat field, else Claude's ``cache_creation`` detail."""
     flat = _tokens(usage.get(ONE_HOUR_WRITE_FIELD))
     if flat:
         return flat
@@ -79,7 +58,6 @@ def one_hour_writes(usage: dict[str, Any]) -> int:
 
 
 def charge(pricing: ModelPricing, usage: dict[str, Any]) -> Decimal:
-    """Unrounded USD of one model's usage (Anthropic keys: input without the cached part, cache tokens on top)."""
     writes = _tokens(usage.get("cache_creation_input_tokens"))
     one_hour = min(one_hour_writes(usage), writes) if pricing.has_cache_rates and pricing.input is not None else 0
     split = PromptTokenSplit(uncached_input_tokens=_tokens(usage.get("input_tokens")),
@@ -93,9 +71,6 @@ def charge(pricing: ModelPricing, usage: dict[str, Any]) -> Decimal:
 
 
 async def price_turn(db: AsyncSession, body: dict[str, Any], *, model: str) -> dict[str, Any]:
-    """``body`` with the platform's ``cost_usd`` of the turn (``None`` when nothing could be priced); the figure the
-    device sent as ``cost_usd`` is kept as ``usage.reported_cost_usd`` (top-level ``reported_cost_usd`` when the body
-    carries no usage). ``model`` prices a usage that has no ``by_model``."""
     reported = body.get("cost_usd")
     usage = body.get("usage")
     if not isinstance(usage, dict):

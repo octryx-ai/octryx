@@ -1,6 +1,7 @@
 /* Design-system tokens (product inventory). One place for density and the meaning of colour; the values
    reuse the app's theme variables, so dark (default) and [data-theme="light"] follow by themselves. Only the dimmed
-   backdrop needs its own value per theme. */
+   backdrop needs its own value per theme.
+   Spacing is on the 4 px grid; insets below 4 px (hairlines, badge and chip padding) are the one accepted exception. */
 :root {
   /* ---- The UI set (README.md, UI set): every size in the product comes from these scales. ------------------------------- */
   /* Type: 11 12 13 14 16 18 22 28 px. 13 is the UI default, 14 running text, 22 the page title. */

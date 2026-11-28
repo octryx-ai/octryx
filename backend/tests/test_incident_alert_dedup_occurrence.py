@@ -1,10 +1,5 @@
-"""Dedup by key and occurrence: one open run per (service, fingerprint), linked, reopened or new.
-
-Every case goes through ``receive_alert`` (the one path for a webhook call) with a scheduler that only queues a
-``TaskRun`` row, so the decision, the recorded event, the run input and the ``alert_linked`` run event are the
-product's own. The open or ended state of a run is set on the stored rows the way the scheduler and the
-workflow engine leave them.
-"""
+"""Dedup by key and occurrence through ``receive_alert``: one open run per (service, fingerprint), linked, reopened or
+new."""
 
 from __future__ import annotations
 

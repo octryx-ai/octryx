@@ -1,10 +1,9 @@
 """One inbound channel message: the checks it passes, the agent turn it runs, and the reply it sends."""
 
 import logging
-import uuid
 from dataclasses import dataclass
 
-from app.services.error_facts import error_text
+from app.services.ai_marking_channels import marked_message, reaches_others
 from app.services.run_capability.worker_profiles import worker_session_capability_metadata
 
 from .approval_commands import SENDER_UNRESOLVED_REPLY, is_approval_command
@@ -12,13 +11,12 @@ from .run_as import resolve_run_as_user
 from .sender_identity import resolve_sender_user_id
 
 # Records keep the router's logger name.
+POOL_TURN_UNAVAILABLE = "The agent could not answer this message right now. Please try again in a moment."
 logger = logging.getLogger("app.services.channel_router_runtime.service")
 
 
 @dataclass(frozen=True)
 class InboundMessage:
-    """The facts of one inbound message the router reads from the plugin and the message."""
-
     channel_id: str
     plugin_id: str
     channel_name: str
@@ -31,8 +29,6 @@ class InboundMessage:
 
 
 class ChannelTurnsMixin:
-    """Message handling of the channel router; the host class provides the session and access helpers."""
-
     def _inbound_message(self, channel_id: str, plugin, msg: dict) -> InboundMessage:
         plugin_id = str(plugin.plugin_id)
         channel_name = str(plugin.config.get("__channel_name") or plugin_id)
@@ -67,8 +63,12 @@ class ChannelTurnsMixin:
                 response_parts = await self._route_message(db, plugin, msg, inbound)
                 if response_parts is None:
                     return
+                response = "".join(response_parts).strip()
+                if response and reaches_others(inbound.channel_type):
+                    response = await marked_message(
+                        db, response, user_id=await resolve_sender_user_id(db, plugin, inbound.sender_id),
+                        fallback_name=str(msg.get("sender_name") or ""))
 
-            response = "".join(response_parts).strip()
             if response:
                 target = str(msg.get("target") or inbound.sender_id)
                 success = await plugin.send_message(target, response)
@@ -81,7 +81,6 @@ class ChannelTurnsMixin:
             logger.exception("Error handling message from %s: %s", channel_key, exc)
 
     async def _route_message(self, db, plugin, msg: dict, inbound: InboundMessage) -> list[str] | None:
-        """Run the checks in order; ``None`` when one of them answered or refused, else the turn's reply parts."""
         channel_key, content, sender_id = inbound.channel_key, inbound.content, inbound.sender_id
         # Check if this is a reply to a proactive conversation (e.g. Jira reporter answering)
         if inbound.conversation_id and await self._check_proactive_reply(
@@ -156,62 +155,28 @@ class ChannelTurnsMixin:
         return metadata
 
     async def _run_turn(self, db, inbound: InboundMessage, *, session_id: str, user_id: str) -> list[str] | None:
-        from ...agent.engine import AgentEvent, run_agent
-        from ...models.session.session import Message, Session
-        from ..session.turn_owner import claim_turn_ownership
+        from ...models.session.session import Session
 
-        response_parts: list[str] = []
-        events: list[AgentEvent] = []
         session_obj = await db.get(Session, session_id)
         if session_obj is None:
             return None
+        return await self._run_pool_turn(db, inbound, session_obj, user_id=user_id)
 
-        session_obj.status = "running"
-        session_obj.ended_at = None
-        claim_turn_ownership(session_obj)
-        metadata = self._turn_metadata(session_obj, inbound)
-        user_msg = Message(
-            id=str(uuid.uuid4()),
-            session_id=session_id,
-            role="user",
-            content=inbound.content,
-        )
-        db.add(user_msg)
-        metadata["current_turn_user_message_id"] = user_msg.id
-        session_obj.metadata_ = metadata
+    async def _run_pool_turn(self, db, inbound: InboundMessage, session_obj, *, user_id: str) -> list[str]:
+        # The channel waits for the runner turn's answer and replies with it.
+        from ..data_access import as_viewer
+        from ..devices.agent_runtime import run_pool_turn
+        from ..devices.chat_turn import DeviceTurnRefusal
+
+        session_obj.metadata_ = self._turn_metadata(session_obj, inbound)
         await db.commit()
+        with as_viewer(user_id):
+            turn = await run_pool_turn(db, user_id=user_id, prompt=inbound.content, session_id=session_obj.id)
+        if isinstance(turn, DeviceTurnRefusal):
+            logger.info("[%s] pool turn refused: %s", inbound.channel_key, turn.reason)
+            return [POOL_TURN_UNAVAILABLE]
+        if turn.state != "done" or not turn.answer:
+            logger.info("[%s] pool turn ended %s", inbound.channel_key, turn.state)
+            return [POOL_TURN_UNAVAILABLE] if turn.state != "done" else []
+        return [turn.answer]
 
-        async for event in run_agent(
-            session_id=session_id,
-            user_message=inbound.content,
-            user_id=user_id,
-            project_id=session_obj.project_id,
-            agent_type="chat",
-            db=db,
-        ):
-            if event.role == "assistant" and event.content:
-                response_parts.append(event.content)
-            events.append(event)
-
-        await self._record_turn_usage(db, session_obj, events)
-        return response_parts
-
-    async def _record_turn_usage(self, db, session_obj, events: list) -> None:
-        try:
-            total_tokens_in = sum(e.tokens_in for e in events if hasattr(e, "tokens_in"))
-            total_tokens_out = sum(e.tokens_out for e in events if hasattr(e, "tokens_out"))
-            total_cost = sum(e.cost for e in events if hasattr(e, "cost"))
-            meta = dict(session_obj.metadata_ or {})
-            meta["total_tokens_in"] = meta.get("total_tokens_in", 0) + total_tokens_in
-            meta["total_tokens_out"] = meta.get("total_tokens_out", 0) + total_tokens_out
-            meta["total_cost"] = meta.get("total_cost", 0.0) + total_cost
-            meta["message_count"] = meta.get("message_count", 0) + 1
-            meta.pop("current_turn_user_message_id", None)
-            session_obj.metadata_ = meta
-            if session_obj.status not in {"pending_approval", "awaiting_subagents"}:
-                session_obj.status = "active"
-            await db.commit()
-        except Exception as stats_exc:
-            logger.warning(
-                "Failed to update session usage stats: %s", error_text("session_usage_stats_update_failed", stats_exc)
-            )

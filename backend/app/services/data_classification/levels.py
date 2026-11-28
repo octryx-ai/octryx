@@ -1,20 +1,4 @@
-"""The classification level registry: admins may add levels.
-
-A level is a row of ``data_classification_levels``: an immutable ``key``, a stored ``rank`` (gapped: the built-ins sit
-at 100 … 500, a new level takes a free rank between its neighbours, so inserting a level never shifts the rank of an
-existing one — decision logs, saved test cases and custom policies keep meaning what they meant), a label, a colour
-key, a description and whether any model may process data of the level. Built-in levels can be relabelled, never
-retired; a custom level is retired (never deleted) and only while nothing uses it.
-
-Every reader goes through one process-wide :class:`LevelRegistry`: ``model_gateway.data_policy.classification`` exposes
-the order, the vocabulary and the ranks from it (``DATA_CLASSIFICATION_ORDER`` and ``DATA_CLASSIFICATION_LEVELS`` are
-live views), so no module keeps its own list. The registry is loaded from the table at start-up and refreshed by
-:func:`ensure_level_registry` (cheap; called where the classification policy is loaded) and right after a publish.
-Until the table is read, and when it cannot be read, the built-ins apply — they are exactly the original levels.
-
-A governed draft that adds a level is checked under that draft's registry (:func:`candidate_registry`), never by
-changing the live one.
-"""
+"""The classification level registry: admins may add levels."""
 
 from __future__ import annotations
 
@@ -61,8 +45,6 @@ BUILTIN_LEVELS: tuple[LevelDef, ...] = (
 
 
 class LevelRegistry:
-    """An ordered, immutable set of levels (ascending rank)."""
-
     def __init__(self, levels: Sequence[LevelDef]) -> None:
         ordered = tuple(sorted(levels, key=lambda level: level.rank))
         self.levels = ordered
@@ -84,7 +66,6 @@ class LevelRegistry:
             return None
 
     def model_levels(self) -> tuple[str, ...]:
-        """The levels a model may be cleared for (a gateway alias's data-policy class)."""
         return tuple(level.key for level in self.levels if level.models_allowed)
 
     def __contains__(self, key: object) -> bool:
@@ -104,7 +85,6 @@ _candidate: ContextVar[LevelRegistry | None] = ContextVar("classification_level_
 
 
 def level_registry() -> LevelRegistry:
-    """The registry in effect: a draft's candidate while it is checked, else the live one."""
     return _candidate.get() or _live
 
 
@@ -114,7 +94,6 @@ def set_level_registry(registry: LevelRegistry) -> None:
 
 
 def reset_level_registry() -> None:
-    """Back to the built-ins (tests)."""
     global _live, _loaded_at
     _live, _loaded_at = BUILTIN_REGISTRY, 0.0
 
@@ -129,7 +108,6 @@ def candidate_registry(registry: LevelRegistry) -> Iterator[None]:
 
 
 def registry_from_rows(rows: Sequence[Any]) -> LevelRegistry:
-    """Active rows of ``data_classification_levels`` (empty → the built-ins)."""
     levels = [
         LevelDef(str(row.key), int(row.rank), str(row.label), str(row.color or "custom"), str(row.description or ""),
                  bool(row.models_allowed), bool(row.builtin))
@@ -139,7 +117,6 @@ def registry_from_rows(rows: Sequence[Any]) -> LevelRegistry:
 
 
 async def refresh_level_registry(db: Any) -> LevelRegistry:
-    """Load the live registry from the table; on any failure keep the current one."""
     from sqlalchemy import select
 
     from ...models import DataClassificationLevel
@@ -158,7 +135,6 @@ async def refresh_level_registry(db: Any) -> LevelRegistry:
 
 
 async def ensure_level_registry(db: Any) -> LevelRegistry:
-    """Refresh when older than :data:`REFRESH_SECONDS` (other workers may have published)."""
     if time.monotonic() - _loaded_at >= REFRESH_SECONDS:
         return await refresh_level_registry(db)
     return _live
@@ -189,11 +165,6 @@ def catalog_of(registry: LevelRegistry) -> list[dict[str, Any]]:
 
 
 def normalized_catalog(raw: Any, *, base: LevelRegistry) -> LevelRegistry:
-    """Validate a submitted level catalog against ``base`` (the published one).
-
-    Keys are immutable and unique; an existing level keeps its rank; a built-in keeps its key, rank and model switch
-    and is never left out; a new level takes a rank no other level holds. Leaving a custom level out retires it.
-    """
     if not isinstance(raw, list):
         raise LevelCatalogError(ERROR_LEVEL_KEY_INVALID, "level_catalog")
     seen: set[str] = set()
@@ -235,7 +206,6 @@ def normalized_catalog(raw: Any, *, base: LevelRegistry) -> LevelRegistry:
 
 
 def rank_between(lower: LevelDef | None, upper: LevelDef | None) -> int | None:
-    """A free rank between two neighbours (``None`` when no integer fits)."""
     if lower is None and upper is None:
         return RANK_STEP
     if upper is None:

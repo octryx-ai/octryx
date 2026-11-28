@@ -1,13 +1,4 @@
-"""Phase outputs as chat tools: a run phase submits its structured artefact (``phase_outputs``).
-
-``submit_definition_of_ready`` (A triage), ``submit_test_contract`` (B clarify), ``submit_reproduction`` (C
-reproduce), ``submit_incident_hypothesis`` (E hypothesis), ``submit_feature_documentation`` (B
-documentation), ``submit_phase_result`` (any phase that declares ``result_values``; a ``parallel_work`` item's
-done / blocked), ``submit_work_plan`` (the coordinator's split, ``teamwork``). Only a session that
-follows a workflow run at a phase that submits the output records it; the server validates the proposal and keeps
-it on the run. Nothing outside the run changes, so a read-only phase may submit. A refused proposal is a failed
-tool call (``error``) with its problems.
-"""
+"""Phase outputs as chat tools: a run phase submits its structured artefact (``phase_outputs``)."""
 
 from __future__ import annotations
 
@@ -85,6 +76,11 @@ class SubmitPhaseResultTool(_SubmitPhaseOutputTool):
 class SubmitWorkPlanTool(_SubmitPhaseOutputTool):
     name = "submit_work_plan"
     description = "Submit the coordinator's work plan: the shared contract and the items the agents build in parallel."
+
+
+class SubmitChangePlanTool(_SubmitPhaseOutputTool):
+    name = "submit_change_plan"
+    description = "Submit the change plan as data: parts, paths, endpoints, expensive path classes, risks, questions."
 
 
 class SubmitStoryPlanTool(_SubmitPhaseOutputTool):

@@ -1,9 +1,5 @@
-"""A run can start from a named base branch.
-
-Without it, every run branches from the repository's default branch unless an epic chain names the story before it.
-A bug reported against an older commit or a story on top of an unmerged one needs to start there; the start's
-``base_branch`` is the start point of the run's own branch.
-"""
+"""A run can start from a named base branch: the start's ``base_branch`` is the start point of the run's own
+branch."""
 
 from __future__ import annotations
 

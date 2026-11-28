@@ -1,6 +1,4 @@
-// Teamwork (WP-D, run view): the items a "Parallel work" box really runs, from the run's ``context.work`` (frozen
-// interface: backend/app/services/workflow_runs/teamwork/__init__.py). Pure: the box shows "split at run time" until
-// the coordinator's plan exists, then one row per item (role, model, status, round, what it waits for, conflicts).
+// Reads the run's ``context.work``; its shape is typed in backend/app/services/workflow_runs/teamwork/work_types.py.
 import { modelDisplayName } from "../header/runDetailsFacts";
 import type { StatusTone } from "../../layout/StatusLabel";
 

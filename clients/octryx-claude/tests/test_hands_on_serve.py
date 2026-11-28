@@ -1,5 +1,3 @@
-"""The serve group of a hands-on pass: orphaned or restarted groups end, others' apps stay, and how it ended is kept."""
-
 from __future__ import annotations
 
 import pytest
@@ -9,7 +7,6 @@ from tests.hands_on_support import PERSISTED, SCENARIOS, _port, _repo, _view, _w
 
 
 def test_an_orphaned_serve_group_of_this_device_is_ended_before_the_next_pass(tmp_path, monkeypatch):
-    """A launcher restart left 's http.server on :8090; every later hands-on run refused."""
     import os
     import time
 
@@ -28,7 +25,6 @@ def test_an_orphaned_serve_group_of_this_device_is_ended_before_the_next_pass(tm
 
 
 def test_a_launcher_restarted_while_serve_is_running_ends_the_previous_group_at_start(tmp_path, monkeypatch):
-    """A serve group a previous launcher left running (adopted by PID 1) is ended at start."""
     import os
     import time
 
@@ -47,9 +43,6 @@ def test_a_launcher_restarted_while_serve_is_running_ends_the_previous_group_at_
 
 
 def test_a_starting_launcher_never_ends_another_launcher_s_running_app(tmp_path, monkeypatch):
-    """(gate): a test starting the device service ended a running hands-on test's
-    http.server through the shared temp folder (S2: ERR_CONNECTION_REFUSED after 17 s). The same holds for a test
-    stack's launcher next to the person's own on one Mac."""
     import os
 
     from octryx_claude import hands_on
@@ -93,8 +86,6 @@ def test_how_the_serve_group_ended_is_recorded_and_written_to_its_log(tmp_path):
 
 @needs_chrome
 def test_a_restart_waits_for_what_the_app_is_still_writing(tmp_path):
-    """The browser closed right after "Add bean" and the bean, written a moment later, was
-    gone after the restart. Before a restart the device lets the app settle (general.restart_settle)."""
     pytest.importorskip("playwright")
     root = _repo(tmp_path, PERSISTED)
     page = root / "web" / "index.html"

@@ -1,9 +1,4 @@
-"""Fixtures for the S4.2 fragment store tests: two small fragments, their composites and the service calls.
-
-``probe`` is the live-acceptance fragment (contract §5 step 2): one ``user_confirmation subject: advance`` with the
-ports ``go`` (next, any), ``back`` and ``stop`` (next, outcome). ``work`` is a one-phase fragment for the phased
-editor. Both are valid fragments and compose into valid phased graphs under the real compiler (S4.1).
-"""
+"""Fixtures for the S4.2 fragment store tests: two small fragments, their composites and the service calls."""
 
 from __future__ import annotations
 
@@ -125,7 +120,6 @@ async def publish(db, version_id: str, user: User) -> dict[str, Any]:
 
 async def published_fragment(db, author: User, reviewer: User, *, key: str | None = None,
                              definition: dict[str, Any] | None = None) -> tuple[str, str, str, str]:
-    """Create a fragment as ``author`` and publish it as ``reviewer``: ``(key, flow_id, version_id, checksum)``."""
     key = key or unique_key("s4-probe-confirm")
     definition = definition or probe_fragment()
     created = await create(db, author, key, definition)

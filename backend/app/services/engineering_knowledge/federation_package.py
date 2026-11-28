@@ -1,8 +1,4 @@
-"""Signed Engineering Knowledge Package format.
-
-This module deliberately does not persist publisher keys. A later federation UI/API
-slice should resolve signing and verification keys through the secret subsystem.
-"""
+"""Signed Engineering Knowledge Package format."""
 
 from __future__ import annotations
 

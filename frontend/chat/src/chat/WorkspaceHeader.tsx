@@ -1,5 +1,5 @@
 import type { ChatMessage, SelectedSession } from "../chatThreadTypes";
-import type { ThreadCodeIntelligenceStats, ThreadUsageStats } from "../chatUsageTypes";
+import type { SessionPullRequest, ThreadCodeIntelligenceStats, ThreadUsageStats } from "../chatUsageTypes";
 import { MenuIcon } from "./ChatShellIcons";
 import { WorkspaceHeaderActions } from "./header/WorkspaceHeaderActions";
 import { isCompactChatLayout } from "./responsive/chatLayoutBreakpoints";
@@ -16,6 +16,7 @@ import { useMyRole } from "./roles/useMyRole";
 import { ThreadEngineBadge } from "./engines/ThreadEngineBadge";
 import { useThreadTranscript } from "./transcripts/useThreadTranscript";
 import { lastModelUsed, modelDisplayName, modelShortLabel, modelsUsed, runDetailsFacts, runStatusText } from "./header/runDetailsFacts";
+import { useSessionPool } from "./header/useSessionPool";
 
 type WorkspaceHeaderProps = {
   selectedSession: SelectedSession | null;
@@ -45,6 +46,7 @@ type WorkspaceHeaderProps = {
   setStatsOpen: (value: boolean | ((value: boolean) => boolean)) => void;
   stats: ThreadUsageStats | null;
   codeIntelligence: ThreadCodeIntelligenceStats | null;
+  pullRequests: SessionPullRequest[];
   traceEventCount: number;
   onOpenTrace: () => void;
   onOpenSidebar: () => void;
@@ -187,6 +189,7 @@ function HeaderActions({ props, layoutMode, run }: {
   props: WorkspaceHeaderProps; layoutMode: ReturnType<typeof useChatLayoutMode>; run: RunState;
 }) {
   const { selectedSession } = props;
+  const pool = useSessionPool(selectedSession?.id ?? null);
   return (
     <WorkspaceHeaderActions
       layoutMode={layoutMode}
@@ -202,12 +205,14 @@ function HeaderActions({ props, layoutMode, run }: {
       onToggleWorkspace={props.onToggleWorkspace}
       onExportEvidencePdf={() => openSessionExport(selectedSession, "export.pdf")}
       onExportAnalysisJson={() => openSessionExport(selectedSession, "export.analysis.json")}
+      poolItem={pool}
       chatTheme={props.chatTheme}
       setChatTheme={props.setChatTheme}
       statsOpen={props.statsOpen}
       setStatsOpen={props.setStatsOpen}
       stats={props.stats}
       codeIntelligence={props.codeIntelligence}
+      pullRequests={props.pullRequests}
       traceEventCount={props.traceEventCount}
       onOpenTrace={props.onOpenTrace}
       onOpenTranscript={run.transcript.available ? run.transcript.open : null}

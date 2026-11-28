@@ -8,12 +8,7 @@ from mcp.server.fastmcp import Context
 
 
 def register_secure_work_tools(server: Any, call: Any) -> None:
-    """Register the secure-work tool surface on the MCP server.
-
-    ``call`` is the protocol module's authenticated dispatch (scope check,
-    rate limit, audit); this module only owns tool names and signatures.
-    The groups register in this order, which is the order ``tools/list`` shows.
-    """
+    # Registration order is the order ``tools/list`` shows.
     _register_item_lookup_tools(server, call)
     _register_item_record_tools(server, call)
     _register_item_progress_tools(server, call)
@@ -22,8 +17,6 @@ def register_secure_work_tools(server: Any, call: Any) -> None:
 
 
 def _register_item_lookup_tools(server: Any, call: Any) -> None:
-    """Secure-work tools: find and list work items."""
-
     @server.tool(description="Find a work item by Jira source key or platform id (state, status, links).")
     async def work_item_find(work_item: str, ctx: Context | None = None) -> dict[str, Any]:
         return await call(ctx, "work_item_find", {"work_item": work_item})
@@ -61,8 +54,6 @@ def _register_item_lookup_tools(server: Any, call: Any) -> None:
 
 
 def _register_item_record_tools(server: Any, call: Any) -> None:
-    """Secure-work tools: create a platform work item and read its handover context."""
-
     @server.tool(
         description=(
             "Create a PLATFORM-ONLY work item (never synced to Jira or any tracker): "
@@ -113,8 +104,6 @@ def _register_item_record_tools(server: Any, call: Any) -> None:
 
 
 def _register_item_progress_tools(server: Any, call: Any) -> None:
-    """Secure-work tools: link a session, add a note, plan change units."""
-
     @server.tool(
         description=(
             "Link an ingested CLI session to a work item (client_session_id as reported to "
@@ -154,8 +143,6 @@ def _register_item_progress_tools(server: Any, call: Any) -> None:
 
 
 def _register_change_plan_tools(server: Any, call: Any) -> None:
-    """Secure-work tools: generate and decide a change plan."""
-
     @server.tool(
         description=(
             "Generate a change plan from the work item's change units; payload may carry "
@@ -202,8 +189,6 @@ def _register_change_plan_tools(server: Any, call: Any) -> None:
 
 
 def _register_delivery_tools(server: Any, call: Any) -> None:
-    """Secure-work tools: redeclare, start the coding agent, transition, observe."""
-
     @server.tool(
         description="Redeclare a work item after a declined PR: supersedes plans and units, keeps the audit trail."
     )

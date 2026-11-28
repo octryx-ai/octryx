@@ -65,9 +65,6 @@ def test_a_step_asks_for_the_base_run_only_when_its_view_says_so_and_a_missing_e
 
 @requires_git
 def test_a_unittest_discover_command_runs_only_the_confirmed_file_from_its_own_start_folder(tmp_path, monkeypatch):
-    """Cold run 3, the file appended to `unittest discover -s tests` became its start folder and no test
-    ran. The discover template keeps the command (its modules import each other from the start folder
-    review) and adds the file as its pattern: the reproduction fails on the base."""
     repo, base = _repo(tmp_path, monkeypatch)
     (repo / "app" / "grind.py").write_text("def start():\n    return 15\n")
     (repo / "app" / "tests" / "helpers.py").write_text("EXPECTED = 15\n")

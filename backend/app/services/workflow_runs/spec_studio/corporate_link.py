@@ -1,13 +1,4 @@
-"""The Corporate Identity on a run's Spec Studio.
-
-- Snapshot: the Workspace's CI profile (``corp_identity.workspace.effective_profile``) as the direction "Corporate:
-  <profile>" in ``context.spec_studio.corporate``, refreshed while the spec is open (a changed profile, Workspace
-  choice or lock reaches open specs) and never after approval (an approved version keeps its snapshot).
-- A feature keeps the approved app's look: its tokens beat the CI profile, so a feature gets no snapshot.
-- Deviations: on the corporate direction, every value taken from the template (``ci``) that the product owner changed
-  is a deviation and needs a reason; another direction as a whole is one deviation (``direction``). Derived values
-  change freely. Locked paths are read-only.
-"""
+"""The Corporate Identity on a run's Spec Studio."""
 
 from __future__ import annotations
 
@@ -21,7 +12,7 @@ SNAPSHOT_KEY = "corporate"
 
 
 class StudioLockedError(ValueError):
-    """A change to a token the Corporate Identity locks (409)."""
+    pass
 
 
 def snapshot(run: Any) -> dict[str, Any] | None:
@@ -42,7 +33,6 @@ def _store(run: Any, value: dict[str, Any] | None) -> bool:
 
 
 async def refresh(db: Any, run: Any) -> bool:
-    """Bring the snapshot in step with the Workspace's CI; ``True`` when it changed (the caller commits)."""
     from ...corp_identity.workspace import effective_profile
     from ..phase_outputs import output_hash
     from .service import artefact_of, base_of, frozen
@@ -73,7 +63,6 @@ async def refresh(db: Any, run: Any) -> bool:
 
 
 def asset_paths(corporate: dict[str, Any] | None) -> set[str]:
-    """The only CI files the Studio serves for this run: its snapshot's logo and icons."""
     if corporate is None:
         return set()
     extra = dict(corporate["direction"].get("corporate") or {})
@@ -87,7 +76,6 @@ def _value(design: dict[str, Any], path: str) -> Any:
 
 def deviations(design: dict[str, Any], corporate: dict[str, Any] | None, state: dict[str, Any]
                ) -> list[dict[str, Any]]:
-    """``[{path, corporate, chosen, reason}]``: what the spec changes of the company's look, with the reasons."""
     if corporate is None:
         return []
     reasons = dict(state.get("reasons") or {})
@@ -104,8 +92,6 @@ def deviations(design: dict[str, Any], corporate: dict[str, Any] | None, state: 
 
 
 def check_lock(corporate: dict[str, Any] | None, state: dict[str, Any], path: str) -> None:
-    """Refuse a change to a locked path while the corporate direction is in use (or a switch away from it when the
-    direction itself is locked by any lock: the locked values would be lost)."""
     if corporate is None or not corporate.get("locks"):
         return
     on_corporate = str(state.get("direction") or CORPORATE_ID) == CORPORATE_ID

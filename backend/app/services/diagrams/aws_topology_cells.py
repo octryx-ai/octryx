@@ -77,9 +77,6 @@ def _legend_cell(
 
 
 def _coverage_gap_note(topology_result: dict[str, Any]) -> str:
-    """Human-readable coverage gaps so every account owner sees at a glance
-    which services the platform could not read (missing IAM permissions or
-    errors) or was not allowed to read (project policy). Empty when full."""
     if not isinstance(topology_result, dict):
         return ""
     summary = topology_result.get("service_summary")

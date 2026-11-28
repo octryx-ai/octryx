@@ -1,12 +1,4 @@
-"""Element paths, selectors, property values and the closed failure codes of the Office engine.
-
-Paths address one element: ``/body/p[3]``, ``/body/tbl[1]/tr[2]/tc[1]`` (Word), ``/slide[2]/shape[1]``,
-``/slide[2]/table[1]/tr[1]/tc[2]`` (PowerPoint), ``/Sheet1/B4``, ``/Sheet1/A1:C9``, ``/sheet[2]/chart[1]``
-(Excel). Indices are 1-based and count per element type, like the paths the tools always used.
-
-Selectors pick many elements: ``paragraph``, ``p[style=Heading1]``, ``shape[text~=Revenue]``,
-``cell:contains(total)``; ``=`` is equality, ``~=`` substring, ``!=`` inequality (case-insensitive).
-"""
+"""Element paths, selectors, property values and the closed failure codes of the Office engine."""
 
 from __future__ import annotations
 
@@ -22,8 +14,6 @@ FILE_NOT_FOUND = "office_file_not_found"
 
 
 class OfficeEngineError(Exception):
-    """A closed failure: ``code`` is one of the module constants, ``fact`` a short non-sensitive detail."""
-
     def __init__(self, code: str, fact: str = "") -> None:
         super().__init__(f"{code} {fact}".strip())
         self.code = code
@@ -44,7 +34,6 @@ _SEGMENT = re.compile(r"^(?P<name>[A-Za-z_][\w.-]*)(?:\[(?P<inner>[^\]]*)\])?$")
 
 
 def parse_path(path: str) -> list[Segment]:
-    """``/slide[2]/shape[1]`` → ``[Segment("slide", 2), Segment("shape", 1)]``; ``/`` → ``[]``."""
     raw = str(path or "").strip()
     if not raw.startswith("/"):
         raise OfficeEngineError(INVALID_REQUEST, "path must start with /")
@@ -132,7 +121,6 @@ _LENGTH = re.compile(r"^\s*(-?\d+(?:\.\d+)?)\s*(cm|mm|in|pt|px|emu)?\s*$", re.IG
 
 
 def length_emu(value: Any, *, default_unit: str = "emu") -> int:
-    """``"2.5cm"``, ``"1in"``, ``"12pt"``, ``"96px"``, ``914400`` → EMU."""
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         number, unit = float(value), default_unit
     else:
@@ -145,7 +133,6 @@ def length_emu(value: Any, *, default_unit: str = "emu") -> int:
 
 
 def points(value: Any) -> float:
-    """``"14"``, ``"14pt"``, ``14`` → 14.0 (font sizes are points)."""
     text = str(value).strip().lower().removesuffix("pt").strip()
     try:
         return float(text)
@@ -160,7 +147,6 @@ def flag(value: Any) -> bool:
 
 
 def hex_color(value: Any) -> str:
-    """``"#0F4C81"`` / ``"0f4c81"`` → ``"0F4C81"``."""
     text = str(value or "").strip().lstrip("#").upper()
     if not re.fullmatch(r"[0-9A-F]{6}", text):
         raise OfficeEngineError(INVALID_REQUEST, "colors are 6-digit hex values")
@@ -168,7 +154,6 @@ def hex_color(value: Any) -> str:
 
 
 def text_window(lines: list[Any], *, start: int | None, end: int | None, max_lines: int | None) -> list[Any]:
-    """1-based inclusive ``start``..``end`` window, then at most ``max_lines`` items."""
     first = max(1, int(start)) if start else 1
     last = int(end) if end else len(lines)
     window = lines[first - 1 : last]

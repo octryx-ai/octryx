@@ -1,9 +1,4 @@
-"""``instruction_get``: read one published instruction by its exact key.
-
-Restricted to global instructions and the active Workspace's; never matches the user's message or any
-keyword. The turn's bound instructions are already in its system prompt; this reads another one the
-model was pointed to by key.
-"""
+"""``instruction_get``: read one published instruction by its exact key."""
 
 from __future__ import annotations
 

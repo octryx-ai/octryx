@@ -1,10 +1,4 @@
-"""Which Workspaces receive a skill (detail → Workspaces and the catalog's Workspaces column).
-
-Read-only, computed with the same effective-set function as delivery (``effective.candidates``) for every active
-Workspace and surface: a Workspace is listed for a skill when the skill is assigned there on at least one surface;
-per surface the row says whether it is delivered, how it is assigned (``all`` | ``skill`` | ``category:<key>``),
-the readiness when delivered, and the reason when it is not.
-"""
+"""Which Workspaces receive a skill (detail → Workspaces and the catalog's Workspaces column)."""
 
 from __future__ import annotations
 
@@ -21,7 +15,6 @@ from .readiness import readiness
 
 
 async def skill_reach(db: AsyncSession, *, skill_id: str | None = None) -> dict[str, list[dict[str, Any]]]:
-    """``{skill_id: [{project_id, name, surfaces: {surface: {...}}}]}``; ``skill_id`` limits the answer to one."""
     projects = list((await db.execute(select(Project).where(Project.is_active.is_not(False))
                                       .order_by(Project.name))).scalars())
     reach: dict[str, list[dict[str, Any]]] = {}

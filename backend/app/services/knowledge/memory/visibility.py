@@ -1,12 +1,5 @@
-"""Who sees and who controls a memory item.
-
-- A **personal** item (scope ``user``) is visible to its owner only. For anyone else it does not
-  exist: loading it answers ``not_found``, exactly like an unknown id.
-- A **workspace** item is visible to every member of its Workspace. Changing it needs the authoring
-  role (admin/owner); a member without it gets ``author_required``.
-- Memory is per Workspace. A Workspace binding reads Knowledge, never memory: every query
-  here is pinned to the one authorized Workspace.
-"""
+"""Who sees and who controls a memory item. A personal item does not exist for anyone else; a binding never reads
+memory."""
 
 from __future__ import annotations
 
@@ -24,7 +17,6 @@ _MAX_ID_CHARS = 36
 
 
 def visible_to(workspace_project_id: str, user_id: str):
-    """SQL predicate: items of this Workspace that this user may see."""
     item = KnowledgeMemoryItem
     return and_(
         item.project_id == workspace_project_id,
@@ -36,7 +28,6 @@ def visible_to(workspace_project_id: str, user_id: str):
 
 
 def recallable(now: datetime):
-    """SQL predicate: items a recall may return (active, unexpired, not erased)."""
     item = KnowledgeMemoryItem
     return and_(
         item.state.in_(RECALLABLE_STATES),
@@ -62,7 +53,6 @@ def may_change(row: KnowledgeMemoryItem, authorized: AuthorizedWorkspace, user_i
 async def load_for_change(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, user_id: str, memory_id: object
 ) -> KnowledgeMemoryItem:
-    """The visible item this user may change, or a fixed refusal."""
     if type(memory_id) is not str or not memory_id or len(memory_id) > _MAX_ID_CHARS:
         raise MemoryRefusedError("not_found")
     row = (

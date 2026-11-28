@@ -1,14 +1,4 @@
-"""``/chat/api`` HTTP adapter of turn preparation (``services/session/turn_start``).
-
-The service owner answers a closed :class:`TurnRefusal`; this adapter keeps the chat HTTP
-contract: the shared status (``REFUSAL_HTTP_STATUS``) with the plain detail the chat UI
-always received. :func:`chat_turn_request` builds the owner's request from the chat
-routes' keyword arguments.
-
-No chat route can make ``agent_type`` a decision: the chat request has no such field, the
-route passes the platform or session mode and the owner's request is never
-``agent_type_explicit``.
-"""
+"""``/chat/api`` HTTP adapter of turn preparation (``services/session/turn_start``)."""
 
 from fastapi import HTTPException
 

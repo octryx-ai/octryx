@@ -31,6 +31,11 @@ export function decideDeviceApproval(jobId: string, approvalId: string, decision
   );
 }
 
+/** Compacts the thread's context where it runs (a `/compact` turn on its device or runner pool). */
+export function compactThread(sessionId: string) {
+  return jobJson<unknown>(`/chat/api/sessions/${encodeURIComponent(sessionId)}/compact`, { method: "POST" });
+}
+
 export function stopDeviceJob(jobId: string) {
   return jobJson<unknown>(`/api/v1/device-jobs/${encodeURIComponent(jobId)}/stop`, { method: "POST" });
 }

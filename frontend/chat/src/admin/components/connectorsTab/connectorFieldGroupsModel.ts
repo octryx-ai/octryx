@@ -1,8 +1,4 @@
-// The groups of a connector card's generic fields (delivery 5): where a preset field is shown. Pure.
-//
-// The presets name their fields by one convention (`<connector>_<what>`), so the group follows the field's role:
-// secrets and sign-in fields are Authentication, the address of the system is Connection, allowlists are Scope,
-// everything else (timeouts, limits, import settings) is Settings. Only the place on the card depends on it.
+// Presets name their fields `<connector>_<what>`, so the group follows the field's role.
 
 export type FieldGroup = "connection" | "authentication" | "scope" | "settings";
 
@@ -25,13 +21,11 @@ export function fieldGroup(field: string, secretFields: string[] = []): FieldGro
   return "settings";
 }
 
-/** The fields per group, in card order; groups without fields are left out. */
 export function groupedFields(fields: string[], secretFields: string[] = []): Array<{ group: FieldGroup; fields: string[] }> {
   return GROUP_ORDER.map((group) => ({ group, fields: fields.filter((field) => fieldGroup(field, secretFields) === group) }))
     .filter((entry) => entry.fields.length > 0);
 }
 
-/** A field name in words without its connector prefix: "confluence_allowed_spaces" → "Allowed spaces". */
 const ACRONYMS = new Set(["url", "api", "id", "ids", "oidc", "tls", "arn", "jql", "sql", "ssh", "kv", "aws", "gcp"]);
 
 export function fieldLabel(toolName: string, field: string): string {

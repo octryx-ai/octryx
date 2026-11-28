@@ -1,26 +1,4 @@
-"""Who sees and who decides an approval outside a chat session.
-
-A session approval is decided by :func:`services.session.approval_decision.decide_session_approval`
-(write access to its session). This module owns the rest:
-
-* **visibility** (:func:`approval_visibility_clause`): a global admin sees every approval; anyone
-  else sees the approvals of the sessions they may read (owner, collaborator, team member of a
-  team Workspace, explicit grant) and of the task runs they own (the task's owner, the user who
-  started the run, or a reader of the run's session);
-* **a task-run approval** (a task run, no session; :func:`decide_sessionless_approval`) is decided by a
-  global admin, the task's owner, the user who started the run, or a writer of the run's session.
-  Anyone else gets 404, the unknown-id answer; a read-only grant holder of the run's session 403;
-* **a governance review approval** (neither a session nor a task run: a model policy or prompt
-  publication waiting for four eyes) belongs to the Workspace it
-  records (``approvals.workspace_id``). It is seen and decided by its
-  requester or an ``admin``/``owner`` of **that** Workspace, and by a global admin. A review
-  without a Workspace (a platform-wide publication, or a row whose target could not be
-  derived) is a global admin's only. The publish gates still check the approver's role in the
-  publication's Workspace, the four-eyes rule, and that the review is that Workspace's.
-
-:func:`require_approval_visible` is the one read rule for a single approval (every kind), for
-``GET /api/v1/approvals/{id}`` and any other single-approval read.
-"""
+"""Who sees and who decides an approval outside a chat session."""
 
 from __future__ import annotations
 
@@ -44,7 +22,6 @@ REVIEWER_PROJECT_ROLES = frozenset({"admin", "owner"})
 
 
 async def _reviewer_workspace_ids(db: AsyncSession, user_id: str) -> set[str]:
-    """The Workspaces where ``user_id`` is an ``admin`` or ``owner`` (the publish gate's rule)."""
     access = await get_project_access_details(user_id, db)
     return {str(item["id"]) for item in access if str(item.get("role") or "") in REVIEWER_PROJECT_ROLES}
 
@@ -54,8 +31,6 @@ def is_governance_review(approval: Approval) -> bool:
 
 
 async def _may_handle_governance_review(db: AsyncSession, *, approval: Approval, user_id: str) -> bool:
-    """Its requester or a reviewer of its Workspace; without a Workspace only the owner of the workflow whose text it
-    publishes, else nobody but an admin. Four eyes are checked when the version is published."""
     if not approval.workspace_id:
         from ..prompt_catalog.scope_rights import owned_workflow_publish_actions  # noqa: PLC0415
 
@@ -66,7 +41,6 @@ async def _may_handle_governance_review(db: AsyncSession, *, approval: Approval,
 
 
 def _readable_session_clauses(column, user_id: str) -> list[ColumnElement]:
-    """``column`` names a session the user may read (the rule of ``require_session_access``)."""
     now = datetime.utcnow()
     team_projects = (
         select(UserProject.project_id)
@@ -86,18 +60,42 @@ def _readable_session_clauses(column, user_id: str) -> list[ColumnElement]:
     ]
 
 
+def _writable_session_clause(user_id: str) -> ColumnElement:
+    # The decision's session-write rule (``session.collaboration.require_session_access``): an explicit owner-issued
+    # write grant opens an approval in a private Workspace too.
+    now = datetime.utcnow()
+    return or_(
+        Approval.session_id.in_(select(Session.id).where(Session.user_id == user_id)),
+        Approval.session_id.in_(select(SessionCollaborator.session_id).where(
+            SessionCollaborator.user_id == user_id, SessionCollaborator.role == "contributor")),
+        Approval.session_id.in_(select(SessionAccess.session_id).where(
+            SessionAccess.user_id == user_id, SessionAccess.access_scope.in_(("read_write", "admin")),
+            SessionAccess.expires_at.is_(None) | (SessionAccess.expires_at > now))),
+    )
+
+
+async def _may_write_session(db: AsyncSession, session_id: str | None, user_id: str) -> bool:
+    from ..session.collaboration import require_session_access  # noqa: PLC0415
+
+    if not session_id:
+        return False
+    try:
+        await require_session_access(db, session_id=session_id, user_id=user_id, require_write=True)
+    except HTTPException:
+        return False
+    return True
+
+
 async def approval_visibility_clause(db: AsyncSession, user_id: str) -> ColumnElement | None:
-    """The approvals ``user_id`` may see, as a filter; ``None`` for a global admin (all), except that other people's
-    private Workspaces stay closed to admins too (P6a)."""
     if await is_global_admin(db, user_id):
         hidden = await hidden_private_ids(db, user_id)
         if not hidden:
             return None
-        return and_(
+        return or_(_writable_session_clause(user_id), and_(
             or_(Approval.session_id.is_(None),
                 Approval.session_id.not_in(select(Session.id).where(Session.project_id.in_(sorted(hidden))))),
             or_(Approval.workspace_id.is_(None), Approval.workspace_id.not_in(sorted(hidden))),
-        )
+        ))
     own_runs = (
         select(TaskRun.id)
         .join(Task, Task.id == TaskRun.task_id)
@@ -137,7 +135,6 @@ def _not_found() -> HTTPException:
 
 
 async def require_sessionless_approval_access(db: AsyncSession, *, approval: Approval, user_id: str) -> None:
-    """Who may decide an approval without a session (see the module docstring); 404/403 otherwise."""
     if await is_global_admin(db, user_id):
         if approval.workspace_id and await refuse_foreign_private(db, approval.workspace_id, user_id):
             raise _not_found()
@@ -168,17 +165,12 @@ async def _require_task_run_access(db: AsyncSession, *, approval: Approval, user
 
 
 async def require_approval_visible(db: AsyncSession, *, approval: Approval | None, user_id: str) -> Approval:
-    """``approval`` when ``user_id`` may see it (the rule of :func:`approval_visibility_clause`), else 404.
-
-    A session approval: a reader of its session. A task-run approval: the task's owner, the run's
-    starter, or a reader of the run's session. A governance review: see the module docstring.
-    An unseen approval answers exactly like an unknown id.
-    """
     if approval is None:
         raise _not_found()
     if await is_global_admin(db, user_id):
         if ((approval.workspace_id and await refuse_foreign_private(db, approval.workspace_id, user_id))
-                or await refuse_foreign_private_session(db, approval.session_id, user_id)):
+                or await refuse_foreign_private_session(db, approval.session_id, user_id)) and not (
+                await _may_write_session(db, approval.session_id, user_id)):
             raise _not_found()
         return approval
     if approval.session_id:
@@ -197,10 +189,6 @@ async def require_approval_visible(db: AsyncSession, *, approval: Approval | Non
 async def decide_sessionless_approval(
     db: AsyncSession, *, approval: Approval, decider_id: str, decision: str, reason: str | None
 ) -> Approval:
-    """Decide a pending approval without a session as ``decider_id``; commits. 404/403 as above, 409 if decided.
-
-    The compare-and-set decides: a concurrent decider that won gets this call the same 409 as a late one, not the
-    other person's decision returned as if it were this one's."""
     if approval.session_id:
         raise _not_found()  # a session approval has its own owner (``decide_session_approval``)
     await require_sessionless_approval_access(db, approval=approval, user_id=decider_id)

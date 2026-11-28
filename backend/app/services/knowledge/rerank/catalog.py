@@ -1,15 +1,5 @@
-"""The closed catalog of rerankers (the ``Reranker`` port).
-
-A reranker scores (query, passage) pairs jointly and reorders the authorized, fused candidates.
-Like embedding spaces, a remote reranker declares the highest data classification it is approved
-for, because the query and the candidate passages leave the process.
-
-Local rerankers: none yet. The fastembed multilingual candidate
-(``jinaai/jina-reranker-v2-base-multilingual``) is licensed CC-BY-NC-4.0, which is non-commercial,
-and the MIT-licensed ``BAAI/bge-reranker-base`` is essentially English and Chinese. A licence-clean
-multilingual local reranker (e.g. ``BAAI/bge-reranker-v2-m3``, Apache-2.0) is evaluated on the golden
-set before it is pinned here.
-"""
+"""The closed catalog of rerankers (the ``Reranker`` port). A remote reranker declares the highest data classification
+it is approved for."""
 
 from __future__ import annotations
 

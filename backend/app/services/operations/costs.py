@@ -1,21 +1,4 @@
-"""What the agent work cost and what it delivered: per workflow, work item, run, person or Workspace.
-
-``usage_events`` has no run or work-item column, so a run's cost is three joins
-away and the Usage page alone can only split by model, Workspace and user; seat runs show 0. Market context: 79 % of
-companies report AI cost overruns and few can put a number on what it delivered. This answers "what did the
-team-delivery runs of this Workspace cost last week, and how many of them shipped a pull request".
-
-Cost of a run (same rule as the live view), two figures that are never added up:
-
-- ``cost_usd``, the **API cost**: the real cost of the ``usage_events`` of its sessions (a seat call costs 0);
-- ``seat_api_equivalent_usd``: what its seat calls would have cost through the API at list price
-  (``usage_events.list_cost``), plus ``seat_unpriced_calls``, the seat calls whose model has no list price.
-
-Every model call of a run, a device's included, passes the platform gateway and is one ``usage_events`` row, so a
-device job's ``cost_usd`` is not counted (it would count the same calls
-twice). Runs are those *started* inside the window. ``delivered`` = completed runs;
-``pull_requests`` = runs with a pull request URL. Read-only.
-"""
+"""What the agent work cost and what it delivered: per workflow, work item, run, person or Workspace."""
 
 from __future__ import annotations
 
@@ -55,7 +38,6 @@ class RunCost:
 
 
 async def run_cost_split(db: AsyncSession, run_ids: list[str]) -> dict[str, RunCost]:
-    """``run id -> RunCost``: the API cost and, apart from it, the seat calls' API equivalent."""
     if not run_ids:
         return {}
     pairs = set((await db.execute(select(WorkflowRunSession.run_id, WorkflowRunSession.session_id)
@@ -82,7 +64,6 @@ async def run_cost_split(db: AsyncSession, run_ids: list[str]) -> dict[str, RunC
 
 
 async def run_costs(db: AsyncSession, run_ids: list[str]) -> dict[str, float]:
-    """``run id -> API cost`` (``run_cost_split`` for the seat's API equivalent beside it)."""
     return {run_id: round(cost.api_usd, 6) for run_id, cost in (await run_cost_split(db, run_ids)).items()}
 
 

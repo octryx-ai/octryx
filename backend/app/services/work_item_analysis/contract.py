@@ -1,15 +1,4 @@
-"""The structured analysis: parse, validate, check citations, render.
-
-``parse_analysis`` accepts exactly the ``incident_analysis_v1`` JSON object (an optional ```json fence is
-tolerated) and refuses anything else with a closed code (``analysis_not_json``, ``analysis_invalid``). Strings
-are bounded, lists are capped, unknown keys are dropped.
-
-``check_citations`` marks every evidence entry and similar ticket ``verified`` only when its locator, url or
-key appears in what the tools actually returned in this run; an analysis whose evidence is all unverified is
-``analysis_uncited``. Nothing a model claims to have read is stored as verified unless a tool showed it.
-
-``render_note`` is the plain-text/markdown note stored on the Work Item.
-"""
+"""The structured analysis: parse, validate, check citations, render."""
 
 from __future__ import annotations
 
@@ -125,7 +114,6 @@ def _seen(needle: str | None, haystack: str) -> bool:
 
 
 def check_citations(analysis: dict[str, Any], tool_outputs: Iterable[str]) -> dict[str, Any]:
-    """Mark each citation ``verified`` against the tool outputs of this run; refuse an uncited analysis."""
     haystack = "\n".join(tool_outputs).casefold()
     for entry in analysis["evidence"]:
         source = entry["source"]

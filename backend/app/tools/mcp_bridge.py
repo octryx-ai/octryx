@@ -1,18 +1,4 @@
-"""Lazy MCP discovery and execution bridge tools.
-
-Every server-scoped bridge operation is gated by the project MCP access policy
-(``services/mcp_access_policy.py``): a globally registered MCP server is only
-listable and callable when the current project enables it.
-
-Tool discovery and tool execution are additionally gated per capability by
-``services/mcp_capability_gate.py``, so the model only ever sees the capabilities
-it is allowed to dispatch, and a denied capability never reaches the remote
-server even when this tool is executed outside the registry dispatch path.
-
-MCP *resources* and *prompts* are a separate governed surface and live in
-``tools/mcp_resource_bridge.py`` with their own catalog
-(``services/mcp_resource_gate.py``).
-"""
+"""Lazy MCP discovery and execution bridge tools."""
 
 from __future__ import annotations
 
@@ -35,7 +21,6 @@ def _server_access(params: dict, context: ToolContext) -> McpServerAccessDecisio
 
 
 async def _connect_registry_server(server_name: str, context: ToolContext) -> bool:
-    """Resolve and connect a persisted server only through governed Workspace context."""
     if context.db is None:
         return False
     from app.web._helpers.context_runtime import _MCP_CATALOG

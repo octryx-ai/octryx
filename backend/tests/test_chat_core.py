@@ -5,10 +5,8 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-import app.agent.core.runtime.standard_loop as standard_loop_module
-from app.models import Message, Session, User
+from app.models import Session, User
 from app.services.session.run_state import RUN_STATUS_IN_PROGRESS, set_session_run_state
-from app.services.session.turn_failure import latest_non_error_assistant_message
 from tests.conftest import ADMIN_PASSWORD
 
 
@@ -45,48 +43,6 @@ async def test_chat_page_renders(client):
     assert payload["launchSurface"]["role_scope"] == "admin"
 
 
-def test_latest_non_error_assistant_message_prefers_real_completion():
-    user_message = Message(role="user", content="Do the thing")
-    success_message = Message(role="assistant", content="Completed successfully.")
-    error_message = Message(role="assistant", content="Agent error: synthetic failure")
-
-    latest = latest_non_error_assistant_message([user_message, success_message, error_message])
-
-    assert latest is success_message
-
-
-def test_build_jira_sprint_bundle_report_contains_pm_summary():
-    report = standard_loop_module._build_jira_sprint_bundle_report(
-        {
-            "project_key": "ACME",
-            "release_name": "ai-enterprise-sprint-09",
-            "release_date": "2026-04-28",
-            "version_id": "45375",
-            "sprint_name": "AI Enterprise Sprint 09",
-            "sprint_id": "15064",
-            "board_id": "3572",
-            "assigned_to_sprint": ["ACME-515", "ACME-516"],
-            "created_tickets": [
-                {
-                    "ticket_id": "ACME-515",
-                    "summary": "Stabilize monitoring baselines",
-                    "priority": "Highest",
-                    "issue_type": "Improvement",
-                    "assignee": "alice",
-                    "references": [
-                        "https://confluence.example/wiki/x/OPS",
-                        "https://bitbucket.example/projects/OCX/repos/acme-orders",
-                    ],
-                }
-            ],
-        }
-    )
-
-    assert "Jira project: `ACME`" in report
-    assert "Release: `ai-enterprise-sprint-09` (version `45375`), release date `2026-04-28`" in report
-    assert "Sprint: `AI Enterprise Sprint 09` (ID `15064`) on board `3572`" in report
-    assert "- `ACME-515` — Stabilize monitoring baselines / Highest / Improvement" in report
-    assert "https://confluence.example/wiki/x/OPS" in report
 
 
 @pytest.mark.asyncio

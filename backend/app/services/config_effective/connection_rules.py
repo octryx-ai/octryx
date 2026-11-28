@@ -1,9 +1,4 @@
-"""The deviation rules of a connection: which fields of which use a Workspace may narrow, and how.
-
-``knowledge`` and ``tickets``: enabled (on → off), scope (subset per scope key), schedule (same or ``manual``);
-``tickets.write_back`` (on → off); ``agent_tools.level`` (``off`` < ``read`` < ``write``). Anything else is no
-deviation (``422 deviation_not_narrower``).
-"""
+"""The deviation rules of a connection: which fields of which use a Workspace may narrow, and how."""
 
 from __future__ import annotations
 

@@ -1,13 +1,4 @@
-"""Octryx Mobile: a user's paired phones and the one-time pairings that create them.
-
-A pairing starts from the user's own octryx-claude login on the Mac (``octryx-claude mobile pair``): it holds a
-one-time code (shown as a QR code, two minutes), the phone that scanned it (with a two-digit number the Mac
-confirms) and, once confirmed, a one-time claim the Home Screen app redeems (15 minutes). Every secret is stored
-as a SHA-256 hash only.
-
-A mobile device is one paired phone: its own credential (the ``octryx_mobile`` cookie, hashed here), revocable at any
-time and valid for the platform's device login validity counted from ``created_at``.
-"""
+"""Octryx Mobile: a user's paired phones and the one-time pairings that create them."""
 
 from __future__ import annotations
 
@@ -86,11 +77,7 @@ class MobileDevice(Base):
 
 
 class MobilePushSubscription(Base):
-    """The phone's Web Push subscription: where to send, which kinds it wants, what it was told already.
-
-    ``rules``: ``{"needs_you": bool, "problem": bool, "done": bool}``; ``notified``: the attention keys already sent
-    (or present when the phone subscribed), so each item notifies once.
-    """
+    """The phone's Web Push subscription: where to send, which kinds it wants, what it was told already."""
 
     __tablename__ = "mobile_push_subscriptions"
     __table_args__ = (Index("ux_mobile_push_subscriptions_device", "mobile_device_id", unique=True),)

@@ -27,11 +27,7 @@ export type PanelTaskRow = {
   next_queue_priority?: number | null;
   /** The Action's Workspace; when absent the guided form edits on the advanced path. */
   project_id?: string | null;
-  /**
-   * How the Action is executed now: "task_definition" = its own setup (steps, Work intake, own prompt),
-   * "agent_definition" = it runs its selected agent directly, "workflow_run" = it starts a workflow run.
-   * Optional in the answer. Describes the current setting, never past runs.
-   */
+  /** "task_definition", "agent_definition" or "workflow_run"; describes the current setting, never past runs. */
   dispatch_binding?: string | null;
   /** The schedulers and inbound webhooks that start this Action. */
   started_by?: { kind: string; name: string; when: string; active: string }[];
@@ -78,7 +74,6 @@ export type PanelTaskRunRow = {
   duration_seconds: number | null;
   steps_log: StepLogEntryRow[];
   queue_priority?: number | null;
-  // Existing run-list fields: the queue entry's state and the worker domain it needs.
   queue_status?: string | null;
   queue_required_domain?: string | null;
   queue_assigned_to?: string | null;
@@ -115,7 +110,6 @@ export type PanelTaskStepRow = {
 export type PanelAgentRow = {
   id: string;
   name: string;
-  // Fields of the existing GET /admin/chat/api/panel/agents payload the guided Action form reads.
   isActive?: boolean;
   /** "" (agent list) or null (agent catalog) for a global agent; anything else names a workspace. */
   projectId?: string | null;
@@ -150,7 +144,6 @@ export type PanelScheduler = {
   created_at: string;
   /** Optional: an answer without it reads as status not available. */
   worker_application?: SchedulerWorkerApplication | null;
-  /** The schedule in words, last and next run, Workspace, read-only owner rows. */
   schedule_words?: string;
   next_run?: string | null;
   last_run?: { status: string; at: string | null } | null;

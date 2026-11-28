@@ -1,8 +1,4 @@
-"""Shaping a JSON answer: locate the records, drop those outside the caller's scope, keep the selected fields.
-
-There is no artificial cut: every record in scope is returned, and a large
-answer goes through the platform's tool-result compaction and tool artifacts like any other tool result.
-"""
+"""Shaping a JSON answer: locate the records, drop those outside the caller's scope, keep the selected fields."""
 
 from __future__ import annotations
 
@@ -14,14 +10,10 @@ _MISSING = object()
 
 
 class ScopeFilterError(ValueError):
-    """A result filter is set but the answer has no records it can check; fail closed rather than pass data."""
+    pass
 
 
 def get_path(value: Any, path: str) -> Any:
-    """The value at a dotted path; a key that itself contains dots matches whole (longest first).
-
-    OData v4 names its next page ``@odata.nextLink`` (one key), so
-    ``@odata.nextLink`` must not be read as ``["@odata"]["nextLink"]``."""
     parts = [part for part in str(path or "").split(".") if part]
     node, index = value, 0
     while index < len(parts):
@@ -46,7 +38,6 @@ def _set_path(target: dict[str, Any], path: str, value: Any) -> None:
 
 
 def locate_records(body: Any, records_path: str | None) -> tuple[list[Any] | None, str | None]:
-    """``(records, path)``: the list the answer carries, and where (``""`` for a top-level list)."""
     if records_path:
         found = get_path(body, records_path)
         return (found, records_path) if isinstance(found, list) else (None, None)
@@ -97,7 +88,6 @@ def shape_body(
     result_filter: dict[str, Any] | None,
     response_select: list[str],
 ) -> tuple[Any, int, int]:
-    """``(shaped body, records kept, records dropped)``; refuses (``ScopeFilterError``) a filter it cannot apply."""
     records, path = locate_records(body, records_path)
     if records is None:
         if isinstance(body, dict) and result_filter is not None:

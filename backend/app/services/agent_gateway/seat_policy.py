@@ -1,25 +1,4 @@
-"""Whether a Workspace allows the ``seat`` profile.
-
-Five keys of ``agent_gateway_policy`` (validated with the rest of the policy on every admin write):
-
-- ``seat_mode``: ``allowed`` or ``forbidden``; when absent, :func:`default_seat_mode` decides by the Workspace's
-  classification (allowed for public and internal, forbidden from confidential up);
-- ``requires_governed_routing``: ``true`` forbids seat mode whatever ``seat_mode`` says;
-- ``seat_models``: the Anthropic model ids a seat session may call (default
-  :data:`BASELINE_SEAT_MODELS`: derived from the model data, so
-  every default model, the reviewer's included, is admitted: ``seat_models.json`` ``seat_baseline_also``);
-- ``seat_allows_governed_models``: a seat session may also pick the Workspace's company models,
-  which then run through the governed path (default false);
-- ``codex_seat_mode``: ``allowed`` or ``forbidden`` (when absent: the same default as ``seat_mode``): the Codex
-  seat (a person's own ChatGPT login, ``model_gateway/inbound/codex_seat``) under the same classification and
-  governed-routing rules.
-
-The Workspace data classification overrides the policy through the classification policy matrix
-(``data_classification/policy_matrix``): a level whose ``seat_allowed`` is false (default: from
-``confidential`` up) or whose ``requires_governed_routing`` is true forbids seat mode, and so does an
-unresolved classification (fail closed: "not confidential" cannot be shown). Every refusal is a fixed
-code; there is no silent fallback to the governed route.
-"""
+"""Whether a Workspace allows the ``seat`` profile, for the Claude and the Codex seat."""
 
 from __future__ import annotations
 
@@ -80,14 +59,9 @@ def default_seat_mode(level: str | None) -> str:
 
 def builtin_seat_decision(policy: GatewayPolicy, level_rules: LevelRules | None, *, codex: bool = False,
                          level: str | None = None) -> SeatDecision:
-    """The decision from the Workspace policy and the matrix alone (also the policy test bench's comparison).
-
-    ``codex``: the Codex seat (a person's own ChatGPT login): the same classification and governed-routing rules,
-    its own switch ``codex_seat_mode``; its models are ``codex_seat_models`` when set (empty: every Codex model, Codex
-    picks its own) and never company models.
-    """
     raw = policy.raw or {}
     if level_rules is None:
+        # Fail closed: an unresolved classification cannot show that the data is not confidential.
         return SeatDecision(False, REASON_SEAT_CLASSIFICATION_UNRESOLVED)
     if not level_rules.seat_allowed:
         return SeatDecision(False, REASON_SEAT_CLASSIFICATION)
@@ -115,14 +89,6 @@ def seat_decision_for(
     principal: Any = None,
     codex: bool = False,
 ) -> SeatDecision:
-    """The decision for one Workspace policy and the matrix rules of its level (``None``: unresolved).
-
-    The classification is evaluated first: a Workspace the classification forbids reports that
-    reason whatever its switches say, so the settings disable the seat toggle up front. The Cedar policy
-    engine evaluates the same question (``level`` names the level of ``level_rules``): in shadow mode its
-    answer never changes this decision; in enforce mode a Cedar denial of an allowed seat is
-    ``cedar_policy_denied``.
-    """
     decision = builtin_seat_decision(policy, level_rules, codex=codex, level=level)
     raw = dict(policy.raw or {})
     if codex:  # Cedar asks the same seat question, with the Codex switch in the place of ``seat_mode``
@@ -135,6 +101,7 @@ def seat_decision_for(
         lambda: seat_query(workspace_id=workspace_id, level=level, rules=level_rules, raw_policy=raw,
                            user_id=user_id, principal=principal),
     )
+    # In shadow mode Cedar never changes the decision; in enforce mode its denial does.
     if enforced_denial(decision.allowed, comparison) is not None:
         return SeatDecision(False, REASON_CEDAR_POLICY_DENIED)
     return decision
@@ -143,9 +110,6 @@ def seat_decision_for(
 async def workspace_seat_decision(
     db: AsyncSession, workspace_id: str, *, principal: Any = None, codex: bool = False
 ) -> SeatDecision:
-    """``principal``: the requesting user and seat session (``request_principal.load_seat_principal``);
-    ``None`` for a Workspace-level view, which no user's who-condition narrows. ``codex``: the Codex seat's
-    decision (``codex_seat_mode``) instead of the Claude seat's (``seat_mode``)."""
     loaded = await load_workspace_policy(db, workspace_id)
     if loaded.policy is None:
         return SeatDecision(False, loaded.reason or REASON_SEAT_POLICY_INVALID)

@@ -7,11 +7,6 @@ type ReadJsonFn = <T>(input: string, init?: RequestInit) => Promise<T>;
 
 const SEARCH_DEBOUNCE_MS = 250;
 
-/**
- * Server-side chat search (WP chat sidebar S4): title and first message across every chat, not only
- * the loaded rows. `groups` is null while there is no query or no answer yet; a newer query drops an
- * older answer.
- */
 export function useThreadSearch({ readJson, query }: { readJson: ReadJsonFn; query: string }) {
   const [result, setResult] = useState<{ query: string; groups: ThreadGroup[] } | null>(null);
   const latest = useRef("");

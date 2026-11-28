@@ -1,10 +1,4 @@
-"""Recorded pull requests are read from their host.
-
-Fake hosts only (no network): the state mapping per host, merged detection, a failed read keeps the last status,
-the periodic pass picks due open PRs (and requested ones) only, a workflow watch that saw the PR merged requests the
-refresh of the run's own record (its Work Item's Workspace only), and a stored profile reference the record's
-Workspace no longer admits is removed, never used (scoped loader).
-"""
+"""Recorded pull requests are read from their host."""
 
 from __future__ import annotations
 
@@ -54,9 +48,6 @@ def _merged(**extra) -> HostRead:
     return HostRead(HostPullRequest(
         status="merged", title="OCX-1: done", source_updated_at=datetime(2026, 11, 5, 9, 0),
         reviewers=[{"username": "alice", "name": "Alice", "approval": "approved"}], host_state="MERGED"), **extra)
-
-
-# --- refresh service -----------------------------------------------------------------------------------------
 
 
 async def test_refresh_detects_merged_and_stores_reviewers_build_and_sync_time(db, host):
@@ -151,7 +142,7 @@ async def test_a_watch_that_saw_the_pr_merged_requests_its_refresh(db, monkeypat
     for refreshed in (row, other, same_pr_other_workspace):
         await db.refresh(refreshed)
     assert row.refresh_requested_at is not None and other.refresh_requested_at is None
-    assert same_pr_other_workspace.refresh_requested_at is None  # the run's Workspace only
+    assert same_pr_other_workspace.refresh_requested_at is None
     assert row.id in set((await db.execute(refresh.due_pull_requests_query())).scalars().all())
 
 
@@ -167,7 +158,7 @@ async def test_a_stored_profile_reference_is_read_through_the_scoped_loader(db, 
     host.read_result = HostRead(HostPullRequest(status="open", target_branch="main"))
     await refresh.refresh_pull_request(db, row, source="periodic")
     kinds = {entry["type"] for entry in row.mismatch_json}
-    if profile_workspace == "foreign":  # the reference no longer fits the item's Workspace: removed, not used
+    if profile_workspace == "foreign":
         assert row.repository_profile_id is None and "wrong_target_branch" not in kinds
     else:
         assert row.repository_profile_id == profile.id and "wrong_target_branch" in kinds

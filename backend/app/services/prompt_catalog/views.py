@@ -1,11 +1,4 @@
-"""Read views of the prompt catalog for the admin API: list, detail and diff.
-
-The list shows every registered key with its contract (area, risk, placeholders) and
-the state of its global template. The detail adds the seed and every template of the
-key (global and overrides) with all versions. The diff compares a version with the
-body it would replace: the version published at the same scope, or, when that scope
-has none, the body the next lower precedence level serves today.
-"""
+"""Read views of the prompt catalog for the admin API: list, detail and diff."""
 
 from __future__ import annotations
 
@@ -86,7 +79,6 @@ def catalog_areas() -> dict[str, int]:
 
 
 async def list_catalog(db: AsyncSession, *, area: str | None = None) -> list[dict[str, Any]]:
-    """The keys of one area, or of every area except the collapsed ones when ``area`` is ``None``."""
     specs = [
         spec
         for spec in prompt_key_registry().values()
@@ -123,8 +115,6 @@ async def list_catalog(db: AsyncSession, *, area: str | None = None) -> list[dic
 
 
 async def catalog_detail(db: AsyncSession, key: str, *, reader_id: str | None = None) -> dict[str, Any]:
-    """``reader_id``: only the global texts and those of scopes this user may write (``scope_rights``); every scope
-    for ``None`` (a platform admin)."""
     from .scope_rights import may_write
 
     spec = _spec_or_refusal(key)
@@ -164,7 +154,6 @@ async def version_diff(db: AsyncSession, version_id: str) -> dict[str, Any]:
 
 
 async def _baseline(db: AsyncSession, template: PromptTemplate) -> tuple[str, str]:
-    """The body this template's scope serves now: its own published one, else the next level down."""
     spec = prompt_key_spec(template.key)
     for scope_type, scope_id in _lower_scopes(template):
         row = (

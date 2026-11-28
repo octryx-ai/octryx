@@ -1,16 +1,5 @@
-"""The pet's autostart (``pet enable`` / ``disable`` / ``autostart``), always as the user, and its single-instance lock.
-
-- macOS: a per-user LaunchAgent ``ai.octryx.claude.pet`` (a second installation adds a suffix, see
-  ``device_service.instance_label``): ``RunAtLoad``, restarted only after a crash
-  (``KeepAlive.SuccessfulExit`` false, so "Quit Octryx" stays quit until the next login), ``ProcessType=Interactive``
-  (a UI process), ``LimitLoadToSessionType=Aqua`` (only in a graphical login).
-- Windows (native): the value ``OctryxPet`` under ``HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run``, which
-  starts ``pythonw.exe -m octryx_claude.pet run`` (no console window) at logon; no admin rights. ``enable`` also
-  starts it now.
-- :func:`instance_lock`: one pet per user; a second ``pet run`` exits at once.
-
-OS commands, the registry and process starts go through injectable adapters; the tests use fakes.
-"""
+"""The pet's autostart (``pet enable`` / ``disable`` / ``autostart``), always as the user, and its single-instance
+lock."""
 
 from __future__ import annotations
 
@@ -78,8 +67,6 @@ class LaunchAgent:
         return done
 
     def install(self, program: Sequence[str], log_file: Path, *, restart: bool = True) -> bool:
-        """Writes the agent and (re)starts it; with ``restart=False`` an unchanged, running agent is left alone
-        (an installer run without a new version). Returns whether it was (re)started."""
         plist = launchd_plist(program, log_file, label=self.label)
         if not restart and self.path.exists() and self.path.read_bytes() == plist and self.running():
             return False
@@ -116,8 +103,6 @@ class Registry(Protocol):
 
 
 class RunRegistry:
-    """``HKCU\\...\\Run`` through winreg (Windows only)."""
-
     def _key(self, access: int):  # noqa: ANN202
         import winreg  # noqa: PLC0415
 
@@ -146,7 +131,6 @@ class RunRegistry:
 
 
 def windowless_python(executable: str | None = None) -> Path:
-    """``pythonw.exe`` next to this interpreter (the venv's), so the pet opens no console window."""
     python = Path(executable or sys.executable)
     candidate = python.with_name("pythonw.exe")
     return candidate if candidate.exists() else python
@@ -197,7 +181,6 @@ class RunKey:
 
 @contextlib.contextmanager
 def instance_lock(root: Path) -> Iterator[bool]:
-    """``True`` while this process is the only pet of the user (a lock on ``<root>/pet.lock``), else ``False``."""
     root.mkdir(parents=True, exist_ok=True)
     handle = open(root / "pet.lock", "a+b")  # noqa: SIM115 - held for the pet's lifetime
     locked = False

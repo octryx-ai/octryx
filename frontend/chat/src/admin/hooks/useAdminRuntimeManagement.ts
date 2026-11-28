@@ -1,12 +1,9 @@
 import { createHandleSaveRuntimeSettings } from "./useAdminRuntimeManagementActions";
 import {
-  createHandleSaveRuntimeTags,
-  createHandleSaveToolResultCompressor,
-} from "./useAdminRuntimeCompressionActions";
-import {
   createHandleAddRuntime,
   createHandleDeleteRuntime,
   createHandleMoveRuntime,
+  createHandleSaveRuntimeTags,
   createHandleToggleRuntime,
 } from "./useAdminRuntimeTargetActions";
 import type { UseAdminRuntimeManagementArgs } from "./useAdminRuntimeManagement.types";
@@ -32,15 +29,6 @@ export function useAdminRuntimeManagement(args: UseAdminRuntimeManagementArgs) {
   const handleToggleRuntime = createHandleToggleRuntime({ readJson, setRuntimes });
   const handleDeleteRuntime = createHandleDeleteRuntime({ readJson, setRuntimes });
 
-  const handleSaveToolResultCompressor = createHandleSaveToolResultCompressor({
-    readJson,
-    toolResultCompressorDrafts: args.toolResultCompressorDrafts,
-    setToolResultCompressionSaving: args.setToolResultCompressionSaving,
-    setToolResultCompressors: args.setToolResultCompressors,
-    setToolResultCompressorDrafts: args.setToolResultCompressorDrafts,
-    setToolResultCompressionLogs: args.setToolResultCompressionLogs,
-  });
-
   const handleSaveRuntimeTags = createHandleSaveRuntimeTags({
     readJson,
     runtimeTagsInput: args.runtimeTagsInput,
@@ -54,7 +42,6 @@ export function useAdminRuntimeManagement(args: UseAdminRuntimeManagementArgs) {
     handleMoveRuntime,
     handleSaveRuntimeSettings,
     handleSaveRuntimeTags,
-    handleSaveToolResultCompressor,
     handleToggleRuntime,
   };
 }

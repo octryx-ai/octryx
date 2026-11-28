@@ -1,23 +1,4 @@
-"""Expanding a Confluence read restriction to member email addresses.
-
-A page (or ancestor) read restriction names users and groups. The platform maps a source principal
-to a platform user by email address only (``access/acl_keys.py``), so each is expanded at sync
-time, read-only and bounded:
-
-- a **user** (``user:username=…``, ``user:userKey=…``, ``user:accountId=…``) is looked up once per
-  run (``GET /rest/api/user`` with ``expand=details.personal``); the address is the one Confluence
-  reports for the account. A user Confluence no longer knows (404), or one without a visible
-  address, maps to nobody and is counted as unmapped. On Confluence Cloud an account is known by
-  ``accountId`` only and its address is usually hidden: such a principal cannot be matched, so the
-  page is withheld (``acl_unresolved``) instead of being ingested for a narrower audience;
-- a **group** is listed page by page (``GET /rest/api/group/{name}/member``), at most
-  :data:`MAX_GROUP_MEMBERS` members, each resolved like a user.
-
-Every expansion is cached per run, and a run performs at most :data:`MAX_LOOKUPS_PER_RUN`
-lookups. Any other failure, a group larger than the bound, or a restriction that admits more than
-``MAX_SOURCE_PRINCIPALS`` addresses answers ``acl_unresolved``: the page is then never ingested,
-rather than ingested with a guessed or truncated audience.
-"""
+"""Expanding a Confluence read restriction to member email addresses. Read-only and bounded, at sync time."""
 
 from __future__ import annotations
 
@@ -44,7 +25,6 @@ def _reported_email(payload: object) -> str | None:
 
 
 def _user_ref(entry: object) -> str | None:
-    """The ``key=value`` reference of one member entry, in the label order the listing uses."""
     if not isinstance(entry, dict):
         return None
     for key in _USER_KEYS:
@@ -54,8 +34,6 @@ def _user_ref(entry: object) -> str | None:
 
 
 class ConfluenceAclExpander:
-    """Per-run, bounded expansion of Confluence restrictions; one instance per connector run."""
-
     def __init__(self, reader: SourceReader) -> None:
         self._reader = reader
         self._emails: dict[str, str | None] = {}

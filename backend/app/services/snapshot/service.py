@@ -1,13 +1,11 @@
-"""Git-based workspace snapshot service.
-
-Uses a separate --git-dir so it never interferes with the project's own git repo.
-Snapshots are stored via `git write-tree` (no commits) so they are lightweight.
-"""
+"""Git-based workspace snapshot service."""
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 import shutil
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -15,6 +13,7 @@ from ..execution_runtime import execute_with_runtime
 
 _DATA_DIR = Path(__file__).resolve().parents[4] / "data"
 _PRUNE_DAYS = 7
+_KEEP_COUNT = 100
 
 
 @dataclass
@@ -73,15 +72,7 @@ class SnapshotService:
     # ── Public API ────────────────────────────────────────────────────────────
 
     async def init(self) -> None:
-        """Initialise the snapshot git dir if it doesn't exist yet.
-
-        We create a non-bare repository whose GIT_DIR lives in data/snapshots/
-        and whose work tree points at the user's workspace.  We cannot pass
-        --bare here because that sets core.bare=true which then prevents any
-        work-tree operations.  Instead we run `git init` with just --git-dir so
-        that git creates the minimal .git structure without touching the
-        worktree at all.
-        """
+        """Initialise the snapshot git dir if it doesn't exist yet."""
         if not (self.git_dir / "HEAD").exists():
             self.git_dir.mkdir(parents=True, exist_ok=True)
             result = await execute_with_runtime(
@@ -111,13 +102,7 @@ class SnapshotService:
         return sha
 
     async def restore(self, sha: str) -> None:
-        """Overwrite the worktree with the state recorded in tree SHA.
-
-        Steps:
-        1. Read the snapshot tree into the index.
-        2. Checkout the index into the worktree (restores modified/deleted files).
-        3. Delete files that were added after the snapshot (not in the tree).
-        """
+        """Overwrite the worktree with the state recorded in tree SHA."""
         # 1. Stage current state so we can compute what was added
         await self._git("add", "-A", check=True)
         _, current_sha, _ = await self._git("write-tree", check=True)
@@ -174,13 +159,6 @@ class SnapshotService:
         )
         return out
 
-    async def list_changed(self, sha: str) -> list[str]:
-        """Return list of file paths changed since tree SHA."""
-        await self._git("add", "-A", check=True)
-        _, current_sha, _ = await self._git("write-tree", check=True)
-        _, out, _ = await self._git("diff-tree", "--no-commit-id", "-r", "--name-only", sha, current_sha, check=False)
-        return [line for line in out.splitlines() if line]
-
     async def diff_structured(self, sha: str) -> list[FileDiff]:
         """Return per-file structured diffs between tree SHA and current state."""
         await self._git("add", "-A", check=True)
@@ -192,7 +170,6 @@ class SnapshotService:
         return await self._structured_diff(sha_from, sha_to)
 
     async def _structured_diff(self, sha_from: str, sha_to: str) -> list[FileDiff]:
-        """Internal: compute FileDiff list between two tree SHAs."""
         _, name_status_out, _ = await self._git(
             "diff-tree",
             "--no-commit-id",
@@ -277,41 +254,36 @@ class SnapshotService:
 
         return diffs
 
-    async def sync_gitignore(self) -> None:
-        """Copy workspace .gitignore patterns into the snapshot repo's exclude file."""
-        workspace_gitignore = self.worktree / ".gitignore"
-        if not workspace_gitignore.exists():
-            return
-        exclude_dir = self.git_dir / "info"
-        exclude_dir.mkdir(parents=True, exist_ok=True)
-        exclude_file = exclude_dir / "exclude"
-        patterns = workspace_gitignore.read_text(encoding="utf-8", errors="replace")
-        # Prepend a header so we don't overwrite existing entries
-        existing = exclude_file.read_text(encoding="utf-8") if exclude_file.exists() else ""
-        marker = "# --- synced from .gitignore ---\n"
-        if marker in existing:
-            # Replace the synced section
-            before_marker = existing[: existing.index(marker)]
-            exclude_file.write_text(before_marker + marker + patterns + "\n", encoding="utf-8")
-        else:
-            exclude_file.write_text(existing + "\n" + marker + patterns + "\n", encoding="utf-8")
-
     @staticmethod
-    def prune_old_snapshots(max_age_days: int = _PRUNE_DAYS) -> list[str]:
-        """Delete snapshot git dirs older than max_age_days. Returns list of pruned session_ids."""
+    async def prune_old_snapshots(
+        *,
+        in_use: Callable[[str], Awaitable[bool]],
+        max_age_days: int = _PRUNE_DAYS,
+        max_count: int = _KEEP_COUNT,
+    ) -> list[str]:
+        """Delete the snapshots of sessions not in use that are older than ``max_age_days`` or beyond the newest
+        ``max_count``; returns their session ids."""
         snapshots_dir = _DATA_DIR / "snapshots"
         if not snapshots_dir.exists():
             return []
         cutoff = datetime.datetime.now(tz=datetime.UTC) - datetime.timedelta(days=max_age_days)
+        newest_first = sorted(
+            ((entry, _last_used(entry)) for entry in snapshots_dir.iterdir() if entry.is_dir()),
+            key=lambda item: item[1],
+            reverse=True,
+        )
         pruned: list[str] = []
-        for entry in snapshots_dir.iterdir():
-            if not entry.is_dir():
+        for rank, (entry, last_used) in enumerate(newest_first):
+            if rank < max_count and last_used >= cutoff:
                 continue
-            try:
-                mtime = datetime.datetime.fromtimestamp(entry.stat().st_mtime, tz=datetime.UTC)
-                if mtime < cutoff:
-                    shutil.rmtree(entry, ignore_errors=True)
-                    pruned.append(entry.name)
-            except Exception:
-                pass
+            if await in_use(entry.name):
+                continue
+            await asyncio.to_thread(shutil.rmtree, entry, True)
+            pruned.append(entry.name)
         return pruned
+
+
+def _last_used(git_dir: Path) -> datetime.datetime:
+    # Each snapshot rewrites the index; the directory's own mtime only changes when git creates a top-level entry.
+    stamps = [path.stat().st_mtime for path in (git_dir, git_dir / "index") if path.exists()]
+    return datetime.datetime.fromtimestamp(max(stamps), tz=datetime.UTC)

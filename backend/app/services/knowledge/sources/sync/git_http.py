@@ -1,19 +1,5 @@
-"""Read-only HTTPS reads of a Git host for the ``git_repository`` connector.
-
-Reads, all ``GET``: the commit a branch or tag names, the gzip archive of the tree at one commit, and (GitHub only)
-the tree of one commit as JSON. A public host is read without a credential; a host read through a connection gets
-exactly that connection's credential, never another one: Bitbucket Cloud its basic auth (``auth``), a GitHub
-connection its token as a bearer (``bearer``, only on ``api.github.com``). GitHub serves a private repository's
-archive as a ``302`` from its API to a short-lived ``codeload.github.com`` URL: exactly that one redirect is followed
-(:meth:`GitHostReader.archive` with ``redirect_host``), without the token, and the URL is never reported or logged.
-
-Like ``http.py`` for the other connectors, every request goes through the pinned egress transport of its connection
-type (``git_repository``, ``public_only``), redirects are not followed (but that one, checked), and every failure is a
-fixed reason: no response body, header or URL reaches a caller or a log line.
-
-The archive is streamed and refused once it passes ``max_bytes`` (``repository_too_large``), so an
-oversized repository never sits in memory whole.
-"""
+"""Read-only HTTPS reads of a Git host for the ``git_repository`` connector. A host gets exactly its connection's
+credential, never another one."""
 
 from __future__ import annotations
 
@@ -41,16 +27,12 @@ _REDIRECTS = (301, 302, 303, 307, 308)
 
 
 class HostStatusError(ConnectorError):
-    """A non-200 answer: its fixed reason, plus the bare HTTP status for a caller that reads a host's own codes."""
-
     def __init__(self, status: int) -> None:
         super().__init__(reason_for_status(status))
         self.status = status
 
 
 class GitHostReader:
-    """Reads of one Git host over the pinned ``git_repository`` transport (a credential only when given one)."""
-
     def __init__(
         self, *, transport: httpx.AsyncBaseTransport | None = None, timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
         auth: tuple[str, str] | None = None, bearer: str | None = None, bearer_host: str = "api.github.com",
@@ -66,7 +48,6 @@ class GitHostReader:
         return httpx.AsyncClient(transport=transport, timeout=self._timeout, follow_redirects=False, auth=self._auth)
 
     async def resolve_commit(self, url: str, *, json_key: str = "") -> str:
-        """The 40-character commit sha a branch or tag resolves to now (``json_key``: a JSON answer's field)."""
         if json_key:
             body = await self._get(url, accept="application/json", max_bytes=_MAX_COMMIT_JSON_BYTES)
             try:
@@ -85,7 +66,6 @@ class GitHostReader:
         return sha
 
     async def archive(self, url: str, *, max_bytes: int, redirect_host: str | None = None) -> bytes:
-        """The archive at ``url``; ``redirect_host``: one redirect to ``https://<redirect_host>/`` is followed."""
         if redirect_host is None:
             return await self._get(url, accept="application/gzip", max_bytes=max_bytes)
         # The token goes to ``bearer_host`` only (``_headers``), so the redirect target is fetched without it.
@@ -93,7 +73,6 @@ class GitHostReader:
         return await self._get(target, accept="application/gzip", max_bytes=max_bytes)
 
     async def _redirect(self, url: str, *, host: str) -> str:
-        """The ``https://<host>/...`` a redirect answer names (any other answer or target is refused)."""
         try:
             async with self._client() as client:
                 response = await client.get(url, headers=self._headers(url, "application/vnd.github+json"))
@@ -114,7 +93,6 @@ class GitHostReader:
         return str(target)
 
     async def json(self, url: str, *, max_bytes: int) -> object:
-        """A JSON answer (a non-JSON body is ``source_contract_violation``)."""
         body = await self._get(url, accept="application/vnd.github+json", max_bytes=max_bytes)
         try:
             return json.loads(body)

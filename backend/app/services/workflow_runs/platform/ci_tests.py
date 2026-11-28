@@ -1,16 +1,4 @@
-"""CI's per-test results keyed by the canonical test id.
-
-Every provider's report goes through the same converters as chat and the device (``workflow_checks.test_output``):
-
-- **Jenkins**: the build's ``testReport`` (``className`` + ``name``);
-- **GitHub Actions**: the JUnit XML in the run's test-report artifacts (``get_test_results`` with ``include_cases``);
-- **GitLab**: the pipeline's ``test_report`` cases (``classname``, ``name``, ``file``);
-- **Bitbucket Cloud**: each Pipelines build's step test reports (``get_bitbucket_build_statuses`` with
-  ``include_test_reports``).
-
-A CI without per-test results still has its state; ids that need the repository's files resolve when the run records
-the result (``test_resolution``), and an id that does not resolve stays ``unresolved`` — never guessed.
-"""
+"""CI's per-test results keyed by the canonical test id."""
 
 from __future__ import annotations
 
@@ -29,7 +17,6 @@ _STATUSES = {"success": PASSED, "passed": PASSED, "successful": PASSED, "fixed":
 
 
 def from_cases(cases: Iterable[dict[str, Any]]) -> ParsedTests:
-    """Provider test cases (``classname``, ``name``, ``file``, ``status``, ``message``) as a parsed test run."""
     parsed = ParsedTests(format="ci")
     resolver = Resolver()  # ids that need the repository's files resolve when the run records the result
     for case in cases:
@@ -53,14 +40,12 @@ def from_junit(reports: Iterable[dict[str, Any]]) -> ParsedTests:
 
 
 def jenkins_report(report: dict[str, Any]) -> ParsedTests:
-    """A Jenkins ``testReport``: ``className`` + ``name`` per case (Jenkins does not tell an error from a failure)."""
     return from_cases({"classname": case.get("className"), "name": case.get("name"), "status": case.get("status"),
                        "message": case.get("errorDetails")}
                       for suite in report.get("suites") or [] for case in (suite or {}).get("cases") or [])
 
 
 async def github_tests(db: AsyncSession, run: WorkflowRun, ref: Any, runs: list[dict[str, Any]]) -> ParsedTests | None:
-    """The per-test results of the commit's finished Actions runs (their JUnit test-report artifacts)."""
     reports: list[dict[str, Any]] = []
     for item in runs:
         outcome = await dispatch_tool(db, run, "get_test_results",

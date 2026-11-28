@@ -1,6 +1,3 @@
-"""The local LLM: the decision model on the Mac, only on localhost with a per-start key,
-started on demand and stopped when idle; its routing suggestion is measured alongside a turn, never applied."""
-
 from __future__ import annotations
 
 import asyncio
@@ -213,7 +210,6 @@ def test_the_turn_reports_the_suggestion_only_when_the_router_is_on(tmp_path, mo
 
 
 def test_the_default_router_model_is_permissive_and_a_restricted_one_needs_consent_and_the_platform():
-    """LFM models (d1-2B) only on explicit choice, never by default."""
     from octryx_claude.local_model import D1_2B, MODELS, ROUTER_MODEL, chosen_model, usable
 
     assert ROUTER_MODEL.key == "qwen3-1.7b" and ROUTER_MODEL.license["id"] == "Apache-2.0" and ROUTER_MODEL.permissive

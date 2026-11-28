@@ -184,6 +184,5 @@ MCP_DEFINITIONS: dict[str, dict] = {
 
 
 def get_mcp_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for mcp tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy(MCP_DEFINITIONS)

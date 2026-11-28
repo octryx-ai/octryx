@@ -1,11 +1,4 @@
-"""Word template resolution for the deterministic document composer.
-
-A profile can hold several Word templates for different purposes, each with a
-short description ("purpose/when to use"). Selection is explicit first: a named template
-wins. With no name and exactly one template, that one is used. With several and
-no name, the resolver returns the catalog so the caller (model or user) chooses
-explicitly — it never guesses which purpose was meant.
-"""
+"""Word template resolution for the deterministic document composer."""
 
 from __future__ import annotations
 
@@ -17,13 +10,11 @@ from ..context import ToolContext
 
 
 class DocumentTemplateError(RuntimeError):
-    """No usable Word template — stated, never silently substituted."""
+    pass
 
 
 @dataclass
 class DocumentTemplateChoice:
-    """The resolution outcome: a template to use, or a catalog to choose from."""
-
     path: Path | None
     resolution: dict[str, Any]
     catalog: list[dict[str, Any]]
@@ -65,7 +56,6 @@ async def resolve_document_template(
     template_path: str = "",
     template: str = "",
 ) -> DocumentTemplateChoice:
-    """Return the Word template to compose from, or a catalog to choose from."""
     if template_path.strip():
         explicit = Path(template_path.strip()).expanduser()
         if not explicit.is_file():

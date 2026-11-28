@@ -1,15 +1,4 @@
-"""Shared lifecycle vocabulary and immutability guard for governed revisions.
-
-Governed revisions (Model Policies, prompt templates) share one lifecycle:
-``draft -> in_review -> published -> retired``. A revision leaves ``draft`` only
-through review, is published only with a distinct approver (four-eyes), and is
-immutable from the moment it is published: afterwards the only permitted change
-is the explicit move to ``retired``, and a retired revision never changes again.
-
-The guard below enforces that at the ORM boundary, so no alternate writer (a
-worker, a script, a future endpoint) can rewrite published content by accident.
-It is registered per model class with :func:`install_immutability_guard`.
-"""
+"""Lifecycle vocabulary and the ORM immutability guard shared by governed revisions."""
 
 from __future__ import annotations
 
@@ -44,8 +33,6 @@ _RETIRE_COLUMNS = frozenset({"state", "retired_by", "retired_at", "updated_at"})
 
 
 class ImmutableRevisionError(Exception):
-    """A write tried to change a published or retired revision."""
-
     def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
@@ -56,7 +43,6 @@ def in_list(column: str, values: Iterable[str]) -> str:
 
 
 def published_requires_approval_check() -> str:
-    """CHECK body: a published or retired-after-publish row carries its approval and time."""
     return "state NOT IN ('published') OR (approval_id IS NOT NULL AND published_at IS NOT NULL)"
 
 

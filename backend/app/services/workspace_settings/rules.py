@@ -1,17 +1,4 @@
-"""Workspace settings with their first editor: coding-tool rules and budgets.
-
-- **Coding tools & devices** — ``agent_gateway_policy``: ``requires_governed_routing`` and the command & file rules
-  (``tool_rules`` as typed rows; ``client_permissions.deny``), the generated baseline row of Policies
-  (``workspace:<id>:tool-rule:…``). A Workspace still on the baseline starts from a copy of it, so a first edit never
-  drops the code-defined rules (the sandbox editor's rule).
-- **Connectors → MCP servers** — owned by the Runtime's Workspace allow (``services/mcp_workspace_allow``); not here.
-- **Rules → Budget** — overrides of the platform caps: per session and per request (``runtime_cost_limits``, ``None`` =
-  inherit) and per person per day (``agent_gateway_policy.session_budget``, ``None`` = the baseline value, which is
-  stored explicitly: a gateway policy without a budget refuses every coding-tool and seat session).
-
-A Workspace admin or owner may only tighten (``bounds.py``); platform admins are not bounded. Every write goes
-through the governed project-config path (normalization + admin config audit).
-"""
+"""Workspace settings with their first editor: coding-tool rules and budgets."""
 
 from __future__ import annotations
 
@@ -24,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.services.agent_gateway.policy_keys import (
     AGENT_GATEWAY_POLICY_CONFIG_KEY,
     BASELINE_DAILY_BUDGET_USD,
-    BASELINE_POLICY,
     AgentGatewayPolicyError,
+    over_baseline,
 )
 from app.services.agent_gateway.policy_normalize import normalize_agent_gateway_policy
 
@@ -57,13 +44,10 @@ def _config(project: Project) -> dict[str, Any]:
 
 
 def gateway_policy_base(config: Mapping[str, Any]) -> dict[str, Any]:
-    """The stored Workspace gateway policy, or a copy of the baseline when none is stored."""
-    stored = config.get(AGENT_GATEWAY_POLICY_CONFIG_KEY)
-    return copy.deepcopy(dict(stored)) if isinstance(stored, Mapping) and stored else copy.deepcopy(BASELINE_POLICY)
+    return over_baseline(config.get(AGENT_GATEWAY_POLICY_CONFIG_KEY))
 
 
 async def _write(db: AsyncSession, project: Project, patch: dict[str, Any], actor_id: str) -> None:
-    """Each section is written whole (it is read whole first), so a removed sub-key is really removed."""
     from ..admin.project.admin_project_config_service import apply_project_config_patch
 
     await apply_project_config_patch(
@@ -125,7 +109,6 @@ def _amount(value: Any, path: str) -> float | None:
 
 
 async def budget_view(db: AsyncSession, project: Project) -> dict[str, Any]:
-    """The Workspace's overrides (``None`` = the platform value) and the platform values they replace."""
     overrides = await get_project_cost_limit_overrides(db, project_id=project.id)
     stored = _config(project).get(AGENT_GATEWAY_POLICY_CONFIG_KEY)
     budget = stored.get("session_budget") if isinstance(stored, Mapping) else None
@@ -171,7 +154,7 @@ async def save_budget(
         },
     )
     policy = gateway_policy_base(_config(project))
-    # Empty = the platform value, stored explicitly: without a budget the gateway refuses every session.
+    # Empty = the platform value, stored explicitly.
     policy["session_budget"] = {"per_user_daily_usd": BASELINE_DAILY_BUDGET_USD if per_person is None else per_person}
     try:
         normalized = normalize_agent_gateway_policy(policy)

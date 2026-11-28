@@ -1,31 +1,4 @@
-"""A failed platform action the requester can fix: the run pauses instead of ending.
-
-The definition is the law. A platform action's ``failed`` exit may lead to a **pause node**
-(``{"type": "pause", "config": {"reason": "action_failed"}}``) with one exit (normally the ``blocked`` outcome):
-
-- the failure is **recoverable** (its class: already exists, not configured, permission/scope, transient, an
-  external refusal, a branch or pull-request conflict) → the run pauses (``action_failed``) and the requester decides:
-  **retry** the action (after fixing the cause), **change the plan**, **abort** (with a reason); a branch conflict also
-  offers **adopt the existing branch** (an explicit decision bound to the branch head it was shown) and **a new branch
-  name**;
-- the working folder is not ready (``workspace.prepare`` failed with
-  ``environment_not_ready`` or ``workspace_dirty``) → the run pauses with that reason instead, and the same retry /
-  change plan / abort decide it;
-- it is **not recoverable** (the run's own facts make it impossible, a safety check refused it, the requester rejected
-  the tool approval, or no failure was recorded for this pass) → the run follows the pause node's exit at once.
-
-The publish & prove path adds its own routes (``documentation/s1_graph``) without relaxing ``safety``: a missing
-configuration pauses ``needs_configuration``; a potentially sent publication that could not be proven (or an
-incomplete reconcile scan) pauses ``publish_unverified`` (a retry reconciles first, at most three times); an unproven
-audience pauses ``audience_unproven`` (retry with a new receipt, or the declared exception); an unavailable provider
-refused sync (``parse_failed`` / ``index_timeout``) pauses ``action_failed``. ``page_changed`` / ``target_drift`` route
-``reconfirm`` (a new card (b)); should they arrive as a failure, they pause for a retry. A tree mismatch, a permission,
-scope, run-binding or four-eyes denial stays ``safety`` and ends ``blocked``.
-
-Every platform action whose routes include ``failed`` must route it (publish validation); a pause node is entered only
-through such ``failed`` edges, so the action to retry is always known. A retry is a new pass through the action node:
-a new idempotency key, so the action really runs again. Each decision is a ``WorkflowRunDecision``.
-"""
+"""A failed platform action the requester can fix: the run pauses instead of ending."""
 
 from __future__ import annotations
 
@@ -118,7 +91,6 @@ _RETRY_LABELS = {CLASS_ENVIRONMENT_NOT_READY: "Retry after fixing the environmen
 
 def record_failure(run: WorkflowRun, *, node_id: str, action: str, reason: str, failure_class: str,
                    detail: dict[str, Any] | None = None) -> None:
-    """The failed pass of ``node_id`` (its entry number binds it to this pass only)."""
     entry = int(dict(run.node_state or {}).get("entry") or 0)
     run.context = {**dict(run.context or {}), FAILED_ACTION_KEY: {
         "node_id": node_id, "entry": entry, "action": action, "reason": reason[:500],
@@ -127,7 +99,6 @@ def record_failure(run: WorkflowRun, *, node_id: str, action: str, reason: str, 
 
 
 def _failure_for(run: WorkflowRun, graph: PhasedGraph, node: PhasedNode) -> dict[str, Any] | None:
-    """The failure recorded by the pass just before this pause node, through one of its ``failed`` edges."""
     failure = dict(dict(run.context or {}).get(FAILED_ACTION_KEY) or {})
     entry = int(dict(run.node_state or {}).get("entry") or 0)
     sources = {edge.source for edge in graph.edges if edge.target == node.id and edge.when == FAILED}
@@ -137,7 +108,6 @@ def _failure_for(run: WorkflowRun, graph: PhasedGraph, node: PhasedNode) -> dict
 
 
 async def enter_pause_node(db: AsyncSession, run: WorkflowRun, graph: PhasedGraph, node: PhasedNode) -> bool:
-    """``True`` when the run paused; ``False``: the failure is not recoverable, the pause node's exit is taken."""
     from .limits import pause_run
 
     failure = _failure_for(run, graph, node)
@@ -167,7 +137,6 @@ def _paused_failure(run: WorkflowRun) -> dict[str, Any]:
 
 
 def pause_actions(run: WorkflowRun) -> list[dict[str, Any]]:
-    """What the requester may do at a failed action (abort and "continue in a new chat" come from ``actions``)."""
     pause = dict(dict(run.node_state or {}).get("pause") or {})
     label = _RETRY_LABELS.get(str(pause.get("failure_class") or ""), "Retry the step")
     actions: list[dict[str, Any]] = [{"key": ACTION_RETRY, "label": label, "input": None}]
@@ -184,7 +153,6 @@ def pause_actions(run: WorkflowRun) -> list[dict[str, Any]]:
 
 
 async def decide(db: AsyncSession, run: WorkflowRun, *, user: User, action: str, body: dict[str, Any]) -> None:
-    """Retry the failed action (optionally adopting the shown branch or naming a new one)."""
     from .engine import restart_at
     from .pause import record_decision
 
@@ -222,7 +190,6 @@ async def decide(db: AsyncSession, run: WorkflowRun, *, user: User, action: str,
 
 
 def failure_route_errors(graph: PhasedGraph) -> list[dict[str, str]]:
-    """Every platform action that can fail routes ``failed``; a pause node is entered only through such routes."""
     from .graph import NODE_PAUSE
 
     errors: list[dict[str, str]] = []

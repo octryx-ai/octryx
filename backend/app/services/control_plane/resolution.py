@@ -22,8 +22,6 @@ from .selection_policy import (
 
 @dataclass(frozen=True, slots=True)
 class _Selection:
-    """What every target of one resolution call is judged with."""
-
     db: AsyncSession
     config: ControlPlaneConfig
     role_tags: dict
@@ -50,11 +48,6 @@ async def resolve_control_plane_runtimes(
     requires_vision: bool = False,
     include_skipped: bool = False,
 ) -> list[dict]:
-    """
-    Read prioritized provider/model runtime config from DB first.
-    Falls back to env settings only if no runtime target exists at all; configured
-    targets that are all skipped yield an empty list.
-    """
     config = await ensure_control_plane_defaults_func(db)
     # The role tags background consumers read are the Task models, not admin-typed target tags.
     role_tags = await role_tags_by_ref(db)
@@ -93,7 +86,6 @@ async def resolve_control_plane_runtimes(
 async def _explicit_target_runtimes(
     selection: _Selection, runtime_target_id: str, *, get_runtime_targets_func
 ) -> list[dict]:
-    """The explicitly chosen target first, then the other active targets as its fallbacks."""
     db, config = selection.db, selection.config
     target = await db.get(ControlPlaneRuntimeTarget, runtime_target_id)
     if not (target and target.config_id == config.id and target.is_active):
@@ -107,7 +99,6 @@ async def _explicit_target_runtimes(
 
 
 async def _target_runtimes(selection: _Selection, targets: list) -> list[dict]:
-    """The selection payload of each target with an active provider, in the given order."""
     provider_map, model_map = await _providers_and_models(selection.db, targets)
     runtimes: list[dict] = []
     for target in targets:
@@ -143,8 +134,7 @@ async def _providers_and_models(
 async def _target_payload(
     selection: _Selection, target: Any, provider: LLMProvider, model: LLMModel | None
 ) -> dict | None:
-    """One target's payload; ``None`` when it is skipped and skipped targets are not wanted."""
-    max_tokens_per_request = selection.runtime_max_tokens_per_request_func(provider, model, selection.config)
+    max_tokens_per_request = selection.runtime_max_tokens_per_request_func(model, selection.config)
     request_timeout_seconds = selection.runtime_request_timeout_seconds_func(provider)
 
     def payload(client_kwargs: dict, **extra: Any) -> dict:

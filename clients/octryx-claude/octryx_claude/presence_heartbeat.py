@@ -1,10 +1,4 @@
-"""The launcher's heartbeat while Claude Code runs.
-
-Every :data:`INTERVAL_SECONDS` the launcher (the supervisor, Claude Code's parent) posts
-``/sessions/heartbeat`` with the session's identity, so the person's phone lists the session as open; when the
-terminal closes the heartbeats stop and the session leaves the list within two minutes. A daemon thread with its
-own HTTP client; a failed beat is simply the next one. Nothing is printed.
-"""
+"""The launcher's heartbeat while Claude Code runs."""
 
 from __future__ import annotations
 

@@ -1,10 +1,4 @@
-"""A decided approval moves the run that waits for it (run approvals and tool approvals).
-
-Called once at the end of every approval decision (``approval/resolution_service``), after the session grants are
-written: a run approval routes ``approved`` / ``rejected`` (``hitl_decisions``); a platform action's tool approval
-runs the action again (the grant admits exactly that call) when approved, routes ``failed`` when rejected, and
-pauses the run (``approval_timeout``) when it expired.
-"""
+"""A decided approval moves the run that waits for it (run approvals and tool approvals)."""
 
 from __future__ import annotations
 
@@ -29,7 +23,6 @@ async def on_approval_decided(db: AsyncSession, approval: Approval) -> None:
     from .watch import deliver_event
     from .watch_events import APPROVAL_DECIDED, WatchEvent
 
-    # A run that watches this approval as a platform event.
     await deliver_event(db, WatchEvent(APPROVAL_DECIDED, approval_id=approval.id), source="approval")
     if (approval.action or "").startswith("workflow_run.approval"):
         from .hitl_decisions import approval_decided
@@ -47,7 +40,7 @@ async def on_approval_decided(db: AsyncSession, approval: Approval) -> None:
     if waiting.get("side_effect"):
         from .failure import resume_side_effect
 
-        await resume_side_effect(db, run, approval)  # a failure-path comment or follow-up issue
+        await resume_side_effect(db, run, approval)
         return
     from .engine import rerun_current_node, resolve_current_node
 

@@ -1,11 +1,4 @@
-"""Prometheus tool implementation.
-
-The range query runs over an explicit window: ``start``/``end`` (RFC3339), else the alert scope's window, else
-the relative ``duration`` (default ``1h``); the span is at most 24 h. Under an alert scope the window is
-clamped to the alert's and every selector must name the target's labels. Any transport error, non-200 answer or a
-``status`` other than ``success`` is ``unavailable`` with an ``error`` — never an empty result; an empty vector is
-``empty``.
-"""
+"""Prometheus tool implementation."""
 
 from datetime import timedelta
 from math import ceil
@@ -40,7 +33,6 @@ def _envelope(status: str, scope: AlertScope | None, window: dict | None, count:
 
 
 async def _get_data(client: httpx.AsyncClient, url: str, params: dict[str, Any]) -> dict[str, Any]:
-    """The ``data`` of a successful Prometheus API answer; anything else raises :class:`PrometheusUnavailableError`."""
     try:
         resp = await client.get(url, params=params)
     except httpx.HTTPError as error:

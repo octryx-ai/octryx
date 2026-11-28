@@ -8,7 +8,7 @@
   border-bottom: 1px solid var(--border-soft);
   font-size: var(--ds-text-xs);
   color: var(--muted);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-transform: uppercase;
   letter-spacing: 0.11em;
 }
@@ -24,7 +24,7 @@
   background: var(--surface-overlay-strong);
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: pointer;
   text-decoration: none;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
@@ -53,7 +53,7 @@
   background: var(--brand-cream);
   border-color: var(--brand-cream);
   color: var(--brand-taupe-deep);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
@@ -90,7 +90,7 @@
   border-color: var(--status-error);
   background: var(--status-error);
   color: #fff;
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .admin-panel__action-btn--danger-solid:hover {
@@ -172,7 +172,7 @@
   font-size: var(--ds-font-size-small, 0.74rem);
   color: var(--muted);
   margin-bottom: 0.25rem;
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .admin-panel__icon-btn {

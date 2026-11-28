@@ -60,8 +60,14 @@ class JsonLogFormatter(logging.Formatter):
         return json.dumps(payload, ensure_ascii=True, default=str)
 
 
+class RedactingTextFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        return redact_secret_text(super().format(record))
+
+
 def configure_json_logging() -> None:
     formatter = JsonLogFormatter()
+    _give_root_a_handler(formatter)
     logger_names = ("", "uvicorn", "uvicorn.error", "uvicorn.access")
     for logger_name in logger_names:
         logger = logging.getLogger(logger_name)
@@ -74,7 +80,8 @@ def configure_json_logging() -> None:
     # Set engine to WARNING so individual SQL statements stay out of the log
     # while schema errors and connection problems still surface.
     warning_level = getattr(logging, "WARNING", 30)
-    for logger_name in ("sqlalchemy.engine", "sqlalchemy.pool"):
+    # httpx logs every request URL at INFO, and some APIs carry the credential in the URL (the Telegram Bot API).
+    for logger_name in ("sqlalchemy.engine", "sqlalchemy.pool", "httpx"):
         try:
             logger = logging.getLogger(logger_name)
         except (KeyError, AttributeError):
@@ -82,3 +89,20 @@ def configure_json_logging() -> None:
         set_level = getattr(logger, "setLevel", None)
         if callable(set_level):
             set_level(warning_level)
+
+
+def configure_text_logging(level: str) -> None:
+    logging.basicConfig(level=level)
+    for handler in logging.getLogger().handlers:
+        handler.setFormatter(RedactingTextFormatter(logging.BASIC_FORMAT))
+
+
+def _give_root_a_handler(formatter: logging.Formatter) -> None:
+    root = logging.getLogger()
+    # Without one, records end in Python's last-resort handler, which never redacts. A root that has handlers (a
+    # process's own setup) keeps them, so no line is written twice.
+    if root.handlers:
+        return
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+    root.addHandler(handler)

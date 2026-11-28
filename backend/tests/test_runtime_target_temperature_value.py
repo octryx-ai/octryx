@@ -1,12 +1,5 @@
-"""A runtime target's temperature: the model catalog's value (``LLMModel.temperature``), or never send.
-
-- ``services/control_plane/runtime_temperature``: the effective value says what will actually be sent and why,
-  from the target's ``accepts_temperature`` (never send = False) and its model's catalog value.
-- The value reaches the payloads: direct Bedrock ``inferenceConfig`` and Graphiti's ``chat`` options
-  (the LiteLLM gateway body is asserted in ``tests/model_gateway/test_litellm_target_temperature``).
-
-No live model, network or AWS call.
-"""
+"""A runtime target's temperature: the model catalog's value or never send, and that value reaching the
+Bedrock and Graphiti payloads (no live model, network or AWS call)."""
 
 from __future__ import annotations
 
@@ -16,9 +9,8 @@ from typing import Any
 
 import pytest
 
-from app.agent.engine.runtime._engine_runtime_fallback import _runtime_client_kwargs_for_turn
-from app.agent.providers.bedrock import BedrockClient
 from app.agent.providers.sampling_capabilities import gateway_temperature, sampling_temperature
+from app.agent.runtime.runtime_fallback import _runtime_client_kwargs_for_turn
 from app.models import ControlPlaneRuntimeTarget, LLMModel
 from app.services.content_security.model_call_scope import session_call
 from app.services.control_plane import runtime_temperature as rt
@@ -26,10 +18,8 @@ from app.services.control_plane.selection_policy import build_runtime_selection_
 from app.services.knowledge.temporal.graphiti_llm import GovernedGraphitiLLM
 from tests.runtime_target_temperature_value_support import ACCEPTING, REJECTING
 
-#: These tests call provider drivers directly: they run as the platform (``tests/model_call_scope_plugin.py``).
+#: These tests call provider drivers directly: they run as the platform (``tests/support/model_call_scope_plugin.py``).
 pytestmark = pytest.mark.usefixtures("platform_model_call")
-
-MESSAGES = [{"role": "user", "content": "hi"}]
 
 
 def _target(model_id: str = ACCEPTING, *, accepts: bool | None = None):
@@ -37,22 +27,6 @@ def _target(model_id: str = ACCEPTING, *, accepts: bool | None = None):
 
 
 # --- payload wiring --------------------------------------------------------------------------------
-
-
-class _Converse:
-    def __init__(self) -> None:
-        self.calls: list[dict[str, Any]] = []
-
-    def converse(self, **kwargs: Any) -> dict[str, Any]:
-        self.calls.append(kwargs)
-        return {"output": {"message": {"content": [{"text": "ok"}]}}, "usage": {}}
-
-
-def _bedrock(monkeypatch, **kwargs: Any) -> tuple[BedrockClient, _Converse]:
-    monkeypatch.setattr(BedrockClient, "_list_foundation_model_summaries", lambda self: [])
-    client = BedrockClient(region="eu-central-1", **kwargs)
-    client._client = _Converse()
-    return client, client._client
 
 
 class _Recording:
@@ -94,42 +68,24 @@ def test_the_gateway_rule_adds_no_default_and_honours_never_send():
 
 
 def test_the_effective_value_says_what_is_sent_and_why():
-    def effective(target, value=None, driver="bedrock_api"):
+    def effective(target, value=None, driver="litellm_gateway"):
         result = rt.effective_temperature(target, value, driver=driver)
         return result["mode"], result["value"], result["reason"]
 
     assert effective(_target(), 0.7) == ("sent", 0.7, "model_value")
-    assert effective(_target()) == ("sent", 0.0, "deterministic_default")
-    assert effective(_target(), driver="litellm_gateway") == ("model_default", None, "provider_default")
-    assert effective(_target(), 1.1, "litellm_gateway") == ("sent", 1.1, "model_value")
+    assert effective(_target()) == ("model_default", None, "provider_default")
     assert effective(_target(accepts=False), 0.7) == ("not_sent", None, "target_never_send")
     assert effective(_target(REJECTING), 0.7) == ("not_sent", None, "model_rejects_temperature")
-    assert effective(_target(REJECTING, accepts=True)) == ("sent", 0.0, "deterministic_default")
-    assert effective(_target(), 0.7, "openrouter_api") == ("driver_managed", None, "driver_not_governed")
-    assert rt.effective_temperature(_target(), 0.7, driver="bedrock_api")["label"] == "0.7 (set for this model)"
-
-
-async def test_the_bedrock_inference_config_carries_the_target_value(monkeypatch):
-    client, converse = _bedrock(monkeypatch, target_temperature=0.7)
-    await client.chat(MESSAGES, model=ACCEPTING)
-    assert converse.calls[-1]["inferenceConfig"] == {"maxTokens": 4096, "temperature": 0.7}
-    await client.chat(MESSAGES, model=ACCEPTING, temperature=0.2, max_tokens=50)
-    assert converse.calls[-1]["inferenceConfig"] == {"maxTokens": 50, "temperature": 0.7}
-
-    never, never_converse = _bedrock(monkeypatch, accepts_temperature=False, target_temperature=0.7)
-    await never.chat(MESSAGES, model=ACCEPTING, temperature=0.2)
-    assert never_converse.calls[-1]["inferenceConfig"] == {"maxTokens": 4096}
-
-    default, default_converse = _bedrock(monkeypatch)
-    await default.chat(MESSAGES, model=ACCEPTING)
-    assert default_converse.calls[-1]["inferenceConfig"] == {"maxTokens": 4096, "temperature": 0.0}
+    assert effective(_target(REJECTING, accepts=True), 1.1) == ("sent", 1.1, "model_value")
+    assert effective(_target(), 0.7, "") == ("driver_managed", None, "driver_not_governed")
+    assert rt.effective_temperature(_target(), 0.7, driver="litellm_gateway")["label"] == "0.7 (set for this model)"
 
 
 async def test_graph_extraction_sends_the_target_value(monkeypatch):
     recording = _Recording()
     monkeypatch.setattr("app.agent.providers.get_provider", recording)
     messages = [SimpleNamespace(role="user", content="x")]
-    runtime = {"provider_name": "bedrock", "model": ACCEPTING, "target_temperature": 1.3}
+    runtime = {"provider_name": "litellm_gateway", "model": ACCEPTING, "target_temperature": 1.3}
 
     await GovernedGraphitiLLM([runtime], scope=session_call(None), temperature=0.2)._generate_response(messages)
     assert recording.calls[-1]["temperature"] == 1.3
@@ -144,7 +100,7 @@ def test_the_selection_payload_and_the_factory_hand_the_models_value_to_the_clie
     target = ControlPlaneRuntimeTarget(id="t", provider_id="p", model_id=ACCEPTING, priority=1)
     model = LLMModel(provider_id="p", model_id=ACCEPTING, temperature=value)
     payload = build_runtime_selection_payload(
-        client_kwargs={"provider_name": "bedrock", "driver": "bedrock_api"},
+        client_kwargs={"provider_name": "litellm_gateway", "driver": "litellm_gateway"},
         provider=None,
         target=target,
         model=model,
@@ -155,13 +111,14 @@ def test_the_selection_payload_and_the_factory_hand_the_models_value_to_the_clie
         request_timeout_seconds=None,
     )
     assert payload["target_temperature"] == value
-    kwargs = _runtime_client_kwargs_for_turn(payload, reasoning_effort=None)
+    kwargs = _runtime_client_kwargs_for_turn(payload)
     assert kwargs["target_temperature"] == value
-    assert get_provider(**kwargs).target_temperature == value
 
     built: dict[str, Any] = {}
     monkeypatch.setattr(
         "app.agent.providers.litellm_gateway.LiteLLMGatewayClient", lambda **options: built.update(options)
     )
+    get_provider(**kwargs)
+    assert built["target_temperature"] == value
     get_provider(driver="litellm_gateway", accepts_temperature=False, target_temperature=value)
     assert (built["accepts_temperature"], built["target_temperature"]) == (False, value)

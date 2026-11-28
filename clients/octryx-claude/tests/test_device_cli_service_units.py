@@ -115,8 +115,6 @@ def test_a_failing_service_command_is_a_fixed_code(tmp_path):
 
 
 def test_a_second_installation_gets_its_own_launchd_labels_and_never_boots_out_the_first(tmp_path, monkeypatch):
-    """Labels live in gui/<uid>, not in HOME, so they differ per installation: a second install's bootstrap never boots
-    out the person's real pet."""
     from octryx_claude.pet import cli as pet_cli
     from octryx_claude.pet.service import LAUNCHD_LABEL as PET_LABEL
 

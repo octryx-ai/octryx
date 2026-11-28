@@ -51,7 +51,7 @@
   margin: 0;
   color: var(--text);
   font-size: var(--ds-text-lg);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .admin-users__roles-text {
@@ -107,7 +107,7 @@
 .admin-users__role-name {
   color: var(--text);
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .admin-users__role-card-header p {
@@ -207,13 +207,13 @@
   gap: 0.25rem;
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .admin-users__create-role-hint {
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 400;
+  font-weight: var(--ds-weight-regular);
 }
 
 .admin-users__selected-summary {
@@ -225,7 +225,7 @@
 .admin-users__selected-summary span {
   padding: 0.25rem 0.5rem;
   border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   color: var(--accent-strong);
   font-size: var(--ds-text-xs);
   background: color-mix(in srgb, var(--accent) 7%, transparent);

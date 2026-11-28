@@ -1,14 +1,9 @@
-// Switching chats without reloading the whole bootstrap (backend). A switch to an existing
-// chat reads GET /chat/api/sessions/{id}/view: only the selected session's part of the state. The thread list,
-// projects, agent options and branding stay from the first bootstrap. Pure functions; the hook owns the request.
 import type { ChatState } from "../types";
 import type { ThreadGroup } from "../chatThreadTypes";
 import { chatApiPath } from "./chatApiClient";
 
-/** The fields the view answers; everything else in the chat state stays as it is. */
 export type SessionView = Partial<ChatState> & { requestedSessionNotFound?: boolean };
 
-/** The session a plain switch (`?session_id=<id>` and nothing else) opens; null for any other address. */
 export function sessionSwitchTarget(search: string): string | null {
   let params: URLSearchParams;
   try {
@@ -34,11 +29,7 @@ function listThreadNumber(groups: ThreadGroup[] | null | undefined, sessionId: s
   return undefined;
 }
 
-/**
- * The view as a next state for the bootstrap merge: lists are left out (the merge keeps the previous ones), the
- * thread number comes from the list (the view answers 0), a null Workspace keeps the current one, and a switch to
- * an existing chat is never a new-chat draft.
- */
+// The view answers 0 for the thread number, so it comes from the list.
 export function viewToState(view: SessionView, previous: ChatState): ChatState {
   const session = view.selectedSession ?? null;
   const threadNumber = session

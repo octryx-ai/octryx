@@ -1,5 +1,3 @@
-// Structural schema reading: $ref resolution, nullable unwrapping, classification,
-// field order and labels. Decisions come from schema keywords only.
 import { splitPointer } from "./schemaPointer";
 import type { JsonSchema, SchemaKind } from "./schemaFormTypes";
 
@@ -20,11 +18,7 @@ function lookupRef(root: JsonSchema, ref: string): JsonSchema | null {
   return isRecord(current) ? current : null;
 }
 
-/**
- * Follow local `$ref`s ("#/$defs/X") against `root`. Sibling keywords next to
- * the `$ref` (title, description, default, x-ui) override the target's.
- * An unresolvable ref is returned unchanged (it then classifies as unsupported).
- */
+/** Sibling keywords next to `$ref` override the target's; an unresolvable ref stays unchanged (unsupported). */
 export function resolveRef(root: JsonSchema, schema: JsonSchema): JsonSchema {
   let current = schema;
   for (let depth = 0; depth < MAX_REF_DEPTH; depth += 1) {
@@ -47,10 +41,7 @@ export interface NormalizedField {
   nullable: boolean;
 }
 
-/**
- * Resolve `$ref` and unwrap the Pydantic optional shape `anyOf: [X, {type: null}]`
- * (or `type: [X, "null"]`) to X. Outer annotations (title, x-ui, description) win.
- */
+/** Unwraps the Pydantic optional shape `anyOf: [X, {type: null}]` to X; outer annotations win. */
 export function normalizeField(root: JsonSchema, schema: JsonSchema): NormalizedField {
   const resolved = resolveRef(root, schema);
   const variants = Array.isArray(resolved.anyOf) ? resolved.anyOf : Array.isArray(resolved.oneOf) ? resolved.oneOf : null;
@@ -84,7 +75,6 @@ export function mapValueSchema(schema: JsonSchema): JsonSchema | null {
   return null;
 }
 
-/** Classify a schema that already went through `normalizeField`. */
 export function classifySchema(schema: JsonSchema): SchemaKind {
   if ("const" in schema) return "const";
   if (Array.isArray(schema.enum)) return "enum";
@@ -130,14 +120,12 @@ export function requiredSet(schema: JsonSchema): Set<string> {
   return new Set(Array.isArray(schema.required) ? schema.required.filter((key): key is string => typeof key === "string") : []);
 }
 
-/** Property names of an object schema: required first, then optional, each in declaration order. */
 export function fieldOrder(schema: JsonSchema): string[] {
   const properties = isRecord(schema.properties) ? Object.keys(schema.properties) : [];
   const required = requiredSet(schema);
   return [...properties.filter((key) => required.has(key)), ...properties.filter((key) => !required.has(key))];
 }
 
-/** "maxIterations" -> "Max iterations", "schema_ref" -> "Schema ref", "mcp" -> "Mcp". */
 export function humanizeKey(key: string): string {
   const words = key
     .replace(/[_-]+/g, " ")

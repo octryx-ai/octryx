@@ -1,11 +1,4 @@
-"""The policy test bench: "may <principal> do <action> on <resource> in <Workspace>?".
-
-The question is built from real entities, exactly as the enforcement point builds it: the Workspace's
-classification and gateway policy from the database, the user's platform roles and groups, the tool's connector
-family and write/log facts (``points``). Cedar answers with the baseline fragment plus a custom policy text (the
-published version, the open draft, or a candidate text), and the bench reports the deciding policies with their
-source text next to the existing (legacy) decision. Nothing is executed and nothing is recorded.
-"""
+"""The policy test bench: "may <principal> do <action> on <resource> in <Workspace>?"."""
 
 from __future__ import annotations
 
@@ -59,7 +52,6 @@ class CustomText:
 
 
 async def custom_text(db: AsyncSession, source: str | None, policies: str | None = None) -> CustomText:
-    """The custom policies to ask with: a candidate ``policies`` text, the open draft, or the published version."""
     if policies is not None:
         return CustomText(check_custom_policies(policies).text, "candidate text")
     if source == SOURCE_DRAFT:
@@ -84,7 +76,6 @@ def _source(policy_id: str) -> str:
 
 
 def policy_source_text(text: str, policy_id: str) -> str:
-    """The statement carrying ``@id("<policy_id>")`` in ``text``, up to its terminating ``;`` outside strings."""
     marker = f'@id("{policy_id}")'
     start = text.find(marker)
     if start < 0:
@@ -107,11 +98,6 @@ def policy_source_text(text: str, policy_id: str) -> str:
 
 
 async def _questions(db: AsyncSession, question: BenchQuestion, project: Project, gateway_principal) -> tuple[Any, Any]:
-    """``(PointQuery, (legacy_allowed, legacy_reason) | None)`` for the question's action.
-
-    Every point carries the request's user, so the bench asks for the chosen user at all of them; a
-    question without a user is a system request (``User::"unknown"``), as for a background job.
-    """
     principal = gateway_principal
     workspace_id = project.id
     classification = await resolve_workspace_data_classification(db, project_id=workspace_id)
@@ -168,7 +154,6 @@ async def _questions(db: AsyncSession, question: BenchQuestion, project: Project
 
 async def _device_question(db: AsyncSession, question: BenchQuestion, workspace_id: str, classification, rules,
                            principal) -> tuple[Any, Any]:
-    """``run_on_device`` for an example device of the user, with the question's profile and folder."""
     from types import SimpleNamespace
 
     from ..devices.device_policy import builtin_device_decision

@@ -1,23 +1,4 @@
-"""The one governed web search of the platform (search control plane).
-
-Every web search (the chat ``web_search`` and ``codesearch`` tools, and knowledge research) runs
-through :func:`governed_search`, in this fixed order. The Workspace's settings (its search mode, its
-own provider key) are read from its project row, never from the merged turn config:
-
-1. **Configuration.** A real search API must be configured (``providers.py``); otherwise the state is
-   ``needs_configuration``. A quarantined provider is ``unavailable`` (``health.py``).
-2. **Data policy.** The query leaves the platform, so the Workspace's server-resolved
-   classification must sit at or below the provider's allowance, exactly like a model call.
-3. **Restriction.** With ``trusted_only`` the provider is restricted to the Workspace's trusted
-   sources (``registry.py``); without any, the state is ``needs_configuration``. Blocked sources are
-   excluded at the provider in every mode.
-4. **Anomaly check.** A restricted query answered outside its restriction discards the whole answer
-   and quarantines the provider.
-5. **Filter.** Every result passes the platform blocklist and the registry again; with
-   ``trusted_only`` only results under a trusted pattern (host *and* path prefix) remain.
-
-The outcome is a closed state plus counts of what was dropped; no provider text reaches a caller.
-"""
+"""The one governed web search of the platform (search control plane)."""
 
 from __future__ import annotations
 
@@ -84,8 +65,6 @@ def search_mode_of(config: object) -> str:
 
 
 async def stored_project_config(db: AsyncSession, project_id: str | None) -> dict[str, Any]:
-    """The Workspace's own config row. Never the merged turn config: agent-writable knowledge entries
-    are merged into that one, and they must not choose the search mode or the provider key."""
     if not project_id:
         return {}
     config = (await db.execute(select(Project.config).where(Project.id == project_id))).scalar_one_or_none()
@@ -121,7 +100,6 @@ async def _admitted(
 def _restriction(
     policy: SourcePolicy, *, trusted_only: bool, product: str | None, restrict_to: list[str]
 ) -> list[str] | None:
-    """The hosts to restrict the provider to; ``None`` when trusted-only has nothing to search."""
     if not trusted_only:
         return restrict_to
     trusted = policy.trusted_hosts(product)

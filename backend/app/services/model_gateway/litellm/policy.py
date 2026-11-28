@@ -1,26 +1,20 @@
-"""Project-level admission policy for Octryx model aliases.
-
-A LiteLLM gateway alias is admitted by the provider catalog, but a project must
-still opt in before its sessions may dispatch to it. Without an explicit opt-in
-the default is deny, exactly like ``services/mcp_access_policy.py``.
-
-Project config contract (``project_config["model_policy"]``):
-
-- ``allowed_aliases``: list of Octryx aliases this project may use
-- ``denied_aliases``: list of aliases explicitly blocked (wins over allowed)
-- ``allow_all_admitted_aliases``: bool, opt-in escape hatch that accepts every
-  alias the provider catalog already admits
-
-Users and agents name aliases only. An upstream provider or model-group name is
-never a legal value here.
-"""
+"""Project-level admission policy for Octryx model aliases (``project_config["model_policy"]``)."""
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
 MODEL_POLICY_CONFIG_KEY = "model_policy"
+# A Workspace that never chose its models may use every admitted one (clearance and data class still decide): every
+# model is a LiteLLM alias, so without this a fresh install had no usable model. A saved policy replaces it.
+DEFAULT_MODEL_POLICY: dict[str, Any] = {"allowed_aliases": [], "allow_all_admitted_aliases": True}
+
+
+def effective_model_policy(config: Any) -> dict[str, Any]:
+    policy = config.get(MODEL_POLICY_CONFIG_KEY) if isinstance(config, Mapping) else None
+    return dict(policy) if isinstance(policy, Mapping) else dict(DEFAULT_MODEL_POLICY)
 
 POLICY_REASON_MISSING_ALIAS = "missing_alias"
 # No server-owned project could be resolved for this dispatch path, so no
@@ -74,7 +68,9 @@ def model_alias_access_decision(
 
 
 __all__ = [
+    "DEFAULT_MODEL_POLICY",
     "MODEL_POLICY_CONFIG_KEY",
+    "effective_model_policy",
     "POLICY_REASON_CLASSIFICATION_ALIAS_NOT_ALLOWED",
     "POLICY_REASON_CONTEXT_UNVERIFIABLE",
     "POLICY_REASON_ALLOW_ALL",

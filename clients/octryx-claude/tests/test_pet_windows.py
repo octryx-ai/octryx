@@ -1,13 +1,4 @@
-"""The native Windows pet, tested without Windows: the WSL token bridge, the Run key, the instance lock, the entry
-point and that the pet's modules import without ``fcntl`` (which native Windows lacks).
-
-- ``WslAccount``: the platform URL, distribution and WSL home from ``account.json`` (validated, nothing secret); the
-  token from ``wsl.exe -d <distro> -e <home>/.local/bin/octryx-claude api-key-helper``, cached in memory for ten
-  minutes, fetched again on ``refresh``; a missing WSL login is ``not_logged_in``, anything else ``wsl_unavailable``;
-- ``api.fetch`` retries a 401 once with a fresh bridge token;
-- ``RunKey``: ``HKCU\\...\\Run`` ``OctryxPet`` = the quoted ``pythonw -m octryx_claude.pet run``, started at once;
-- inside WSL ``pet run`` / ``pet enable`` point at the native ``octryx-pet``.
-"""
+"""The native Windows pet, tested without Windows."""
 
 from __future__ import annotations
 

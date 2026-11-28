@@ -40,24 +40,6 @@ class DeliverySourceFetchOutcome:
         return self.failure is not None
 
 
-async def fetch_delivery_source_items(
-    db: AsyncSession,
-    *,
-    repo: CodeRepository,
-    source_kind: str,
-    limit_per_repository: int,
-    allowed_providers: set[str],
-) -> list[dict[str, Any]]:
-    outcome = await fetch_delivery_source_items_with_status(
-        db,
-        repo=repo,
-        source_kind=source_kind,
-        limit_per_repository=limit_per_repository,
-        allowed_providers=allowed_providers,
-    )
-    return outcome.items
-
-
 async def fetch_delivery_source_items_with_status(
     db: AsyncSession,
     *,

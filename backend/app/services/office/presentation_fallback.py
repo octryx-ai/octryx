@@ -1,23 +1,4 @@
-"""Which PowerPoint template applies when no corporate identity is configured (O1).
-
-A deck is composed from, in this order:
-
-1. an explicit ``template_path`` inside the turn's workspace;
-2. the default corporate identity profile's composer template (``corp_identity_service``);
-3. the presentation fallback, an admin setting (``agent.office_presentation_fallback_template``,
-   Corp. Identity tab) with a closed set of modes:
-
-   - ``builtin_neutral`` (the default): the tracked neutral template
-     ``services/office/fallback_templates/neutral-presentation.potx`` (built and documented by
-     ``neutral_presentation_template.py``);
-   - ``disabled``: no fallback, so a deck without a corporate identity is refused.
-
-Nothing else is ever substituted: no runtime directory is scanned and no other profile's upload is
-picked up. When neither a profile nor the fallback yields a template, the tools return the explicit
-state ``needs_configuration`` with the closed code ``presentation_template_unconfigured``.
-A default profile whose template file is missing on disk is not papered over by the fallback either:
-it is its own ``needs_configuration`` code, because the administrator chose that profile.
-"""
+"""Which PowerPoint template applies when no corporate identity is configured (O1)."""
 
 from __future__ import annotations
 
@@ -46,7 +27,7 @@ NEEDS_CONFIGURATION = "needs_configuration"
 
 
 class InvalidPresentationFallbackModeError(ValueError):
-    """An admin tried to store a mode outside :data:`PRESENTATION_FALLBACK_MODES`."""
+    pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,7 +50,6 @@ class PresentationFallback:
 
 
 async def presentation_fallback(db: AsyncSession | None) -> PresentationFallback:
-    """The configured fallback; an unset value is the default, an unknown one disables it."""
     stored = (await get_system_config_value(db, PRESENTATION_FALLBACK_KEY) if db is not None else None) or ""
     mode = stored.strip() or DEFAULT_PRESENTATION_FALLBACK_MODE
     if mode not in PRESENTATION_FALLBACK_MODES:
@@ -88,13 +68,10 @@ async def set_presentation_fallback_mode(db: AsyncSession, *, mode: str, updated
         key=PRESENTATION_FALLBACK_KEY,
         value=normalized,
         description="Presentation template used when no corporate identity profile is configured.",
-        updated_by=updated_by,
-        change_source="admin_corp_identity",
     )
 
 
 def fallback_template_resolution(fallback: PresentationFallback) -> dict[str, Any]:
-    """The ``template`` record of a deck composed from the fallback (recorded in the tool result)."""
     path = fallback.path
     return {
         "source": SOURCE_BUILTIN_NEUTRAL,
@@ -105,7 +82,6 @@ def fallback_template_resolution(fallback: PresentationFallback) -> dict[str, An
 
 
 def needs_configuration(code: str, message: str) -> dict[str, Any]:
-    """The explicit state of a deck that cannot be composed until an administrator configures it."""
     return {
         "status": NEEDS_CONFIGURATION,
         "error": message,
@@ -115,7 +91,6 @@ def needs_configuration(code: str, message: str) -> dict[str, Any]:
 
 
 async def describe_effective_presentation_template(db: AsyncSession) -> dict[str, Any]:
-    """What a deck composed now would be built from: the admin view of the resolution."""
     from ..corp_identity_service import get_default_corp_identity_profile, resolve_corp_identity_composer_template
 
     fallback = await presentation_fallback(db)

@@ -3,9 +3,10 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 
 
-class ExecPolicyConfig(Base):
+class ExecPolicyConfig(WorkspaceBound, Base):
     __tablename__ = "exec_policy_configs"
 
     id = Column(String(36), primary_key=True)

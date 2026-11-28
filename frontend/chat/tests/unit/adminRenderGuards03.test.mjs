@@ -243,12 +243,12 @@ test("the providers list shows one row per provider and opens a row in the side 
   const srv = server(() => ({ status: 200, body: { is_active: false } }));
   const { ProvidersList } = load("admin/components/providerTab/ProvidersList.tsx", { fetch: srv.fetch });
   const toggled = [];
-  const providers = [{ id: "p1", display_name: "OpenAI", driver: "openai", is_active: true, readiness: { state: "ready" } },
-    { id: "p2", display_name: "Local gateway", driver: "openai_compatible", is_active: false, readiness: { state: "unknown" } }];
-  const ctx = { providers, expandedProvider: null, handleDeleteProvider: noop, handlePullProviderModel: noop, handleRefreshProviderHealth: noop,
-    handleStartLocalRuntime: noop, handleStopLocalRuntime: noop, handleToggleProvider: (id) => toggled.push(id), localBootstrap: null };
+  const providers = [{ id: "p1", display_name: "Team gateway", driver: "litellm_gateway", is_active: true, readiness: { state: "ready" } },
+    { id: "p2", display_name: "Lab gateway", driver: "litellm_gateway", is_active: false, readiness: { state: "unknown" } }];
+  const ctx = { providers, expandedProvider: null, handleDeleteProvider: noop, handleUpdateLiteLlmGatewayProvider: noop,
+    handleToggleProvider: (id) => toggled.push(id) };
   const view = await createAsync(createElement(ProvidersList, { ctx }));
-  includesAll(text(view.root), ["Name", "Connection", "State", "Enabled", "OpenAI", "Local gateway"]);
+  includesAll(text(view.root), ["Name", "Connection", "State", "Enabled", "Team gateway", "Lab gateway", "Model gateway"]);
   assert.equal(byTestId(view, "providers-table").length, 1);
   assert.equal(byTestId(view, "provider-card-p1").length, 1);
   assert.notEqual(byTestId(view, "provider-enabled-p2")[0].props["aria-disabled"], true);
@@ -259,8 +259,7 @@ test("the providers list shows one row per provider and opens a row in the side 
   act(() => view.unmount());
   const opened = await createAsync(createElement(ProvidersList, { ctx: { ...ctx, expandedProvider: "p2" } }));
   assert.equal(byTestId(opened, "provider-panel").length, 1);
-  assert.equal(byTestId(opened, "provider-panel-footer").length, 0);
-  assert.ok(!buttons(opened).includes("Start runtime"));
+  assert.equal(byTestId(opened, "provider-panel-footer").length, 1);
   const none = await createAsync(createElement(ProvidersList, { ctx: { ...ctx, providers: [] } }));
   assert.ok(text(none.root).includes("No providers configured yet."));
 });

@@ -8,10 +8,6 @@ import { usePrefersReducedMotion } from "./usePrefersReducedMotion";
 import { useCompanion } from "./useCompanion";
 import "./companion.css";
 
-// Octryx lives in the logo at the top left (product inventory, step 1): one host owns the attention state, the live
-// socket and the side panel; the logo in the rail (and in the compact menu on narrow screens) is its trigger, with
-// the count of what needs the person plus problems as a dot. No floating button.
-
 type CompanionControl = {
   open: boolean;
   toggle: () => void;
@@ -64,10 +60,7 @@ export function CompanionHost({ children, userId, onOpenAgents, onOpenSession, i
   );
 }
 
-/**
- * The logo as the companion's trigger. Outside a host (tests, isolated renders) it is the plain logo linking to chat,
- * like a plain rail logo. `glyph` replaces the Octryx AI logo for a custom tenant brand.
- */
+/** Outside a host (tests, isolated renders) it is the plain logo linking to chat. */
 export function CompanionLogoTrigger({ className = "", glyph, testId = "octryx-button" }: {
   className?: string;
   glyph?: ReactNode;

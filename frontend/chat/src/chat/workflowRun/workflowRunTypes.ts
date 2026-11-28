@@ -116,8 +116,6 @@ export type WorkflowRun = {
   model_usage?: { calls: number; tokens_in: number; tokens_out: number; cost: number };
   nodes: RunNode[];
   loops: RunLoop[];
-  // The slices the phase delegated to sub-agents.
-  slices?: RunSlice[];
   // Teamwork: the coordinator's split as it runs; null before the plan (the box says "split at run time").
   work?: TeamWork | null;
   // Started by a test alert (Automation "Send test alert"): no real incident.
@@ -197,13 +195,6 @@ export type WorkflowRun = {
   access: string;
   actions: RunAction[];
   updated_at: string | null;
-};
-
-export type RunSlice = {
-  key: string;
-  title: string;
-  status: string;
-  iteration: number;
 };
 
 export type RunRow = {

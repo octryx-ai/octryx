@@ -1,12 +1,7 @@
 import type { JobDetail, JobEvent, JobPhase } from "./companionJobModel";
 
-// A job's events as the server words them (`text`, flagged `technical`): technical events wait behind
-// "Show technical events"; consecutive repeats are grouped ("A helper agent reported (Clarify) ×4").
-// The phase stepper falls back to the run's phase index when the server marks every phase pending. Pure functions only.
-
 export type EventView = { text: string; at: string | null; count: number; technical: boolean };
 
-/** Events newest first; consecutive equal sentences grouped; technical ones only when asked for. */
 export function eventViews(events: JobEvent[], { technical = false } = {}): EventView[] {
   const views: EventView[] = [];
   for (const event of events) {
@@ -23,16 +18,12 @@ export function eventViews(events: JobEvent[], { technical = false } = {}): Even
 
 export const technicalCount = (events: JobEvent[]) => events.filter((event) => event.technical).length;
 
-/** "Now: …": the newest event that reads as a sentence. */
 export function currentSentence(job: JobDetail): string {
   const newest = eventViews(job.currentStep ? [job.currentStep, ...job.events] : job.events)[0];
   return newest?.text ?? "";
 }
 
-/**
- * The phase stepper. When the server marks every phase pending although the run has moved on (it lost its current
- * node), the phases before the run's phase index are done and that one is active, or a problem when the run has one.
- */
+/** When every phase is pending although the run moved on (it lost its current node), the phase index decides. */
 export function phaseStates(job: JobDetail): JobPhase[] {
   const phases = job.phases;
   if (!phases.length || phases.some((phase) => phase.state !== "pending")) return phases;

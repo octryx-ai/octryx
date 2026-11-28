@@ -14,7 +14,6 @@ from ...time_utils import utc_now_aware
 
 
 async def serialize_skill_content(db: AsyncSession, skill: Skill) -> dict[str, Any] | None:
-    """The published version as a portable catalog bundle; ``None`` while nothing is published."""
     entity = await portable_skill(db, skill)
     if entity is None:
         return None

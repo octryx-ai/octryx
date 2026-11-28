@@ -1,6 +1,5 @@
-"""The confirmed tests run on the base commit in the pipeline and must fail there,
-so a small item may write its test and its fix in one turn and a weakened test is still caught
-(``workflow_runs/red_on_base``)."""
+"""The confirmed tests run on the base commit in the pipeline and must fail there, so a test and its fix may
+come in one turn and a weakened test is still caught (``workflow_runs/red_on_base``)."""
 
 from __future__ import annotations
 
@@ -10,6 +9,9 @@ import pytest
 
 from app.services.engineering_knowledge.stacks import all_report_env, only_files_specs
 from app.services.workflow_runs.red_on_base import judge, no_test_started, outcomes, record, request
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 TEST = "tests/test_grind.py::test_grind_starts_at_15"
 OTHER = "tests/test_grind.py::test_stepper_stops_at_the_ends"
@@ -49,8 +51,6 @@ def test_only_a_class_that_asks_for_it_sends_the_base_run_to_the_device():
 
 
 def test_every_changed_test_file_runs_on_the_base_and_one_without_a_named_test_keeps_the_pipeline_red():
-    """A corrected existing test counts when it fails on the base; a changed test file whose tests nobody named
-    (a weakened test) is caught."""
     patch = ("diff --git a/app/tests/test_grind.py b/app/tests/test_grind.py\n"
              "diff --git a/app/tests/test_other.py b/app/tests/test_other.py\n"
              "diff --git a/app/grind.py b/app/grind.py\n")
@@ -74,7 +74,7 @@ async def _at_pipeline_with_base_run(db, monkeypatch, extra: dict | None = None)
     from tests.workflow_run_pipeline_support import COMMANDS, _definition
 
     async def commands(_db, _run):
-        return list(COMMANDS), []
+        return list(COMMANDS), [], COMMANDS[-1] if len(COMMANDS) > 1 else ""
 
     async def device(_db, _run):
         return "device"
@@ -118,8 +118,6 @@ async def test_the_pipeline_asks_the_device_for_the_base_run_and_stays_red_when_
 
 @pytest.mark.asyncio
 async def test_a_base_run_the_environment_could_not_do_pauses_and_never_reaches_the_agent(db, monkeypatch):
-    """A failed setup on the base is the device's problem (``environment_not_ready`` with the remedy), not a reason
-    to send the agent back; with a red suite the agent hears only the suite."""
     from app.services.workflow_runs import pipeline_failure, pipeline_report
     from tests.workflow_run_pipeline_support import _report
 
@@ -196,7 +194,6 @@ async def _at_reproduce_check(db, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_the_reproduce_check_proves_the_submitted_tests_on_the_base_before_any_fix(db, monkeypatch):
-    """In a full flow the base run belongs before the fix builds on the reproduction."""
     from app.services.workflow_runs.hands_on import step
 
     run, session = await _at_reproduce_check(db, monkeypatch)

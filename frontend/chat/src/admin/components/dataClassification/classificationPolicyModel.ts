@@ -1,23 +1,9 @@
-// The classification policy matrix. Pure: no requests,
-// no React. Levels and their order come from the server; this module never names a level. The rules are kept in
-// their wire form, so a rule this UI does not show yet is sent back unchanged.
-//
-// API contract (backend/app/api/routes/classification_policy.py):
-//   GET /api/v1/admin/data-classification/policy (any signed-in user, read-only)
-//     -> {state: default|configured|invalid, levels: [{level, rank, rules: {...}}], defaults: {<level>: rules},
-//         rule_keys, connector_families, connector_access_values, model_aliases (the active gateway's aliases: the
-//         editor's choices), updated_at, updated_by, can_edit}
-//        Optional, read when sent: `label` and `admitted_model_aliases` per level; `derived_rules` (
-//        `allowed_model_aliases` is derived from the Model catalog clearance, read-only here, ignored by the PUT).
-//   PUT same path (platform admins), {levels: [{level, rules}]} -> the GET body; a refusal is 422
-//     {detail: {errors: [{code, path}]}}.
+// Rules stay in wire form so a rule this UI does not show yet is sent back unchanged.
 
 export type Rules = Record<string, unknown>;
 export type ConnectorMode = "none" | "read" | "read_write";
 export const CONNECTOR_MODES: readonly ConnectorMode[] = ["none", "read", "read_write"];
 
-// A level's catalog entry: the server sends it with every level it knows (policy_matrix_admin._level_info);
-// a level missing from the catalog comes without it and reads the defaults below.
 export type LevelInfo = { rank: number | null; color: string | null; description: string; modelsAllowed: boolean; builtin: boolean };
 export type PolicyLevel = { level: string; label: string; rules: Rules; admittedAliases: string[] | null; info: LevelInfo };
 
@@ -32,14 +18,12 @@ export type ClassificationPolicy = {
   updatedBy: string | null;
   canEdit: boolean;
   modelAliases: string[];
-  /** Rules the server derives (read-only here): their current value counts as their default. */
   derivedRules: string[];
 };
 
 type RuleKind = "bool" | "aliases" | "days" | "connectors";
 export type RuleColumn = { key: string; label: string; kind: RuleKind; help: string; yes?: string; no?: string };
 
-// Plain-language column help; the enforcement point is named so an admin knows what a change does.
 export const RULE_COLUMNS: readonly RuleColumn[] = [
   { key: "seat_allowed", label: "Seat sessions", kind: "bool", yes: "allowed", no: "not allowed",
     help: "Claude subscription (seat) sessions may work on data of this level. The Workspace's own seat switch still has to be on." },
@@ -75,7 +59,6 @@ const text = (value: unknown) => (typeof value === "string" ? value.trim() : "")
 const textList = (value: unknown) => (Array.isArray(value) ? Array.from(new Set(value.map((item) => text(isRecord(item) ? item.alias : item)).filter(Boolean))) : []);
 export const isConnectorMode = (value: unknown): value is ConnectorMode => CONNECTOR_MODES.includes(value as ConnectorMode);
 
-/** The defaults per level, from `{level: rules}` or `[{level, rules}]`. */
 function readDefaults(value: unknown): Record<string, Rules> {
   const defaults: Record<string, Rules> = {};
   if (Array.isArray(value)) {
@@ -88,7 +71,6 @@ function readDefaults(value: unknown): Record<string, Rules> {
   return defaults;
 }
 
-/** The matrix read model; null when the answer lists no level. `isAdmin` decides editing when the server does not. */
 export function readClassificationPolicy(payload: unknown, isAdmin: boolean): ClassificationPolicy | null {
   if (!isRecord(payload) || !Array.isArray(payload.levels)) return null;
   const seen = new Set<string>();
@@ -141,6 +123,5 @@ export function policyLoadErrorText(error: unknown): string {
   return `The classification policy could not be loaded: ${errorMessage(record) || "the request failed"}.`;
 }
 
-/** A stored matrix the server cannot read fails closed; the admin has to know before anything else. */
 export const INVALID_STATE_TEXT =
   "The stored matrix could not be read: every level is locked down (fail closed) until a platform admin saves a valid matrix.";

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +19,15 @@ class WorkspaceMessagePageBundle:
     turn_trace_rows: list[tuple[str | None, str, str | None, str | None]]
     feedbacks: list[dict]
     has_more: bool
+    authors: dict[str, str] = field(default_factory=dict)  # user id -> the name a user message is shown under
+
+
+async def _author_names(db: AsyncSession, messages: list[Message], owner_id: str | None) -> dict[str, str]:
+    author_ids = {message.author_user_id or owner_id for message in messages if message.author_user_id or owner_id}
+    if not author_ids:
+        return {}
+    rows = await db.execute(select(User.id, User.display_name, User.username).where(User.id.in_(author_ids)))
+    return {str(user_id): str(display_name or username or "") for user_id, display_name, username in rows.all()}
 
 
 async def load_workspace_message_page_bundle(
@@ -40,13 +49,8 @@ async def load_workspace_message_page_bundle(
             )
         ).one_or_none()
         if boundary is None:
-            return WorkspaceMessagePageBundle(
-                messages=[],
-                tool_calls=[],
-                turn_trace_rows=[],
-                feedbacks=[],
-                has_more=False,
-            )
+            return WorkspaceMessagePageBundle(messages=[], tool_calls=[], turn_trace_rows=[], feedbacks=[],
+                                              has_more=False)
         boundary_id, boundary_created_at = boundary
         filters.append(
             or_(
@@ -107,6 +111,7 @@ async def load_workspace_message_page_bundle(
     )
     # The viewer's own answer feedback, from the Memory lobe (``knowledge_answer_feedback``).
     feedbacks = await own_feedback_entries(db, user_id=str(user.id), message_ids=message_ids)
+    authors = await _author_names(db, message_models, session.user_id)
 
     return WorkspaceMessagePageBundle(
         messages=message_models,
@@ -114,4 +119,5 @@ async def load_workspace_message_page_bundle(
         turn_trace_rows=turn_trace_rows,
         feedbacks=feedbacks,
         has_more=has_more,
+        authors=authors,
     )

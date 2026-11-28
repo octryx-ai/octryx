@@ -1,14 +1,4 @@
-"""An internal ``/metrics`` listener without authentication, for a Prometheus in the same private network.
-
-On a local stack Prometheus scrapes the api and the worker directly, with no API
-key and no token. So this listener does not answer on the api port. It runs on a port of its own, which a deployment
-opens only to its private network (compose: no ``ports:`` entry) and never publishes. It is off unless
-``OCTRYX_METRICS_PORT`` is set, so a deployment that sets nothing (Helm, the plain ``docker-compose.yml``)
-keeps the authenticated ``/metrics`` of ``endpoint_access`` and nothing else.
-
-The api and the worker each serve their own process's metrics, on different ports when they share a network
-namespace (the local pod). It answers GET/HEAD ``/metrics`` only; any other path is 404, any other method 405.
-"""
+"""An internal ``/metrics`` listener without authentication, for a Prometheus in the same private network."""
 
 from __future__ import annotations
 
@@ -32,7 +22,6 @@ Render = Callable[[], Awaitable[str]]
 
 
 def metrics_port(env: Mapping[str, str] | None = None) -> int | None:
-    """The listener's port; ``None`` (off) when unset or ``off``."""
     source = os.environ if env is None else env
     raw = str(source.get(METRICS_PORT_ENV) or "").strip().lower()
     if raw in {"", "off", "none", "disabled"}:
@@ -44,8 +33,6 @@ def metrics_port(env: Mapping[str, str] | None = None) -> int | None:
 
 
 class MetricsListener:
-    """A tiny HTTP/1.1 responder for GET/HEAD ``/metrics``, rendered by ``render`` on every scrape."""
-
     def __init__(self, render: Render, *, host: str, port: int, role: str) -> None:
         self._render = render
         self._host = host
@@ -108,7 +95,6 @@ class MetricsListener:
 
 async def start_metrics_listener(render: Render, *, role: str,
                                  env: Mapping[str, str] | None = None) -> MetricsListener | None:
-    """Start the listener when ``OCTRYX_METRICS_PORT`` is set; ``None`` when it is off."""
     port = metrics_port(env)
     if port is None:
         return None

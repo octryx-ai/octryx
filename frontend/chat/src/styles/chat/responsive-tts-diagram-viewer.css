@@ -52,7 +52,7 @@
 
 .diagram-viewer__title-copy {
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: -0.02em;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -81,7 +81,7 @@
   background: var(--surface-overlay-strong);
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 500;
+  font-weight: var(--ds-weight-medium);
   cursor: pointer;
   transition:
     background 0.15s,

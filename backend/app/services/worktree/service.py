@@ -1,11 +1,4 @@
-"""Git Worktree Isolation Service.
-
-Creates and manages git worktrees so each agent session can work in an isolated
-copy of the repository without affecting the main working tree.
-
-Worktrees are stored under data/worktrees/{session_id}/
-They are cleaned up when the session ends or explicitly via cleanup().
-"""
+"""Git Worktree Isolation Service."""
 
 from __future__ import annotations
 
@@ -51,7 +44,6 @@ async def _run_git(*args: str, cwd: str | Path | None = None, check: bool = True
 
 
 async def _find_git_root(path: str | Path) -> Path | None:
-    """Walk up from path to find the git root."""
     rc, out, _ = await _run_git("rev-parse", "--show-toplevel", cwd=path, check=False)
     if rc == 0 and out:
         return Path(out)
@@ -70,13 +62,7 @@ class WorktreeService:
         workspace_root: str,
         branch_prefix: str = "agent",
     ) -> Worktree:
-        """Create a new git worktree for the given session.
-
-        Creates an orphan branch ``{branch_prefix}/{session_id[:8]}`` and checks
-        it out into ``data/worktrees/{session_id}/``.
-
-        Returns the Worktree dataclass with the path to use as workspace_root.
-        """
+        """Create a new git worktree for the given session."""
         git_root = await _find_git_root(workspace_root)
         if not git_root:
             raise RuntimeError(f"No git repository found at or above: {workspace_root}")
@@ -145,10 +131,7 @@ class WorktreeService:
     async def merge_into_main(
         self, session_id: str, target_branch: str = "main", mark_message: Callable[[str], str] | None = None
     ) -> str:
-        """Merge the worktree branch into the target branch. Returns merge commit SHA.
-
-        ``mark_message`` (optional) rewrites the commit messages this merge creates, e.g. to add the AI trailers.
-        """
+        """Merge the worktree branch into the target branch."""
         worktree = self._worktrees.get(session_id)
         if not worktree:
             raise RuntimeError(f"No worktree for session {session_id}")

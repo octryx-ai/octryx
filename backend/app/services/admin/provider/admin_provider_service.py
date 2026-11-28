@@ -1,10 +1,4 @@
-"""Admin-panel service helpers for provider and model management flows.
-
-This module stays the public entry point and the registered dispatch owner for the
-model sync: it is where the provider client is built. The field mapping, secret
-writes, snapshots, model edits and sync bookkeeping live in the ``_admin_provider_*``
-modules next to it.
-"""
+"""Admin-panel service helpers for provider and model management flows."""
 
 from __future__ import annotations
 
@@ -28,15 +22,10 @@ from ....models import (
 from ...provider.driver_policy import require_supported_driver
 from ..governance.admin_config_audit_service import record_admin_config_audit
 from ._admin_provider_fields import (
-    apply_auth_mode,
     apply_aws_and_active_fields,
     apply_descriptive_fields,
-    apply_runtime_defaults_to_provider,
     apply_runtime_fields,
     build_provider_row,
-    initial_gemini_auth,
-    store_created_provider_credentials,
-    store_updated_driver_credentials,
 )
 from ._admin_provider_secrets import _store_provider_api_key
 from ._admin_provider_snapshots import _provider_audit_snapshot, serialize_model
@@ -78,27 +67,25 @@ async def create_provider(
         runtime_kind=payload.get("runtime_kind"),
         auth_mode=payload.get("auth_mode"),
     )
-    auth_mode, auth_metadata = initial_gemini_auth(runtime, payload)
-    provider = build_provider_row(payload, runtime=runtime, auth_mode=auth_mode)
-    apply_runtime_defaults_to_provider(provider, runtime)
+    provider = build_provider_row(payload, runtime=runtime, auth_mode=runtime["auth_mode"])
     # Prime the eager relationship so sync readers (audit snapshot, serializer)
     # never fall through to an async lazy load on this freshly-built provider.
     provider.oauth_config = None
     db.add(provider)
-    await store_created_provider_credentials(
-        db,
-        provider,
-        payload=payload,
-        runtime=runtime,
-        auth_metadata=auth_metadata,
-        set_secret_value_func=set_secret_value_func,
-    )
+    if payload.get("api_key") is not None:
+        await _store_provider_api_key(
+            db,
+            provider,
+            raw_value=payload.get("api_key"),
+            set_secret_value_func=set_secret_value_func,
+        )
     record_admin_config_audit(
         db,
         actor_user_id=actor_user_id,
         action="admin.provider.created",
         resource_type="provider_config",
         resource_id=provider.id,
+        project_id=None,
         before=None,
         after=_provider_audit_snapshot(provider),
         details={"operation": "create_provider", "payload_keys": sorted(str(key) for key in payload)},
@@ -136,8 +123,7 @@ async def update_provider(
         payload = {**payload, "driver": require_supported_driver(payload.get("driver"))}
     before = _provider_audit_snapshot(provider)
     apply_descriptive_fields(provider, payload)
-    runtime = apply_runtime_fields(provider, payload)
-    apply_auth_mode(provider, payload)
+    apply_runtime_fields(provider, payload)
     if payload.get("api_key") is not None:
         await _store_provider_api_key(
             db,
@@ -146,16 +132,13 @@ async def update_provider(
             set_secret_value_func=set_secret_value_func,
         )
     apply_aws_and_active_fields(provider, payload)
-    await store_updated_driver_credentials(
-        db, provider, payload=payload, set_secret_value_func=set_secret_value_func
-    )
-    apply_runtime_defaults_to_provider(provider, runtime)
     record_admin_config_audit(
         db,
         actor_user_id=actor_user_id,
         action="admin.provider.updated",
         resource_type="provider_config",
         resource_id=provider.id,
+        project_id=None,
         before=before,
         after=_provider_audit_snapshot(provider),
         details={"operation": "update_provider", "payload_keys": sorted(str(key) for key in payload)},
@@ -184,6 +167,7 @@ async def delete_provider(db: AsyncSession, *, provider_id: str, actor_user_id: 
         action="admin.provider.deleted",
         resource_type="provider_config",
         resource_id=provider_id,
+        project_id=None,
         before=before,
         after=None,
         details={"operation": "delete_provider"},

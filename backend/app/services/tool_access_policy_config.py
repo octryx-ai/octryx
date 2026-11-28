@@ -1,9 +1,4 @@
-"""The Workspace tool policy as stored in a project config, read for the tool access decision.
-
-``tool_access_policy`` decides whether one tool may run; this module only reads the
-stored policy: the ``tool_policy`` block, the connector-disabled tools, and whether the
-project is limited to read-only tools.
-"""
+"""The Workspace tool policy as stored in a project config, read for the tool access decision."""
 
 from __future__ import annotations
 
@@ -60,11 +55,6 @@ def _connector_policy_disabled_tools(project_config: dict[str, Any] | None) -> s
 
 
 def project_tool_visibility_view(project_config: dict[str, Any] | None) -> dict[str, Any]:
-    """The Workspace tool policy the dispatch enforces, for read-only display (settings review, finding 4).
-
-    ``source`` is ``tool_policy`` when the project stores one, else ``none``; ``policy`` is the normalized effective
-    visibility policy (connector-disabled tools included in the denylist).
-    """
     config = project_config if isinstance(project_config, dict) else {}
     source = "tool_policy" if isinstance(config.get("tool_policy"), dict) else "none"
     policy = _project_tool_visibility_policy(config)
@@ -73,14 +63,10 @@ def project_tool_visibility_view(project_config: dict[str, Any] | None) -> dict[
 
 
 def project_tool_policy_has_allow_rules(project_config: dict[str, Any] | None) -> bool:
-    """Whether the Workspace tool policy defines its tool surface (allowlist, allow patterns, read-only allow)."""
-
     return tool_policy_has_allow_rules(_project_tool_visibility_policy(project_config))
 
 
 def project_enforces_read_only_tools(project_config: dict[str, Any] | None) -> bool:
-    """Return whether the resolved project config requires read-only tools only."""
-
     config = project_config if isinstance(project_config, dict) else {}
     policy = _project_tool_policy(config)
     mode = str(policy.get("mode") or "").strip().lower()

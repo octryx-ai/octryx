@@ -11,8 +11,7 @@ function browserStore(): Storage | null {
   }
 }
 
-// The admin who last saw the setup progress in this browser: the next app start reads their setup status in parallel
-// with the bootstrap (startupRequests.ts). Nobody else gets that early read (a 403 for a non-admin).
+// Only the admin who last saw the progress here gets the early read with the bootstrap; anyone else would get a 403.
 const SETUP_VIEWER_KEY = "octryx-setup-progress-viewer";
 
 export function readSetupViewer(): string {
@@ -34,12 +33,7 @@ function rememberSetupViewer(userId: string | null | undefined, isAdmin: boolean
   }
 }
 
-/**
- * "Setup: 3 of 7 done" for admins while a required setup step is open, else null. Read for the
- * Workspace the page shows (`workspaceId`, the one the Workspace switch resolves); refreshed when it changes and
- * when the window gets focus again. Outsider walkthrough: the rail read its own guess of the Workspace
- * (none, when the choice was not stored) and said "2 of 7" while the guide for the shown Workspace said 5 of 7.
- */
+/** Reads the Workspace the page shows, never a guess of its own, so the rail and the setup guide agree. */
 export function useSetupProgress(isAdmin: boolean, userId: string | null | undefined,
   workspaceId: string | null): string | null {
   const [text, setText] = useState<string | null>(null);

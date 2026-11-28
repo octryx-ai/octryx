@@ -1,12 +1,4 @@
-"""``budget`` problems: active budget policies that reached their warn or block threshold this period.
-
-The budget service writes one ``budget_alerts`` row per policy, metric and threshold level per reset period when
-usage crosses ``warn_at_percent`` (``warning``) or ``block_at_percent`` (``block``) (``services/budget/enforcement``).
-That row is the cheap read: no usage is recomputed here. A ``block`` is a problem, a ``warning`` needs attention;
-a metric that reached ``block`` is reported once, as blocked. Only alerts of the policy's current period count;
-there is one per level and period, so ``since`` and ``last_seen`` are that alert. A policy without a Workspace
-(person or team scope) is platform-wide.
-"""
+"""``budget`` problems: active budget policies that reached their warn or block threshold this period."""
 
 from __future__ import annotations
 

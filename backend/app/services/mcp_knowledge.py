@@ -1,8 +1,4 @@
-"""Project discovery for the Knowledge MCP (``knowledge_projects``).
-
-The governed knowledge tools are served through ``mcp_governed_knowledge``: ``knowledge_read`` (a cited source by
-reference), ``knowledge_changes`` (typed change facts) and ``knowledge_search``.
-"""
+"""Project discovery for the Knowledge MCP (``knowledge_projects``)."""
 
 from __future__ import annotations
 
@@ -17,7 +13,6 @@ from .project import get_user_project_ids
 
 
 async def mcp_list_projects(db: AsyncSession, *, user: User, bound_project_ids: list[str] | None) -> dict[str, Any]:
-    """The projects this grant may target - for choosing the ingest project."""
     project_ids = await get_user_project_ids(user.id, db)
     bound = {str(item) for item in bound_project_ids or []}
     if bound:

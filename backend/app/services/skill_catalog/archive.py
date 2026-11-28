@@ -1,16 +1,4 @@
-"""Reading an uploaded skill: one ``SKILL.md``, or a ``.zip`` holding exactly one skill folder.
-
-Archive safety, refused with fixed codes before anything is stored:
-
-- the upload is at most 5 MB, the archive at most 200 files and 5 MB uncompressed, each file at most 1 MB;
-- a compression ratio above 100 (per file or in total) is a zip bomb (``skill_archive_ratio``); sizes are
-  enforced while reading, never trusted from the archive header;
-- symlinks, absolute paths, ``..``, backslashes, encrypted entries and binary files are refused;
-- exactly one ``SKILL.md`` at the root or in one top-level folder; every other file must sit in that folder.
-
-macOS archive metadata (``__MACOSX/``, ``.DS_Store``) is skipped. The executable bit of an entry is kept so the
-scanner treats such a file as a script.
-"""
+"""Reading an uploaded skill: one ``SKILL.md``, or a ``.zip`` holding exactly one skill folder."""
 
 from __future__ import annotations
 

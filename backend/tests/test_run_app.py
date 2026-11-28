@@ -1,7 +1,5 @@
-"""A run names the app it works on in a repository that holds several (a record that points at a Flutter app must
-not make a Python and a Node bug run `flutter test` with their shells held to the Flutter folder). The start's ``app``
-chooses the app; its environment file is the run's from then on (``context.app``), and the record's file stays the
-default."""
+"""A run names the app it works on in a repository that holds several; the start's ``app`` chooses it and
+its environment file is the run's from then on."""
 
 from __future__ import annotations
 
@@ -10,7 +8,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.api.routes._workflow_run_http import StartRunRequest, _start_context
+from app.api.routes.workflows._workflow_run_http import StartRunRequest, _start_context
 from app.models import CodeRepository, Project
 from app.services.workflow_runs.pipeline import environment_file_for
 from app.services.workflow_runs.workspace import spec

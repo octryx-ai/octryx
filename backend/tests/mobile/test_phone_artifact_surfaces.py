@@ -1,8 +1,4 @@
-"""Artifacts on the phone: a Server chat's page/Office preview and diagram picture, read-only.
-
-The raw file route (``/chat/api/artifact``), the workspace browser and the artifact actions stay off the phone; the
-preview routes keep their own checks (the session must be the person's own).
-"""
+"""Artifacts on the phone: a Server chat's page/Office preview and diagram picture, read-only."""
 
 from __future__ import annotations
 

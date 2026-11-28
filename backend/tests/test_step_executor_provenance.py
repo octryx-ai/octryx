@@ -21,10 +21,6 @@ from app.services.agent_definition_execution_states import (
 )
 from tests.step_executor_support import make_scheduler, make_step, make_task, make_task_run
 
-# ---------------------------------------------------------------------------
-# Resolution provenance
-# ---------------------------------------------------------------------------
-
 #: A resolved published payload, the way ``_load_agent_for_step`` hands one over.
 PUBLISHED_AGENT_PAYLOAD = {
     "id": "agent-step",
@@ -42,14 +38,6 @@ EXPECTED_RESOLUTION_ENTRY = payload_resolution_metadata(PUBLISHED_AGENT_PAYLOAD)
 
 
 class TestResolutionProvenanceIsUniform:
-    """Every session this executor opens names the agent-definition source the same way.
-
-    Provenance existed in two shapes: the analysis step recorded the canonical
-    ``agent_definition_resolution`` entry and the verification and sub-agent-spawn
-    steps recorded nothing, so for two of the three step types that execute an agent a
-    persisted run could not answer whether it ran published content.
-    """
-
     def _patched_loader(self, executor: StepExecutor):
         return patch.object(
             executor,
@@ -104,14 +92,14 @@ class TestResolutionProvenanceIsUniform:
         )
         context = {"task_name": "T", "steps": {"1": upstream}}
 
-        async def fake_run_agent(**kwargs):
-            yield SimpleNamespace(role="assistant", content="done", tool_results=None)
+        async def fake_runner_turn(*_args, **_kwargs):
+            return SimpleNamespace(answer="done")
 
         ex = StepExecutor(make_scheduler())
         with (
             self._patched_loader(ex),
-            patch("app.scheduler.execution.step_executor.async_session_factory") as factory,
-            patch("app.scheduler.execution.step_executor.run_agent", side_effect=fake_run_agent),
+            patch("app.scheduler.execution._step_agent_kinds.async_session_factory") as factory,
+            patch("app.scheduler.execution._step_agent_kinds.runner_turn", side_effect=fake_runner_turn),
         ):
             setup_db = MagicMock()
             setup_db.add = MagicMock()
@@ -132,7 +120,6 @@ class TestResolutionProvenanceIsUniform:
 
     @pytest.mark.asyncio
     async def test_no_agent_definition_records_no_resolution_entry(self):
-        """The entry names a source; with no definition there is no source to name."""
         scheduler = make_scheduler()
         ex = StepExecutor(scheduler)
         step = make_step(step_type="verification")

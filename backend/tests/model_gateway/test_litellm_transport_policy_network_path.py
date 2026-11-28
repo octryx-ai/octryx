@@ -45,8 +45,6 @@ from tests.model_gateway.conftest import (
 )
 from tests.model_gateway.litellm_transport_policy_support import PROXY_HOST, PROXY_URL, private_ca_bundle
 
-# --- httpx construction ------------------------------------------------------
-
 
 def test_the_client_constructs_httpx_with_the_governed_transport_arguments(monkeypatch, tmp_path) -> None:
     bundle = private_ca_bundle(tmp_path)
@@ -61,8 +59,6 @@ def test_the_client_constructs_httpx_with_the_governed_transport_arguments(monke
     captured: dict[str, Any] = {}
 
     class RecordingAsyncClient:
-        """Records the construction arguments; opens nothing."""
-
         def __init__(self, **kwargs: Any):
             captured.update(kwargs)
 
@@ -73,9 +69,6 @@ def test_the_client_constructs_httpx_with_the_governed_transport_arguments(monke
     assert captured["proxy"] == PROXY_URL
     assert captured["trust_env"] is False
     assert captured["follow_redirects"] is False
-
-
-# --- Least-privilege network path -------------------------------------------
 
 
 def test_the_direct_network_path_is_one_egress_hop() -> None:
@@ -121,9 +114,6 @@ def test_a_governed_proxy_moves_the_gateway_into_a_proxy_acl_entry() -> None:
     assert contract.evidence()["network_path_hops"] == list(contract.egress_rules())
 
 
-# --- Fail-closed configuration and readiness --------------------------------
-
-
 def test_a_provider_without_a_transport_contract_cannot_build_a_client() -> None:
     section = gateway_section()
     section.pop("tls")
@@ -142,13 +132,6 @@ def test_a_provider_without_a_transport_contract_cannot_build_a_client() -> None
 
 
 async def test_an_invalid_transport_or_posture_dispatches_nothing(gateway, build_gateway_client) -> None:
-    """Both governed sections are admitted before a client exists.
-
-    The config is what decides where the ``Authorization: Bearer <virtual key>``
-    header may travel and who may retain it, so a malformed section has to be
-    refused with zero requests — not on the first response.
-    """
-
     posture_without = {key: value for key, value in CONTENT_LOGGING_POSTURE.items()}
     cases: dict[str, dict[str, Any]] = {
         TLS_DENIAL_CONTRACT_MISSING: {"tls": None},

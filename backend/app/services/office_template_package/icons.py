@@ -1,9 +1,4 @@
-"""Icon catalog extraction from PPT template slides.
-
-Recognition and naming are shared with the corporate identity extraction
-(``corp_identity.slide_icons``): every icon-sized SVG picture on any slide, named
-by an ``ICO_`` caption matched by distance, alt text, shape name or file name.
-"""
+"""Icon catalog extraction from PPT template slides."""
 
 from __future__ import annotations
 
@@ -53,11 +48,6 @@ def _slide_width(extracted_ppt_dir: Path) -> int:
 
 
 def _detect_icon_slides(extracted_ppt_dir: Path) -> list[tuple[Path, Path, str]]:
-    """Every slide, its rels file and the category it lends its icons.
-
-    Any slide may carry icons; a slide titled "Icons …" only names their
-    category (see ``corp_identity.icons.slide_icon_category``).
-    """
     slides_dir = extracted_ppt_dir / "slides"
     rels_dir = slides_dir / "_rels"
     results: list[tuple[Path, Path, str]] = []
@@ -73,12 +63,6 @@ def _detect_icon_slides(extracted_ppt_dir: Path) -> list[tuple[Path, Path, str]]
 def _parse_icon_slide(
     slide_xml: Path, rels_path: Path, category: str, slide_width: int = 0
 ) -> list[dict[str, Any]]:
-    """The icons of one slide, named as ``corp_identity.slide_icons`` names them.
-
-    An icon counts as labelled when the template says what it is — an ``ICO_``
-    caption, alt text, a meaningful shape name or a telling file name; one known
-    only by a generated media name (``image7``) stays unlabelled.
-    """
     try:
         root = ET.parse(slide_xml).getroot()
     except ET.ParseError:
@@ -104,7 +88,6 @@ def _store_named_icon(
     icon: dict[str, Any], media_dir: Path, icons_dir: Path, package_root: Path,
     categories: dict[str, list[dict[str, Any]]],
 ) -> None:
-    """Copy one named icon into its category folder and list it in ``categories``."""
     src = media_dir / str(icon.get("file") or "")
     if not src.exists():
         return

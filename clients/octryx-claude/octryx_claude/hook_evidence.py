@@ -1,6 +1,4 @@
-"""Evidence and context the hook commands add to what they send (``hooks``): the run contract's working copy
-facts, the declared test command's report, the run's launcher texts and the remembered contract. Best effort
-throughout: none of it ever fails a hook."""
+"""Evidence and context the hook commands add to what they send; best effort, never fails a hook."""
 
 from __future__ import annotations
 
@@ -16,8 +14,6 @@ from .state import LocalState
 
 
 def launcher_texts(state: LocalState, context: SessionContext | None) -> dict[str, Any]:
-    """The platform's launcher texts of this session's run (the cached contract's ``prompt_texts``, ``run.launcher.*``);
-    empty without a run, then :func:`pipeline.text` uses the launcher's fallbacks."""
     if context is None:
         return {}
     try:
@@ -28,7 +24,6 @@ def launcher_texts(state: LocalState, context: SessionContext | None) -> dict[st
 
 
 def _route_notice(state: LocalState, context: SessionContext, result: PlatformResult) -> str:
-    """A conversation the gateway routed by a content policy is announced once (best effort)."""
     try:
         return route_notice_once(state, context.session_key, result.body if result.outcome == "ok" else None,
                                  seat=os.environ.get(ENV_PROFILE) == PROFILE_SEAT)
@@ -38,7 +33,6 @@ def _route_notice(state: LocalState, context: SessionContext, result: PlatformRe
 
 def _with_facts(state: LocalState, context: SessionContext, hook_input: dict[str, Any], *,
                 with_diff: bool) -> dict[str, Any]:
-    """The hook input plus the working copy's facts the remembered run contract asks for (best effort)."""
     try:
         reported = run_contract.facts(run_contract.current(state, context.session_key),
                                       root=run_contract.project_root(str(hook_input.get("cwd") or "")),
@@ -49,8 +43,6 @@ def _with_facts(state: LocalState, context: SessionContext, hook_input: dict[str
 
 
 def _note_system_test_run(state: LocalState, context: SessionContext, hook_input: dict[str, Any]) -> None:
-    """The start of a run of the declared system test command: the review's screenshots are that run's (best
-    effort)."""
     try:
         from . import screens  # noqa: PLC0415
 
@@ -74,9 +66,7 @@ MAX_TEST_BRIEF = 6000  # the platform's brief (``workflow_checks/test_brief``), 
 
 
 def with_full_output_tail(hook_input: dict[str, Any]) -> dict[str, Any]:
-    """A Bash result Claude Code cut to a preview (``<persisted-output>`` … "Full output saved to: <file>") gets the
-    end of that file appended, so the platform reads the command's closing lines (the preview holds only the
-    first 2 KB, where a long test run's result is not). Only a ``tool-results/*.txt`` file of Claude Code's own."""
+    # Claude Code's preview holds only the first 2 KB, where a long test run's result is not.
     response = hook_input.get("tool_response")
     if hook_input.get("tool_name") != "Bash" or not isinstance(response, dict):
         return hook_input
@@ -96,7 +86,6 @@ def with_full_output_tail(hook_input: dict[str, Any]) -> dict[str, Any]:
 
 
 def _with_test_report(state: LocalState, context: SessionContext, hook_input: dict[str, Any]) -> dict[str, Any]:
-    """The hook input plus the JUnit report the declared test command wrote in this call (best effort)."""
     hook_input = with_full_output_tail(hook_input)
     try:
         report = test_report.attach(state, context.session_key, run_contract.current(state, context.session_key),

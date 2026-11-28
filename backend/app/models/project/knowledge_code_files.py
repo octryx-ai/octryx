@@ -1,17 +1,4 @@
-"""The code index of a ``git_repository`` Knowledge source: one row per tracked file (code module).
-
-A repository source is one ``KnowledgeSourceConnector`` of kind ``git_repository``. Per-file sync
-tracking (ledger source, content hash, version marker = git blob sha1) stays in
-``KnowledgeSourceSyncItem``, like every connector. This table adds what the code module needs and
-the sync item does not carry: the repository-relative **path**, the **language**, and the **code
-elements** of the file at its blob (imports, annotations, configuration keys, dependencies, build
-properties, each with its 1-based line). ``knowledge_code_impact`` joins change facts with these
-elements without reading any object back.
-
-Both fetch modes fill it through ``services/knowledge/code/repository_index.upsert_file``: the
-launcher's ``local_snapshot`` upload and the ``remote_git`` fetch. The elements are derived from the
-file text inside ``upsert_file``, so the two modes cannot disagree on them.
-"""
+"""The code index of a git_repository Knowledge source: one row per tracked file."""
 
 from __future__ import annotations
 
@@ -20,6 +7,7 @@ import uuid
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -27,7 +15,7 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class KnowledgeCodeFile(Base):
+class KnowledgeCodeFile(WorkspaceBound, Base):
     __tablename__ = "knowledge_code_files"
     __table_args__ = (
         UniqueConstraint("connector_id", "path_digest", name="uq_knowledge_code_files_path"),
@@ -55,13 +43,9 @@ class KnowledgeCodeFile(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
 
-class KnowledgeCodeFileBlob(Base):
-    """Every blob a path was indexed with: the platform viewer answers old links from it.
-
-    One row per ``(connector, path, blob_sha)``, written when ``upsert_file`` records a new blob.
-    A citation link carries the blob (``?blob=<sha>``), so a link to an older commit still opens
-    exactly the content it cited, after the path moved on to a newer blob.
-    """
+class KnowledgeCodeFileBlob(WorkspaceBound, Base):
+    """Every blob a path was indexed with: the platform viewer answers old links from it. A citation link carries the
+    blob, so it still opens exactly the content it cited."""
 
     __tablename__ = "knowledge_code_file_blobs"
     __table_args__ = (

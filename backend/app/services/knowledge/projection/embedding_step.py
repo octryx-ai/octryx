@@ -1,11 +1,5 @@
-"""One bounded run of an ``embed_revision`` obligation.
-
-The revision is current and its spans are already projected; this adds their vectors in the
-Instance's embedding space. Admission comes first, because the span text is what may leave the
-process for a remote space: a Workspace whose classification the space may not receive is
-refused before any call. The run is bounded like projection (at most one provider batch and
-``EMBED_SPANS_PER_RUN`` writes), holds the same lease, and continues from the persisted cursor.
-"""
+"""One bounded run of an ``embed_revision`` obligation. Admission comes first: the span text may leave the process for a
+remote space."""
 
 from __future__ import annotations
 
@@ -35,7 +29,6 @@ async def embed_revision_batch(
     claim: ClaimedProjection,
     hold_lease: Callable[[], Awaitable[bool]],
 ) -> tuple[int, int, bool]:
-    """Embed the next spans after the cursor. Returns ``(embedded, last ordinal, more pending)``."""
     embedding = runtime.embedding
     if embedding is None:
         raise EmbeddingError(EmbeddingState.NEEDS_CONFIGURATION, runtime.embedding_unavailable_reason)

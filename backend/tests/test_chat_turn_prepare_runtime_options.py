@@ -77,7 +77,8 @@ async def test_prepare_chat_turn_reuses_the_threads_runtime(db):
         priority=99,
         is_active=True,
     )
-    project = Project(id=str(uuid.uuid4()), name="sticky-runtime-project", config={}, is_active=True)
+    project = Project(id=str(uuid.uuid4()), name="sticky-runtime-project",
+                      config={"data_policy": {"classification": "internal"}}, is_active=True)
     session = AgentSession(
         id=str(uuid.uuid4()),
         user_id=admin.id,

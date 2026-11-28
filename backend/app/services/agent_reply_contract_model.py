@@ -1,10 +1,5 @@
-"""The reply contract's schema model and matcher: a small JSON-Schema subset.
-
-An object with typed properties, ``required`` names, string enums, typed arrays and ``schemaRef`` between named
-schemas. As in JSON Schema, properties the schema does not declare are allowed. The model is strict (no type
-coercion), closed (``extra="forbid"``), immutable and uses camelCase aliases; :func:`matches_named` answers a
-boolean on purpose, so no validator text reaches a record.
-"""
+"""The reply contract's schema model and matcher: a small JSON-Schema subset. Strict (no coercion), closed and
+immutable; undeclared properties are allowed, as in JSON Schema."""
 
 from __future__ import annotations
 

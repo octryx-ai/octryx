@@ -1,7 +1,5 @@
-"""Revision reads, revision inserts and their stored-state constants.
-
-Nothing in this module writes the live Agent Definition aggregate.
-"""
+"""Revision reads, revision inserts and their stored-state constants. Nothing here writes the live Agent Definition
+aggregate."""
 
 from __future__ import annotations
 
@@ -40,11 +38,7 @@ REVISION_STORAGE_INTEGRITY_DETAIL = (
 async def load_definition_steps(
     db: AsyncSession, definition_id: str
 ) -> list[AgentStep]:
-    """Return the definition's steps ordered by position, with an explicit query.
-
-    ``AgentDefinition.steps`` is a lazy relationship, so reading it inside an
-    async request raises SQLAlchemy's ``MissingGreenlet``.
-    """
+    # An explicit query: the lazy ``AgentDefinition.steps`` raises ``MissingGreenlet`` in async code.
     result = await db.execute(
         select(AgentStep)
         .where(AgentStep.agent_id == definition_id)
@@ -56,7 +50,6 @@ async def load_definition_steps(
 async def list_agent_definition_revisions(
     db: AsyncSession, definition_id: str
 ) -> list[AgentDefinitionRevision]:
-    """Return a definition's revisions, newest first."""
     result = await db.execute(
         select(AgentDefinitionRevision)
         .where(AgentDefinitionRevision.definition_id == definition_id)
@@ -68,7 +61,6 @@ async def list_agent_definition_revisions(
 async def get_published_revision(
     db: AsyncSession, definition_id: str
 ) -> AgentDefinitionRevision | None:
-    """Return the highest-numbered published revision, or ``None``."""
     result = await db.execute(
         select(AgentDefinitionRevision)
         .where(
@@ -82,28 +74,8 @@ async def get_published_revision(
 
 
 async def insert_revision(db: AsyncSession, revision: AgentDefinitionRevision) -> None:
-    """Insert a new revision row, classifying an integrity failure explicitly.
-
-    Public because the governed write boundary
-    (:mod:`app.services.agent_definition_authoring`) appends revisions for
-    the writers it wraps and must not reimplement this classification.
-
-    ``revision_number`` is derived from the current maximum, so two concurrent
-    requests for the same definition can pick the same number and
-    ``uq_agent_definition_revision_number`` rejects the second one. That single
-    constraint — and only it — is the retryable concurrency conflict (409). Any
-    other integrity failure (a foreign key to a definition or source revision
-    that disappeared, a violated NOT NULL) is a different situation and gets its
-    own explicit state (422), so a caller is never told to retry a request that
-    cannot succeed.
-
-    Nothing is retried in-place: the failed flush has poisoned the transaction,
-    and ``app.db.get_db`` rolls the whole request back, which is also what makes
-    a failed restore leave the live aggregate untouched.
-
-    The database's own message is never surfaced; only the fixed details above
-    are, and the classification compares constraint identity rather than text.
-    """
+    # Only a ``uq_agent_definition_revision_number`` collision is a retryable 409 (other failures are 422). Nothing
+    # retries in place: ``get_db`` rolls the request back before any client retry, so a failed restore changes nothing.
     db.add(revision)
     try:
         await db.flush()
@@ -112,7 +84,6 @@ async def insert_revision(db: AsyncSession, revision: AgentDefinitionRevision) -
 
 
 def _integrity_state(exc: IntegrityError) -> HTTPException:
-    """Map an insert-time integrity failure onto one of two explicit states."""
     if violates_unique_constraint(
         exc,
         constraint_name=UNIQUE_REVISION_NUMBER_CONSTRAINT,

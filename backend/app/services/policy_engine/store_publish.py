@@ -1,8 +1,4 @@
-"""Publishing a policy-set version in review: the four-eyes gate, the saved test cases, then the swap.
-
-Publishing retires the previously published version in the same transaction, so at most one is published (see
-``store`` for the version lifecycle).
-"""
+"""Publishing a policy-set version in review: the four-eyes gate, the saved test cases, then the swap."""
 
 from __future__ import annotations
 
@@ -82,12 +78,11 @@ async def check_publish_gate(db: AsyncSession, row: PolicySetVersion, approval_i
     if not await _user_is_admin(db, approver):
         raise PolicyStoreRefusalError(REFUSAL_APPROVER_NOT_ADMIN)
     record_self_approval_audit(db, decision, resource_type="policy_set_version", resource_id=row.id,
-                               approval_id=approval.id)
+                               approval_id=approval.id, project_id=None)
     return PublishGate(approval.id, str(approval.requested_by), approver, decision.self_approved)
 
 
 async def self_approve_review(db: AsyncSession, row: PolicySetVersion, *, actor_id: str) -> str:
-    """The single-step publish: the submitter approves their own pending review (approval rule permitting)."""
     approval = await db.get(Approval, row.approval_id) if row.approval_id else None
     if approval is None:
         raise PolicyStoreRefusalError(REFUSAL_APPROVAL_REQUIRED)

@@ -1,31 +1,5 @@
-"""A per-repository Git token for a Bitbucket Data Center repository of a Workspace.
-
-Why: a Data Center connection signed in with the OpenID Connect client credentials grant reads the REST API, but Git
-over HTTPS (``/scm/...``) answers 500 for that Bearer token, so the server can neither clone (Knowledge sync:
-``source_unauthorized``) nor push (workflow runs). An author therefore enters a Bitbucket HTTP access token
-(repository or project scope, "Repository write") when registering the repository from the connection.
-
-- **Checked before it is stored** (:func:`check_git_token`) the way Git itself uses it: the smart-HTTP push
-  discovery ``GET {base}/scm/{key}/{slug}.git/info/refs?service=git-receive-pack`` with ``Authorization: Bearer
-  <token>`` through the pinned egress transport of the ``bitbucket`` connection type (``public_only`` plus the
-  admin's on-prem allowlist; a refusal is ``egress_refused`` and nothing is sent), no redirects. 200 with the
-  receive-pack advertisement means "this token may push to exactly this repository"; 401 is ``git_token_invalid``,
-  403/404 is ``git_token_wrong_repository`` (no write right there); anything else is the fixed reason of the status.
-  Not the REST API: a security proxy in front of Bitbucket can take a REST Bearer for an OpenID Connect token and
-  answer 401 to a valid HTTP access token, while ``/scm`` passes it to Bitbucket. A broader token (project or
-  personal) is accepted as long as it may push to this repository.
-- **Stored encrypted** in ``stored_secrets`` with the platform's secret service (``services/secret``: Fernet keyed
-  by the instance ``encryption_key``), tool ``repository_git_token``, field ``git_token:<row id>``, the Workspace
-  as its project. ``repository_git_tokens`` holds the secret's id, the instance and ``bitbucket:<KEY>/<slug>``,
-  who set it and when; never the value. One token per Workspace and repository: the Knowledge sync and the workflow
-  runs of that Workspace on that repository use it (:func:`usable_git_token`).
-- **Never answered**: :func:`git_token_state` is ``{"configured", "set_at", "set_by"}``. Never logged; every
-  dataclass that carries it hides it from ``repr``. Set, replace and remove are audited
-  (``knowledge_source.git_token_set`` / ``knowledge_source.git_token_removed``) with keys and ids only.
-- **Used for Git only**, and only on the instance it was checked against: the clone of the Knowledge sync
-  (``sync/git_clone.py``) and the Bitbucket tools' Git environment (clone, fetch, pull, push of workflow runs).
-  REST calls keep the connection's sign-in.
-"""
+"""A per-repository Git token for a Bitbucket Data Center repository of a Workspace. Git over HTTPS refuses the OIDC
+Bearer token, so the clone needs its own token."""
 
 from __future__ import annotations
 
@@ -78,19 +52,16 @@ _MAX_ANSWER_BYTES = 256 * 1024
 
 @dataclass(frozen=True, slots=True)
 class CheckedGitToken:
-    """A token Bitbucket confirmed for exactly ``repository``; the value never appears in a repr."""
-
+    # The token value never appears in a repr.
     repository: RepositoryIdentity
     token: str = field(repr=False)
 
 
 def repository_key(identity: RepositoryIdentity) -> str:
-    """``bitbucket:<KEY>/<slug>``: the repository key of the workflow runs (``workflow_runs/platform/scm.py``)."""
     return f"bitbucket:{identity.path}"
 
 
 def source_repository(scope: dict | None) -> RepositoryIdentity | None:
-    """The Data Center repository of a ``git_repository`` source's scope, else ``None`` (no token applies)."""
     scope = dict(scope or {})
     if scope.get(HOST_KIND) != HOST_BITBUCKET_DATACENTER:
         return None
@@ -115,7 +86,6 @@ def _status_reason(status: int) -> str:
 async def check_git_token(
     repository: RepositoryIdentity | None, token: object, *, transport: httpx.AsyncBaseTransport | None = None
 ) -> CheckedGitToken:
-    """The token, confirmed by Bitbucket for exactly ``repository`` (module doc); else :class:`ConnectorError`."""
     if repository is None:
         raise ConnectorError(REASON_GIT_TOKEN_NOT_SUPPORTED)
     if type(token) is not str or not _TOKEN.fullmatch(token):
@@ -156,6 +126,7 @@ def _audit(db: AsyncSession, action: str, *, actor_id: str | None, connector: Kn
            repository: RepositoryIdentity, **details: Any) -> None:
     db.add(AuditLog(
         user_id=actor_id, action=action, resource_type="knowledge_source_connector", resource_id=connector.id,
+        project_id=connector.project_id,
         details={"workspace_id": connector.project_id, "connector_key": connector.connector_key,
                  "repository_key": repository_key(repository), "host_base": repository.base, **details},
     ))
@@ -164,7 +135,6 @@ def _audit(db: AsyncSession, action: str, *, actor_id: str | None, connector: Kn
 async def store_git_token(
     db: AsyncSession, *, connector: KnowledgeSourceConnector, checked: CheckedGitToken, actor_id: str
 ) -> RepositoryGitToken:
-    """Store (or replace) the checked token of ``connector``'s Workspace and repository; audited; never commits."""
     project_id = str(connector.project_id)
     row = await _token_row(db, project_id, checked.repository)
     replaced = row is not None
@@ -185,7 +155,6 @@ async def store_git_token(
 async def remove_git_token(
     db: AsyncSession, *, connector: KnowledgeSourceConnector, actor_id: str | None, reason: str = REMOVED_BY_AUTHOR
 ) -> bool:
-    """Remove the token of ``connector``'s repository and destroy its secret; audited; ``False``: none was set."""
     repository = source_repository(connector.scope)
     row = None if repository is None else await _token_row(db, str(connector.project_id), repository)
     if row is None or repository is None:
@@ -201,7 +170,6 @@ async def remove_git_token(
 
 async def remove_git_token_with_source(db: AsyncSession, *, connector: KnowledgeSourceConnector,
                                        actor_id: str | None) -> bool:
-    """A deleted source takes its repository's token along unless another source of the Workspace reads it."""
     repository = source_repository(connector.scope)
     if repository is None:
         return False
@@ -216,7 +184,6 @@ async def remove_git_token_with_source(db: AsyncSession, *, connector: Knowledge
 
 
 async def git_token_state(db: AsyncSession, project_id: str, scope: dict | None) -> dict[str, Any]:
-    """What a client may know: whether a token is configured for the source's repository, when and by whom."""
     repository = source_repository(scope)
     row = None if repository is None else await _token_row(db, project_id, repository)
     if row is None:
@@ -227,15 +194,15 @@ async def git_token_state(db: AsyncSession, project_id: str, scope: dict | None)
 async def usable_git_token(
     db: AsyncSession, project_id: str | None, repository: RepositoryIdentity | None
 ) -> str | None:
-    """The decrypted token for Git on ``repository`` in the Workspace, or ``None`` (none set, revoked or expired:
-    Git then signs in with the connection). Only the secret service decrypts; nothing is logged."""
+    # Only the secret service decrypts; nothing is logged.
     if not project_id or repository is None:
         return None
     row = await _token_row(db, project_id, repository)
     if row is None:
         return None
     value = await get_secret_value(db, secret_id=row.secret_id, expected_tool_name=SECRET_TOOL_NAME,
-                                   expected_field_name=_secret_field(row.id), expected_project_id=project_id)
+                                   expected_field_name=_secret_field(row.id), expected_project_id=project_id,
+                                   purpose="knowledge.repository_git_token")
     if not value:
         logger.warning("Repository Git token not usable (revoked or expired): workspace=%s repository=%s",
                        project_id, repository_key(repository))

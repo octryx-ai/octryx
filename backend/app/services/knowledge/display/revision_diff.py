@@ -1,16 +1,5 @@
-"""Line diff between two revisions of one source, over their plain text.
-
-Both revisions are read through :func:`ledger.original.read_original`, so the diff has exactly the
-original route's authorization: a revision of another source, of another Workspace, hidden by the
-source ACL, or tombstoned is ``revision_not_found``. HTML originals are compared as the plain text
-their display view extracts (``display/original_view.py``), so markup churn is not a change.
-
-Bounded explicitly, never truncated: a side above the view's byte bound, :data:`MAX_DIFF_INPUT_CHARS` or
-:data:`MAX_DIFF_INPUT_LINES` answers ``state: "too_large"`` with ``too_large_reason: "input"`` and
-no diff; a unified diff longer than :data:`MAX_DIFF_OUTPUT_CHARS` answers ``"output"`` with its
-stats but no diff text. ``difflib`` runs in a worker thread so a large comparison never stalls the
-event loop.
-"""
+"""Line diff between two revisions of one source, over their plain text. Both sides go through ``read_original``; an
+oversized side is ``too_large``, never truncated."""
 
 from __future__ import annotations
 
@@ -50,7 +39,6 @@ def _within_input_bounds(text: str) -> bool:
 
 
 def line_diff(before: str, after: str, *, from_label: str, to_label: str) -> LineDiff:
-    """Unified diff of two texts and its exact added/removed line counts."""
     lines = list(
         difflib.unified_diff(
             before.splitlines(),
@@ -101,7 +89,6 @@ async def diff_revisions(
     from_revision_id: str,
     to_revision_id: str,
 ) -> dict:
-    """The bounded line diff ``from`` -> ``to`` of one source; refusals are the original route's."""
     before, from_meta = await _side(db, runtime, authorized, source_id, from_revision_id)
     after, to_meta = await _side(db, runtime, authorized, source_id, to_revision_id)
     payload: dict = {

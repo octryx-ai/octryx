@@ -1,9 +1,4 @@
-// Effective execution mode for the Execution & storage page.
-// Behaviour source: backend/app/services/execution_runtime/service.py runs a
-// command in Docker when the provider is `docker`; when Docker is unavailable it
-// falls back to the host only if `execution_runtime_allow_host_fallback` is on,
-// otherwise the command fails. `hard` sandbox mode forces the fallback off
-// (services/system_config/runtime_settings.py).
+// Mirrors the backend: without Docker the host fallback runs only when allowed, and hard sandbox mode forbids it.
 
 export type ExecutionModeSource = {
   execution_runtime_provider?: string | null;
@@ -37,7 +32,6 @@ export function executionModeSummary(
   };
 }
 
-/** Whether the unsaved drafts would change the effective mode. */
 export function executionModeChanged(
   saved: ExecutionModeSource | null | undefined,
   draft: ExecutionModeSource,

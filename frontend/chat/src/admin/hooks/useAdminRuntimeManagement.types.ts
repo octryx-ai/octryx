@@ -1,5 +1,5 @@
 import type { Dispatch, SetStateAction } from "react";
-import type { AdminOfficeTemplateEntry, AdminRuntime, AdminRuntimeSettings, AdminToolResultCompressionLog, AdminToolResultCompressor } from "../types/adminPanelTypes.runtimeCorp";
+import type { AdminOfficeTemplateEntry, AdminRuntime, AdminRuntimeSettings } from "../types/adminPanelTypes.runtimeCorp";
 
 export type ReadJsonFn = <T>(
   input: RequestInfo,
@@ -39,8 +39,6 @@ export type UseAdminRuntimeManagementArgs = {
   runtimeLlmSecurityReviewThresholdDraft: string;
   runtimeLlmSecurityDenyThresholdDraft: string;
   runtimeSecurityAnalyzerChainDraft: string;
-  runtimeDefaultCompletionDraft: string;
-  runtimeExtendedCompletionDraft: string;
   runtimeApproxCharsDraft: string;
   runtimeTraceMaxStringDraft: string;
   runtimeTraceMaxListDraft: string;
@@ -49,11 +47,6 @@ export type UseAdminRuntimeManagementArgs = {
   runtimeRequestTimeoutDraft: string;
   runtimeSessionCostLimitDraft: string;
   runtimeRequestCostLimitDraft: string;
-  runtimeCacheTtlDraft: string;
-  runtimeToolsCacheTtlDraft: string;
-  runtimeToolPlannerTraceCallEnabled: boolean;
-  runtimeToolPlannerMaxTokensDraft: string;
-  runtimeToolPlannerTimeoutDraft: string;
   setRuntimeSettings: Dispatch<SetStateAction<AdminRuntimeSettings>>;
   setRuntimeGlobalOutputDraft: Dispatch<SetStateAction<string>>;
   setRuntimeDefaultModelDraft: Dispatch<SetStateAction<string>>;
@@ -82,8 +75,6 @@ export type UseAdminRuntimeManagementArgs = {
   setRuntimeLlmSecurityReviewThresholdDraft: Dispatch<SetStateAction<string>>;
   setRuntimeLlmSecurityDenyThresholdDraft: Dispatch<SetStateAction<string>>;
   setRuntimeSecurityAnalyzerChainDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeDefaultCompletionDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeExtendedCompletionDraft: Dispatch<SetStateAction<string>>;
   setRuntimeApproxCharsDraft: Dispatch<SetStateAction<string>>;
   setRuntimeTraceMaxStringDraft: Dispatch<SetStateAction<string>>;
   setRuntimeTraceMaxListDraft: Dispatch<SetStateAction<string>>;
@@ -92,34 +83,6 @@ export type UseAdminRuntimeManagementArgs = {
   setRuntimeRequestTimeoutDraft: Dispatch<SetStateAction<string>>;
   setRuntimeSessionCostLimitDraft: Dispatch<SetStateAction<string>>;
   setRuntimeRequestCostLimitDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeCacheTtlDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeToolsCacheTtlDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeToolPlannerTraceCallEnabled: Dispatch<SetStateAction<boolean>>;
-  setRuntimeToolPlannerMaxTokensDraft: Dispatch<SetStateAction<string>>;
-  setRuntimeToolPlannerTimeoutDraft: Dispatch<SetStateAction<string>>;
-  toolResultCompressorDrafts: Record<
-    string,
-    { strategy: string; config: Record<string, unknown>; is_active: boolean }
-  >;
-  setToolResultCompressionSaving: Dispatch<SetStateAction<string | null>>;
-  setToolResultCompressors: Dispatch<
-    SetStateAction<AdminToolResultCompressor[]>
-  >;
-  setToolResultCompressorDrafts: Dispatch<
-    SetStateAction<
-      Record<
-        string,
-        {
-          strategy: string;
-          config: Record<string, unknown>;
-          is_active: boolean;
-        }
-      >
-    >
-  >;
-  setToolResultCompressionLogs: Dispatch<
-    SetStateAction<AdminToolResultCompressionLog[]>
-  >;
   runtimeTagsInput: string;
   setEditingRuntimeTags: Dispatch<SetStateAction<string | null>>;
 };

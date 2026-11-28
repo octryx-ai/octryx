@@ -1,16 +1,5 @@
 """A step that waits for its device (``pipeline.run``, a hands-on pass, a workspace preparation: a ``waiting`` event
-with an ``action`` at the run's current node) pauses ``device_unreachable`` instead of waiting forever.
-
-Without this, a device service that died while the run waited for its pipeline left the run ``running`` at
-``pipeline`` for as long as nobody looked, with nothing in the attention list. The sweep
-pauses such a run with cause environment and the next step "check or restart the launcher":
-
-- ``device_offline``: the device is not reachable (no channel, no recent tick) for ``device_offline_grace_s``;
-- ``device_job_silent``: the device is connected, but nothing arrived for the step for ``device_timeout_s``.
-
-Both are data: the node's ``config`` wins, then the workflow's ``failure_policy``, then the platform default below.
-The pause resumes with ``restart`` at the waiting node: the step is offered again, no loop round is spent.
-"""
+with an ``action`` at the run's current node) pauses ``device_unreachable`` instead of waiting forever."""
 
 from __future__ import annotations
 
@@ -41,7 +30,6 @@ def _seconds(config: dict[str, Any], policy: dict[str, Any], key: str, default: 
 
 
 async def _settings(db: AsyncSession, run: WorkflowRun) -> tuple[int, int]:
-    """``(device_timeout_s, device_offline_grace_s)`` for the run's current node."""
     from .failure import failure_policy
     from .sweep import _config
 
@@ -51,7 +39,6 @@ async def _settings(db: AsyncSession, run: WorkflowRun) -> tuple[int, int]:
 
 
 async def waiting_since_last_event(db: AsyncSession, run: WorkflowRun) -> datetime | None:
-    """The time of the run's last event when its current node waits for a device step, else ``None``."""
     events = (await db.execute(select(WorkflowRunEvent).where(WorkflowRunEvent.run_id == run.id).order_by(
         WorkflowRunEvent.created_at.desc()).limit(RECENT_EVENTS))).scalars().all()
     for event in events:
@@ -65,7 +52,6 @@ async def waiting_since_last_event(db: AsyncSession, run: WorkflowRun) -> dateti
 
 
 async def due(db: AsyncSession, run: WorkflowRun, now: datetime) -> tuple[str, int] | None:
-    """``(code, silent seconds)`` when the run's waiting device step is overdue, else ``None``."""
     from ...models.security.device import UserDevice
     from ..devices.hub import device_hub
     from .runtime_target.target import stored_target
@@ -107,7 +93,6 @@ async def pause_unreachable(db: AsyncSession, run: WorkflowRun, code: str, silen
 
 
 async def sweep_device_steps(db: AsyncSession, *, now: datetime) -> int:
-    """Pause every running device run whose waiting step is overdue; returns how many paused."""
     from .records import WorkflowRunError, lock_run
 
     now = ensure_utc(now)

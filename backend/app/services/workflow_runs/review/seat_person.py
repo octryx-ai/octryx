@@ -1,9 +1,4 @@
-"""Whose seat reviews a run, and on which of the person's devices.
-
-``review.seat`` runs the review as a tool-less turn on a person's device. This module picks the person and the
-devices a review can run on without a known folder of the repository (a pull request the person never ran on a
-device: the PR review bot).
-"""
+"""Whose seat reviews a run, and on which of the person's devices."""
 
 from __future__ import annotations
 
@@ -16,8 +11,6 @@ SOURCE_REQUESTER = "requester"
 
 
 async def seat_person(db: AsyncSession, run: WorkflowRun) -> tuple[User | None, str]:
-    """Whose seat reviews: the run's person; a PR review bot run (started by the bot user, which has no seat) names
-    the person by the bot's own rule (``pr_review_bot.seat_choice``: the pull request's author, opt-in)."""
     from ...pr_review_bot.seat_choice import bot_seat_person, is_bot_run
 
     if is_bot_run(run):
@@ -27,8 +20,6 @@ async def seat_person(db: AsyncSession, run: WorkflowRun) -> tuple[User | None, 
 
 
 async def seat_phases(db: AsyncSession, run: WorkflowRun) -> list[list[tuple[User, str]]]:
-    """Who is offered the seat review, phase by phase: a person's run their own seat; a PR review bot run the team's
-    seats at once, then the pull request's author (``pr_review_bot.seat_choice.bot_seat_phases``)."""
     from ...pr_review_bot.seat_choice import bot_seat_phases, is_bot_run
 
     if is_bot_run(run):
@@ -38,9 +29,6 @@ async def seat_phases(db: AsyncSession, run: WorkflowRun) -> list[list[tuple[Use
 
 
 def _any_folder(device: UserDevice) -> str:
-    """A folder the device allows: the review call itself runs in an empty temporary folder without tools
-    (``octryx_claude.review_call``), so any allowlisted one admits it. Otherwise the bot's
-    reviews of a repository nobody had run on a device found no folder and paused ``review_model_not_admitted``."""
     return next((str(folder) for folder in device.folders or [] if str(folder).strip()), "")
 
 

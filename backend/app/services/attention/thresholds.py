@@ -16,7 +16,6 @@ USAGE_HREF = "/chat?area=operations&tab=usage"
 
 
 async def _workspaces(db: AsyncSession, user: User) -> list[str]:
-    """The Workspaces of the person's recent runs (the budget is per Workspace policy)."""
     rows = (await db.execute(select(WorkflowRun.project_id).where(
         WorkflowRun.requested_by == user.id, WorkflowRun.project_id.is_not(None),
     ).order_by(WorkflowRun.updated_at.desc()).limit(20))).scalars().all()

@@ -7,8 +7,6 @@ _BOUNDARIES = (b"\r\n\r\n", b"\n\n")
 
 
 def split_sse_event(buffer: bytes) -> tuple[bytes, bytes] | None:
-    """``(event including its separator, rest)`` for the first complete event."""
-
     found: tuple[int, int] | None = None
     for boundary in _BOUNDARIES:
         index = buffer.find(boundary)

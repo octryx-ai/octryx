@@ -19,13 +19,14 @@ from app.services.workflow_runs.specification.lineage import (
     take_output_provenance,
 )
 from app.time_utils import utc_now
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.specification_definition_support import BUDGET
 from tests.specification_producer_support import SPEC, enter, producer, put
 
+pytestmark = pytest.mark.usefixtures("scripted_pool")
+
 
 async def _windowed(db):
-    """The producer's read shows a window: its own span and a neighbour (live S3.2: a brief cited the centre key for
-    text that stood in a neighbour, and the frozen evidence held only the centre span)."""
     from app.models.project.knowledge_evidence import KnowledgeEvidenceSpan
 
     run, actor, session, source, revision, call, kwargs, brief = await producer(db, complete=False)
@@ -208,7 +209,7 @@ async def test_a_neighbour_passage_the_read_showed_is_cited_and_frozen_by_its_ow
     canonical = await canonicalize_output(db, run, "research_brief", brief, **kwargs)
     [row] = canonical["evidence"]
     assert (row["evidence_key"], row["call_id"]) == (neighbour, call.id)
-    assert row["text"] == "How to use: the neighbour states the example."  # exactly that passage, not the centre
+    assert row["text"] == "How to use: the neighbour states the example."
 
 
 @pytest.mark.asyncio

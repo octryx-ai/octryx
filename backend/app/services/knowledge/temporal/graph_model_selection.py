@@ -1,22 +1,5 @@
-"""Which governed runtimes may serve graph extraction for one Workspace.
-
-The choice is explicit, in this order, and never a silent pick of whatever target is first:
-
-1. Control-plane runtimes tagged ``extract`` (``use_case_tags``): an operator routed graph extraction
-   to a model on purpose. Only those are used, in their priority order.
-2. Otherwise the Workspace's gateway alias admission policy (``Project.config["model_policy"]``,
-   ``model_gateway/litellm/policy.py``). Only ``litellm_gateway`` runtimes the Workspace admits are
-   used: first the aliases of ``allowed_aliases`` in that list's order, then, only under
-   ``allow_all_admitted_aliases``, the other admitted aliases in runtime priority order. Admission
-   (``admit_runtimes_for_dispatch``) decides which alias is admitted, so ``denied_aliases``, the level
-   allowlist and the policy engine apply unchanged; ``model_alias_access_decision`` only tells an
-   explicit grant from an allow-all one for the order. A direct provider target never serves this path.
-3. Neither: ``needs_configuration`` / ``graph_model_unconfigured``. No model is called.
-
-Every chain is admitted under the registered dispatch owner ``knowledge_temporal_graph`` for the one
-Workspace the episode belongs to. Like admission, only the project row's own config is read. Every
-refusal is a :class:`GraphModelUnavailableError` with a fixed state and reason.
-"""
+"""Which governed runtimes may serve graph extraction for one Workspace. The order is explicit, never a silent pick of
+the first target."""
 
 from __future__ import annotations
 
@@ -83,7 +66,6 @@ async def _project_config(db: AsyncSession, project_id: str) -> dict[str, Any]:
 
 
 def _policy_order(admitted: list[dict[str, Any]], config: dict[str, Any]) -> list[dict[str, Any]]:
-    """Explicit grants in ``allowed_aliases`` order, then allow-all aliases in runtime priority order."""
     policy = config.get(MODEL_POLICY_CONFIG_KEY)
     allowed = policy.get("allowed_aliases") if isinstance(policy, dict) else None
     position: dict[str, int] = {}
@@ -123,7 +105,6 @@ async def select_graph_runtimes(
     project_id: str,
     resolve_runtimes: RuntimeResolver | None = None,
 ) -> list[dict[str, Any]]:
-    """The admitted runtimes for graph extraction in this Workspace, in order, or a fixed refusal."""
     if resolve_runtimes is None:
         from ...control_plane_service import resolve_control_plane_runtimes
 

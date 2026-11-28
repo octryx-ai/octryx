@@ -35,9 +35,6 @@ ModelFactory = Callable[..., Awaitable[Any]]
 
 async def _ask(db: AsyncSession, run: WorkflowRun, model_factory: ModelFactory
                ) -> tuple[Any, Any, str, str, dict[str, Any]]:
-    """``(verdict, usage, reason, tree, reviewer facts)``; a verdict of ``None`` means no decision (with ``reason``).
-
-    Nothing to review (no change for this pass) is no decision either: the model is not asked."""
     from ..graph import graph_for_run
     from .artefact_contract import is_artefact
     from .evidence import review_task
@@ -76,16 +73,15 @@ async def _ask(db: AsyncSession, run: WorkflowRun, model_factory: ModelFactory
     if isinstance(choice, str):
         return None, None, choice, review.tree, {}
     try:
-        model, answered, settled, notes = await _ask_model(
+        model, answered, settled, notes, screens = await _ask_model(
             db, run, model_factory, setup, choice, review, config, system, previous=previous, spec=spec)
     except ReviewModelUnavailableError as error:
         return None, None, error.reason, review.tree, {}
     return _outcome(run, config, review, setup, choice, model, answered, settled, notes,
-                    tests_protected=tests_protected, decisions=decisions)
+                    tests_protected=tests_protected, decisions=decisions, screens=screens)
 
 
 def _system_rules(system: str, config: dict[str, Any], review: Any, *, spec: bool, tests_protected: bool) -> str:
-    """The reviewer's system prompt with the rules the node's config, the answers and the task list ask for."""
     if tests_protected:
         from .tests_gate import TESTS_PROTECTED_RULE
 
@@ -96,11 +92,11 @@ def _system_rules(system: str, config: dict[str, Any], review: Any, *, spec: boo
               else f"{system}\n{SCOPE_RULE}\n{SEVERITY_RULE}")
     if config.get("assumptions") is True:
         system = f"{system}\n{ASSUMPTIONS_RULE}"
-    if config.get("suggestions") is True:  # the PR review bot's inline suggestions (``pr_review_bot``)
+    if config.get("suggestions") is True:
         system = f"{system}\n{SUGGESTION_RULE}"
     if config.get("walkthrough") is True:
         system = f"{system}\n{WALKTHROUGH_RULE}"
-    if config.get("acceptance") is True:  # the PR review bot's acceptance table
+    if config.get("acceptance") is True:
         system = f"{system}\n{ACCEPTANCE_RULE}"
     if config.get("root_cause") is True:
         system = f"{system}\n{ROOT_CAUSE_RULE}"
@@ -115,7 +111,6 @@ def _system_rules(system: str, config: dict[str, Any], review: Any, *, spec: boo
 
 async def _with_spec_decisions(db: AsyncSession, run: WorkflowRun, review: Any, system: str
                                ) -> tuple[Any, str, Any]:
-    """The spec's decisions against the code, checked by the platform first: ``(review, system, decisions)``."""
     from ....models import Project
     from ...engineering_knowledge.stacks import for_project
     from .decisions_gate import DECISIONS_TABLE_RULE
@@ -141,11 +136,10 @@ async def _with_spec_decisions(db: AsyncSession, run: WorkflowRun, review: Any, 
 
 async def _with_pipeline_needs(db: AsyncSession, run: WorkflowRun, review: Any, system: str, *, spec: bool
                                ) -> tuple[Any, str]:
-    """The environment the pipeline's commands need, shown to the reviewer as not in scope."""
     from .pipeline_needs import PIPELINE_NEEDS_RULE, declared
 
     needs = declared(run, await _working_copy(db, run))
-    if needs and not spec:  # finding 27: the environment the pipeline's commands need is not scope
+    if needs and not spec:
         import dataclasses
 
         from ...content_security.untrusted_fence import fenced_untrusted
@@ -159,8 +153,7 @@ async def _with_pipeline_needs(db: AsyncSession, run: WorkflowRun, review: Any, 
 
 async def _ask_model(db: AsyncSession, run: WorkflowRun, model_factory: ModelFactory, setup: Any, choice: Any,
                      review: Any, config: dict[str, Any], system: str, *, previous: Any, spec: bool
-                     ) -> tuple[Any, Any, Any, list[Any]]:
-    """Ask the reviewer model and settle its answer: ``(model, answered, settled or None, screenshot notes)``."""
+                     ) -> tuple[Any, Any, Any, list[Any], list[Any]]:
     model = await _review_model(model_factory, db, run, setup, choice)
     root = await _working_copy(db, run)
     screens = _screens(run, config, review, root)
@@ -174,7 +167,6 @@ async def _ask_model(db: AsyncSession, run: WorkflowRun, model_factory: ModelFac
     if spec and not previous:
         answered = await _two_stage_spec_review(model, setup, review, system)
     else:
-        # A change too large for one call below the price tier is read in parts first (``read_in_parts``).
         task, read = await read_in_parts(model, system.replace(f"\n{SCREENS_RULE}", ""), review)
         answered = await _answer_with_screens(model, system, task, screens, review.screens_task,
                                               follow_up=bool(previous))
@@ -183,21 +175,28 @@ async def _ask_model(db: AsyncSession, run: WorkflowRun, model_factory: ModelFac
     notes = list(answered.answer.get(NOTES_KEY) or []) if isinstance(answered.answer, dict) else []
     settled = _settle(answered.answer if previous else look_floor(answered.answer, notes), previous, scope)
     if settled is None:
-        # Without a retry, one answer that was no valid verdict paused the run
-        # until a person pressed continue. One more ask with the contract restated; a second miss still pauses.
+        # One more ask with the contract restated, so one invalid answer does not pause the run; a second miss pauses.
         again = await model.answer(system=f"{system}\n{RETRY_RULE}", user=task)
         settled = _settle(again.answer if previous else look_floor(again.answer, notes), previous, scope)
         answered = _summed(answered, again)
-    return model, answered, settled, notes
+    return model, answered, settled, notes, screens
 
 
 def _outcome(run: WorkflowRun, config: dict[str, Any], review: Any, setup: Any, choice: Any, model: Any,
-             answered: Any, settled: Any, notes: list[Any], *, tests_protected: bool, decisions: Any
-             ) -> tuple[Any, Any, str, str, dict[str, Any]]:
-    """The review's result from the settled answer, after the platform's own gates, with the reviewer facts."""
+             answered: Any, settled: Any, notes: list[Any], *, tests_protected: bool, decisions: Any,
+             screens: list[Any] = ()) -> tuple[Any, Any, str, str, dict[str, Any]]:
+    import hashlib
+
     facts = {"reviewer_agent": setup.definition_id,
              "reviewer_runtime_shared": bool(getattr(model, "runtime_shared", False)), **choice.facts(),
              "reviewer_route_used": str(getattr(model, "route", "") or choice.route)}
+    if getattr(model, "fallback_from", ""):  # the record names the model that reviewed, not the absent default
+        facts.update({"reviewer_model": model.first_model, "reviewer_model_source": "installation_default",
+                      "reviewer_model_requested": model.fallback_from})
+    if screens:
+        # The screenshots this verdict judged, on the review result (served by GET workflow-runs/<id>/screens/<name>).
+        facts["screens"] = [{"name": item.name, "media_type": item.media_type, "size": len(item.data),
+                             "sha256": hashlib.sha256(item.data).hexdigest()} for item in screens]
     if dict(run.context or {}).get("review_left_out") is not None:  # audit: what the shown diff left out
         facts["left_out"] = list(dict(run.context or {}).get("review_left_out") or [])
     if settled is None:

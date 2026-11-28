@@ -1,14 +1,4 @@
-"""Per-Workspace skill assignment incl. whole categories and surfaces.
-
-The state lives where the platform already keeps it: ``routing_policy.skill_assignment_mode`` and
-``blocked_skill_keys``, ``workspace_capability_bindings`` (``capability_kind="skill"`` per skill, and
-``"skill_category"`` with ``binding_key="skill_category:<key>"`` per category), and
-``runtime_policy.skill_surfaces``. A category binding includes skills published into it (or into a child) later.
-
-Saves are whole-state saves under ``If-Match: <assignment digest>`` (428 without, 409
-``skill_assignment_conflict`` when another admin saved in between; the claim is a conditional UPDATE of the
-Workspace policy row). The answer carries the effective skills per surface with their readiness.
-"""
+"""Per-Workspace skill assignment incl. whole categories and surfaces."""
 
 from __future__ import annotations
 

@@ -1,8 +1,4 @@
-"""Theme of a template, resolved through its first slide master.
-
-Part of ``office_template_snapshot``: the theme fonts and colour palette the
-master actually uses (never a blindly read ``theme1.xml``).
-"""
+"""Theme of a template, resolved through its first slide master."""
 
 from __future__ import annotations
 
@@ -70,7 +66,6 @@ def _theme_fonts(theme_root: ET.Element) -> dict[str, str]:
 def _extract_theme(
     package: PresentationPackage, master_parts: list[str], warnings: list[str]
 ) -> dict[str, Any]:
-    """Resolve presentation.xml -> first sldMasterId -> master rels -> theme."""
     theme_part: str | None = None
     theme_source = "unresolved"
     if master_parts:

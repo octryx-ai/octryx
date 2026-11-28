@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 import platform
-import re
 import shutil
 from collections.abc import Callable
 from pathlib import Path
@@ -145,9 +144,6 @@ def _resolve_effective_command(
     context: ToolContext,
     script_resolver: Callable[..., tuple[str, dict[str, Any] | None, Path]],
 ) -> tuple[str, dict[str, Any] | None, Path]:
-    """The command to run (a resolved repository script), its resolution facts and the directory to run it in.
-
-    ``script_resolver`` is the caller's script resolution, looked up in the calling tool's module."""
     workspace_root = _workspace_root(context)
     effective_command, resolution, effective_cwd = script_resolver(
         command,
@@ -227,13 +223,6 @@ def _resolve_tool_path(context: ToolContext, raw_path: str | None) -> str | None
     if candidate.is_absolute():
         return str(candidate)
     return str((_workspace_root(context) / candidate).resolve())
-
-
-def _shorten_text_block(value: str, *, max_chars: int = 1400) -> str:
-    text = re.sub(r"\n{3,}", "\n\n", value.strip())
-    if len(text) <= max_chars:
-        return text
-    return text[: max_chars - 3].rstrip() + "..."
 
 
 def _select_repository_readme_candidates(

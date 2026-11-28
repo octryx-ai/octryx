@@ -75,15 +75,6 @@ def _resolve_workspace_managed_repo_alias(
     workspace_root: Path,
     allow_missing: bool,
 ) -> Path | None:
-    """Map stale absolute managed-repo paths back into the active session workspace.
-
-    Agents sometimes see historical absolute paths from another local run, while
-    prepared Bitbucket repositories live below the current session workspace at
-    ``var/repos/bitbucket/...``. We never allow direct access to the stale path;
-    we only translate the managed-repo suffix when that suffix resolves inside
-    the active workspace.
-    """
-
     parts = requested_path.parts
     marker = ("var", "repos", "bitbucket")
     for index in range(0, max(len(parts) - len(marker) + 1, 0)):

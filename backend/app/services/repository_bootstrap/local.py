@@ -39,7 +39,6 @@ async def run_git(
 
 
 def _git_failure(summary: str, code: str, exit_code: int) -> dict[str, object]:
-    """A failed bootstrap step: its stdout/stderr (remote URLs, credentials, paths) are never kept."""
     return {"error": summary, "error_code": code, "exit_code": exit_code}
 
 

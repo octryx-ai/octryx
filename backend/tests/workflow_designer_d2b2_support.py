@@ -21,7 +21,6 @@ def _outcome(node_id: str, value: str) -> dict:
 
 
 def result_definition(*, options: list[str] | None = None, otherwise: bool = False) -> dict:
-    """start → agent (ends with fix_needed | no_fix) → condition on its result → two branches."""
     phase = copy.deepcopy(PHASE)
     phase["result_values"] = ["fix_needed", "no_fix"]
     edges = [_edge("e0", "start", "work"), _edge("e1", "work", "pick"), _edge("y", "pick", "fixed", "fix_needed")]

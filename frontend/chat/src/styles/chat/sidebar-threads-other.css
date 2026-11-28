@@ -9,7 +9,7 @@
   cursor: pointer;
   padding: 0.25rem 0.5rem;
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--muted);

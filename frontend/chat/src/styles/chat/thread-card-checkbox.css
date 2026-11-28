@@ -104,7 +104,7 @@
   background: none;
   color: var(--accent-strong);
   font-size: inherit;
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-decoration: underline;
   text-underline-offset: 2px;
   cursor: pointer;

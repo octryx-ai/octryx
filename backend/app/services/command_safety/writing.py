@@ -84,7 +84,6 @@ def _rules_with_switches(rules: list[Any], switches: Any, path: str) -> list[Any
 
 
 async def save_platform_settings(db: AsyncSession, body: Mapping[str, Any], *, actor_id: str) -> dict[str, Any]:
-    """Validate and store the platform gate; both stores in the caller's transaction. Flushes, never commits."""
     chain, llm, lists = _checked_core(body)
     before = await platform_settings(db)
     exec_config = await get_effective_exec_policy_config(db)
@@ -97,8 +96,8 @@ async def save_platform_settings(db: AsyncSession, body: Mapping[str, Any], *, a
               AGENT_LLM_SECURITY_ANALYZER_REVIEW_THRESHOLD_KEY: str(llm["review_threshold"]),
               AGENT_LLM_SECURITY_ANALYZER_DENY_THRESHOLD_KEY: str(llm["deny_threshold"])}
     for key, value in writes.items():
-        await set_system_config_value(db, key=key, value=value, updated_by=actor_id,
-                                      description="Command safety (Settings → Security)", record_prompt_revision=False)
+        await set_system_config_value(db, key=key, value=value,
+                                      description="Command safety (Settings → Security)")
     await upsert_global_exec_policy_config(db, {**lists, AGENT_GUARD_RULES_KEY: guard_rules,
                                                 CUSTOM_TOOL_GUARD_RULES_KEY: custom_rules})
     after = await platform_settings(db)
@@ -110,8 +109,6 @@ async def save_platform_settings(db: AsyncSession, body: Mapping[str, Any], *, a
 
 async def save_workspace_settings(db: AsyncSession, project: Project, body: Mapping[str, Any], *,
                                   actor_id: str) -> dict[str, Any]:
-    """``{mode: inherit}`` clears the Workspace's gate keys; ``{mode: override, settings}`` stores only what differs
-    from the platform. Flushes, never commits."""
     from ..admin.project.admin_project_config_service import apply_project_config_patch
 
     mode = body.get("mode")

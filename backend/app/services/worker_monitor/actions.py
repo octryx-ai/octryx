@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.services.worker_monitor.common import _normalize_action
 
-from ...models import AgentWorker, Message, Role, Session, User, UserRole, WorkerMonitor
+from ...models import AgentWorker, Role, Session, User, UserRole, WorkerMonitor
 from ...services.content_security.untrusted_fence import untrusted_section
 from ...services.outbound_webhook import emit_outbound_webhook_event
 from ...services.run_capability.worker_profiles import worker_session_capability_metadata
@@ -33,19 +33,12 @@ async def _run_monitor_agent_session(
     project_id: str | None,
     agent_type: str,
 ) -> None:
-    from ...agent.engine import run_agent
+    # The monitor's prompt is the session's runner turn (stored as its user message).
+    from ..devices.agent_runtime import runner_turn
 
     async with session_factory() as db:
         try:
-            async for _ in run_agent(
-                session_id=session_id,
-                user_message=prompt,
-                user_id=user_id,
-                project_id=project_id,
-                agent_type=agent_type,
-                db=db,
-            ):
-                pass
+            await runner_turn(db, user_id=user_id, prompt=prompt, session_id=session_id)
         except Exception:
             logger.exception(
                 "Worker monitor agent session failed",
@@ -112,7 +105,6 @@ async def _create_monitor_session(
         },
     )
     db.add(session)
-    db.add(Message(id=str(uuid.uuid4()), session_id=session.id, role="user", content=prompt))
     await db.flush()
     asyncio.create_task(
         run_monitor_agent_session(

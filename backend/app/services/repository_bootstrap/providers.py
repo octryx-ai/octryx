@@ -4,13 +4,13 @@ from typing import Any
 
 import httpx
 
-from app.services.atlassian_auth_modes import BITBUCKET, SCHEME_BASIC
+from app.services.connector_auth.atlassian_modes import BITBUCKET, SCHEME_BASIC
 from app.services.outbound_egress import CONNECTION_BITBUCKET, CONNECTION_GITHUB, egress_transport
 
-from ..atlassian_auth import AtlassianCredential, credential_auth, resolve_credential
+from ..connector_auth.atlassian import AtlassianCredential, credential_auth, resolve_credential
+from ..connector_auth.oidc_token_cache import access_token
 from ..git_http_auth import basic_header_env, bearer_header_env
 from ..github_url import normalize_github_api_base_url
-from ..oidc_token_cache import access_token
 
 
 def github_api_base(project_config: dict[str, Any]) -> str:
@@ -70,7 +70,6 @@ def bitbucket_base_url(project_config: dict[str, Any]) -> str:
 
 
 def bitbucket_credential(project_config: dict[str, Any]) -> AtlassianCredential:
-    """The connection's sign-in (``atlassian_auth``: ``cloud_api_token``, ``basic``, ``bearer_pat``, OpenID Connect)."""
     credential = resolve_credential(BITBUCKET, project_config)
     if credential is None:
         raise ValueError("Bitbucket username and token/password are required to create a repository")

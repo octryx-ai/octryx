@@ -1,20 +1,4 @@
-"""The dedicated service user of one channel.
-
-A channel sender that resolves to no platform user (``channel_router_runtime/sender_identity.py``)
-runs as its channel's service user, never as an arbitrary active user or an admin. One service
-user per channel, named after the channel's id:
-
-* username ``channel-service-<channel id>``, an undeliverable ``.invalid`` email address;
-* ``account_type``/``auth_source`` ``channel_service``, a password nobody knows (a bcrypt hash of a
-  random secret that is never stored), so it cannot log in; no API key;
-* exactly the global ``viewer`` role, and, when the channel is bound to a Workspace, exactly one
-  membership: that Workspace with the ``viewer`` role (read-only tools).
-
-:func:`ensure_channel_service_user` creates or repairs it; channel setup calls it (create and
-update in ``ChannelConfigService``). The runtime only resolves (:func:`resolve_channel_service_user_id`)
-and never creates: a channel without a valid service user refuses its unresolved senders with
-``channel_service_user_not_configured``.
-"""
+"""The dedicated service user of one channel."""
 
 from __future__ import annotations
 
@@ -38,7 +22,7 @@ _EMAIL_DOMAIN = "channel-service.octryx.invalid"
 
 
 class ChannelServiceUserConflictError(RuntimeError):
-    """The service user's username is taken by an account that is not this channel's service user."""
+    pass
 
 
 def service_username(channel_id: int | str) -> str:
@@ -57,7 +41,6 @@ async def _viewer_role(db: AsyncSession) -> Role:
 
 
 async def ensure_channel_service_user(db: AsyncSession, channel: ChannelConfig) -> User:
-    """Create or repair ``channel``'s service user (idempotent); flushes, the caller commits."""
     from ..auth import hash_password
 
     username = service_username(channel.id)
@@ -95,7 +78,6 @@ async def ensure_channel_service_user(db: AsyncSession, channel: ChannelConfig) 
 
 
 async def deactivate_channel_service_user(db: AsyncSession, channel_id: int | str) -> None:
-    """A deleted channel's service user stays (its sessions reference it) but can no longer run."""
     user = (
         await db.execute(select(User).where(User.username == service_username(channel_id)))
     ).scalar_one_or_none()
@@ -107,12 +89,6 @@ async def deactivate_channel_service_user(db: AsyncSession, channel_id: int | st
 async def resolve_channel_service_user_id(
     db: AsyncSession, channel_id: int | str, project_id: str | None
 ) -> str | None:
-    """The channel's valid service user, else ``None`` (``channel_service_user_not_configured``).
-
-    Valid means: active, a ``channel_service`` account, global roles exactly ``viewer``, and a
-    ``viewer`` member of the channel's Workspace when the channel has one. An account that was
-    given more is refused rather than used.
-    """
     user = (
         await db.execute(
             select(User).where(

@@ -1,22 +1,4 @@
-"""What a Workspace admin or owner may change without a platform admin: only tighten.
-
-The Workspace settings editors (budget, coding tools, MCP servers, models) write keys a platform admin
-also sets. A Workspace admin may use them, but every write is checked against the current state and
-the platform values, and anything that loosens is refused with :class:`LooseningRefusedError` (HTTP 403):
-
-- **Budget** — a session or request cap at or below the platform value (``0`` turns a cap off, so it is looser unless
-  the platform cap is off too); a per-person daily budget at or below the baseline.
-- **Coding tools** — ``requires_governed_routing`` is switched off only by a platform admin; a baseline command & file
-  rule or a baseline blocked permission that is in force cannot be removed (stricter-only against the baseline).
-- **MCP servers** (Runtime's Workspace allow, ``services/mcp_workspace_allow``) — a server is switched on only by a
-  platform admin, except the Workspace's own registrations; switching off is always allowed.
-- **Models** — no switch to *all cleared models*, no newly allowed model, no seat or company models in ``/model``
-  that were off.
-- **Seat settings** (the seat-mode route, one key per call) — the same: no seat or Codex seat allowed, no added seat
-  model, no company models in a seat, ``requires_governed_routing`` not switched off.
-
-Platform admins are not bounded.
-"""
+"""What a Workspace admin or owner may change without a platform admin: only tighten."""
 
 from __future__ import annotations
 
@@ -38,7 +20,6 @@ class LooseningRefusedError(Exception):
 
 
 def check_cap(value: float | None, platform: Decimal, path: str) -> None:
-    """``None`` inherits the platform value (always allowed); a number must not exceed an active platform cap."""
     if value is None or platform == 0:
         return
     if value == 0 or Decimal(str(value)) > platform:
@@ -77,14 +58,12 @@ _CEILING_RANK = {"read_only": 0, "edit": 1, "bypass": 2}
 
 
 def check_role_modes(current: Mapping[str, Any], new: Mapping[str, Any]) -> None:
-    """A Workspace admin may lower what a role's sessions may do; raising it is a platform admin's decision."""
     for role, value in new.items():
         if _CEILING_RANK.get(value, 0) > _CEILING_RANK.get(current.get(role, "read_only"), 0):
             raise LooseningRefusedError(f"role_modes.{role}", "only a platform admin can raise what a role may do")
 
 
 def check_mcp_allow(*, allowed: bool, own_server: bool) -> None:
-    """A Workspace admin switches a server off, or on only when it is the Workspace's own registration."""
     if allowed and not own_server:
         raise LooseningRefusedError("allowed", "only a platform admin can allow a platform MCP server")
 
@@ -109,9 +88,6 @@ def check_models(before: Mapping[str, Any], allowed_before: set[str], contract: 
 
 
 def check_seat_setting(key: str, before: Any, after: Any) -> None:
-    """One seat key written through the seat-mode route (``seat_policy.set_workspace_seat_setting``): the same
-    tightening-only rule as the Models editor and Coding tools (allowing a seat, adding a seat model, offering company
-    models in a seat, switching off governed routing are a platform admin's)."""
     if key in ("seat_mode", "codex_seat_mode") and before != "allowed" and after == "allowed":
         raise LooseningRefusedError(key, "only a platform admin can allow seats")
     if key == "requires_governed_routing" and before is True and after is not True:

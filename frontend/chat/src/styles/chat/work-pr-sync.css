@@ -63,12 +63,12 @@
 
 .work-pr__mismatch {
   border: 1px solid color-mix(in srgb, var(--status-attention) 28%, transparent);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: color-mix(in srgb, var(--status-attention) 8%, transparent);
   color: var(--status-attention);
   padding: 0.25rem 0.5rem;
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-transform: uppercase;
 }
 
@@ -111,7 +111,7 @@
 .work-sync-card__settings label {
   color: var(--muted);
   font-size: var(--ds-font-size-small, 0.74rem);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .work-sync-card__settings input,

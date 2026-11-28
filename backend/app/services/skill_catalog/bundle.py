@@ -1,10 +1,4 @@
-"""Skill bundles: the file manifest of a version, its digest and the content-addressed blob store.
-
-A bundle is a set of UTF-8 text files with relative POSIX paths (``SKILL.md``, ``references/…``, ``assets/…``,
-``scripts/…``, ``LICENSE``). The manifest lists ``{path, sha256, size, kind}`` sorted by path; the bundle digest
-is ``sha256:`` over ``path NUL sha256 LF`` of every entry, so it changes when any byte or path changes and does
-not depend on order. Limits: 1 MB per file, 5 MB and 200 files per bundle, text only.
-"""
+"""Skill bundles: the file manifest of a version, its digest and the content-addressed blob store."""
 
 from __future__ import annotations
 
@@ -65,7 +59,6 @@ def sha256_hex(data: bytes) -> str:
 
 
 def normalize_path(path: str) -> str:
-    """A safe relative POSIX path; refuses absolute paths, ``..``, backslashes and control characters."""
     raw = str(path or "")
     if not raw or "\\" in raw or any(ord(char) < 32 for char in raw):
         raise BundleError("skill_path_invalid", "A file path is empty or contains invalid characters.", path=raw[:200])
@@ -157,7 +150,6 @@ async def store_blobs(db: AsyncSession, files: Iterable[BundleFile]) -> None:
 
 
 async def load_files(db: AsyncSession, entries: Iterable[dict[str, Any]]) -> dict[str, str]:
-    """``{path: text}`` of a manifest; a missing blob is a broken invariant and raises."""
     listed = list(entries)
     shas = {entry["sha256"] for entry in listed}
     blobs = {row.sha256: row.content for row in (await db.execute(
@@ -170,7 +162,6 @@ async def load_files(db: AsyncSession, entries: Iterable[dict[str, Any]]) -> dic
 
 
 async def bundle_files(db: AsyncSession, entries: Iterable[dict[str, Any]]) -> list[BundleFile]:
-    """The files of a stored manifest, with their executable bit."""
     listed = list(entries)
     texts = await load_files(db, listed)
     return [BundleFile(entry["path"], texts[entry["path"]], bool(entry.get("executable"))) for entry in listed]

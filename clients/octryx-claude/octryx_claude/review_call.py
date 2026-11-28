@@ -1,25 +1,4 @@
-"""The independent reviewer's call on this device's seat: one tool-less model call.
-
-The platform cannot reach a person's subscription by itself (the seat routes only pass on the ``Authorization`` the
-device's own Claude Code or Codex sends). A workflow run's review on the seat therefore runs here, as a device job
-turn whose offer carries ``review_call``:
-
-1. the turn's session is registered with the job's id, so the platform knows it is the reviewer's (it denies every
-   tool call of it at the PreToolUse check);
-2. the request (system text, task, screenshots) is fetched from the platform
-   (``GET /api/v1/agent-gateway/review-request``); it never travels in the offer;
-3. one call with **no tools**, in an empty temporary folder, with no history:
-   - Claude Code: ``claude -p --tools "" --setting-sources "" --strict-mcp-config`` with an empty MCP config, the
-     reviewer's system prompt and the task (and screenshots as image blocks) as one stream-json user message;
-   - Codex: ``codex exec --ephemeral --sandbox read-only`` in the empty folder, the screenshots as ``--image``; Codex
-     always offers its shell, so the platform's PreToolUse check (``review_tool_not_allowed``) and the read-only
-     sandbox in an empty folder are what keep it tool-less;
-     with the platform's ``seat_traffic`` on ``device`` its call leaves from this device through the turn's own
-     loopback seat proxy (``codex_seat_proxy``), like any Codex seat turn (the relay route refuses it with
-     ``codex_seat_traffic_device``);
-4. the answer and its usage go back (``POST /api/v1/agent-gateway/review-answer``); the turn reports only that it
-   answered, never the answer itself in the chat.
-"""
+"""The independent reviewer's call on this device's seat: one tool-less model call."""
 
 from __future__ import annotations
 
@@ -56,7 +35,6 @@ class ReviewCallError(Exception):
 
 
 def claude_command(prepared: Any, *, system: str, model: str) -> list[str]:
-    """``claude -p`` for one tool-less call: no tools, no MCP server, no settings of the folder or the person."""
     args = [prepared.cli_path, "-p", "--output-format", "stream-json", "--verbose", "--input-format", "stream-json",
             "--settings", str(prepared.settings_path), "--setting-sources", "", "--mcp-config", EMPTY_MCP,
             "--strict-mcp-config", "--tools", "", "--disable-slash-commands", "--no-chrome",
@@ -65,7 +43,6 @@ def claude_command(prepared: Any, *, system: str, model: str) -> list[str]:
 
 
 def claude_message(user: str, images: list[dict[str, Any]]) -> str:
-    """The one user message: the task, then each screenshot after its name."""
     content: list[dict[str, Any]] = [{"type": "text", "text": user}]
     for image in images:
         content.append({"type": "text", "text": f"Screenshot: {image.get('name') or ''}"})
@@ -75,7 +52,6 @@ def claude_message(user: str, images: list[dict[str, Any]]) -> str:
 
 
 def claude_result(lines: list[str]) -> dict[str, Any]:
-    """The answer, usage and model from ``claude -p --output-format stream-json`` lines."""
     model, result = "", None
     for line in lines:
         with contextlib.suppress(ValueError):
@@ -104,7 +80,6 @@ def codex_command(codex: str, *, cwd: str, model: str, images: list[str], answer
 
 
 def codex_prompt(system: str, user: str) -> str:
-    """Codex takes no system prompt of its own here: the reviewer's instructions come first."""
     return f"{system}\n\nYou have no tools in this session: answer from this message alone.\n\n{user}"
 
 
@@ -121,9 +96,6 @@ def codex_usage(lines: list[str]) -> dict[str, int]:
 
 
 def codex_failure(lines: list[str]) -> str:
-    """A failed Codex review call: the seat's limit as its fixed code (``usage_limit`` / ``rate_limit``, so the
-    platform waits for the reset), else ``""``. Codex's own error text goes to the device log only, so a
-    ``review_call_failed`` can be traced there."""
     from .seat_status import codex_limit_code  # noqa: PLC0415
 
     for line in lines:
@@ -166,14 +138,10 @@ async def _run(args: list[str], *, cwd: str, env: dict[str, str], stdin: str,
 
 
 class ReviewCallDriver:
-    """The device turn of a ``review_call`` offer (same interface as the other drivers)."""
-
-    def __init__(self, control: Control, *, engine: str = "", proxy_factory: Any = None) -> None:
+    def __init__(self, control: Control, *, engine: str = "") -> None:
         self._control = control
         self._engine = engine
         self._process: Any = None
-        # Builds the turn's seat proxy (``codex_seat_proxy.SeatProxy``) from the platform URL; a seam for tests.
-        self._proxy_factory = proxy_factory
 
     def _started(self, process: Any) -> None:
         self._process = process
@@ -228,34 +196,13 @@ class ReviewCallDriver:
         args = codex_command(prepared.cli_path, cwd=str(work), model=model,
                              images=write_images(folder, list(request.get("images") or [])),
                              answer_file=str(answer_file))
-        proxy = await self._start_proxy(prepared)
-        try:
-            home = prepare_home(prepared, sandboxed=True, seat_proxy=proxy.url if proxy is not None else "")
-            env = environment(prepared, home, proxy_token=proxy.token if proxy is not None else "")
-            code, lines = await _run(args, cwd=str(work), env=env, started=self._started,
-                                     stdin=codex_prompt(str(request.get("system") or ""),
-                                                        str(request.get("user") or "")))
-        finally:
-            if proxy is not None:
-                await proxy.stop()
+        home = prepare_home(prepared, sandboxed=True)
+        code, lines = await _run(args, cwd=str(work), env=environment(prepared, home), started=self._started,
+                                 stdin=codex_prompt(str(request.get("system") or ""), str(request.get("user") or "")))
         text = answer_file.read_text(encoding="utf-8") if answer_file.exists() else ""
         if not text:
             raise ReviewCallError(codex_failure(lines) or ("review_call_failed" if code else "review_call_empty"))
         return {"text": text, "model": model, "usage": codex_usage(lines)}
-
-    async def _start_proxy(self, prepared: Any) -> Any:
-        """The turn's loopback seat proxy when the seat's calls leave from this device (``seat_traffic: device``)."""
-        from .codex_seat import sends_from_device  # noqa: PLC0415
-
-        if not sends_from_device(prepared.extra):
-            return None
-        from .codex_seat_proxy import SeatProxy  # noqa: PLC0415
-
-        base_url = str((prepared.extra.get("gateway") or {}).get("base_url") or "")
-        try:
-            return await (self._proxy_factory or SeatProxy)(base_url).start()
-        except OSError:
-            raise ReviewCallError("codex_seat_proxy_unavailable") from None
 
     async def interrupt(self) -> None:
         if self._process is not None and self._process.returncode is None:

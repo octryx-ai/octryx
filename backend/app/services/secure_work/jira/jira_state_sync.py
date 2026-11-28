@@ -1,21 +1,4 @@
-"""Execute workflow-mapped Jira transitions for work-item state changes.
-
-Execution is double opt-in configuration, never guessing:
-- the workflow definition's ``sync_policy.sync_mode`` must be ``"execute"`` (default stays ``dry_run_only``), AND
-- the target state's mapping must set ``sync_back: true`` with a
-  ``source_transition`` name and/or target ``source_status``.
-
-The mapped transition is resolved against the issue's REAL available
-transitions; an unreachable target is an explicit 409 listing what Jira
-offers from the current status - no multi-hop guessing.
-
-What the preview shows is what the apply writes: ``jira_write_effects``
-lists the status (with the target status), comment and labels, and mapped labels
-are really added in Jira (``update.labels`` on v3 Cloud / v2 Server/DC) after a
-successful transition only; a refused label change is reported, never undoes the
-transition. Every write (and the read-only target lookup) re-checks the Workspace's
-``jira_allowed_projects`` first: an issue outside it gets no request at all.
-"""
+"""Execute workflow-mapped Jira transitions for work-item state changes."""
 
 from __future__ import annotations
 
@@ -26,12 +9,12 @@ import httpx
 from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.atlassian_auth_modes import JIRA
+from app.services.connector_auth.atlassian_modes import JIRA
 from app.services.outbound_egress import CONNECTION_JIRA, egress_transport
 
 from ....models import WorkItem, WorkItemWorkflowDefinition
 from ....tools.jira_impl._jira_cloud import is_jira_cloud, rich_text_body
-from ...atlassian_auth import auth_headers, request_auth
+from ...connector_auth.atlassian import auth_headers, request_auth
 from ..item_connection import work_item_connection_config
 from ..sync_policy import executes, load_item_intake
 from .jira_scope import parse_allowed_projects, writable_issue
@@ -47,11 +30,6 @@ def resolve_transition(
     jira_status: str | None,
     status_category: str | None = None,
 ) -> dict[str, Any] | None:
-    """Match a mapped transition against Jira's available transitions.
-
-    ``status_category`` (the Close action's ``done``, only when no transition or status is named) matches the
-    one transition whose target status has that category; none or several is no match, never a guess.
-    """
     wanted_transition = str(jira_transition or "").strip().lower()
     wanted_status = str(jira_status or "").strip().lower()
     for entry in available:
@@ -65,6 +43,7 @@ def resolve_transition(
     if wanted_transition or wanted_status or not wanted_category:
         return None
     in_category = [entry for entry in available if _target_category(entry) == wanted_category]
+    # None or several in the category is no match, never a guess
     return in_category[0] if len(in_category) == 1 else None
 
 
@@ -75,7 +54,6 @@ def _target_category(entry: dict[str, Any]) -> str:
 
 
 def will_write_jira(item: WorkItem, workflow: WorkItemWorkflowDefinition, sync_preview: dict[str, Any]) -> bool:
-    """Whether applying this preview writes to Jira: execute mode, sync_back, a Jira item, something to write."""
     policy = dict(workflow.sync_policy_json or {})
     return (
         str(item.source_type or "") == "jira"
@@ -92,7 +70,6 @@ def will_write_jira(item: WorkItem, workflow: WorkItemWorkflowDefinition, sync_p
 
 
 def jira_write_effects(item: WorkItem, preview: dict[str, Any]) -> list[dict[str, Any]]:
-    """Exactly what the apply writes to Jira: the status, the rendered comment, the added labels."""
     sync_preview = dict(preview.get("jira_sync_preview") or {})
     effects: list[dict[str, Any]] = []
     transition, target = sync_preview.get("transition"), sync_preview.get("target_status")
@@ -110,7 +87,6 @@ def jira_write_effects(item: WorkItem, preview: dict[str, Any]) -> list[dict[str
 async def _add_labels(
     client: httpx.AsyncClient, url: str, headers: dict[str, str], labels: list[str], source_key: str
 ) -> tuple[list[str], bool]:
-    """Add the mapped labels (an empty ``fields`` keeps every other field untouched): ``(applied, failed)``."""
     if not labels:
         return [], False
     response = await client.put(
@@ -125,8 +101,6 @@ async def _add_labels(
 async def _jira_access(
     item: WorkItem, db: AsyncSession
 ) -> tuple[str, dict[str, str], bool, frozenset[str] | None, httpx.Auth | None]:
-    """Base URL, static auth header, Cloud flag, allowlist and the client-credentials token auth, of the
-    connection serving the item (``item_connection``: its intake's connection or its project's; empty when none)."""
     config, _refused = await work_item_connection_config(db, item, "jira")
     base_url = str(config.get("jira_url") or "").rstrip("/")
     return base_url, auth_headers(JIRA, config), is_jira_cloud(base_url, config), parse_allowed_projects(
@@ -135,13 +109,6 @@ async def _jira_access(
 
 
 async def check_offered_transition(db: AsyncSession, *, item: WorkItem, preview: dict[str, Any]) -> None:
-    """Check a writing preview against what Jira really offers for the issue (read-only).
-
-    Sets ``target_status`` (Jira's resulting status), ``offered_transitions`` and ``transition_available``.
-    When Jira does not offer the mapped transition, or the issue lies outside the allowlist, the apply
-    would be refused before writing anything: ``will_mutate_jira`` is then false. An unreadable answer
-    leaves ``transition_available`` ``null`` (unknown) and the preview as mapped.
-    """
     sync_preview = preview["jira_sync_preview"]
     transition, target = sync_preview.get("transition"), sync_preview.get("target_status")
     category = sync_preview.get("target_status_category")
@@ -203,7 +170,6 @@ async def execute_jira_state_sync(
     workflow: WorkItemWorkflowDefinition,
     preview: dict[str, Any],
 ) -> dict[str, Any] | None:
-    """Perform the mapped Jira transition; None when config keeps it local."""
     if str(item.source_type or "") != "jira":
         # Platform-native (and any non-Jira) items never reach Jira, even
         # when the project's workflow runs in execute mode.

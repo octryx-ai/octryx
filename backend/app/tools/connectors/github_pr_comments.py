@@ -1,21 +1,4 @@
-"""Pull request comments and commenter permissions on GitHub, for the review bot's ``@octryx`` commands.
-
-A local installation gets no webhook (GitHub cannot reach it), so the bot polls (``pr_review_bot.commands``):
-
-- ``comments_since``: every comment on the listed pull requests since a time, repository-wide in two lists (each read
-  page by page): conversation comments (``GET /issues/comments?since=``, only those on a listed pull request) and
-  review comments (``GET /pulls/comments?since=``, with the thread they answer); and the summary of each review
-  submitted since then (``GET /pulls/{n}/reviews``, only for a pull request updated since; "Request changes" with a
-  text is a correction too), as ``review-<id>``;
-- ``recently_closed``: the pull requests closed or merged in the last :data:`CLOSED_WINDOW` (``state=closed``, newest
-  update first, read until older): the e2e harness merges or closes its pull requests within minutes, and a comment
-  written just before is still a person's correction;
-- ``permissions``: a commenter's permission on the repository
-  (``GET /collaborators/{login}/permission``: ``admin`` / ``maintain`` / ``write`` / ``triage`` / ``read`` /
-  ``none``); ``unknown`` when the token may not read it.
-
-Every comment is returned as ``{id, pr, author, author_id, body, created_at, in_reply_to, inline}``.
-"""
+"""Pull request comments and commenter permissions on GitHub, for the review bot's ``@octryx`` commands."""
 
 from __future__ import annotations
 
@@ -38,7 +21,6 @@ def _moment(text: Any) -> datetime | None:
 
 
 def updated_since(pulls: list[dict[str, Any]], since: str) -> set[str]:
-    """The numbers of the pull requests updated since ``since`` (a submitted review updates its pull request)."""
     start = _moment(since)
     return {str(pr.get("number")) for pr in pulls
             if start is None or ((moment := _moment(pr.get("updated_at"))) is not None and moment >= start)}
@@ -46,7 +28,6 @@ def updated_since(pulls: list[dict[str, Any]], since: str) -> set[str]:
 
 async def recently_closed(http: Any, headers: dict[str, str], base: str, *,
                           now: datetime | None = None) -> list[dict[str, Any]]:
-    """The pull requests closed or merged within :data:`CLOSED_WINDOW`, raw."""
     cutoff, found, page = (now or datetime.now(UTC)) - CLOSED_WINDOW, [], 1
     while True:
         batch = await http("GET", f"{base}/pulls", headers=headers, params={
@@ -89,8 +70,6 @@ def _review(item: dict[str, Any], pr: str) -> dict[str, Any]:
 
 async def comments_since(http: Any, headers: dict[str, str], base: str, since: str, numbers: set[str],
                          reviewed: set[str] | None = None) -> list[dict[str, Any]]:
-    """The comments on the pull requests ``numbers`` created or edited since ``since`` (ISO 8601), and the review
-    summaries with a text submitted since then on ``reviewed`` (the ones of them updated since)."""
     params = {"since": since, "sort": "created", "direction": "asc"}
     found = [_comment(item, _number(item.get("issue_url")), inline=False)
              for item in await _pages(http, headers, f"{base}/issues/comments", params)]

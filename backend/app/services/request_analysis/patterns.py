@@ -1,8 +1,4 @@
-"""Literal-parameter grammar of the request analysis.
-
-``LIMIT_PATTERN`` reads a limit the user literally states ("top 5", "10 tickets"), a request
-parameter, never an intent. There are no prompt keyword tables.
-"""
+"""Literal-parameter grammar of the request analysis."""
 
 from __future__ import annotations
 

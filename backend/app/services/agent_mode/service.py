@@ -1,10 +1,4 @@
-"""Run modes as code-defined labels.
-
-A run mode (``diagnosis``, ``change``, ``coding`` …) names how a turn behaves; it grants nothing. The run
-capability class decides what a run may do (``services/run_capability``), Policies decide what is
-forbidden. The modes are the shipped definitions in ``agent/runtime_defaults.py``, so resolving one never reads or
-writes the database.
-"""
+"""Run modes as code-defined labels."""
 
 from __future__ import annotations
 

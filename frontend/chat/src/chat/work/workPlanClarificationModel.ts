@@ -1,14 +1,3 @@
-// Answers to an exact Work Plan version's open questions. Pure helpers: which version can be
-// answered, the exact request body, per-question validation without silent truncation, the answers
-// a revised version retains in its evidence, and readable refusal text.
-//
-// Backend contract (`POST /api/v1/secure-work/change-plans/{id}/clarification-answers`):
-// - only the newest version, while open, can be answered, and only with `expected_latest_version`
-//   equal to that version;
-// - each answer repeats its question's index and exact text; partial answers are allowed, at least
-//   one is required. No content limits (no artificial limits): the server only
-//   guards transport, at most 1000 answers per request and 100000 characters per answer;
-// - refusals are `"<code>: <message>"` strings in `detail`.
 import type { WorkChangePlan } from "./workChangePlanTypes";
 
 // Transport guards mirrored from the server, not content limits.
@@ -22,9 +11,7 @@ export type ClarificationDraftCheck = {
   answers: ClarificationAnswer[];
   unanswered: number[];
   errors: Record<number, string>;
-  // Request-wide problems (answer count); each is actionable, nothing is cut.
   totalError: string | null;
-  // The request body, or null when nothing is answered or any field is invalid.
   payload: { expected_latest_version: number; answers: ClarificationAnswer[] } | null;
 };
 
@@ -32,15 +19,12 @@ export type RetainedClarification = {
   sourcePlanId: string;
   sourceVersion: number;
   answeredAt: string | null;
-  // The actor's name as recorded when answering, else null; the id is the recorded detail.
   answeredByLabel: string | null;
   answeredBy: string | null;
   answers: ClarificationAnswer[];
   unanswered: number[];
 };
 
-// Answerable: the newest version of the item, still open, with questions. Older or decided versions
-// keep their questions read-only.
 export function isAnswerable(plan: WorkChangePlan, newest: WorkChangePlan | null): boolean {
   return Boolean(newest && newest.id === plan.id && OPEN_STATUSES.has(plan.status) && plan.open_questions.length > 0);
 }
@@ -80,8 +64,7 @@ function isAnswer(value: unknown): value is ClarificationAnswer {
   return Number.isInteger(entry.question_index) && typeof entry.question === "string" && typeof entry.answer === "string";
 }
 
-// The answers a revised version was generated from, or null when the plan carries none (or a
-// malformed record, which is not shown as if it were complete).
+// A malformed record reads as none, never as if it were complete.
 export function retainedClarification(plan: WorkChangePlan): RetainedClarification | null {
   const raw = plan.evidence?.clarification;
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
@@ -114,7 +97,6 @@ const REFUSALS: Record<string, string> = {
   plan_generation_unavailable: "No model produced a revised plan. Nothing was saved and your answers are kept.",
 };
 
-// Readable text for a refusal; unknown messages are shown as they are, without the code prefix.
 export function clarificationErrorText(message: string): string {
   const match = /^([a-z_]+): (.*)$/s.exec(message.trim());
   if (!match) return `${message.trim().replace(/[.!?]+$/, "") || "The revised plan was not created"}. Your answers are kept.`;

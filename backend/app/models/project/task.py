@@ -5,6 +5,7 @@ from sqlalchemy import JSON, Boolean, CheckConstraint, Column, DateTime, Foreign
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 from ..json_text import safe_json_dict, safe_json_list
 
@@ -21,7 +22,7 @@ WORKFLOW_RUN_BINDING = "workflow_run"  # starts a phased workflow run
 DISPATCH_BINDINGS = (TASK_DEFINITION_BINDING, AGENT_DEFINITION_BINDING, WORKFLOW_RUN_BINDING)
 
 
-class Task(Base):
+class Task(WorkspaceBound, Base):
     __tablename__ = "tasks"
     __table_args__ = (
         # Closed, explicitly authored dispatch binding (scheduler/dispatch/agent_definition_binding.py).
@@ -66,7 +67,9 @@ class Task(Base):
         self.default_runtime_selector_json = json.dumps(value or {})
 
 
-class TaskStep(Base):
+class TaskStep(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"task_id": "tasks"}
     __tablename__ = "task_steps"
 
     id = Column(String(36), primary_key=True, default=uuid_pk)
@@ -74,25 +77,19 @@ class TaskStep(Base):
     position = Column(Integer, nullable=False, default=1)
     name = Column(String(200), nullable=False, default="Step")
     step_type = Column(String(50), default="analysis")
-    # connector_fetch fields
     connector = Column(String(50), nullable=True)
     connector_action = Column(String(100), nullable=True)
     connector_params_json = Column(Text, default="{}")
-    # agent / instructions
     instructions = Column(Text, default="")
     runtime_selector_json = Column(Text, default="{}")
     context_fields_json = Column(Text, default="[]")
     allowed_tools_json = Column(Text, default="[]")
-    # sub_agent_spawn
     spawn_strategy = Column(String(50), default="per_item")
     spawn_count = Column(Integer, nullable=True)
-    # verification
     max_fix_attempts = Column(Integer, default=2)
-    # condition (branching)
     condition_expr = Column(Text, nullable=True)
     condition_true_step = Column(Integer, nullable=True)
     condition_false_step = Column(Integer, nullable=True)
-    # general
     agent_timeout_seconds = Column(Integer, default=300)
     is_enabled = Column(Boolean, default=True)
     created_at = Column(DateTime, default=utc_now)
@@ -121,7 +118,9 @@ class TaskStep(Base):
         return safe_json_dict(self.connector_params_json)
 
 
-class TaskRun(Base):
+class TaskRun(WorkspaceBound, Base):
+    __workspace_column__ = None
+    __workspace_owners__ = {"task_id": "tasks", "session_id": "sessions"}
     __tablename__ = "task_runs"
     __table_args__ = (
         # Hot reads: the dispatcher's wait estimate (latest completed), a task's latest run,

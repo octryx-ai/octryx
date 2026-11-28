@@ -29,14 +29,15 @@ async def panel_webhook_catalog(request: Request, db: AsyncSession = Depends(get
 
 @router.get("/chat/api/panel/webhook-events")
 async def panel_latest_webhook_events(request: Request, limit: int = 20, db: AsyncSession = Depends(get_db)):
-    await _require_admin_api(request, db)
-    return JSONResponse(await admin_webhook_service.list_webhook_events(db, limit=limit))
+    user = await _require_admin_api(request, db)
+    return JSONResponse(await admin_webhook_service.list_webhook_events(db, viewer_id=user.id, limit=limit))
 
 
 @router.get("/chat/api/panel/webhooks/{webhook_id}/events")
 async def panel_webhook_events(webhook_id: str, request: Request, limit: int = 20, db: AsyncSession = Depends(get_db)):
-    await _require_admin_api(request, db)
-    return JSONResponse(await admin_webhook_service.list_webhook_events(db, webhook_id=webhook_id, limit=limit))
+    user = await _require_admin_api(request, db)
+    return JSONResponse(await admin_webhook_service.list_webhook_events(db, viewer_id=user.id, webhook_id=webhook_id,
+                                                                        limit=limit))
 
 
 @router.post("/chat/api/panel/webhooks/{webhook_id}/rotate-secret")
@@ -49,5 +50,6 @@ async def panel_rotate_webhook_secret(webhook_id: str, request: Request, db: Asy
 async def panel_test_webhook(
     webhook_id: str, payload: WebhookTestRequest, request: Request, db: AsyncSession = Depends(get_db)
 ):
-    await _require_admin_api(request, db)
-    return JSONResponse(await admin_webhook_service.send_test_alert(db, webhook_id=webhook_id, sample=payload.sample))
+    user = await _require_admin_api(request, db)
+    return JSONResponse(await admin_webhook_service.send_test_alert(db, webhook_id=webhook_id, viewer_id=user.id,
+                                                                    sample=payload.sample))

@@ -44,8 +44,6 @@ async def is_global_admin(db: AsyncSession, user_id: str) -> bool:
 
 
 async def has_permission(db: AsyncSession, user_id: str, *, resource: str, action: str) -> bool:
-    """An active user holding the permission (or the admin role) — the one checker: the role
-    lookup is ``security_permissions.user_has_permission``, the same the sign-in and API-key paths ask."""
     from ...security_permissions import user_has_permission
 
     user = await db.get(User, user_id)
@@ -55,8 +53,6 @@ async def has_permission(db: AsyncSession, user_id: str, *, resource: str, actio
 
 
 async def holds_platform_admin_access(db: AsyncSession, user_id: str) -> bool:
-    """The admin role or an admin-panel permission: access that the admin-panel routes grant without Workspace
-    membership (a Workspace admin/owner's access is their membership)."""
     if await is_global_admin(db, user_id):
         return True
     rows = await db.execute(
@@ -69,7 +65,6 @@ async def holds_platform_admin_access(db: AsyncSession, user_id: str) -> bool:
 
 
 async def is_admin_capable(db: AsyncSession, user_id: str) -> bool:
-    """May reach the admin surface at all: the admin role, an admin-panel permission, or a Workspace admin/owner."""
     if await holds_platform_admin_access(db, user_id):
         return True
     access = await get_project_access_details(user_id, db)

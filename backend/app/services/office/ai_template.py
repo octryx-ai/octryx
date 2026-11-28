@@ -31,7 +31,6 @@ def _role_key(layout_name: str) -> str:
 
 
 def _inventory_roles(layout_inventory: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """One role per named layout of the template, with the fields its placeholders offer."""
     roles: list[dict[str, Any]] = []
     for item in layout_inventory:
         layout_name = str(item.get("layout_name") or "").strip()
@@ -56,7 +55,6 @@ def _layout_role_matrix(
     roles: list[dict[str, Any]],
     layout_map: dict[str, dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """Start from an empty deck and map each role to its official layout."""
     role_matrix: list[dict[str, Any]] = []
     _strip_presentation_slides(source, working_pptx)
     _convert_pptx_to_potx(working_pptx, ai_potx)
@@ -99,7 +97,6 @@ def _write_catalogs(
     asset_catalog: dict[str, Any],
     layout_inventory: list[dict[str, Any]],
 ) -> tuple[Path, Path, Path]:
-    """Write the role matrix, asset catalog, named icons and layout inventory; returns their three JSON paths."""
     role_matrix_path = output_dir / "role-matrix.json"
     asset_catalog_path = output_dir / "asset-catalog.json"
     named_icon_catalog_source = extracted_root / "icons" / "catalog.json"

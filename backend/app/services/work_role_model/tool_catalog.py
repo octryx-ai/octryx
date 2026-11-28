@@ -1,8 +1,4 @@
-"""The tool catalog for tool-set editing, grouped by connector and risk.
-
-It holds what either surface can offer: the registry's tools (the chat) and the Knowledge MCP server's tools (the
-octryx client), so one tool set covers both using the same permission filter.
-"""
+"""The tool catalog for tool-set editing, grouped by connector and risk."""
 from __future__ import annotations
 
 from functools import lru_cache
@@ -21,7 +17,6 @@ PLATFORM = "Platform"
 
 @lru_cache(maxsize=1)
 def _catalog() -> tuple[tuple[str, str, str, str], ...]:
-    """(name, connector, risk, description) of every tool of both surfaces."""
     from ...tools.definitions import get_all_definitions, get_tool_definition_metadata
     from ...tools.definitions.connector_ownership import SERVICE_ONLY_TOOLS
 
@@ -52,7 +47,6 @@ def catalog_tool_names() -> list[str]:
 
 
 def tool_catalog(entries: list[str] | None = None) -> dict[str, Any]:
-    """The grouped catalog; ``in_set`` against ``entries`` (one function's tool set) when given."""
     chosen = list(entries or [])
     groups: dict[str, dict[str, Any]] = {}
     for name, connector, risk, description in _catalog():

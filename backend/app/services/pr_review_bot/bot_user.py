@@ -1,15 +1,4 @@
-"""The principal the review bot's runs start as: one service user per Workspace (concept §8).
-
-A pull request event comes from a webhook and the hourly sync comes from no person at all, so a bot run must not
-carry the rights of whoever set the bot up. Like the webhook service user (``webhook_service_user``) it is:
-
-* username ``review-bot-<workspace id>``, display name "Octryx review bot", an undeliverable ``.invalid`` address;
-* ``account_type``/``auth_source`` ``review_bot_service`` and a password nobody knows: it cannot log in, has no key;
-* exactly the global ``viewer`` role and one ``viewer`` membership in its Workspace.
-
-The same user for webhook and sync starts, so a pull request's runs read as one bot in the run list and the audit,
-whichever trigger started them. A username held by another kind of account is refused, never reused.
-"""
+"""The principal the review bot's runs start as: one service user per Workspace (concept §8)."""
 
 from __future__ import annotations
 
@@ -28,7 +17,7 @@ _EMAIL_DOMAIN = "review-bot.octryx.invalid"
 
 
 class ReviewBotUserConflictError(RuntimeError):
-    """The bot's username is taken by an account that is not the bot."""
+    pass
 
 
 def review_bot_username(project_id: str) -> str:
@@ -36,7 +25,6 @@ def review_bot_username(project_id: str) -> str:
 
 
 async def ensure_review_bot_user(db: AsyncSession, project_id: str) -> User:
-    """Create or repair the Workspace's bot user (idempotent); flushes, the caller commits."""
     from ..auth import hash_password
 
     username = review_bot_username(project_id)

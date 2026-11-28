@@ -1,9 +1,4 @@
-"""Live nudges for the companion: one WebSocket channel per person, process-local (polling stays the fallback).
-
-The channel carries only ``{type: "attention_changed", run_id?, state?}``; the UI then re-reads
-``GET /api/v1/attention``. Producers call :func:`nudge_after_commit` inside their transaction: the nudge goes out
-only when the change is committed.
-"""
+"""Live nudges for the companion: one WebSocket channel per person, process-local (polling stays the fallback)."""
 
 from __future__ import annotations
 
@@ -92,14 +87,12 @@ user_stream_manager = UserStreamManager()
 
 
 def nudge_after_commit(db: AsyncSession, user_id: str | None, **payload: Any) -> None:
-    """Nudge ``user_id``'s companion once this transaction commits (dropped on rollback)."""
     if not user_id:
         return
     _queue(db, user_id, {key: value for key, value in payload.items() if value is not None})
 
 
 def job_changed_after_commit(db: AsyncSession, run_id: str) -> None:
-    """Tell only the sockets watching ``run_id`` once this transaction commits; nobody's queue is nudged."""
     _queue(db, None, {"run_id": run_id})
 
 

@@ -1,12 +1,4 @@
-"""From Correction to Check, measured at the event (never from a database query):
-
-- ``octryx_check_proposals_total{workspace,kind,state}``: every proposal the platform made (``proposed``) and every
-  decision on one (``approved``, ``rejected``, ``edited``);
-- ``octryx_check_proposal_proofs_total{workspace,outcome}``: every proof offered to a device (``offered``) and how it
-  ended (``proven``, ``failed``, ``unavailable``: no code state, no device, or the device gave no result).
-
-Imports only ``metric_types`` (``agent_metrics`` imports this module early).
-"""
+"""From Correction to Check, measured at the event (never from a database query)."""
 
 from __future__ import annotations
 
@@ -30,6 +22,5 @@ def count_proof(workspace_id: str, outcome: str) -> None:
 
 
 def reset() -> None:
-    """Tests: start empty."""
     for metric in METRICS:
         metric.series.clear()

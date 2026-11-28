@@ -1,15 +1,4 @@
-"""Settle ``running`` chat sessions whose owning process died.
-
-A session is ``running`` only while the process named in ``turn_owner_process_id``
-executes its turn. When that process has no live lease, the turn can never finish,
-so the session is returned to idle (``active``) with an explicit, readable cause:
-run status ``failed``, completion and stop reason ``interrupted_by_restart``.
-
-Only ``running`` is settled. ``pending_approval``, ``awaiting_subagents`` and every
-other status is left exactly as it is, so a paused turn stays resumable. The move is
-a compare-and-set on ``(status, owner)``: a turn a live process started in between
-is never settled.
-"""
+"""Settle ``running`` chat sessions whose owning process died."""
 
 from __future__ import annotations
 
@@ -29,7 +18,6 @@ _COLUMN_RUN_STATUS_FAILED = "error"
 
 
 async def settle_orphaned_running_sessions(db: AsyncSession) -> list[Session]:
-    """Return every ``running`` session without a live owner to idle; returns the settled rows."""
     running = list(
         (await db.execute(select(Session).where(Session.status == SESSION_STATUS_RUNNING))).scalars().all()
     )

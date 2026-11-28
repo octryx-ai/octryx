@@ -44,7 +44,6 @@ class AudienceSettings:
 
 
 def audience_settings(project_config: dict[str, Any] | None) -> AudienceSettings | None:
-    """The configured audience proof, or ``None`` when the semantics are not one of :data:`SEMANTICS`."""
     raw = dict(dict((project_config or {}).get(SETTINGS_KEY) or {}).get(AUDIENCE_KEY) or {})
     semantics = str(raw.get("semantics") or "").strip()
     if semantics not in SEMANTICS:
@@ -70,8 +69,6 @@ async def _configured(db: AsyncSession, run: WorkflowRun, role: str) -> tuple[Au
 
 
 async def audience_configuration_refusal(db: AsyncSession, run: WorkflowRun) -> str:
-    """For the pre-publication preflight: ``""`` when P and O are configured as usable accounts, else why
-    not (``needs_configuration`` before card (b); the ACL facts are checked at issue, once the page exists)."""
     try:
         settings, principal = await _configured(db, run, ROLE_AUDIENCE)
         _settings, outsider = await _configured(db, run, ROLE_OUTSIDER)
@@ -98,7 +95,6 @@ async def audience_configuration_refusal(db: AsyncSession, run: WorkflowRun) -> 
 async def principal_checks(db: AsyncSession, *, role: str, user_id: str, settings: AudienceSettings,
                            publication: ConfirmedPublication, requester_id: str | None, refusal_class: str
                            ) -> dict[str, Any]:
-    """The account/role/ACL snapshot of the configured principal, or :class:`AudienceProofError`."""
     from ...knowledge.access.acl_keys import reader_principal_keys
     from ...knowledge.access.source_acl import acl_enforcement_enabled, load_source_acl
 

@@ -1,20 +1,5 @@
-"""What runs now, held in memory: the live gauges of ``/metrics`` without a single database query
-(metrics never go through the database).
-
-The ORM hook of :mod:`agent_metrics` hands every committed write of a workflow run, run event, device job, session,
-approval and run-session link to this register (the handlers: :mod:`live_state_writes`), and the ORM ``load`` event
-every Workspace and work item a request loads anyway (for names and epics). Nothing is read for the metrics
-themselves. After a restart the register is empty and fills again with the next writes.
-
-Each process (API, worker) holds what it wrote. One run can be written by both, so every object series carries its
-id (``run``, ``job``, ``session``, ``approval``: the first 12 characters) and as value the Unix time this process
-last saw it change: Grafana takes the newest per id (``topk by (run) (1, …)``). An object leaves the register 24
-hours after its last change (a finished one stays that long, so the newest series of every process says finished);
-each kind keeps at most ``MAX_OBJECTS``.
-
-Run tokens (``octryx_workflow_run_tokens``) are the tokens this process recorded for the run's sessions: Grafana sums
-them over the processes.
-"""
+"""What runs now, held in memory: the live gauges of ``/metrics`` without a single database query (metrics never go
+through the database)."""
 
 from __future__ import annotations
 
@@ -45,7 +30,6 @@ def short(value: Any) -> str:
 
 
 def held(row: Any, attribute: str) -> Any:
-    """An attribute the row holds; never a load from the database."""
     return inspect(row).dict.get(attribute)
 
 
@@ -62,8 +46,6 @@ class _Bounded(OrderedDict[str, Any]):
 
 
 class _Objects:
-    """Objects of one kind by id: their fields and when this process saw them change (Unix seconds)."""
-
     def __init__(self) -> None:
         self.items: _Bounded = _Bounded(MAX_OBJECTS)
 
@@ -98,7 +80,6 @@ ENGINE_OF_SESSION = _Bounded(MAX_NAMES)  # session id -> engine of its last reco
 
 
 def reset() -> None:
-    """Tests: forget everything."""
     for objects in (RUNS, JOBS, SESSIONS, APPROVALS):
         objects.clear()
     for remembered in (WORKSPACE_NAMES, EPIC_OF_ITEM, RUN_OF_SESSION, RUN_TOKENS, ENGINE_OF_SESSION):
@@ -108,7 +89,6 @@ def reset() -> None:
 # ---- what the hook hands in (each returns what to apply on commit) ----------------------------------------------
 
 def loaded(row: Any) -> None:
-    """ORM ``load``: a Workspace or work item some request loaded anyway."""
     table = getattr(type(row), "__tablename__", None)
     if table == "projects":
         _remember_workspace(row)
@@ -136,7 +116,6 @@ def workspace_name(project_id: Any) -> str:
 
 
 def written(row: Any, table: str, session: Any = None) -> Callable[[], None] | None:
-    """A row the flush wrote (insert or update)."""
     # Imported here: the handlers read this module's registers, so they cannot be imported at its top.
     from . import live_state_writes as writes
 
@@ -165,14 +144,11 @@ def written(row: Any, table: str, session: Any = None) -> Callable[[], None] | N
 
 
 def approval_decided(approval_id: Any, status: str) -> None:
-    """An approval decided with a Core ``update()`` (no flush to see)."""
     if approval_id:
         APPROVALS.update(str(approval_id), time.time(), status=status)
 
 
 def run_details(run_id: Any) -> dict[str, str]:
-    """What this process knows of a run (ticket, workflow, workspace id, epic, phase, size class, workflow version);
-    empty values left out."""
     run = RUNS.get(str(run_id or "")) or {}
     details = {"ticket": run.get("ticket"), "workflow": run.get("workflow"), "workspace": run.get("workspace"),
                "epic": EPIC_OF_ITEM.get(run.get("work_item") or ""), "phase": run.get("phase"),
@@ -181,7 +157,6 @@ def run_details(run_id: Any) -> dict[str, str]:
 
 
 def run_context(session_id: Any) -> dict[str, str] | None:
-    """The run a session works for, as this process knows it (run, role, ticket, workflow, workspace id, epic)."""
     link = RUN_OF_SESSION.get(str(session_id or ""))
     if link is None:
         return None
@@ -206,8 +181,6 @@ def _ticket(run_id: str, run: dict[str, Any]) -> str:
 
 
 def _run_series(now: float) -> tuple[list[Any], ...]:
-    """The run series: state, start, finish, last event, tokens, review verdicts and findings, pipeline states and
-    unproven checks."""
     runs = RUNS.current(now)
     state, started, finished, last_event, tokens, verdicts, findings, pipelines, unproven = ([] for _ in range(9))
     for run_id, run in runs:

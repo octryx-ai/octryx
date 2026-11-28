@@ -1,12 +1,4 @@
-"""A small stdlib HTTP client for acceptance checks against the local stack (loopback only).
-
-- Refuses any base URL that is not loopback, so a check that creates users and Workspaces can
-  never be pointed at a shared deployment.
-- Never follows redirects, so an OAuth ``code`` or a 303 target is read from the ``Location``
-  header rather than fetched.
-- Returns status codes and parsed JSON only. No response body, header value, token or password is
-  printed by this module; callers print fixed facts.
-"""
+"""A small stdlib HTTP client for acceptance checks against the local stack (loopback only)."""
 
 from __future__ import annotations
 
@@ -42,7 +34,6 @@ _OPENER = urllib.request.build_opener(_NoRedirect)
 
 
 def read_secret(name: str, path: pathlib.Path = SECRETS_FILE) -> str:
-    """One value of the acceptance ``secrets.env``; the value is returned, never printed."""
     for line in path.read_text(encoding="utf-8").splitlines():
         if line.startswith(f"{name}="):
             return line.split("=", 1)[1].strip().strip("'\"")
@@ -69,8 +60,6 @@ class Response:
 
 
 class AcceptanceClient:
-    """Requests against one loopback stack; the Origin header is the stack's own origin."""
-
     def __init__(self, base_url: str) -> None:
         self.base = require_loopback(base_url)
 
@@ -133,7 +122,6 @@ class AcceptanceClient:
     def mcp_token(
         self, client_id: str, login_token: str, scope: str = MCP_SCOPE, resource: str = MCP_RESOURCE
     ) -> str | None:
-        """An OAuth 2.1 access token (PKCE, resource indicator) for the logged-in user, or ``None``."""
         verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode()
         challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
         query = {
@@ -182,7 +170,6 @@ class AcceptanceClient:
     def mcp_tool(
         self, access_token: str, workspace_id: str, tool: str, arguments: dict, headers: dict | None = None
     ) -> dict:
-        """The governed tool's result (``state`` plus payload), or ``{"state": "http_<status>"}``."""
         answer = self.request(
             "POST",
             f"/api/v1/mcp/knowledge/tools/{tool}",
@@ -196,7 +183,6 @@ class AcceptanceClient:
         return result if isinstance(result, dict) else {"state": "malformed"}
 
     def native_mcp_tool(self, access_token: str, workspace_id: str, tool: str, arguments: dict) -> dict:
-        """Call the native protocol; the HTTP convenience endpoint cannot redeem confirmation tickets."""
         path = "/api/v1/mcp/knowledge-protocol/mcp"
         headers = {"X-Octryx-Workspace": workspace_id, "Accept": "application/json, text/event-stream"}
         initialized = self.request("POST", path, token=access_token, headers=headers, json_body={

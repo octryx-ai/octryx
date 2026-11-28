@@ -18,7 +18,6 @@ def _git(root: Path, *args: str) -> str:
 
 
 def _remote_with_branch(tmp_path: Path) -> tuple[Path, str, str]:
-    """A remote with ``main`` and a feature branch one commit ahead; ``(remote, main sha, branch sha)``."""
     work = tmp_path / "work"
     work.mkdir()
     _git(work, "init", "-q", "-b", "main")
@@ -30,14 +29,13 @@ def _remote_with_branch(tmp_path: Path) -> tuple[Path, str, str]:
     (work / "a.py").write_text("x = 2\n")
     _git(work, "commit", "-qam", "change")
     branch = _git(work, "rev-parse", "HEAD")
-    _git(work, "checkout", "-q", "main")  # the remote's default branch stays main
+    _git(work, "checkout", "-q", "main")
     remote = tmp_path / "remote.git"
     _git(tmp_path, "clone", "-q", "--bare", str(work), str(remote))
     return remote, main, branch
 
 
 def _prepare_like_the_tool(monkeypatch, tmp_path: Path, remote: Path) -> Path:
-    """The provider's prepare tool: a clone on main and the named branch created there (``checkout -B``)."""
     copy = tmp_path / "copy"
 
     async def dispatch(db, run, tool, arguments, *, capability_class, workspace_root=None):
@@ -58,9 +56,9 @@ async def test_the_review_checkout_takes_the_remote_branch_and_its_merge_base(mo
     outcome = await scm.checkout(None, run, {})
 
     assert outcome.state == SUCCEEDED
-    assert _git(copy, "rev-parse", "HEAD") == branch  # the branch under review, not main
+    assert _git(copy, "rev-parse", "HEAD") == branch
     assert run.context["base_sha"] == main
-    assert _git(copy, "diff", "--stat", main, "HEAD")  # a change to review
+    assert _git(copy, "diff", "--stat", main, "HEAD")
 
 
 @pytest.mark.asyncio

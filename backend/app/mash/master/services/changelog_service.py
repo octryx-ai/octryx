@@ -1,8 +1,4 @@
-"""MASH changelog service — writes and reads the monotonic change log.
-
-Every policy mutation appends an entry to MashChangeLog.
-Platforms pull changes incrementally via since_sequence.
-"""
+"""MASH changelog service — writes and reads the monotonic change log."""
 
 from __future__ import annotations
 
@@ -18,7 +14,6 @@ from ..models import MashChangeLog
 
 
 def compute_checksum(payload: dict[str, Any]) -> str:
-    """SHA-256 checksum over canonicalised JSON payload."""
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
     return f"sha256:{hashlib.sha256(canonical.encode()).hexdigest()}"
 
@@ -32,7 +27,6 @@ async def append_change(
     change_type: str,
     payload: dict[str, Any],
 ) -> MashChangeLog:
-    """Append a change to the master changelog (auto-incremented sequence)."""
     checksum = compute_checksum(payload)
     entry = MashChangeLog(
         resource_type=resource_type,
@@ -55,10 +49,6 @@ async def get_changes_since(
     resource_type: str | None = None,
     limit: int = 100,
 ) -> dict[str, Any]:
-    """Return changes since a given sequence number.
-
-    Returns: {changes: [...], latest_sequence: int, has_more: bool}
-    """
     stmt = select(MashChangeLog).where(MashChangeLog.sequence > since_sequence)
 
     if resource_type and resource_type != "all":

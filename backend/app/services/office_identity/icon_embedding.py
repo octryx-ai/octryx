@@ -1,22 +1,4 @@
-"""Put a template icon onto a slide, the way the template itself does it.
-
-Template icon libraries commonly ship their icons as **SVG with no
-raster fallback**. The ``<a:blip>`` of an icon picture carries no ``r:embed``
-at all — only the ``asvg:svgBlip`` extension pointing at the ``.svg`` part.
-That rules out python-pptx's ``add_picture``, which sniffs a raster header and
-rejects SVG, and it rules out inventing a PNG: rasterising the vector at
-compose time would add a render dependency and a second, divergent copy of the
-customer's icon.
-
-So this module writes exactly the structure the template author wrote. The SVG
-part is copied byte-for-byte out of the template package into the output
-package, related from the slide, and referenced by a ``p:pic`` whose blip
-carries only the SVG extension. Verified end to end: LibreOffice renders it,
-and the rendered icons sit inside the template's circles.
-
-Nothing here decides *what* to place or *where* — ``icon_slots`` owns both. This
-module is the mechanism only.
-"""
+"""Put a template icon onto a slide, the way the template itself does it."""
 
 from __future__ import annotations
 
@@ -53,12 +35,6 @@ _SAFE_SLUG = re.compile(r"[^a-z0-9_-]+")
 
 
 def icon_aspect_ratio(svg_bytes: bytes) -> float:
-    """Width/height from the SVG ``viewBox``; ``1.0`` when it does not state one.
-
-    A square default is the honest fallback: without a viewBox the drawing has
-    no intrinsic proportion to preserve, and a square box is what the template's
-    circular holders assume anyway.
-    """
     match = _VIEWBOX.search(svg_bytes or b"")
     if match is None:
         return 1.0
@@ -73,12 +49,6 @@ def icon_aspect_ratio(svg_bytes: bytes) -> float:
 
 
 class IconEmbedder:
-    """Adds template icons to the slides of one output presentation.
-
-    One instance per composed deck: it caches the SVG parts it created, so an
-    icon used on two slides is stored once and related twice.
-    """
-
     def __init__(self, presentation: Any, template_path: str | Path) -> None:
         self._presentation = presentation
         self._template_path = Path(template_path)
@@ -131,12 +101,6 @@ class IconEmbedder:
         return part
 
     def place(self, slide: Any, icon: dict[str, Any], rect: dict[str, int]) -> str:
-        """Draw ``icon`` at ``rect`` on ``slide``. Returns the slug, or ``""``.
-
-        ``""`` means the template package does not actually hold the part the
-        catalog names — the catalog and the file disagree, so nothing is drawn
-        and the caller reports it rather than substituting anything.
-        """
         from lxml import etree
         from pptx.opc.constants import RELATIONSHIP_TYPE as RT
 

@@ -1,23 +1,4 @@
-"""PostgreSQL authority for the Workspace Knowledge Evidence ledger.
-
-PostgreSQL owns governance, lineage, and the projection outbox. Object storage is the
-blob authority; the Evidence index (``knowledge_evidence_index``) is a rebuildable
-projection that can always be reconstructed from these tables plus the stored objects.
-
-Boundaries encoded here:
-
-- every row is Workspace-scoped with a non-null ``project_id``, so no row is ever
-  instance-global and visible across Workspaces;
-- a source revision is immutable: the content digest, object reference, media type,
-  size, and parser identity are written once and never updated;
-- an evidence span carries a stable ``evidence_key`` derived from its revision and
-  ordinal, which is what a citation resolves through;
-- the outbox carries claim, bounded retry, and dead-letter state, so projection is a
-  durable transactional handoff instead of a fire-and-forget task.
-
-Failure reasons are fixed state tokens (see ``ALL_PROJECTION_FAILURES``), never server
-or driver text, which may carry statement text and values and must not be persisted.
-"""
+"""The Workspace Knowledge Evidence ledger: sources, immutable revisions, spans and the projection outbox."""
 
 from __future__ import annotations
 
@@ -38,6 +19,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 # Revision lifecycle (contract §3). A revision is registered, then projected. Exactly one
@@ -135,12 +117,9 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class KnowledgeEvidenceSource(Base):
-    """One logical document inside exactly one Workspace.
-
-    ``source_key`` is the server-derived stable identity of the document within the
-    Workspace (not a filesystem path). Its revisions hold the actual content.
-    """
+class KnowledgeEvidenceSource(WorkspaceBound, Base):
+    """One logical document inside exactly one Workspace. ``source_key`` is the server-derived stable identity within
+    the Workspace (not a filesystem path)."""
 
     __tablename__ = "knowledge_evidence_sources"
     __table_args__ = (
@@ -162,14 +141,8 @@ class KnowledgeEvidenceSource(Base):
     )
 
 
-class KnowledgeSourceRevision(Base):
-    """One immutable revision of a source: bytes, object reference, and parser identity.
-
-    ``content_sha256`` is unique per source, which is what makes re-uploading identical
-    bytes idempotent; different bytes always create a new revision with the next
-    ordinal. ``object_key`` is content-addressed and Workspace-partitioned, so it is
-    never reused across Workspaces.
-    """
+class KnowledgeSourceRevision(WorkspaceBound, Base):
+    """One immutable revision of a source: bytes, object reference and parser identity."""
 
     __tablename__ = "knowledge_source_revisions"
     __table_args__ = (
@@ -208,13 +181,9 @@ class KnowledgeSourceRevision(Base):
     )
 
 
-class KnowledgeSourceRevisionOrigin(Base):
-    """Where exactly one revision came from, as a link a person can open.
-
-    A separate row rather than a revision column: the revision's shape is frozen by its
-    adoption contract, and the origin is lineage in its own right. At most one
-    per revision, Workspace-scoped like every Evidence row, deleted with the revision.
-    """
+class KnowledgeSourceRevisionOrigin(WorkspaceBound, Base):
+    """Where exactly one revision came from, as a link a person can open. At most one per revision, Workspace-scoped,
+    deleted with the revision."""
 
     __tablename__ = "knowledge_source_revision_origins"
     __table_args__ = (Index("ix_knowledge_source_revision_origins_workspace", "project_id"),)
@@ -228,14 +197,8 @@ class KnowledgeSourceRevisionOrigin(Base):
     created_at = Column(DateTime, nullable=False, default=utc_now)
 
 
-class KnowledgeRevisionScope(Base):
-    """The products and the version a revision is about.
-
-    Products are labels inside one Workspace (e.g. ``acme-orders``, ``spring-boot``) that are allowed
-    to see each other; they narrow retrieval for relevance, and a product that must be sealed off
-    lives in its own Workspace instead. ``version`` is the subject version (``4.0``, ``2.3.1``), not
-    the ingestion revision. A separate table: adopted revision rows keep their shape.
-    """
+class KnowledgeRevisionScope(WorkspaceBound, Base):
+    """The products and the subject version a revision is about."""
 
     __tablename__ = "knowledge_revision_scopes"
     __table_args__ = (Index("ix_knowledge_revision_scopes_workspace", "project_id"),)
@@ -247,13 +210,9 @@ class KnowledgeRevisionScope(Base):
     created_at = Column(DateTime, nullable=False, default=utc_now)
 
 
-class KnowledgeWorkspaceVectorSpace(Base):
-    """An embedding space whose vector property and index exist in the Workspace database.
-
-    Written once the embedding step has ensured them; vector retrieval requires it, so a Workspace
-    without vectors answers ``needs_configuration`` instead of failing on a missing index. One row
-    per space: spaces never share a property, so several can coexist while an Instance switches.
-    """
+class KnowledgeWorkspaceVectorSpace(WorkspaceBound, Base):
+    """An embedding space whose vector property and index exist in the Workspace database. Vector retrieval requires it,
+    so a Workspace without vectors answers ``needs_configuration``."""
 
     __tablename__ = "knowledge_workspace_vector_spaces"
 
@@ -262,17 +221,8 @@ class KnowledgeWorkspaceVectorSpace(Base):
     ensured_at = Column(DateTime, nullable=False, default=utc_now)
 
 
-class KnowledgeSourceHead(Base):
-    """Which revision a source currently says, and which one the projection serves.
-
-    ``wanted_revision_id`` follows the latest upload of the source: a new revision, or the
-    exact content of an earlier one again. ``current_revision_id`` is the one revision that
-    is ``projected``, so default retrieval serves it. The two differ while a projection is
-    catching up. ``wanted_revision_id`` is null once the source is tombstoned.
-
-    A separate table rather than source columns: the source's shape is frozen by its
-    adoption contract.
-    """
+class KnowledgeSourceHead(WorkspaceBound, Base):
+    """Which revision a source currently says, and which one the projection serves."""
 
     __tablename__ = "knowledge_source_heads"
     __table_args__ = (
@@ -288,13 +238,9 @@ class KnowledgeSourceHead(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
 
-class KnowledgeEvidenceSpan(Base):
-    """One ordered, citable span of a source revision.
-
-    ``evidence_key`` is the stable identity a citation resolves through and the unique
-    key of the Evidence index, so the index can be rebuilt without changing
-    any citation that was already handed out.
-    """
+class KnowledgeEvidenceSpan(WorkspaceBound, Base):
+    """One ordered, citable span of a source revision. ``evidence_key`` is the identity a citation resolves through, so
+    the index can be rebuilt without changing citations."""
 
     __tablename__ = "knowledge_evidence_spans"
     __table_args__ = (
@@ -319,19 +265,8 @@ class KnowledgeEvidenceSpan(Base):
     revision = relationship("KnowledgeSourceRevision", back_populates="spans")
 
 
-class KnowledgeProjectionOutboxEntry(Base):
-    """Transactional outbox entry for projecting one revision into the Evidence index.
-
-    Written in the same transaction as the revision and its spans, so a committed
-    revision always has exactly one projection obligation. ``claimed_until`` is the
-    lease: an expired claim is reclaimable, which is why a crashed projector does not
-    strand the entry.
-
-    ``projected_through_ordinal`` is the persisted cursor of a bounded projection run:
-    one run applies a bounded batch of span ordinals and stores how far it got, so a
-    revision with thousands of spans is drained over several runs instead of one
-    unbounded burst of calls — and partial progress is never recorded as applied.
-    """
+class KnowledgeProjectionOutboxEntry(WorkspaceBound, Base):
+    """Transactional outbox entry for projecting one revision into the Evidence index."""
 
     __tablename__ = "knowledge_projection_outbox"
     __table_args__ = (

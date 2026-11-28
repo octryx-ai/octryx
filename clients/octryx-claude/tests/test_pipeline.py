@@ -1,5 +1,3 @@
-"""The run's CI pipeline on the device: the declared commands without an agent, this run's screenshots only."""
-
 from __future__ import annotations
 
 import os
@@ -11,7 +9,6 @@ PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 32
 
 
 def _runner(tmp_path, *, single_exit: int):
-    """A non-pytest runner that fails one test (Flutter's compact line), and its single-test command."""
     (tmp_path / "test").mkdir(exist_ok=True)
     (tmp_path / "test" / "perf_test.dart").write_text("// a test\n")
     (tmp_path / "suite.sh").write_text(
@@ -57,8 +54,6 @@ def test_only_this_runs_screenshots_go_up_and_the_report_is_bound_to_the_pass(tm
 
 
 def test_a_pytest_command_without_its_own_report_writes_one_and_stays_word_for_word(tmp_path):
-    """``pytest -q`` names no test, so pytest writes a JUnit report through ``PYTEST_ADDOPTS``; the command stays
-    word for word."""
     import sys
 
     tests = tmp_path / "tests"
@@ -78,7 +73,6 @@ def test_a_pytest_command_without_its_own_report_writes_one_and_stays_word_for_w
 
 
 def test_a_red_pipeline_goes_into_the_resume_prompt_and_reruns_only_a_few_failures(tmp_path, state):
-    """The red pipeline goes into the resume prompt itself, and only a few failures are re-run."""
     from types import SimpleNamespace
 
     from octryx_claude.device_job_run import with_pipeline_red
@@ -107,8 +101,6 @@ def test_a_red_pipeline_goes_into_the_resume_prompt_and_reruns_only_a_few_failur
 
 
 def test_the_report_names_the_tree_the_server_builds_from_the_reported_change(tmp_path, monkeypatch):
-    """The server pushes only a tree its pipeline ran green on. The device's tree is the one the server
-    gets from ``base + change`` (the patch ``run_contract.change`` reports), so the server can cross-check it."""
     import os
     import subprocess
 
@@ -148,9 +140,6 @@ def test_the_report_names_the_tree_the_server_builds_from_the_reported_change(tm
 
 
 def test_a_report_the_platform_cannot_take_is_sent_again_and_then_handed_back(tmp_path, monkeypatch):
-    """Story path audit: a pipeline report lost in an API restart left the pipeline pending for good, and
-    the job still said "pipeline_done". It is sent again for a while; if the platform stays away, the turn is handed
-    back (a transient refusal the platform offers once more)."""
     import pytest
 
     view = {"node_id": "pipeline", "entry": 7, "path": [], "commands": ["true"]}
@@ -178,7 +167,6 @@ def test_a_report_the_platform_cannot_take_is_sent_again_and_then_handed_back(tm
 
 
 def test_a_pipeline_red_only_on_code_style_puts_the_findings_into_the_prompt(state):
-    """Every command passed, only the code style is red: the findings go into the prompt, so it names what to fix."""
     from types import SimpleNamespace
 
     from octryx_claude.device_job_run import with_pipeline_red
@@ -200,7 +188,6 @@ def test_a_pipeline_red_only_on_code_style_puts_the_findings_into_the_prompt(sta
 
 
 def test_a_non_pytest_runners_failed_test_runs_again_alone_and_is_flaky_when_it_passes(tmp_path):
-    """A test red, then green on the same tree is flaky and costs no fix round."""
     from octryx_claude.pipeline_commands import run_command
 
     reruns = _runner(tmp_path, single_exit=0)
@@ -221,8 +208,6 @@ def test_a_test_red_again_alone_is_not_flaky_and_without_a_rule_nothing_runs_aga
 
 
 def test_the_launchers_denial_texts_are_the_platforms_with_its_own_as_fallback(monkeypatch, tmp_path):
-    """The launcher's texts come from the run contract's prompt_texts
-    (run.launcher.*); its own copy answers a hook without a run contract (the platform unreachable)."""
     from octryx_claude import hooks
     from octryx_claude.platform import PlatformResult
 

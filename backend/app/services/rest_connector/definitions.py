@@ -1,16 +1,4 @@
-"""Admin side of custom REST definitions and their operations.
-
-An import never enables anything: every operation arrives disabled and without grants, so an admin decides per
-operation what the model may call, under which name and description, and for whom. A write (anything but GET/HEAD,
-or a POST not marked read-only) needs the run class ``capability`` (``deliver`` unless the admin explicitly sets
-``change``) and runs through the central approval gate; ``idempotent`` lets a PUT/DELETE be retried.
-
-The scope-bypass warnings (a scoped grant without a result filter while free parameters remain) are part of every
-serialization, so the admin sees them when the definition loads, not only right after an update.
-
-Warnings, never refusals: more than 25 enabled operations of one API (weak models choose badly among many similar
-tools) and near-duplicate model descriptions (the model cannot tell the tools apart).
-"""
+"""Admin side of custom REST definitions and their operations."""
 
 from __future__ import annotations
 
@@ -114,7 +102,6 @@ def _operation_label(operation: RestApiOperation) -> str:
 
 
 def per_operation_warnings(operation: RestApiOperation) -> list[str]:
-    """What the admin should fix on one operation; the same text on the definition and after the operation's PUT."""
     warnings: list[str] = []
     if operation.enabled and not operation.grants:
         warnings.append(f"'{_operation_label(operation)}': enabled without grants: no one can call it until a role "
@@ -123,8 +110,6 @@ def per_operation_warnings(operation: RestApiOperation) -> list[str]:
 
 
 def definition_warnings(operations: list[RestApiOperation]) -> list[str]:
-    """All warnings of an API: across its operations, then per operation (the UI shows them on load, not only on
-    PUT)."""
     return [*operation_warnings(operations),
             *(w for operation in operations for w in per_operation_warnings(operation))]
 
@@ -168,10 +153,6 @@ def _normalize_auth(raw: Any) -> dict[str, Any]:
 
 
 def _servers(raw: Any) -> list[str]:
-    """Each server an http(s) URL with a host; 422 naming the field and index (the UI marks that row).
-
-    Otherwise ``https://:/sap/opu/...`` (an SAP Hub server with empty variables) is stored and proposed as the base
-    URL."""
     if raw is None:
         return []
     if not isinstance(raw, list):
@@ -219,7 +200,6 @@ async def _key_free(db: AsyncSession, key: str) -> None:
 
 
 def _parameters(raw: Any) -> list[dict[str, Any]]:
-    """Manually entered parameters: path, query or header, a name, a JSON schema; auth headers are dropped."""
     parameters = []
     for entry in raw or []:
         if not isinstance(entry, dict) or not str(entry.get("name") or "").strip():
@@ -319,7 +299,6 @@ async def _fetch_spec(url: str) -> str:
 
 async def import_definition(db: AsyncSession, payload: dict[str, Any], *, actor_user_id: str | None
                             ) -> dict[str, Any]:
-    """A new definition from an OpenAPI/Swagger text or URL; all operations disabled, no grants."""
     key = validate_key(payload.get("key"))
     await _key_free(db, key)
     source_url = str(payload.get("spec_url") or "").strip() or None
@@ -389,7 +368,6 @@ def _default_preset(raw: Any) -> str | None:
 
 
 async def delete_definition(db: AsyncSession, definition_id: str) -> dict[str, Any]:
-    """Removes the definition, its operations and connections (their secrets released); the audit rows stay."""
     definition = await _load(db, definition_id)
     connections = (await db.execute(
         select(RestApiConnection).where(RestApiConnection.definition_id == definition_id)
@@ -494,8 +472,6 @@ async def update_operation(db: AsyncSession, definition_id: str, operation_id: s
 
 
 def _apply_preset(operation: RestApiOperation, name: Any) -> None:
-    """An OData response preset (``odata``), ``none`` (no preset, even under a definition default) or ``inherit`` (the
-    definition's default); a ``records_path``/``pagination`` in the same payload overrides it."""
     if str(name) == "inherit":
         operation.records_path, operation.pagination = None, {}
         return
@@ -511,7 +487,6 @@ def _apply_preset(operation: RestApiOperation, name: Any) -> None:
 
 
 def _enabled(operation: RestApiOperation, raw: Any) -> bool:
-    """An OData $batch operation is never enabled: one call would carry several requests past grants and audit."""
     value = bool(raw)
     if value and odata.unsupported_reason(operation.path, operation.request_body) == odata.UNSUPPORTED_BATCH:
         raise HTTPException(status_code=400, detail="This is an OData $batch operation, which Octryx does not run: "
@@ -521,7 +496,6 @@ def _enabled(operation: RestApiOperation, raw: Any) -> bool:
 
 
 def _remember(definition: RestApiDefinition, operation: RestApiOperation) -> None:
-    """This process's gates see the change at once (other processes refresh at their next dispatch)."""
     from ...tools.definitions.rest_tool_classes import remember_rest_tool
 
     capability = write_capability(operation) if operation.enabled and definition.is_active else None
@@ -529,7 +503,6 @@ def _remember(definition: RestApiDefinition, operation: RestApiOperation) -> Non
 
 
 def _capability(raw: Any) -> str | None:
-    """``deliver`` (default, an external write) or ``change``; empty resets to the default."""
     value = str(raw or "").strip()
     if not value:
         return None
@@ -539,7 +512,6 @@ def _capability(raw: Any) -> str | None:
 
 
 def _idempotent(operation: RestApiOperation, raw: Any) -> bool:
-    """Only a PUT or DELETE can be declared idempotent: a POST or PATCH repeated after a lost answer writes twice."""
     value = bool(raw)
     if value and str(operation.method or "").upper() not in IDEMPOTENT_CANDIDATE_METHODS:
         raise HTTPException(status_code=400, detail="idempotent can be set for PUT and DELETE operations only")
@@ -547,13 +519,6 @@ def _idempotent(operation: RestApiOperation, raw: Any) -> bool:
 
 
 def scope_bypass_warnings(operation: RestApiOperation) -> list[str]:
-    """A scoped grant without a result filter, on an operation the model can also query freely.
-
-    The scope sets ``assignment_group=X``; whether the API also lets a free query parameter (``sysparm_query``,
-    ``q``, ``filter``) or a request body widen the answer is the API's business. That is the Acme Orders pattern (the
-    service user saw every tenant; a query got past the appended filter), so only the result filter on the parsed
-    records is a guarantee, and the admin is told so.
-    """
     from .schema import BODY_PARAM, declared_parameters
 
     declared = declared_parameters(operation)
@@ -586,7 +551,6 @@ async def delete_operation(db: AsyncSession, definition_id: str, operation_id: s
 
 async def recent_calls(db: AsyncSession, *, limit: int = 50, definition_id: str | None = None,
                        operation_id: str | None = None) -> list[dict[str, Any]]:
-    """The latest audited calls, optionally of one definition and/or one operation (the per-API view)."""
     from ...models import Project, User
 
     query = select(RestApiCallRun)
@@ -626,11 +590,6 @@ async def recent_calls(db: AsyncSession, *, limit: int = 50, definition_id: str 
 
 async def admin_test_call(db: AsyncSession, definition_id: str, operation_id: str, payload: dict[str, Any], *,
                     admin_user_id: str) -> dict[str, Any]:
-    """A call of the operation as the calling admin, through the same executor, grants and audit as the model's.
-
-    The admin's own roles decide: an operation the admin is not granted is refused here too, so the test shows
-    what a person with the admin's roles would get. A disabled operation can be tested before it is enabled.
-    """
     import uuid
 
     from ...tools.context import ToolContext

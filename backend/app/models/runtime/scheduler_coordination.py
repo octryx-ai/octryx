@@ -1,17 +1,4 @@
-"""Cross-process scheduler coordination state.
-
-The schedule rows (``schedulers`` and ``tasks.schedule``) stay the only source of truth. These two
-tables record *who registers them* and *what that registrant has applied*:
-
-* ``scheduler_owner_leases`` holds one row (``id='task-scheduler'``): the platform process that
-  owns schedule registration, its fencing ``epoch`` and database-clock lease instants;
-* ``scheduler_job_applications`` holds one row per registered or rejected schedule, written only
-  by the owner under its current epoch: the content fingerprint it applied, the next run time it
-  registered and that registration's time zone.
-
-No host name, PID, token, credential or error text is stored. The owner's process id is the random
-per-boot id of ``runtime_process_leases`` and is never exposed by the API.
-"""
+"""Cross-process scheduler coordination: the owner lease and the schedules it applied."""
 
 from __future__ import annotations
 

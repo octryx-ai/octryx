@@ -1,17 +1,4 @@
-"""The intake overview of one Workspace: every source with Connection · In Knowledge ·
-In Work, and the Workspace's intakes.
-
-Sources: the registered Work sources (``intake/registry``: Jira, ServiceNow, ...) always; a content-only source
-(Confluence) only when the Workspace has a connection or a Knowledge source of it, and Custom REST only when the
-Workspace has a REST API connection or an intake of it. Per source ``work_state`` is
-
-- ``not_a_work_source``: content only, nothing flows into Work;
-- ``no_connection``: the Workspace has no connection of it (set one up in Workspace → Connectors);
-- ``no_intake``: connected, but nothing flows into Work yet;
-- ``set_up``: at least one intake.
-
-Only the caller's Workspace is read; configs of other Workspaces never appear.
-"""
+"""The intake overview of one Workspace: every source with Connection · In Knowledge · In Work, and its intakes."""
 
 from __future__ import annotations
 
@@ -43,7 +30,6 @@ STATE_SET_UP = "set_up"
 
 
 def work_sources() -> dict[str, str]:
-    """``source_type -> label`` of every registered Work source."""
     return {source_type: entry_of(source_type).label for source_type in source_types()}
 
 
@@ -74,9 +60,8 @@ def _connection_ref(row: WorkItemSyncConfig, connections: list[dict[str, Any]]) 
 
 
 def _what_value(value: Any) -> Any:
-    """A list-valued field as a list; a scalar (Custom REST's ``operation``, ``role``) exactly as stored.
-
-    ``list`` of every field would turn a REST intake's operation ``list_tickets`` into ``['l', 'i', 's', ...]``."""
+    # A scalar stays as stored: ``list`` would turn a REST intake's operation ``list_tickets`` into ``['l', 'i', 's',
+    # ...]``.
     return list(value) if isinstance(value, (list, tuple)) else value
 
 
@@ -90,8 +75,6 @@ def _what(row: WorkItemSyncConfig) -> dict[str, Any]:
 
 def describe_intake_row(row: WorkItemSyncConfig, connections: list[dict[str, Any]], items: int,
                         workflow_policy: Any = None) -> dict[str, Any]:
-    """One intake of the overview; ``sync_mode`` is its own write-back mode (``None``: follows the workflow) and
-    ``effective_sync_mode`` the one that decides, with the Workspace workflow's ``workflow_policy``."""
     options = dict(row.sync_options_json or {})
     modes = sync_mode_of(row, workflow_policy)
     return {

@@ -11,7 +11,6 @@ from .verdict import parse_verdict
 
 
 def _reviewed_phase_protects_tests(graph: Any, run: WorkflowRun, config: dict[str, Any]) -> bool:
-    """The phase this review judges (its ``phase``, else the run's last phase) may not change tests."""
     from ..path_rules import protects_confirmed_tests
 
     phase_id = str(config.get("phase") or dict(run.context or {}).get("last_phase") or "")
@@ -23,8 +22,7 @@ _ROOT_CAUSE = re.compile(r"root cause:\s*\S+:\d+", re.IGNORECASE)
 
 
 def root_cause_gate(settled: Any) -> Any:
-    """A bug fix's review that names no root cause (``file:line``) gets a low finding asking for it (low: medium
-    would turn a passed verdict into changes)."""
+    # Low, because medium would turn a passed verdict into changes.
     import dataclasses
 
     from .verdict import Finding
@@ -38,7 +36,6 @@ def root_cause_gate(settled: Any) -> Any:
 
 
 def _settle(answer: Any, previous: tuple[Any, ...], scope: Any) -> Any:
-    """The answer as a settled verdict (``convergence``), ``None`` when it breaks the schema."""
     if previous:
         return settle_follow_up(answer, previous, scope)
     verdict = parse_verdict(answer)
@@ -49,12 +46,7 @@ _LOOK_CHECK = re.compile(r"\bLF\s*-?\s*(\d+)\b", re.IGNORECASE)
 
 
 def look_floor(answer: Any, notes: list[Any]) -> Any:
-    """The first-round verdict with every high note on a look and feel check that it neither carries nor explains
-    added as a high finding on that screenshot (and the verdict then ``changes``).
-
-    The screenshot calls see the screens, the verdict call only their notes, and a
-    missed look must not vanish between the two: it is the product owner's design decision and blocks the automatic
-    accept. A note counts as carried when a finding or the summary names its screenshot or its check."""
+    # The verdict call sees only the screenshot notes, so a missed look must not vanish between the two calls.
     if not isinstance(answer, dict) or not isinstance(answer.get("findings", []), list):
         return answer
     findings = list(answer.get("findings") or [])

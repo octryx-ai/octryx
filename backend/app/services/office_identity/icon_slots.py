@@ -1,27 +1,4 @@
-"""Icon anchors of a layout, and which catalog icon belongs on one.
-
-Topic layouts often draw one circle above each of their text columns. Those
-circles are typically **not placeholders**: they are static ``p:sp`` autoshapes
-with an ``ellipse`` (or rounded-square) preset, small and square, sitting in
-the layout's shape tree next to the real body placeholders. The composer addresses placeholders by
-``idx``, so it never reached them and the circles rendered empty — and the
-slide looked sketchy.
-
-This module supplies the two deterministic halves of the fix:
-
-1. **Where** an icon goes — ``icon_anchors()`` reads those static circles out of
-   the layout and records their geometry, so placement uses the template's own
-   coordinates and never an invented one.
-2. **Which** icon goes there — ``select_icon()`` maps a closed topic key to a
-   closed, ordered list of plain synonyms (``icon_topics``) and takes the first
-   catalog icon whose own words — slug, name, alt text, file name — carry one.
-
-Both halves are deterministic and work against fixed vocabularies. There is no scoring,
-no fuzzy match and no model in the path: a topic either names an icon this
-template ships, or it does not. When it does not, nothing is placed and the
-caller reports ``icons_unavailable`` — a foreign graphic or an emoji would be
-exactly the invented content the whole package exists to prevent.
-"""
+"""Icon anchors of a layout, and which catalog icon belongs on one."""
 
 from __future__ import annotations
 
@@ -84,13 +61,6 @@ def icon_anchors(
     slide_size: dict[str, int],
     geometry: Any,
 ) -> list[dict[str, int]]:
-    """Static icon holders of one layout, left to right then top to bottom.
-
-    ``geometry`` is the snapshot's own shape-transform reader, passed in so this
-    module does not duplicate that parsing. Only non-placeholder autoshapes with
-    an icon-shaped preset and a real transform qualify; everything else in the
-    shape tree is left alone.
-    """
     common = layout_root.find(f"{{{NS_P}}}cSld")
     tree = common.find(f"{{{NS_P}}}spTree") if common is not None else None
     if tree is None:
@@ -132,22 +102,10 @@ def icon_anchors(
 
 
 def select_icon(snapshot: dict[str, Any], topic_key: str) -> dict[str, Any] | None:
-    """The catalog icon for a topic key, or ``None``.
-
-    ``None`` is a real answer, not a failure to try: it means this template
-    ships no icon this closed vocabulary names for that topic. The caller must
-    then place nothing and say so.
-    """
     return match_topic_icon(snapshot.get("icons") or (), topic_key)
 
 
 def icon_fit_rect(anchor: dict[str, int], aspect: float) -> dict[str, int]:
-    """Centre an icon of ``aspect`` (w/h) inside ``anchor``, never distorting it.
-
-    The icon is fitted into the square box ``ICON_FILL_RATIO`` of the anchor and
-    centred on the anchor's centre, so it sits concentric with the template's
-    circle whatever its own proportions are.
-    """
     box = int(min(anchor["w_emu"], anchor["h_emu"]) * ICON_FILL_RATIO)
     ratio = aspect if aspect and aspect > 0 else 1.0
     if ratio >= 1.0:
@@ -167,14 +125,6 @@ def icon_fit_rect(anchor: dict[str, int], aspect: float) -> dict[str, int]:
 def plan_icon_placements(
     layout: dict[str, Any], topic_keys: list[str], snapshot: dict[str, Any]
 ) -> tuple[list[dict[str, Any]], list[str]]:
-    """Pair this layout's anchors with the icons its topics name.
-
-    Returns ``(placements, unresolved)``. ``placements`` carries one
-    ``{anchor, icon, topic_key}`` per anchor that got an icon, in anchor order;
-    ``unresolved`` names the topic keys that found none. A layout without
-    anchors yields no placements and no unresolved keys — there is nothing to
-    fill, so nothing is missing.
-    """
     anchors = [
         anchor for anchor in (layout.get("icon_anchors") or ()) if isinstance(anchor, dict)
     ]
@@ -203,16 +153,6 @@ def place_layout_icons(
     slide_index: int,
     applied: list[str],
 ) -> list[dict[str, Any]]:
-    """Fill a slide's static icon holders from the template's icon catalog.
-
-    ``embedder`` is an ``icon_embedding.IconEmbedder`` (passed in so this module
-    keeps no OOXML dependency of its own). A holder is filled only when the
-    catalog contains an icon the slide's closed topic key names; every gap — a
-    topic naming no shipped icon, or a template with no catalog — becomes an
-    ``icons_unavailable`` info finding and an empty circle, never a substitute
-    graphic. Placement labels are appended to ``applied`` so the composer's
-    ``filled_slots`` records exactly which icons landed.
-    """
     keys = [str(key or "").strip() for key in (topic_keys or [])]
     anchors = [anchor for anchor in (layout.get("icon_anchors") or ()) if isinstance(anchor, dict)]
     if not anchors or not any(keys):

@@ -1,7 +1,3 @@
-// Pure presentation rules of Knowledge → Search: toolbar hint and options label, the results header,
-// passage clamping, the meta line of a hit and the per-mode search availability. Counts are always the
-// count of returned evidence, never a total of the workspace.
-
 import type { EvidenceHit } from "./workspaceKnowledgeTypes";
 
 export const DEFAULT_SEARCH_MODE = "hybrid";
@@ -12,8 +8,7 @@ export function searchHint(emptyWorkspace: boolean): string {
     : "Ask in any language; every passage links to its source.";
 }
 
-// Options that narrow or change the search; a version only counts when a product scopes it, because
-// the request drops a version without products.
+// A version counts only with products: the request drops a version without them.
 export function activeOptionCount(options: { mode: string; products: string; version: string }): number {
   const products = options.products.trim().length > 0;
   return Number(options.mode !== DEFAULT_SEARCH_MODE) + Number(products) + Number(products && options.version.trim().length > 0);
@@ -28,8 +23,7 @@ export function resultCountLabel(count: number, query: string): string {
   return `${subject} for “${query}”`;
 }
 
-// A passage is clamped to three lines only when it is likely longer than that; a short passage is shown
-// whole, so the clamp can never hide text without offering "Show full passage".
+// Only likely-long passages are clamped, so the clamp never hides text without offering "Show full passage".
 export const PASSAGE_CLAMP_CHARS = 220;
 export const PASSAGE_CLAMP_LINES = 3;
 
@@ -61,7 +55,6 @@ function humanize(code: string): string {
   return words ? words[0].toUpperCase() + words.slice(1) : code;
 }
 
-// One row per mode the server reported, in the server's order; unknown codes are shown, not hidden.
 export function availabilityRows(states: Record<string, string> | null | undefined): AvailabilityRow[] {
   return Object.entries(states ?? {}).map(([key, state]) => ({
     key,
@@ -77,20 +70,12 @@ export function availabilitySummary(rows: AvailabilityRow[]): string {
   return available === rows.length ? `all ${rows.length} available` : `${available} of ${rows.length} available`;
 }
 
-// ---- Relevance (library-search-relevance-ui) ----------------------------
-//
-// Read from the server, never guessed: the search answer's `mode_states.rerank` (this search) and the Knowledge
-// settings read model (`GET …/knowledge/settings`: `data_classification {effective, source}` and
-// `reranker {state, hold_reason}`). Only hybrid search is reranked; keyword and meaning search are not
-// relevance-filtered.
-
 export const SEARCH_MODES: { value: string; label: string }[] = [
   { value: "hybrid", label: "Hybrid: keywords and meaning, relevance-ranked when the reranker is available" },
   { value: "lexical", label: "Keyword: the exact terms, not relevance-filtered" },
   { value: "vector", label: "Meaning: similar meaning, not relevance-filtered" },
 ];
 
-/** What the chosen method does; `rerank` is whether relevance ranking is active (null when not reported). */
 export function searchModeHint(mode: string, rerank: boolean | null): string {
   if (mode !== "hybrid") return "Not relevance-filtered: results may be only loosely related to the question.";
   if (rerank === true) return "Ranked by relevance; passages the reranker judges irrelevant are left out.";
@@ -100,13 +85,10 @@ export function searchModeHint(mode: string, rerank: boolean | null): string {
   return "Ranked by relevance when the reranker is available.";
 }
 
-// The reranker's closed hold reasons (rerank/admission_state.py, embedding/selection.admit_remote), each with who
-// can fix it.
 const HOLD_TEXT: Record<string, string> = {
   reranker_not_configured:
     "no reranker is configured for this instance; an instance operator can set one up",
   reranker_unknown: "the configured reranker is not known; an instance operator corrects the reranker setting",
-  // Runtime holds (embedding/bedrock.bedrock_runtime_hold).
   region_missing:
     "no AWS region is set for the reranker on this instance; an instance operator sets it",
   runtime_missing:
@@ -118,7 +100,6 @@ const HOLD_TEXT: Record<string, string> = {
     "this Workspace's data classification is more sensitive than the reranker may receive; only a Workspace admin changing the classification, or an instance operator providing a reranker allowed for it, changes this",
 };
 
-/** A reranker hold reason in words with who can fix it, or null for a code that is not a hold. */
 export function rerankerHoldText(reason: string | null | undefined): string | null {
   return reason ? HOLD_TEXT[reason] ?? null : null;
 }
@@ -140,7 +121,6 @@ export type RelevanceStatus = { active: boolean; text: string; classification: s
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-/** "Relevance ranking active" or "Relevance ranking unavailable: <reason; who can fix it>"; null when not reported. */
 export function relevanceStatus(settings: unknown, searchRerank: string | null | undefined): RelevanceStatus | null {
   const reranker = isRecord(settings) && isRecord(settings.reranker) ? settings.reranker : null;
   const classification = isRecord(settings) && isRecord(settings.data_classification) ? settings.data_classification : null;
@@ -156,19 +136,13 @@ export function relevanceStatus(settings: unknown, searchRerank: string | null |
     : null;
   if (state === "ok") return { active: true, text: "Relevance ranking active.", classification: classificationText };
   const hold = typeof reranker?.hold_reason === "string" ? reranker.hold_reason : "";
-  // A settings reason explains this state only when the settings report the same state.
   const reason = (reranker?.state === state && HOLD_TEXT[hold]) || STATE_TEXT[state] || `reranker state ${state}`;
   return { active: false, text: `Relevance ranking unavailable: ${reason}.`, classification: classificationText };
 }
 
-/**
- * Display-only, nothing is hidden or dropped: the server's floor (`min_relevance`) already left out what the reranker
- * judges irrelevant. When this search was reranked and every passage carries a relevance, the trailing passages below
- * this share of the best one are shown under "Less relevant".
- */
+// Display only: the server's min_relevance floor already left out irrelevant passages.
 export const LESS_RELEVANT_SHARE = 0.5;
 
-/** Where the "Less relevant" tail starts, or null when there is none to show (no scores, not reranked, no tail). */
 export function lessRelevantStart(hits: { relevance?: number | null }[], rerank: string | null | undefined): number | null {
   if (rerank !== "ok" || hits.length < 2) return null;
   const scores = hits.map((hit) => hit.relevance);
@@ -179,15 +153,10 @@ export function lessRelevantStart(hits: { relevance?: number | null }[], rerank:
   return start > 0 && start < hits.length ? start : null;
 }
 
-// No relevance number is shown: the ranking is the order of the hits.
-
 export const NO_MATCH_TEXT =
   "No matching knowledge found. Try another wording or other terms. This only means no source passage matched; it does not confirm or refute anything.";
 
-// A refusal that is a state of the instance, not of the query, reads as that state with its next step (outsider
-// walkthrough: "Workspace knowledge storage is not configured." stood in a red box with no way on).
-// Knowledge storage is set in the deployment, not in the app, so the administrator's step names the deployment and
-// links the install guide's section for it.
+// Knowledge storage is set in the deployment, not in the app, so the step links the install guide.
 export type SearchRefusal = { title: string; text: string; link?: { href: string; label: string } };
 
 export const KNOWLEDGE_STORAGE_GUIDE = "https://octryx.ai/docs/install/knowledge-storage#object-store";

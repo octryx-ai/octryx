@@ -1,6 +1,4 @@
-// E5 Problems (central configuration, backend): what is
-// broken across the platform, each row with the one place to fix it. Pure reading and wording; the server
-// aggregates, filters and counts (counts ignore the kind/severity filters, so segment totals stay put).
+// Counts ignore the kind/severity filters so segment totals stay put.
 
 export const PROBLEM_KINDS = ["connection", "sync", "intake", "run", "rule_denial", "token", "device", "budget"] as const;
 export type ProblemKind = (typeof PROBLEM_KINDS)[number];
@@ -50,10 +48,7 @@ function ref(value: unknown): ProblemRef | null {
   return item && text(item.id) ? { id: text(item.id), name: text(item.name) || text(item.id) } : null;
 }
 
-/**
- * A fix link only when it stays inside this app: a same-origin path ("/chat?…"). An absolute or protocol-relative
- * URL, or javascript:, is dropped, so a stored value cannot send a person elsewhere.
- */
+// Same-origin paths only, so a stored value cannot send a person elsewhere.
 export function safeFixHref(href: string): string | null {
   const value = href.trim();
   if (!value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) return null;
@@ -98,7 +93,6 @@ export function readProblems(payload: unknown): ProblemList {
   };
 }
 
-/** The query string for the admin list; empty filters are left out. */
 export function problemsQuery(filters: ProblemFilters): string {
   const params = new URLSearchParams();
   if (filters.workspaceId) params.set("workspace_id", filters.workspaceId);
@@ -108,7 +102,6 @@ export function problemsQuery(filters: ProblemFilters): string {
   return query ? `?${query}` : "";
 }
 
-/** The kind segments: All plus every kind the server counted (in a fixed order), with their totals. */
 export function kindTabs(counts: ProblemCounts): { key: string; label: string; count: number }[] {
   const total = counts.problem + counts.attention;
   const present = [
@@ -118,8 +111,7 @@ export function kindTabs(counts: ProblemCounts): { key: string; label: string; c
   return [{ key: "", label: "All", count: total }, ...present.map((kind) => ({ key: kind, label: kindLabel(kind), count: counts.byKind[kind] }))];
 }
 
-// The kind segments already start with "All"; the severity group's own first segment says what it does not filter
-// (two adjacent "All" segments).
+// The kind segments already start with "All"; avoid two adjacent "All" segments.
 export function severityTabs(counts: ProblemCounts): { key: string; label: string; count: number }[] {
   return [
     { key: "", label: "Any severity", count: counts.problem + counts.attention },
@@ -136,7 +128,6 @@ export function countText(count: number): string {
   return count > 1 ? `${count}×` : "once";
 }
 
-/** Server refusals in one sentence each; an unknown code keeps the server's own message. */
 export function refusalText(status: number, code: string, message: string): string {
   if (code === "problem_not_found") return "This problem is no longer open.";
   if (code === "admin_required" || (!code && status === 403)) return "Only admins can see the problems of the platform.";

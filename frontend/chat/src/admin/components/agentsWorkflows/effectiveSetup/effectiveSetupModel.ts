@@ -1,15 +1,8 @@
-// Effective setup (backend `services/effective_setup`, `GET /api/v1/effective-setup`): what a session actually gets,
-// part by part, each with its source, version and what enforces it. Pure parsing here; the page renders it.
+// Effective setup (backend `services/effective_setup`, `GET /api/v1/effective-setup`): what an octryx-claude session
+// actually gets, part by part, each with its source, version and what enforces it. Pure parsing here; the page renders it.
 import type { Enforcement } from "../awBadges";
 
 export const EFFECTIVE_SETUP_PATH = "/api/v1/effective-setup";
-
-export type SetupRuntime = "chat" | "octryx_claude";
-
-export const RUNTIME_LABELS: Record<SetupRuntime, string> = {
-  chat: "Platform chat",
-  octryx_claude: "octryx-claude",
-};
 
 export type SetupPart = {
   id: string;
@@ -24,17 +17,7 @@ export type SetupPart = {
 
 export type SetupBudgetGroup = { key: string; label: string; tokens: number };
 
-export type PromptComparisonKey = {
-  key: string;
-  turn: string | null;
-  now: string | null;
-  state: "same" | "changed" | "setup_only";
-};
-
-export type SetupComparison = { matches: boolean; changed: number; same: number; keys: PromptComparisonKey[] };
-
 export type EffectiveSetup = {
-  runtime: SetupRuntime;
   capabilityClass: string;
   capabilitySource: string;
   workflowKey: string;
@@ -42,8 +25,6 @@ export type EffectiveSetup = {
   profileReason: string;
   parts: SetupPart[];
   budget: { total: number; limit: number; groups: SetupBudgetGroup[] };
-  turn: { traceId: string; createdAt: string | null } | null;
-  comparison: SetupComparison | null;
 };
 
 export type SetupOption = { id: string; label: string };
@@ -60,7 +41,6 @@ export type SetupQuery = {
   userId: string;
   agentId: string;
   workflowKey: string;
-  runtime: SetupRuntime;
 };
 
 type Json = Record<string, unknown>;
@@ -88,29 +68,12 @@ export function readSetupPart(raw: unknown): SetupPart {
   };
 }
 
-function readComparison(raw: unknown): SetupComparison | null {
-  if (!raw || typeof raw !== "object") return null;
-  const comparison = record(raw);
-  return {
-    matches: comparison.matches === true,
-    changed: count(comparison.changed),
-    same: count(comparison.same),
-    keys: list(comparison.keys).map((item) => {
-      const key = record(item);
-      const state = key.state === "changed" || key.state === "setup_only" ? key.state : "same";
-      return { key: text(key.key), turn: text(key.turn) || null, now: text(key.now) || null, state };
-    }),
-  };
-}
-
 export function readEffectiveSetup(raw: unknown): EffectiveSetup {
   const body = record(raw);
   const summary = record(body.summary);
   const capability = record(summary.capability);
   const budget = record(body.budget);
-  const turn = body.turn ? record(body.turn) : null;
   return {
-    runtime: body.runtime === "octryx_claude" ? "octryx_claude" : "chat",
     capabilityClass: text(capability.class),
     capabilitySource: text(capability.source),
     workflowKey: text(summary.workflow_key),
@@ -125,8 +88,6 @@ export function readEffectiveSetup(raw: unknown): EffectiveSetup {
         return { key: text(group.key), label: text(group.label), tokens: count(group.tokens) };
       }),
     },
-    turn: turn ? { traceId: text(turn.trace_id), createdAt: text(turn.created_at) || null } : null,
-    comparison: readComparison(body.comparison),
   };
 }
 
@@ -150,16 +111,7 @@ export function setupQueryString(query: SetupQuery): string {
   if (query.userId) params.set("user_id", query.userId);
   if (query.agentId) params.set("agent_id", query.agentId);
   if (query.workflowKey) params.set("workflow_key", query.workflowKey);
-  params.set("runtime", query.runtime);
   return params.toString();
-}
-
-export function readSessionFromSearch(search: string): string {
-  try {
-    return new URLSearchParams(search).get("session") ?? "";
-  } catch {
-    return "";
-  }
 }
 
 /** The bar widths in percent of the turn budget (or of the total when no budget applies). */
@@ -167,6 +119,3 @@ export function budgetShares(budget: EffectiveSetup["budget"]): { key: string; l
   const base = budget.limit > 0 ? budget.limit : Math.max(budget.total, 1);
   return budget.groups.map((group) => ({ ...group, percent: Math.min(100, (group.tokens / base) * 100) }));
 }
-
-export const effectiveSetupSessionHref = (sessionId: string) =>
-  `/chat?area=workflows&tab=effectiveSetup&session=${encodeURIComponent(sessionId)}`;

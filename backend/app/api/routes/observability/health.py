@@ -30,9 +30,9 @@ async def get_health(
 @router.get("/overview")
 async def get_overview(
     request: Request,
-    _admin: User = Depends(get_current_admin_user),
+    admin: User = Depends(get_current_admin_user),
     db: AsyncSession = Depends(get_db),
 ):
     runtime = get_platform_runtime(getattr(request.app.state, "async_session_factory", None))
     platform = await runtime.health_checks(app_version=get_settings().app_version)
-    return await overview(db, checks=dict(platform.get("checks") or {}))
+    return await overview(db, checks=dict(platform.get("checks") or {}), viewer_id=admin.id)

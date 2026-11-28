@@ -1,44 +1,5 @@
-"""Governed recovery of a stuck projection obligation.
-
-Recovery from a terminal ``dead_letter`` projection is an operator decision about durable
-delivery state, so it is an explicit authorized operation here, never a side effect of an
-ingestion; the identical-upload path calls this same service instead of carrying a second
-reset rule of its own.
-
-Two transitions, and only two:
-
-- **requeue** ``dead_letter`` -> ``pending``, due now, attempt budget reset to 0 and
-  the failure token cleared. The immutable revision and the persisted projection
-  cursor (``projected_through_ordinal``) are untouched, so the next run continues
-  idempotently from where the failing one got to instead of re-projecting spans.
-- **retry now** a ``pending`` obligation whose ``next_attempt_at`` is still in the
-  future becomes due immediately. The attempt count is *not* reset: pulling a
-  scheduled attempt forward must not widen the bounded retry budget.
-
-Every transition is compare-and-set: the ``UPDATE``'s ``WHERE`` still names the
-state the row was read in, and it only counts when it changed exactly one row. That
-is what makes ``claimed`` and ``applied`` untouchable. A live worker claim is not
-"a stuck obligation to reset" — the installed lease deadline is the claim's
-generation token, and clearing it from the side would hand two holders the same
-work; an ``applied`` obligation is simply done. Both are refused without any write,
-as is a stale read that lost the race to a concurrent recovery request.
-
-Repeats are deterministic rather than silently re-applied: a second requeue of an
-already-pending obligation answers ``already_pending`` and a second retry-now of an
-already-due one answers ``already_due``, both without touching the row.
-
-One state change commits together with exactly one redacted
-:class:`ComplianceAuditRecord`, in one transaction, so a recovery can never be
-observable without its record. Only state changes are audited: ``previous_state``
-and ``result`` describe a transition, and a refused request performed none.
-
-What the record may carry is a closed set — actor, Workspace, revision, outbox
-entry, previous state, operation, result and the request correlation id — and every
-value is validated against a narrow charset and length bound before the insert. No
-dependency body, object key, bucket, database name, endpoint, statement, credential,
-document title or span text is persistable here, and the bound also keeps a value
-from aborting the transaction on a PostgreSQL column width.
-"""
+"""Governed recovery of a stuck projection obligation: requeue or retry now, compare-and-set. Each state change commits
+with exactly one audit record."""
 
 from __future__ import annotations
 
@@ -79,15 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 async def _load(db: AsyncSession, project_id: str, revision_id: str, now: datetime) -> _Obligation:
-    """Read the one projection obligation of this revision inside this Workspace.
-
-    Scoped by ``project_id`` directly, so a revision of another Workspace is absent
-    rather than forbidden: the transport renders it as the same 404 as an unknown
-    revision and an inaccessible Workspace.
-
-    A sandboxed revision owes its parse before its projection. Until the parse
-    completes, the parse is the obligation recovery acts on; afterwards it is the projection.
-    """
+    # Scoped by ``project_id``: another Workspace's revision is absent, not forbidden (the same 404).
     rows = (
         await db.execute(
             select(
@@ -119,12 +72,8 @@ def _may_apply(obligation: _Obligation, operation: str) -> bool:
 async def _apply(
     db: AsyncSession, project_id: str, obligation: _Obligation, operation: str, now: datetime
 ) -> bool:
-    """Compare-and-set the one permitted transition; ``False`` means the row moved.
-
-    Does not commit: the caller persists the transition together with its audit
-    record. The ``WHERE`` repeats the state the row was read in, so a concurrent
-    claim or a concurrent recovery invalidates this update instead of overwriting it.
-    """
+    # The WHERE repeats the read state, so a concurrent claim or recovery invalidates this update instead of overwriting
+    # it.
     if operation in REQUEUE_OPERATIONS:
         conditions = (KnowledgeProjectionOutboxEntry.state == OUTBOX_STATE_DEAD_LETTER,)
         # ``projected_through_ordinal`` is deliberately absent: the cursor is
@@ -168,12 +117,7 @@ async def _apply(
 async def _add_audit_record(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, actor_user_id: str | None, recovery: ProjectionRecovery
 ) -> None:
-    """Stage the one record of this recovery in the caller's open transaction.
-
-    ``commit=False`` is what makes the record atomic with the state change: the
-    audit service applies its redaction and event-type validation, and this service
-    keeps ownership of the single commit.
-    """
+    # ``commit=False`` keeps the audit record atomic with the state change.
     if actor_user_id is not None and (type(actor_user_id) is not str or len(actor_user_id) > _MAX_ID_CHARS):
         raise EvidenceLedgerContractError()
     if len(authorized.role) > _MAX_ACTOR_ROLE_CHARS:
@@ -203,14 +147,6 @@ async def recover_projection(
     operation: str,
     actor_user_id: str | None,
 ) -> ProjectionRecovery:
-    """Apply one governed recovery operation to one revision's projection obligation.
-
-    Raises :class:`EvidenceRecordNotFoundError` for a revision that is unknown or
-    belongs to another Workspace, and :class:`WorkspaceWriteForbiddenError` for a
-    caller who is not an author of this Workspace. Every other outcome is a
-    :class:`ProjectionRecovery` decision, including the refusals: whether the
-    obligation could be recovered is product state, not a fault.
-    """
     _check_request(authorized, revision_id, operation)
 
     project_id = authorized.project_id

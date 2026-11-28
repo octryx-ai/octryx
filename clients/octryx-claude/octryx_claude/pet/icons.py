@@ -1,13 +1,4 @@
-"""The tray image: the Octryx mascot as a silhouette for the menu bar's appearance, with a badge for the state.
-
-- The mascot is the Octryx logo (``icon_data``), drawn in one colour from its alpha: dark on a light menu
-  bar, light on a dark one, so it reads on both (the logo's own beige vanishes on a light bar).
-- ``resting`` and ``unknown``: the mascot alone; ``offline`` and ``signed_out``: the mascot faded with a grey ring.
-- ``working``: a blue dot; ``needs_you``: an orange disc with the count (9+ above nine); ``done``: a green disc
-  with a check; ``problem``: a red disc with "!".
-- Images are square RGBA at the pixel size the platform asks for (macOS: 44 px for a 22 pt menu bar on Retina).
-  :func:`ico_bytes` writes the Windows sizes.
-"""
+"""The tray image: the Octryx mascot as a silhouette for the menu bar's appearance, with a state badge."""
 
 from __future__ import annotations
 

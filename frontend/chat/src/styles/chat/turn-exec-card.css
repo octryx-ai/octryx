@@ -71,7 +71,7 @@
   background: transparent;
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0;
   text-transform: none;
 }
@@ -80,12 +80,12 @@
   content: "";
   width: 0.375rem;
   height: 0.375rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--status-idle);
 }
 
 .turn-exec-card--neutral .turn-exec-card__meta strong {
-  font-weight: 500;
+  font-weight: var(--ds-weight-medium);
 }
 
 .turn-exec-card--neutral .turn-exec-card__reason {
@@ -109,12 +109,12 @@
   align-items: center;
   min-height: 1.2rem;
   padding: 0 0.5rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   border: 1px solid color-mix(in srgb, var(--turn-exec-tone) 24%, transparent);
   background: color-mix(in srgb, var(--turn-exec-tone) 10%, transparent);
   color: var(--turn-exec-tone-ink);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
@@ -127,7 +127,7 @@
 
 .turn-exec-card__meta strong {
   color: var(--muted-strong);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .turn-exec-card__reason,
@@ -140,7 +140,7 @@
   margin-left: auto;
   padding: 0.12rem 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: transparent;
   color: var(--muted-strong);
   font: inherit;
@@ -171,12 +171,12 @@
 .turn-exec-card__decision {
   padding: 0.25rem 0.75rem;
   border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--accent-soft);
   color: var(--text);
   font: inherit;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: pointer;
 }
 
@@ -193,7 +193,7 @@
 
 .turn-exec-card__decision-note {
   color: var(--muted);
-  font-weight: 500;
+  font-weight: var(--ds-weight-medium);
 }
 
 /* Workflow suggestion: sits above the answer, so it spaces below. */

@@ -37,7 +37,7 @@
   max-width: 100%;
   padding: 0.25rem 0.25rem 0.25rem 0.5rem;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay);
   font-size: var(--ds-text-xs);
 }
@@ -92,7 +92,7 @@
 .agent-step-form__advanced summary {
   color: var(--text);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: pointer;
 }
 

@@ -57,7 +57,7 @@ async def test_the_same_refused_command_three_times_pauses_with_the_proposal(wor
     reason, detail = calls["paused"][0]
     assert reason == PAUSE_PHASE_SCOPE_EXCEEDED and detail["intent"] == "Bash:flutter pub"
     assert "own story or a change plan" in detail["message"] and detail["resume"]["node_id"] == "fix"
-    run.node_state = {"entry": 5}  # a new pass counts afresh
+    run.node_state = {"entry": 5}
     assert await refusals.react(None, run, tool="Bash", reason="outside_phase_tools", tool_input=bash) == ""
 
 
@@ -74,7 +74,7 @@ async def test_editing_a_protected_test_goes_back_to_reproduce_when_the_turn_end
     assert calls["restarted"] == ["reproduce"]
     assert run.context["change_plan_reason"]["from"] == "fix" and "test file" in run.context["change_plan_reason"][
         "refusal"]
-    assert await refusals.apply_pending_change_plan(None, run) is False  # once
+    assert await refusals.apply_pending_change_plan(None, run) is False
 
 
 @pytest.mark.asyncio
@@ -83,7 +83,7 @@ async def test_escalate_raises_the_size_class_and_a_class_without_one_pauses(wor
     asked = {"command": "x y"}
     await refusals.react(None, run, tool="Bash", reason="budget_hint", tool_input=asked)
     assert await refusals.react(None, run, tool="Bash", reason="budget_hint", tool_input=asked) == "pause"
-    assert calls["escalated"] == ["refusals:Bash:x y"]  # escalate answered "": no heavier class
+    assert calls["escalated"] == ["refusals:Bash:x y"]
     monkeypatch.setattr("app.services.workflow_runs.size_class.escalate", lambda db, run, *, cause: "M")
     run.node_state = {"entry": 6}
     await refusals.react(None, run, tool="Bash", reason="budget_hint", tool_input=asked)
@@ -114,14 +114,11 @@ def test_the_bug_seed_configures_both_cases_as_data():
     bug = next(item for item in json.loads(seeds.read_text(encoding="utf-8")) if item["key"] == "bug-fix-reproduction")
     fix = next(node for node in bug["definition"]["nodes"] if node["id"] == "fix")
     actions = [rule["action"] for rule in fix["config"]["refusals"]]
-    # A refused protected test file goes back at once; a refused confirmed test only on its second refusal (the first
-    # names the alternative).
     assert actions == ["pause", {"change_plan": "reproduce"}, {"change_plan": "reproduce"}]
 
 
 @pytest.mark.asyncio
 async def test_a_refused_command_is_kept_without_its_secret(world):
-    """run.context keeps the refused requests for the pause's proposal: never a token of the command."""
     run, _calls = world
     secret = "ghp_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6q7R8"
     command = {"command": f"curl -H 'Authorization: Bearer {secret}' https://api.github.com/user"}

@@ -20,8 +20,6 @@ from .templates import _get_template_or_404
 
 @dataclass(frozen=True)
 class _ChainScope:
-    """What every step of one chain run shares."""
-
     db: AsyncSession
     template: AgentChainTemplate
     chain_run: AgentChainRun
@@ -52,7 +50,6 @@ def _record_output(
     step: dict[str, Any],
     output: dict[str, Any],
 ) -> None:
-    """Add a finished step to the results and its content, session and mapped output to the context."""
     step_results.append(output)
     context[f"step_{step_id}_content"] = output.get("content")
     context[f"step_{step_id}_session_id"] = output.get("session_id")
@@ -62,7 +59,6 @@ def _record_output(
 
 
 def _collect_parallel_group(steps: list[Any], index: int, group_name: str) -> tuple[list[dict[str, Any]], int]:
-    """The consecutive parallel steps of ``group_name`` from ``index`` on, and the index after them."""
     group_steps: list[dict[str, Any]] = []
     while index < len(steps):
         candidate = dict(steps[index] or {})
@@ -77,7 +73,6 @@ def _collect_parallel_group(steps: list[Any], index: int, group_name: str) -> tu
 async def _run_parallel_group(
     scope: _ChainScope, group_steps: list[dict[str, Any]], context: dict[str, Any]
 ) -> list[dict[str, Any]]:
-    """Without a session factory the group runs one by one on the caller's session, else concurrently."""
     if scope.session_factory is None:
         group_outputs = []
         for group_step in group_steps:

@@ -1,21 +1,4 @@
-"""Reviewer suggestions without Engineering Profiles.
-
-Who should review a Work Item's change comes from what is already declared once:
-
-- the **repository record** of each change unit (Settings → Workspace → Repositories): its ``default_reviewers``
-  (the source-control usernames a pull request asks for) and its ``owners``;
-- the **Workspace members** (Workspace → Access) with their role;
-- their **linked accounts** (``services/linked_accounts``: SCM usernames and account ids), which match a declared
-  name.
-
-A recommendation is made for one Workspace (the run's, the coding session's, or the item's own for a person's read):
-the item must be in it, its repository records are loaded through ``related_rows`` for it (a record the viewer may
-not use or of another Workspace is never read) and its members are the candidates.
-
-A declared reviewer or owner that matches exactly one member is that member; one that matches nobody stays a named
-candidate (a team or an account that is not a member). The item's assignee is never suggested first. An override
-records an assignment by name (and user id when known); it never approves.
-"""
+"""Reviewer suggestions for a Work Item's change, made for one Workspace."""
 
 from __future__ import annotations
 
@@ -58,7 +41,6 @@ def _evidence(kind: str, points: int, reason: str) -> dict[str, Any]:
 
 
 async def user_aliases(db: AsyncSession, user_ids: set[str]) -> dict[str, set[str]]:
-    """``{user id: lower-cased names}``: username, e-mail, display name and every linked account's identifier."""
     if not user_ids:
         return {}
     aliases: dict[str, set[str]] = defaultdict(set)
@@ -70,7 +52,6 @@ async def user_aliases(db: AsyncSession, user_ids: set[str]) -> dict[str, set[st
 
 
 async def users_named(db: AsyncSession, names: set[str]) -> dict[str, set[str]]:
-    """``{lower-cased name: user ids}`` for names that are a username, e-mail, display name or linked account."""
     if not names:
         return {}
     users = (
@@ -259,6 +240,7 @@ async def apply_reviewer_override(
             action="secure_work.reviewer_override_applied",
             resource_type="work_item",
             resource_id=item.id,
+            project_id=item.project_id,
             details={
                 "source_key": item.source_key,
                 "override_id": row.id,

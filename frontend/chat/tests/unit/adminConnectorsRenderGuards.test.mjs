@@ -61,7 +61,7 @@ test("GitHub connector: the create-repository form shows its fields, the code-re
   const form = {
     name: "platform-api", owner: "", owner_type: "org", visibility: "private", default_branch: "main", local_path: "",
     description: "", create_readme: true, create_gitignore: false, initial_commit: true, register_code_repository: true,
-    project_id: "ws_1", index_backend: "auto", semantic_backend: "scip", structure_backend: "auto", graph_backend: "auto",
+    project_id: "ws_1", index_backend: "auto", semantic_backend: "lsp", structure_backend: "auto", graph_backend: "auto",
   };
   const view = await mount("admin/components/connectorsTab/ConfiguredConnectorGithubRepoForm.tsx", "ConfiguredConnectorGithubRepoForm", {
     connector: { configured: true, public_fields: { github_owner: "acme" } },
@@ -73,7 +73,7 @@ test("GitHub connector: the create-repository form shows its fields, the code-re
     "Project", "Search backend", "Semantic backend", "Structure backend", "Graph backend",
   ]);
   assert.equal(ofType(view.root, "input").length, 9);
-  assert.equal(ofType(view.root, "option").length, 2 + 2 + 3 + 3 + 4 + 3 + 3);
+  assert.equal(ofType(view.root, "option").length, 2 + 2 + 3 + 3 + 3 + 3 + 3);
   assert.equal(view.root.findAll((node) => node.type === "input" && node.props.placeholder === "acme").length, 1);
   const button = ofType(view.root, "button")[0];
   assert.equal(text(button), "Create repository");

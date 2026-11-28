@@ -1,17 +1,4 @@
-"""The Definition of Ready of a Work item (Jira intake & triage; replaces the regex clarification gate).
-
-The triage phase's agent submits one structured record (``submit_definition_of_ready``, a phase output:
-``phase_outputs``); the server validates it and keeps it on the run (``context.definition_of_ready``):
-
-``{"type": "feature" | "bug" | "task" | "incident", "summary", "acceptance_criteria": [...],
-"reproduction_steps": [...], "expected", "actual", "repository": "<provider>:<path>", "open_questions": [...]}``
-
-It is **complete** when a feature names acceptance criteria, a bug its reproduction steps and the expected and
-actual behaviour, the affected repository is a valid reference, and no question is open. The ``definition_of_ready``
-check passes only on a complete record; a person then confirms the item is ready (the workflow's confirmation), and
-only a run that ended through that confirmation counts as a confirmed Definition of Ready
-(:func:`confirmed_ready`) — e.g. for a scheduled coding run's clarification gate.
-"""
+"""The Definition of Ready of a Work item (Jira intake and triage)."""
 
 from __future__ import annotations
 
@@ -36,7 +23,6 @@ def _texts(value: Any) -> list[str]:
 
 
 def validate_record(raw: Any) -> dict[str, Any]:
-    """The cleaned record with ``complete`` and ``missing`` (what keeps it from being ready)."""
     from .platform.repo_ref import parse_repository
 
     raw = raw if isinstance(raw, dict) else {}
@@ -65,14 +51,12 @@ def validate_record(raw: Any) -> dict[str, Any]:
 
 
 def apply_record(run: WorkflowRun, context: dict[str, Any], record: dict[str, Any]) -> None:
-    """Keep a validated record where its readers look (``context.definition_of_ready``, the run's repository)."""
     context[DOR_KEY] = {**record, "at": utc_now().isoformat()}
     if record["complete"] and not run.repository:
         run.repository = record["repository"]
 
 
 async def confirmed_ready(db: AsyncSession, work_item_id: str | None) -> bool:
-    """A triage run of the item ended through the person's "ready" confirmation (outcome ``done``)."""
     if not work_item_id:
         return False
     row = (await db.execute(select(WorkflowRun.id).where(
@@ -82,8 +66,6 @@ async def confirmed_ready(db: AsyncSession, work_item_id: str | None) -> bool:
 
 
 async def default_repository(db: AsyncSession, work_item_id: str | None, project_id: str | None) -> str | None:
-    """The repository a run works on when its start names none: the item's confirmed Definition of Ready, else the
-    Workspace's only active repository record (several: none — the person names it)."""
     from ...models import CodeRepository
 
     if work_item_id:

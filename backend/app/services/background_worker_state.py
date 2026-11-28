@@ -73,6 +73,32 @@ async def record_background_worker_success(
     )
 
 
+async def record_background_worker_partial(
+    session_factory: async_sessionmaker[AsyncSession],
+    *,
+    worker_name: str,
+    owner: str,
+    started_at: datetime,
+    result: object,
+    error: object,
+) -> None:
+    # A pass that finished but failed for part of its items: its counts stay visible next to the error.
+    completed_at = utc_now()
+    details = summarize_background_worker_result(result)
+    await _record_background_worker_run_state(
+        session_factory,
+        worker_name=worker_name,
+        owner=owner,
+        status="partial",
+        started_at=started_at,
+        completed_at=completed_at,
+        processed_count=int(details.get("processed_count") or 0),
+        details=details,
+        error=sanitize_background_worker_error(error),
+        retryable=True,
+    )
+
+
 async def record_background_worker_failure(
     session_factory: async_sessionmaker[AsyncSession],
     *,

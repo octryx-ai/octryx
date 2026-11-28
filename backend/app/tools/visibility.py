@@ -1,10 +1,4 @@
-"""Project-scoped tool visibility decisions.
-
-Connector tools are enterprise capability boundaries. They must not be shown to
-the model, or executed directly, unless the current project activates the owning
-connector. This module keeps that decision centralized so runtime, discovery and
-dispatch agree.
-"""
+"""Project-scoped tool visibility decisions."""
 
 from __future__ import annotations
 
@@ -170,7 +164,6 @@ def _explicit_connector_activation(connector: str, config: dict[str, Any]) -> tu
 
 
 def _named_connection_evidence(connector: str, config: dict[str, Any]) -> str | None:
-    """``named_connection:<id>`` when a Workspace or global named connection serves the connector."""
     from ..services.named_connections.resolver import serving_connection
 
     for alias in sorted(_connector_aliases(connector)):

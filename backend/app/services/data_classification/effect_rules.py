@@ -1,22 +1,4 @@
-"""Added classification rules from a closed effect catalog ("Add rule").
-
-An admin adds a rule by picking an *effect type*; every type is code: a typed parameter, the decision point that
-enforces it, and its generated Cedar text. A rule applies at and above one level (by stored rank) — "in Workspaces at
-Confidential or above, web search is off". Arbitrary conditions stay in Policies (custom forbids).
-
-Effect types with an enforcement point:
-
-- ``web_search`` (``off``) — ``web_search.service``: the search is refused before any provider call;
-- ``mcp_server`` (a server name, or ``*`` for every server; ``off``) — ``mcp_access_policy``: the server's tools,
-  resources and prompts are neither listed nor callable, decided at the Workspace's own level;
-- ``knowledge_sharing`` (``off``) — ``knowledge.access.bindings``: other Workspaces may not search this one.
-
-Shown disabled, "needs an enforcement point first": export & download, sharing chats.
-
-The rules are part of a governed classification version (``content["effect_rules"]``); publishing stores them in
-``system_config`` (:data:`EFFECT_RULES_CONFIG_KEY`) and in the process-wide cache the decision points read
-synchronously (loaded with the level registry). A draft is evaluated under its own rules (:func:`candidate_rules`).
-"""
+"""Added classification rules from a closed effect catalog ("Add rule")."""
 
 from __future__ import annotations
 
@@ -91,7 +73,6 @@ class EffectRule:
 
 
 def normalized_rules(raw: Any) -> tuple[EffectRule, ...]:
-    """Validate submitted rules under the registry in effect (a draft's own levels while it is checked)."""
     if raw is None:
         return ()
     if not isinstance(raw, list) or len(raw) > MAX_RULES:
@@ -171,8 +152,7 @@ async def publish_effect_rules(db: Any, rules: tuple[EffectRule, ...], *, actor_
 
     await set_system_config_value(
         db, key=EFFECT_RULES_CONFIG_KEY, value=json.dumps([rule.to_dict() for rule in rules]) if rules else None,
-        description="Classification rules added from the effect catalog", updated_by=actor_id,
-        record_prompt_revision=False,
+        description="Classification rules added from the effect catalog",
     )
     set_effect_rules(rules)
 

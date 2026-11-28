@@ -190,7 +190,6 @@ def test_no_agent_tool_can_decide_a_takeover():
 
 @pytest.mark.asyncio
 async def test_a_platform_admin_outside_the_workspace_reads_no_handoff_or_takeover(db, pair):
-    """The handoff tools use the grant's listing scope (membership), even for a platform admin's agent."""
     from app.models import User
 
     await pair.anna_claims(db)

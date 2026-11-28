@@ -1,31 +1,4 @@
-"""Prepare a server working copy for the run (the server runtime of ``workspace.prepare``).
-
-The same steps and the same report as a launcher's (``octryx_claude.workspace_prep``), on the folder the server's own
-agent works in (the run's working copy, else its chat session's workspace):
-
-1. **branch**: already on the run's branch → kept (its uncommitted changes are that branch's work); another branch with
-   uncommitted changes to tracked files → ``dirty`` (never stashed, reset or overwritten: a person decides); else
-   ``git fetch origin <branch>`` and check it out (the local branch if it exists, fast-forwarded when it is behind,
-   else created tracking ``origin/<branch>``);
-2. **environment**: the probes (``spec.probes``) with the declared ``path`` first on ``PATH``; when one fails and a
-   setup is declared, the setup runs in the folder (``/bin/sh -c``, ``PIP_REQUIRE_VIRTUALENV=1``, bounded) and the
-   probes run again. The ``path`` directories and the declared test command's JUnit report are excluded locally
-   (``.git/info/exclude``, ``spec.local_excludes``): a virtual environment or a test report never enters the
-   reviewed or pushed change.
-
-Every command, its exit code and the tail of its output are in the report.
-
-**Credential**. The fetches from ``origin`` (the run's branch, its work in progress, the empty check
-below) run with ``git_env``: the Bitbucket connection's Git auth environment for the run's repository
-(``origin_auth.origin_git_env``, the same as the Bitbucket tools'), so a private Data Center repository is fetched.
-The credential is in that environment only (``GIT_CONFIG_*`` or askpass), never in argv, a URL or a file.
-
-**Empty repository**. A clone of a repository without
-any commit has an unborn ``HEAD`` and nothing to fetch. When ``origin`` answers ``ls-remote`` with no ref at all, the
-folder is put on the run's branch, still unborn (``git symbolic-ref``), and the branch state is ``empty_repository``:
-prepared, the agent's first commit creates the branch. A working copy without a commit whose ``origin`` does have refs
-is prepared as any other; one whose ``origin`` cannot be read is ``unavailable``.
-"""
+"""Prepare a server working copy for the run (the server runtime of ``workspace.prepare``)."""
 
 from __future__ import annotations
 
@@ -64,9 +37,6 @@ REFUSED_EXIT = 126  # "cannot execute": the server-build guard refused the comma
 
 
 async def _run(argv: list[str], *, cwd: Path, env: dict[str, str], timeout: int) -> tuple[int, str]:
-    """Every probe and setup command of this server copy: refused when it runs build/test tooling or repository code
-    (``foreign_build_guard``; the setup is a pip/npm install, a probe imports the repository), so the
-    environment is ``not_ready`` with the plain message and the step pauses the run."""
     from app.services.execution_runtime.build_guard_rules import SERVER_BUILD_MESSAGE, SERVER_BUILD_NOT_ALLOWED
 
     from ...execution_runtime import command_audit
@@ -78,7 +48,7 @@ async def _run(argv: list[str], *, cwd: Path, env: dict[str, str], timeout: int)
             await command_audit.record(argv, verdict="refused", where="workspace.prepare",
                                        reason=SERVER_BUILD_NOT_ALLOWED)
         except command_audit.CommandAuditUnavailableError:
-            pass  # refused either way
+            pass
         return REFUSED_EXIT, SERVER_BUILD_MESSAGE
     try:
         handle = await command_audit.record(argv, verdict="executed", where="workspace.prepare")
@@ -111,8 +81,6 @@ def _no_ref(ls_remote: str) -> bool:
 
 
 async def _unborn(root: Path, branch: str, git_env: dict[str, str] | None) -> dict[str, Any] | None:
-    """A working copy without a commit: ``empty_repository`` when ``origin`` has no ref either, ``None`` when it
-    has refs (prepared as any other folder), ``unavailable`` when ``origin`` cannot be read (module doc)."""
     code, refs, error = await git(root, "ls-remote", "origin", env=git_env)
     if code != 0:
         return {"state": "unavailable", "name": branch,
@@ -129,12 +97,10 @@ async def _unborn(root: Path, branch: str, git_env: dict[str, str] | None) -> di
 
 
 async def prepare_branch(root: Path, branch: str, *, git_env: dict[str, str] | None = None) -> dict[str, Any]:
-    """``git_env``: the environment of the fetches from ``origin`` (its credential, module doc); ``None`` fetches
-    with this process's environment."""
     if (await git(root, "rev-parse", "--is-inside-work-tree"))[0] != 0:
         return {"state": "unavailable", "name": branch, "detail": "the folder is not a git working copy"}
     code, current, _ = await git(root, "rev-parse", "--abbrev-ref", "HEAD")
-    if code != 0:  # an unborn HEAD: no commit in the folder yet
+    if code != 0:
         empty = await _unborn(root, branch, git_env)
         if empty is not None:
             return empty
@@ -180,8 +146,7 @@ async def _probe(root: Path, probe: dict[str, Any], env: dict[str, str]) -> dict
 
 
 async def _exclude(root: Path, patterns: list[str]) -> None:
-    """The environment's directories (``.venv``) and the test report never become part of the change: a local
-    exclude, not a commit."""
+    # A local exclude, not a commit.
     code, target, _ = await git(root, "rev-parse", "--git-path", "info/exclude")
     if not patterns or code != 0:
         return
@@ -235,8 +200,6 @@ ENVIRONMENT_NOT_NEEDED: dict[str, Any] = {
 
 async def prepare_locally(root: Path, spec: dict[str, Any], *,
                           git_env: dict[str, str] | None = None) -> dict[str, Any]:
-    """The report of preparing ``root`` for ``spec`` (branch, then environment on that branch); ``git_env``: the
-    credential environment of the fetches from ``origin`` (``origin_auth.origin_git_env``)."""
     root = Path(root).resolve()
     branch = await prepare_branch(root, str(spec.get("branch") or ""), git_env=git_env)
     report: dict[str, Any] = {"root": str(root), "branch": branch, "runtime": "server"}
@@ -258,11 +221,7 @@ async def _changed(root: Path, older: str, newer: str) -> set[str]:
 
 
 async def restore_run_wip(root: Path, run_id: str, *, git_env: dict[str, str] | None = None) -> dict[str, Any]:
-    """The run's work in progress (``octryx-wip/<run id>``, pushed by the device client after each turn) in the working
-    tree only: the WIP's own changes against the commit it was taken on, and only where the branch has not changed
-    the file since; never over the folder's own uncommitted changes. Otherwise
-    the whole WIP tree checked out over a branch that had moved on (item merges) took the merged files away and the
-    next work-plan commit deleted them (the launcher's ``run_wip.restore_run_wip`` is the same rule)."""
+    # Never over the folder's own uncommitted changes, and only where the branch has not changed the file since.
     segment = re.sub(r"[^A-Za-z0-9._-]", "-", run_id).strip("-.")[:60] or "x"
     branch, local = f"{WIP_PREFIX}/{segment}", f"refs/octryx-wip/{segment}"
     await git(root, "fetch", "--no-tags", "--quiet", "origin", f"+refs/heads/{branch}:{local}", env=git_env)
@@ -275,7 +234,7 @@ async def restore_run_wip(root: Path, run_id: str, *, git_env: dict[str, str] | 
         return {"state": "dirty", "branch": branch, "sha": sha}
     _, head, _ = await git(root, "rev-parse", "HEAD")
     head = head.strip()
-    _, base, _ = await git(root, "merge-base", sha, head)  # the commit the WIP was taken on, as the branch has it
+    _, base, _ = await git(root, "merge-base", sha, head)
     base = base.strip()
     if not _SHA.match(base):
         return {"state": "stale", "branch": branch, "sha": sha}

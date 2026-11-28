@@ -1,26 +1,4 @@
-"""Master Control Plane to Slave Project Platform governance models.
-
-Architecture:
-  - Master governs approved baseline assets (flow templates,
-    policies, tool configurations) via the Agent/Flow Registry.
-  - Slave Project Platforms inherit and run independently. They own all
-    project-local data: secrets, connectors, Knowledge, Work Packages, runs,
-    Agent Learning.
-  - Secrets are NEVER migrated, exported, or included in any rollout or
-    telemetry payload.
-  - Controlled, anonymized compliance summaries may be sent from Slave → Master.
-
-Inheritance modes:
-  enforced        — Slave must use the Master version; cannot override.
-  override_allowed — Slave starts from Master baseline; local override permitted.
-  extension_only  — Slave may only add new configuration, not change existing.
-  advisory        — Master provides suggestion; Slave decides independently.
-  disabled        — Asset is not pushed to this Slave at all.
-
-Rollout statuses:
-  draft → preview → dry_run_passed → approved → applying → applied
-  → monitoring → completed | rolled_back | failed
-"""
+"""Governance of project platforms by the master control plane: baseline assets, inheritance modes and rollouts."""
 
 from __future__ import annotations
 
@@ -30,16 +8,13 @@ from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integ
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
 def _uuid() -> str:
     return str(uuid.uuid4())
 
-
-# ---------------------------------------------------------------------------
-# Inheritance mode constants
-# ---------------------------------------------------------------------------
 
 INHERIT_ENFORCED = "enforced"
 INHERIT_OVERRIDE_ALLOWED = "override_allowed"
@@ -54,10 +29,6 @@ INHERIT_MODES = {
     INHERIT_ADVISORY,
     INHERIT_DISABLED,
 }
-
-# ---------------------------------------------------------------------------
-# Rollout status constants
-# ---------------------------------------------------------------------------
 
 ROLLOUT_DRAFT = "draft"
 ROLLOUT_PREVIEW = "preview"
@@ -85,27 +56,15 @@ ROLLOUT_TRANSITIONS: dict[str, set[str]] = {
     ROLLOUT_FAILED: {ROLLOUT_DRAFT},
 }
 
-# ---------------------------------------------------------------------------
-# Drift status constants
-# ---------------------------------------------------------------------------
-
 DRIFT_NONE = "none"
 DRIFT_DETECTED = "detected"
 DRIFT_INTENTIONAL = "intentional"
 DRIFT_CONFLICT = "conflict"
 
 
-# ---------------------------------------------------------------------------
-# Models
-# ---------------------------------------------------------------------------
 
-
-class SlaveProjectPlatform(Base):
-    """Registration of a Slave Project Platform under Master governance.
-
-    One record per Slave platform. Holds the default inheritance mode and
-    metadata about the Slave (endpoint hint, last contact, compliance status).
-    """
+class SlaveProjectPlatform(WorkspaceBound, Base):
+    """Registration of a Slave Project Platform under Master governance."""
 
     __tablename__ = "slave_project_platforms"
     __table_args__ = (
@@ -114,18 +73,14 @@ class SlaveProjectPlatform(Base):
     )
 
     id = Column(String(36), primary_key=True, default=_uuid)
-    # The Project record that represents this Slave platform
     project_id = Column(String(36), ForeignKey("projects.id"), nullable=False, unique=True, index=True)
     display_name = Column(String(220), nullable=False)
     description = Column(Text, default="")
-    # Default inheritance mode applied to all assets unless overridden per-asset
     default_inheritance_mode = Column(String(30), nullable=False, default=INHERIT_ADVISORY)
     # Hint for Master to know where this Slave runs (URL, region, etc.)
     # Never used to push secrets; purely informational.
     endpoint_hint = Column(String(500), nullable=True)
-    # Last time this Slave submitted a compliance summary
     last_compliance_at = Column(DateTime, nullable=True)
-    # Aggregate drift status across all governed assets
     drift_status = Column(String(20), nullable=False, default=DRIFT_NONE)
     is_active = Column(Boolean, nullable=False, default=True)
     registered_by = Column(String(36), ForeignKey("users.id"), nullable=False)
@@ -147,13 +102,11 @@ class SlaveProjectPlatform(Base):
     )
 
 
-class MasterRolloutPlan(Base):
-    """A planned rollout of one or more registry assets to a specific Slave platform.
-
-    Supports preview, dry-run, apply, monitor, and rollback phases.
-    A rollout plan is always scoped to one Slave; multi-Slave rollouts use
-    multiple plans (one per Slave) to enable independent tracking.
-    """
+class MasterRolloutPlan(WorkspaceBound, Base):
+    """A planned rollout of registry assets to one Slave platform. Always scoped to one Slave; multi-Slave rollouts use
+    one plan per Slave."""
+    __workspace_column__ = None
+    __workspace_owners__ = {"slave_platform_id": "slave_project_platforms"}
 
     __tablename__ = "master_rollout_plans"
     __table_args__ = (
@@ -165,17 +118,11 @@ class MasterRolloutPlan(Base):
     name = Column(String(220), nullable=False)
     description = Column(Text, default="")
     status = Column(String(30), nullable=False, default=ROLLOUT_DRAFT, index=True)
-    # Whether this was run as a dry-run (no real changes applied)
     is_dry_run = Column(Boolean, nullable=False, default=False)
-    # Preview / dry-run report stored here
     preview_report = Column(JSON, nullable=False, default=dict)
-    # Conflicts detected during preview or dry-run
     conflict_report = Column(JSON, nullable=False, default=dict)
-    # Applied changes summary (filled after apply)
     apply_report = Column(JSON, nullable=False, default=dict)
-    # Rollback metadata (filled if rolled back)
     rollback_report = Column(JSON, nullable=False, default=dict)
-    # Notes / change summary
     notes = Column(Text, default="")
     created_by = Column(String(36), ForeignKey("users.id"), nullable=False)
     approved_by = Column(String(36), ForeignKey("users.id"), nullable=True)
@@ -199,10 +146,7 @@ class MasterRolloutPlan(Base):
 
 
 class MasterRolloutEntry(Base):
-    """One asset within a rollout plan (agent or flow registry version).
-
-    Tracks per-asset inheritance mode, conflict, and drift status.
-    """
+    """One asset within a rollout plan (agent or flow registry version)."""
 
     __tablename__ = "master_rollout_entries"
     __table_args__ = (
@@ -214,17 +158,12 @@ class MasterRolloutEntry(Base):
     plan_id = Column(String(36), ForeignKey("master_rollout_plans.id"), nullable=False, index=True)
     # "agent" or "flow"
     asset_type = Column(String(20), nullable=False)
-    # ID of the FlowRegistryVersion
     asset_version_id = Column(String(36), nullable=False, index=True)
-    # Inheritance mode applied to this specific asset
     inheritance_mode = Column(String(30), nullable=False, default=INHERIT_ADVISORY)
-    # Conflict detected for this entry during preview/dry-run
     has_conflict = Column(Boolean, nullable=False, default=False)
     conflict_detail = Column(JSON, nullable=False, default=dict)
-    # Drift status compared to current Slave state
     drift_status = Column(String(20), nullable=False, default=DRIFT_NONE)
     drift_detail = Column(JSON, nullable=False, default=dict)
-    # Status of this specific entry after apply
     apply_status = Column(String(20), nullable=False, default="pending")
     apply_detail = Column(JSON, nullable=False, default=dict)
     created_at = Column(DateTime, default=utc_now, nullable=False)
@@ -232,19 +171,10 @@ class MasterRolloutEntry(Base):
     plan = relationship("MasterRolloutPlan", back_populates="entries")
 
 
-class SlaveComplianceSummary(Base):
-    """Controlled, anonymized telemetry submitted from Slave to Master.
-
-    IMPORTANT: This record MUST NOT contain:
-    - Secrets or credentials
-    - Raw project-local Knowledge content
-    - Work Package details
-    - Agent Learning data
-    - Session messages or run details
-
-    Only aggregate statistics, version alignment, and policy compliance
-    summaries are permitted.
-    """
+class SlaveComplianceSummary(WorkspaceBound, Base):
+    """Anonymized aggregate compliance statistics a project platform reports to the master control plane."""
+    __workspace_column__ = None
+    __workspace_owners__ = {"slave_platform_id": "slave_project_platforms"}
 
     __tablename__ = "slave_compliance_summaries"
 

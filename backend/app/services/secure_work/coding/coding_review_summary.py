@@ -1,15 +1,4 @@
-"""Reviewer-only Coding summary for the Coding session list.
-
-The list gets the same verdict the coding audit's ``reviewer_approval`` gate shows, from the same
-evaluator (``evaluate_reviewer_gate``) with the same inputs: the plans latest first, the active
-Change Units, the Work Item's review events and reviewer overrides. Inputs are loaded once for all
-listed (already workspace-scoped) Work Items, so the query count does not grow with the rows; no
-per-row audit, pipeline or CI loading.
-
-The summary is the work review only. It is not Work Plan approval, execution authorization or
-pull-request readiness (``ready_to_open_pr`` needs every audit gate). Failures are not caught here:
-a database error fails the list request instead of hiding the verdict.
-"""
+"""Reviewer-only Coding summary for the Coding session list, from the coding audit's reviewer gate."""
 
 from __future__ import annotations
 
@@ -32,7 +21,6 @@ async def review_summaries_for_items(
     plans_by_item: dict[str, list[WorkChangePlan]],
     units_by_item: dict[str, list[WorkItemChangeUnit]],
 ) -> dict[str, dict[str, Any]]:
-    """Reviewer verdict per Work Item id; ``plans_by_item`` lists each item's plans latest first."""
     if not item_ids:
         return {}
     events_by_item: dict[str, list[WorkCodingReviewEvent]] = defaultdict(list)

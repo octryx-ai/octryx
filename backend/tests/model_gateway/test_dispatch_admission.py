@@ -1,10 +1,4 @@
-"""Server-owned Workspace admission at every dispatch boundary.
-
-The boundary's job is to make a verified admission reachable for auxiliary
-owners *without* letting a caller shape the decision. These tests state that as
-behaviour: what a caller can and cannot influence, which states a missing or
-unresolvable Workspace produces, and that a refusal never produces a client.
-"""
+"""Server-owned Workspace admission at every dispatch boundary."""
 
 from __future__ import annotations
 
@@ -33,6 +27,7 @@ from app.services.model_gateway.litellm.policy import (
     POLICY_REASON_NOT_GRANTED,
 )
 from app.services.model_gateway.litellm.runtime_admission import ADMISSION_DENIAL_KEY
+from tests.factories import make_project
 
 from .conftest import ALIAS, backup_runtime, gateway_runtime
 
@@ -40,8 +35,8 @@ OWNER = "knowledge_graph_runtime"
 
 
 async def _project(db: AsyncSession, *, policy: dict | None, is_active: bool = True) -> Project:
-    project = Project(
-        id=str(uuid.uuid4()),
+    return await make_project(
+        db,
         name=f"admission-{uuid.uuid4().hex[:8]}",
         config={
             **({"model_policy": policy} if policy is not None else {}),
@@ -49,9 +44,6 @@ async def _project(db: AsyncSession, *, policy: dict | None, is_active: bool = T
         },
         is_active=is_active,
     )
-    db.add(project)
-    await db.flush()
-    return project
 
 
 async def test_a_granting_workspace_carries_a_verified_admission(db: AsyncSession):
@@ -70,15 +62,12 @@ async def test_a_granting_workspace_carries_a_verified_admission(db: AsyncSessio
 
 
 async def test_a_caller_cannot_supply_the_policy_only_the_project(db: AsyncSession):
-    """The decisive input is the row, so a forged runtime payload changes nothing."""
-
     project = await _project(db, policy={"denied_aliases": [ALIAS]})
 
     admission = await admit_runtimes_for_dispatch(
         db,
         [
             gateway_runtime(
-                # Everything a caller could plausibly try to smuggle in.
                 model_policy={"allow_all_admitted_aliases": True},
                 project_config={"model_policy": {"allowed_aliases": [ALIAS]}},
                 project_id="some-other-project",
@@ -168,8 +157,6 @@ async def test_a_denied_gateway_target_is_annotated_never_dropped(db: AsyncSessi
 
 
 async def test_a_chain_without_a_gateway_target_is_untouched_and_reads_nothing(db: AsyncSession):
-    """Non-LiteLLM drivers keep their behaviour, including the no-Workspace case."""
-
     admission = await admit_runtimes_for_dispatch(db, [backup_runtime()], project_ids=None, owner=OWNER)
 
     assert admission.state == DISPATCH_STATE_ALLOWED
@@ -244,13 +231,6 @@ async def test_the_authority_owner_cannot_resolve_a_workspace(db: AsyncSession):
 
 
 async def test_every_admitted_category_denies_without_a_workspace_and_admits_with_one(db: AsyncSession):
-    """One assertion per registered owner category, by construction.
-
-    Each owner in the inventory is exercised through the boundary with the same
-    gateway target: no Workspace must deny before network, and a granting
-    Workspace must yield a verified admission stamped with that owner.
-    """
-
     project = await _project(db, policy={"allowed_aliases": [ALIAS]})
     for owner in owners_for_mode(DISPATCH_MODE_ADMITTED):
         denied = await admit_runtimes_for_dispatch(

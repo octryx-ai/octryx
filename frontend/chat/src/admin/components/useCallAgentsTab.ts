@@ -33,12 +33,11 @@ function useCallAgentFormState() {
   const [formLlmModel, setFormLlmModel] = useState(DEFAULT_LLM_MODEL);
   const [formMaxToolCalls, setFormMaxToolCalls] = useState(5);
   const [formChannelId, setFormChannelId] = useState("");
-  const [formCallingWebhookUrl, setFormCallingWebhookUrl] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   return {
     formName, setFormName, formSystemPrompt, setFormSystemPrompt, formThinkingMessage, setFormThinkingMessage,
     formLlmModel, setFormLlmModel, formMaxToolCalls, setFormMaxToolCalls, formChannelId, setFormChannelId,
-    formCallingWebhookUrl, setFormCallingWebhookUrl, isEditing, setIsEditing,
+    isEditing, setIsEditing,
   };
 }
 
@@ -93,7 +92,6 @@ function fillForm(form: CallAgentForm, config: CallAgentConfig | null) {
   form.setFormLlmModel(config ? config.llm_model : DEFAULT_LLM_MODEL);
   form.setFormMaxToolCalls(config ? config.max_tool_calls : 5);
   form.setFormChannelId(config ? config.channel_id || "" : "");
-  form.setFormCallingWebhookUrl(config ? (config as any).calling_webhook_url || "" : "");
 }
 
 async function saveCallAgent(data: CallAgentData, form: CallAgentForm) {
@@ -111,7 +109,6 @@ async function saveCallAgent(data: CallAgentData, form: CallAgentForm) {
     llm_model: form.formLlmModel,
     max_tool_calls: form.formMaxToolCalls,
     channel_id: form.formChannelId || null,
-    calling_webhook_url: form.formCallingWebhookUrl || null,
   };
   const init = (method: string) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
 

@@ -101,7 +101,7 @@ function PhasedReadOnlyView({ view, state, layoutState, actions, onBack, onFold,
   const report = view.validation_report;
   const blocked = publishBlockReason(view, { unsavedLayout, busy });
   const selected = selectedId ? view.nodes.find((node) => node.id === selectedId) ?? null : null;
-  const details = selected ? describeNode(selected, view.edges, view.nodes, view.key) : null;
+  const details = selected ? describeNode(selected, view.edges, view.nodes) : null;
   const toolbar = <PhasedToolbar view={view} state={state} layoutState={layoutState} saveLayout={actions.saveLayout} />;
 
   return (

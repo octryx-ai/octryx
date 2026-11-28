@@ -1,29 +1,4 @@
-"""The publish & prove publication failure routes.
-
-These classes belong to the publish & prove path only. The global failure classes and ``CLASS_SAFETY`` are not
-changed: ``action_failures.RECOVERABLE`` does not list these classes, and the graph wires each
-route below explicitly (pause reason, waiting kind, resume). A provider answer that matches an existing class
-(``permission`` for 401/403, ``external`` for another definite 4xx refusal) keeps that existing class and its
-existing ``action_failed`` pause.
-
-Each route says whether it is resumable, which node it resumes at, the pause reason / waiting kind, the UI
-actions the requester sees, the resume event and the attempt budget.
-
-- ``publish_unverified``: a request may have reached Confluence and reconciliation could not adopt this exact
-  approved attempt (zero matches, a changed or duplicated candidate, an unproven read-back). Retry reconciles
-  first, never a second write.
-- ``reconcile_incomplete``: the parent scan or a candidate read was incomplete (pagination error, scan cap,
-  unreadable or malformed candidate). Never absence; retry scans again.
-- ``page_changed``: HTTP 409 at the transport or a base-version drift seen before the send, or the page moved on
-  after this write. A new card (b) on the new base (reserve again), never a refetch-and-overwrite.
-- ``target_drift``: the pinned connection, instance, space, parent or Workspace settings changed, or the parent /
-  page disappeared. A new card (b) (reserve again).
-- ``provider_unavailable``: Confluence did not answer before anything was sent (or a read-back failed after a
-  confirmed send). Retry the action.
-- ``publication_stopped``: the run was stopped or card (b) was not the latest decision at dispatch. Not resumable.
-- ``needs_configuration``: no documentation space/parent, no usable connection, or an instance outside the
-  Cloud v2 profile. Fix the configuration, then retry.
-"""
+"""The publish & prove publication failure routes."""
 
 from __future__ import annotations
 
@@ -53,13 +28,12 @@ NEEDS_CONFIGURATION = "needs_configuration"
 S1_CLASSES: tuple[str, ...] = (PUBLISH_UNVERIFIED, RECONCILE_INCOMPLETE, PAGE_CHANGED, TARGET_DRIFT,
                                PROVIDER_UNAVAILABLE, PUBLICATION_STOPPED, NEEDS_CONFIGURATION)
 
-# Node ids of the publish & prove graph (the contract names).
 NODE_RESERVE = "reserve_publication"
 NODE_CONFIRM = "confirm_publication"
 NODE_PUBLISH = "publish_docs"
 
 NEXT_PAUSE = "pause"
-NEXT_RECONFIRM = "reconfirm"  # the existing ``reconfirm`` route of the publish action
+NEXT_RECONFIRM = "reconfirm"
 NEXT_STOPPED = "stopped"
 ROUTE_RECONFIRM = "reconfirm"
 
@@ -111,12 +85,7 @@ def route_for(failure_class: str) -> S1Route | None:
 
 
 def class_of_v2_error(error: V2Error, *, before_send: bool) -> str:
-    """The publish & prove (or existing) failure class of a classified provider error.
-
-    ``before_send``: the error came from a read before any mutating request, or from a mutating request that
-    certainly did not apply (``sent`` = no / refused). A possibly applied send is never classified here: it goes
-    to reconciliation.
-    """
+    # A send that may have applied is never classified here: it goes to reconciliation.
     if error.kind == KIND_CONFLICT:
         return PAGE_CHANGED  # HTTP 409, by status code only
     if error.kind == KIND_PERMISSION:
@@ -133,7 +102,6 @@ def class_of_v2_error(error: V2Error, *, before_send: bool) -> str:
 
 
 def s1_failure(failure_class: str, reason: str, **detail: Any) -> ToolOutcome:
-    """A FAILED outcome carrying the publish & prove route; reconfirm classes also carry ``route: reconfirm``."""
     route = route_for(failure_class)
     result: dict[str, Any] = {"s1_failure": {"class": failure_class, **(route.to_dict() if route else {})},
                               **detail}

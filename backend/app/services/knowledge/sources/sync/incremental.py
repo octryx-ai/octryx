@@ -1,18 +1,4 @@
-"""The change-listing accelerator of scheduled runs.
-
-A *scheduled* run of a connector that can list changes (``list_changed_items``, Confluence CQL)
-and has a change point (``changes_since``, set by the last clean full pass) first asks for the items
-changed since then, minus :data:`CHANGES_SAFETY_WINDOW`, so changed pages are fetched first. It is an
-accelerator only, never the source of truth: the same run then continues the header listing pass,
-which re-evaluates the ACL and version of every served item (a restriction added without a version
-change is enforced within one scheduled interval) and retires deletions whenever a pass completes.
-
-A failing change listing never fails the run (``incremental_fallback``): the header pass covers it.
-Version marker and content hash stay authoritative, so a page listed by both makes one revision at
-most, and the run counts it once: the header pass only marks a page the change listing already
-handled as seen, without a second outcome. A manual run ("Run now") never uses the accelerator; it
-is the header pass alone.
-"""
+"""The change-listing accelerator of scheduled runs. An accelerator only, never the source of truth."""
 
 from __future__ import annotations
 
@@ -40,8 +26,6 @@ CHANGES_SAFETY_WINDOW = timedelta(hours=15)
 
 @dataclass(frozen=True, slots=True)
 class AcceleratorOutcome:
-    """``ok`` is False when the change listing failed; ``spent`` is the budget it used (fetched items)."""
-
     ok: bool
     spent: int
 
@@ -54,7 +38,6 @@ def _instant(value: str | None) -> datetime | None:
 
 
 def accelerator_due(cursor: SyncCursor, connector: SourceConnector, trigger: str) -> bool:
-    """A scheduled run lists changes first when the connector can and a change point exists."""
     if trigger != TRIGGER_SCHEDULED or getattr(connector, "list_changed_items", None) is None:
         return False
     return _instant(cursor.changes_since) is not None
@@ -70,7 +53,6 @@ async def drive_accelerator(
     max_pages: int,
     sync_page: Callable[[ListingPage, int], Awaitable[int]],
 ) -> AcceleratorOutcome:
-    """One bounded change listing; ``sync_page(page, pass_number)`` returns the budget each page spent."""
     row = await db.get(KnowledgeSourceConnector, connector_id)
     cursor = SyncCursor.load(row.cursor)
     if not cursor.incremental_open:

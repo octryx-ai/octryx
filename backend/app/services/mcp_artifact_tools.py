@@ -1,14 +1,4 @@
-"""Diagram tools on the Knowledge MCP: the chat's ``create_diagram``, ``edit_diagram`` and ``append_diagram``.
-
-All three chat classes (``tools/diagram.py``) are pure payload producers: they repair and validate
-the model's ``<mxCell>`` elements and return the complete draw.io XML (``diagram_xml``, ``format:
-drawio``). None writes a file or a session artifact, so the MCP call needs no session workspace; the
-call is attached to the grant's MCP auto session like every governed MCP tool, and the client gets
-exactly the payload the chat gets. Their metadata is ``risk: read`` without state mutation.
-
-Office files are deliberately **not** offered here: the raw Office tools write into a session workspace an MCP
-connection does not have.
-"""
+"""Diagram tools on the Knowledge MCP: the chat's ``create_diagram``, ``edit_diagram`` and ``append_diagram``."""
 
 from __future__ import annotations
 

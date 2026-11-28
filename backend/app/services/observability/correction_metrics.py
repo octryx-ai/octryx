@@ -1,10 +1,4 @@
-"""Corrections of agents' work (From Correction to Check), counted in process when a capture commits.
-
-- ``octryx_corrections_captured_total{source}``: every correction kept under a signature, by its source
-  (``review_fixed``, ``review_change_request``, ``pr_comment``, ``pipeline_cause``, ``revert``, ``refused_call``);
-- ``octryx_check_signatures_over_threshold_total{kind_hint}``: a signature whose repeats reached the Workspace's
-  threshold, counted once, at the capture that crossed it.
-"""
+"""Corrections of agents' work (From Correction to Check), counted in process when a capture commits."""
 
 from __future__ import annotations
 

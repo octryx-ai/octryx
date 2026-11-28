@@ -28,7 +28,6 @@ def test_the_cof50_change_misses_its_storage_decision():
     assert storage.number == 2 and "drift/SQLite" in storage.text
     assert (storage.hard, storage.state) == (True, MISSING)
     assert "drift: no dependency" in storage.reason and "sqlite: no dependency" in storage.reason
-    # A comment that names drift is no evidence ("meant to be backed by SQLite (drift)").
     assert not storage.evidence
     assert check.missing == [storage]
     assert all(item.state == UNCLEAR and not item.hard for item in check.decisions if item is not storage)
@@ -76,15 +75,12 @@ def test_a_missing_hard_decision_blocks_whatever_the_model_answered():
     (finding,) = gated.verdict.findings
     assert (finding.severity, finding.file, finding.id) == ("high", f"{APP}/SPEC.md", "D1")
     assert finding.fix.startswith('Spec decision 2 not implemented: "Lokale Speicherung mit drift/SQLite')
-    # A follow-up that already carries it keeps its findings; no duplicate.
     again = decisions_gate(gated, check)
     assert again.verdict.findings == gated.verdict.findings
     other = Settled(Verdict("changes", "", (Finding("medium", "lib/a.dart", 3, "rename"),)))
     assert len(decisions_gate(other, check).verdict.findings) == 2
     assert decisions_gate(passed, None) is passed
 
-
-# ---- a feature request on an existing app ---------------------------------------------------------------------------
 
 ONBOARDING_DECISION = ("16. Onboarding: drei Seiten beim ersten Start, überspringbar; der Status „Onboarding erledigt“ "
                        "wird mit shared_preferences gespeichert.\n")
@@ -98,8 +94,6 @@ def _git(root: Path, *args: str) -> None:
 
 
 def _existing_app_with_onboarding_spec(tmp_path: Path) -> Path:
-    """The Coffee app as its first spec defined it (drift decided, never built), then the feature epic's spec
-    commit adds the onboarding decision."""
     root = tmp_path / "repo"
     shutil.copytree(COF50, root)
     _git(root, "init", "-q")
@@ -117,18 +111,16 @@ async def test_a_feature_checks_only_its_own_decisions_the_existing_ones_are_con
     root = _existing_app_with_onboarding_spec(tmp_path)
     onboarding = root / APP / "lib/features/onboarding/onboarding_page.dart"
     onboarding.parent.mkdir(parents=True)
-    onboarding.write_text("class OnboardingPage {}\n")  # the decided storage left out
+    onboarding.write_text("class OnboardingPage {}\n")
     check = await feature_decisions(root, (f"{APP}/lib/features/onboarding/onboarding_page.dart",),
                                     ("CAF-60", "CAF-61"))
     assert check.scope.startswith("feature: ") and "CAF-60: Onboarding" in check.scope
     feature = check.decisions[-1]
     assert feature.text.startswith("Onboarding: drei Seiten") and (feature.hard, feature.state) == (True, MISSING)
-    # drift/SQLite was decided before and never built: context for this feature, never its ✗.
     assert check.decisions[1].state == CONTEXT
     assert check.missing == [feature]
     assert check.table().splitlines()[1].startswith("· 2. Lokale Speicherung mit drift/SQLite")
 
-    # The onboarding that keeps its flag as decided: implemented.
     pubspec = root / APP / "pubspec.yaml"
     pubspec.write_text(pubspec.read_text().replace("  uuid: ^4.5.0\n", "  uuid: ^4.5.0\n  shared_preferences: ^2.3.0\n"))
     onboarding.write_text("import 'package:shared_preferences/shared_preferences.dart';\n\nclass OnboardingPage {}\n")
@@ -141,12 +133,9 @@ async def test_a_new_app_checks_its_whole_spec_and_a_spec_edit_in_the_change_cou
 
     root = _existing_app_with_onboarding_spec(tmp_path)
     changed = (f"{APP}/lib/app/app_data.dart",)
-    # The first commit created the spec: every decision is new, drift/SQLite is checked (the in-memory store is red).
     check = await feature_decisions(root, changed, ("CAF-44", "CAF-50"))
     assert [item.number for item in check.missing] == [2]
-    # No spec commit names the work: the whole spec.
     assert (await feature_decisions(root, changed, ("XYZ-1",))).scope == "whole_spec"
-    # A story that adds a decision to the spec itself has it checked.
     spec = root / APP / "SPEC.md"
     spec.write_text(spec.read_text().replace("\n## 9 Offene Fragen", "17. Export als CSV mit Riverpod-Status.\n\n## 9 Offene Fragen"))
     check = await feature_decisions(root, (*changed, f"{APP}/SPEC.md"), ("XYZ-1",))
@@ -189,11 +178,9 @@ def test_a_decided_value_is_found_near_its_term_or_differs_softly(tmp_path):
     assert (differs.hard, differs.state) == (False, MISSING) and "other value 0.0" in differs.evidence[0]
     (finding,) = missing_findings(check)
     assert (finding["severity"], finding["file"], finding["line"]) == ("low", "app/lib/brew.dart", 1)
-    # Soft: a medium finding, the verdict stays as the model gave it.
     passed = Settled(Verdict("pass", "", ()))
     gated = decisions_gate(passed, check)
     assert gated.verdict.verdict == "pass" and gated.verdict.findings[0].severity == "low"
-    # A comment is no value; a longer name containing the term is not the setting.
     shutil.rmtree(wrong)
     other = _app_with(tmp_path, decision, {"lib/brew.dart": "// grindSetting 15\nconst maxGrindSettingStep = 2;\n"})
     assert check_decisions(other, ("app/lib/brew.dart",)).decisions[0].state == UNCLEAR
@@ -224,19 +211,15 @@ async def test_the_recorded_spec_push_scopes_the_feature_and_no_scope_checks_the
     root = _existing_app_with_onboarding_spec(tmp_path)
     changed = (f"{APP}/lib/app/app_data.dart",)
     onboarding = ONBOARDING_DECISION.split(". ", 1)[1].strip()
-    # Recorded at the push: no commit subject needed (squashed, rebased or renamed).
     recorded = {"sha": "deadbeef", "path": f"{APP}/SPEC.md", "introduced": [onboarding]}
     check = await feature_decisions(root, changed, (), recorded=recorded)
     assert check.scope.startswith("feature: deadbeef") and check.decisions[1].state == CONTEXT
     assert [item.text for item in check.missing] == [onboarding]
-    # Neither a record nor a commit that names the work: the whole spec, never nothing.
     whole = await feature_decisions(root, changed, ("NOPE-1",))
     assert whole.scope == "whole_spec" and {item.number for item in whole.missing} == {2, 16}
 
 
 async def test_a_decision_the_base_never_implemented_is_context_for_an_unrelated_fix(tmp_path):
-    """"SPEC decision 2 drift/SQLite not implemented" (high) must not hold an unrelated bug fix red. With nothing
-    scoping the work, a technology decision missing at the base too is the app's open decision, not this change's."""
     import subprocess
 
     from app.services.workflow_runs.review.spec_decisions import feature_decisions
@@ -248,13 +231,10 @@ async def test_a_decision_the_base_never_implemented_is_context_for_an_unrelated
     assert check.scope == "whole_spec" and check.missing == []
     drift = next(item for item in check.decisions if item.number == 2)
     assert drift.state == "context" and "not implemented at the base either" in drift.reason
-    # Without a base nothing is downgraded.
     assert [item.number for item in (await feature_decisions(root, changed, ("XYZ-1",))).missing] == [2, 16]
 
 
 def test_a_carried_decision_finding_leaves_when_the_decision_is_no_longer_missing():
-    """Once the decision is context, the follow-up rounds drop the first round's decision finding (high) instead of
-    keeping the review at ``changes``."""
     import dataclasses
 
     check = check_decisions(COF50, (f"{APP}/lib/app/app_data.dart",))
@@ -268,16 +248,13 @@ def test_a_carried_decision_finding_leaves_when_the_decision_is_no_longer_missin
     mixed = dataclasses.replace(gated, verdict=dataclasses.replace(
         gated.verdict, findings=(medium, *gated.verdict.findings)))
     kept = decisions_gate(mixed, check)
-    assert kept.verdict.findings == (medium,) and kept.verdict.verdict == "changes"  # still blocked by medium
-    # A model finding that merely mentions a decision stays.
+    assert kept.verdict.findings == (medium,) and kept.verdict.verdict == "changes"
     own = Finding("high", "SPEC.md", 1, "Spec decision 2 is contradicted by lib/x.dart", "F2")
     model = Settled(Verdict("changes", "", (own,)))
     assert decisions_gate(model, check).verdict.findings == (own,)
 
 
 def test_a_technology_the_decision_defers_or_excludes_is_not_checked():
-    """A decision that names drift/SQLite only as a later follow-up ticket does not require them: shared_preferences,
-    the decided flag store, is declared and used, so there is no high finding."""
     from app.services.code_style.technologies import catalog
     from app.services.workflow_runs.review.decision_evidence import decided_technologies
 
@@ -291,8 +268,6 @@ def test_a_technology_the_decision_defers_or_excludes_is_not_checked():
 
 
 def test_a_platform_api_used_through_a_decided_package_is_unclear_not_missing(tmp_path):
-    """"Chrome: `localStorage` via `shared_preferences`" — the app uses shared_preferences, so the decision is not
-    "missing" on "local_storage: not used in the app's code"."""
     root = _app_with(tmp_path, "1. Flag with `shared_preferences`; Chrome: `localStorage` via `shared_preferences`.\n",
                      {"pubspec.yaml": "dependencies:\n  shared_preferences: ^2.5.3\n",
                       "lib/flag.dart": "import 'package:shared_preferences/shared_preferences.dart';\n"})

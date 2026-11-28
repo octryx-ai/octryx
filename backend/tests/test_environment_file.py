@@ -118,7 +118,6 @@ async def test_a_record_without_the_pointer_keeps_its_declaration(db, tmp_path):
 
 
 def test_the_launcher_validates_like_the_platform():
-    """The device cannot import the backend: its copy of the rules must give the same answers."""
     loaded = importlib.util.spec_from_file_location("launcher_environment_file", LAUNCHER_MODULE)
     launcher = importlib.util.module_from_spec(loaded)
     loaded.loader.exec_module(launcher)
@@ -143,8 +142,6 @@ def test_the_building_agent_is_told_where_to_declare_its_tests():
 
 
 def test_the_preparation_never_pauses_on_the_environment_file():
-    """The pipeline judges the file (and sends a missing or invalid one back to the agent); the folder's
-    preparation reports it and goes on."""
     from app.services.workflow_runs.workspace.preparation import decide
 
     for file_state in ("missing", "invalid", "setup_failed", "ok"):
@@ -154,7 +151,6 @@ def test_the_preparation_never_pauses_on_the_environment_file():
 
 
 def test_the_runtime_environment_of_an_environment_file_says_where_the_commands_are():
-    """Finding 3 (top-10 #10): the empty test/lint of an environment-file app read as "no tests" to the agent."""
     from app.services.workflow_runs.workspace.spec import SOURCE_ENVIRONMENT_FILE, runtime_environment
 
     found = runtime_environment({"source": SOURCE_ENVIRONMENT_FILE, "environment_file": "app/.octryx/environment.json",

@@ -8,6 +8,7 @@ from sqlalchemy import JSON, Boolean, CheckConstraint, Column, DateTime, Foreign
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 MCP_OWNER_PLATFORM = "platform"
@@ -24,8 +25,9 @@ def canonical_name_default(context) -> str:
     return str(context.get_current_parameters().get("name") or "").strip().casefold()
 
 
-class McpServerRegistration(Base):
+class McpServerRegistration(WorkspaceBound, Base):
     """Authoritative non-secret connection metadata for one MCP server."""
+    __workspace_column__ = "workspace_id"
 
     __tablename__ = "mcp_server_registrations"
     __table_args__ = (
@@ -88,8 +90,10 @@ class McpServerRegistration(Base):
     )
 
 
-class McpServerSecretBinding(Base):
+class McpServerSecretBinding(WorkspaceBound, Base):
     """Opaque Secret Reference placement for a trusted MCP catalog field."""
+    __workspace_column__ = None
+    __workspace_owners__ = {"server_id": "mcp_server_registrations"}
 
     __tablename__ = "mcp_server_secret_bindings"
     __table_args__ = (

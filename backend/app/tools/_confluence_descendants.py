@@ -16,11 +16,6 @@ async def collect_child_pages_recursive(
     limit: int,
     root_ancestors: list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """The pages below the root, breadth first; each with its space and its path (``ancestors``).
-
-    The path starts with ``root_ancestors`` (the root's own ancestors), so an exclude above the root (a subtree or
-    whole-space entry's) still applies on this fallback path.
-    """
     collected: list[dict[str, Any]] = []
     queue = [root_page_id]
     seen: set[str] = set()

@@ -1,12 +1,4 @@
-"""PR review bot: ``@octryx`` commands.
-
-- a comment whose line starts with ``@octryx`` is a command, from a webhook of any platform or from the sync's poll
-  (a local installation gets no webhook); the first poll only sets the cursor;
-- only a Workspace member with a linked account and write access may (GitHub: the collaborator permission; where
-  the platform does not tell, a Workspace admin); anybody else gets one answer and nothing runs;
-- ``pause`` stops the webhook and the sync for that pull request until ``resume``; ``review full`` reviews the current
-  head again, in full; a comment is acted on once; every command is answered in the pull request.
-"""
+"""PR review bot: ``@octryx`` commands."""
 
 from __future__ import annotations
 
@@ -30,9 +22,9 @@ from tests.pr_review_bot_flow_support import FIXTURES, HEADERS, _payload, _works
 def test_a_command_is_the_first_line_that_starts_with_the_mention():
     command = parse_command("Thanks!\n@octryx review full please")
     assert (command.name, command.args) == (REVIEW_FULL, "please")
-    assert parse_command("> @Octryx PAUSE").name == PAUSE  # quoted and in capitals
+    assert parse_command("> @Octryx PAUSE").name == PAUSE
     assert parse_command("@octryx dance").name == HELP
-    assert parse_command("ask @octryx review full later") is None  # not at the start of a line: a mention, no command
+    assert parse_command("ask @octryx review full later") is None
     assert parse_command("Octryx paused its reviews. Resume them with `resume` after the mention.") is None
 
 
@@ -50,7 +42,7 @@ def test_the_comment_events_of_every_platform_read_alike():
     assert comment_event({"action": "edited", "issue": {"number": 2, "pull_request": {}}, "comment": {"id": 9}},
                          {"X-GitHub-Event": "issue_comment"}) is None
     assert comment_event({"action": "created", "issue": {"number": 3}, "comment": {"id": 1, "body": "x"},
-                          "repository": {"full_name": "a/b"}}, {"X-GitHub-Event": "issue_comment"}) is None  # an issue
+                          "repository": {"full_name": "a/b"}}, {"X-GitHub-Event": "issue_comment"}) is None
     cloud = comment_event({"repository": {"full_name": "acme/pay"}, "pullrequest": {"id": 7}, "comment": {
         "id": 40, "content": {"raw": "@octryx resume"}, "user": {"account_id": "557058:anna", "nickname": "anna"},
         "parent": {"id": 39}, "inline": {"path": "x"}}}, {"X-Event-Key": "pullrequest:comment_created"})
@@ -60,7 +52,7 @@ def test_the_comment_events_of_every_platform_read_alike():
                                                                  "author": {"name": "alice"}}}, {})
     assert (server.repository, server.author, server.author_id) == ("bitbucket:P/demo-shop", "alice", "")
     listed = listed_comment("github:a/b", {"id": "1", "pr": "2", "author": "x", "author_id": "77", "body": "b"})
-    assert (listed.author_id, listed.pr_id) == ("", "2")  # GitHub links people by login, never by numeric id
+    assert (listed.author_id, listed.pr_id) == ("", "2")
 
 
 async def test_github_lists_comments_on_open_pull_requests_and_reads_permissions():
@@ -112,7 +104,6 @@ async def test_bitbucket_cloud_and_server_list_the_comments_since(monkeypatch):
 
 @pytest.fixture
 def provider(monkeypatch):
-    """The governed list and post tools, scripted: the open pull request #42 and the comments since the cursor."""
     head = json_head()
     state = {"comments": [], "permissions": {"octryx-ai": "write", "anna": "read"}, "posts": [], "lists": [],
              "head": head}
@@ -124,7 +115,7 @@ def provider(monkeypatch):
             if "comments_since" in arguments:
                 answer["comments"] = list(state["comments"])
             if "permissions_for" in arguments:
-                answer["permissions"] = {login: state["permissions"].get(login.lower(), "none")  # GitHub ignores case
+                answer["permissions"] = {login: state["permissions"].get(login.lower(), "none")
                                          for login in arguments["permissions_for"]}
             return answer
         state["posts"].append((tool, arguments, context.run_capability))
@@ -169,7 +160,7 @@ async def test_commands_from_the_poll_pause_resume_and_review_again_and_stranger
 
     monkeypatch.setattr("app.services.workflow_runs.records.start_run", start)
     provider["comments"] = [_comment("c1", "octryx-ai", "@octryx pause")]
-    assert await bot_sync.sync_repository(db, record, start=start) == {"started": 1}  # first: the cursor only
+    assert await bot_sync.sync_repository(db, record, start=start) == {"started": 1}
     assert bot_state.cursor(record) and not bot_state.is_paused(record, "42")
 
     assert (await bot_sync.sync_repository(db, record, start=start))["command_pause"] == 1
@@ -180,22 +171,20 @@ async def test_commands_from_the_poll_pause_resume_and_review_again_and_stranger
     event = pull_request_event(_payload("f" * 40, number=42), HEADERS)
     assert (await admit(db, project_id, event, trigger="sync")).reason == "paused"
 
-    provider["comments"] = [_comment("c1", "octryx-ai", "@octryx pause"),  # seen: never again
-                            _comment("c2", "anna", "@octryx resume"),  # read access only
-                            _comment("c3", "stranger", "@octryx resume"),  # no linked account
+    provider["comments"] = [_comment("c1", "octryx-ai", "@octryx pause"),
+                            _comment("c2", "anna", "@octryx resume"),
+                            _comment("c3", "stranger", "@octryx resume"),
                             _comment("c4", "octryx-ai", "@octryx review full", inline=True, in_reply_to="900")]
     counted = await comment_poll.poll_comments(db, record, owner.id)
     assert counted == {"seen": 1, "refused": 2, "review full": 1}
     replies = [arguments for _tool, arguments, _cap in provider["posts"][-3:]]
     assert "write access" in replies[0]["comment"] and "Octryx account" in replies[1]["comment"]
-    assert replies[2]["thread_answers"][0]["comment_id"] == "900"  # answered in the thread it was written in
+    assert replies[2]["thread_answers"][0]["comment_id"] == "900"
     assert "started a full review" in replies[2]["thread_answers"][0]["reply"]
-    assert started[-1]["force_full"] is True and started[-1]["requested_by"] == owner.id  # also while paused
+    assert started[-1]["force_full"] is True and started[-1]["requested_by"] == owner.id
 
-    # A push while paused, then ``resume``: the same sync acts on the command first and reviews the new head
-    # (it does not wait for the next sync).
     provider["head"] = {**provider["head"], "head_sha": "e" * 40}
-    assert (await bot_sync.sync_repository(db, record, start=start)).get("skipped") == 1  # paused
+    assert (await bot_sync.sync_repository(db, record, start=start)).get("skipped") == 1
     provider["comments"] = [_comment("c5", "Octryx-AI", "@octryx resume")]
     counted = await bot_sync.sync_repository(db, record, start=start)
     assert not bot_state.is_paused(record, "42")
@@ -227,14 +216,10 @@ async def test_a_webhook_comment_with_a_command_is_acted_on_in_the_background(db
         "outcome": "queued", "reason": "command"}
     plain = {**payload, "comment": {**payload["comment"], "body": "Looks good to me"}}
     assert await bot_webhook.on_scm_webhook(db, hook, plain, headers, is_test=False) is None
-    # A person's comment without a command is no command, but a correction kept for its Workspace, in its own
-    # background session.
     assert [coroutine.cr_code.co_name for coroutine in spawned] == ["on_comment", "on_person_comment"]
 
 
 async def test_github_also_reads_review_summaries_and_pull_requests_closed_within_a_day():
-    """"Request changes" with a text is a person's correction, and the e2e harness closes its pull requests
-    within minutes, so a comment written just before still counts."""
     async def http(method, url, *, headers=None, params=None, **_):
         if url.endswith("/pulls") and params["state"] == "closed":
             return [{"number": 7, "closed_at": "2026-11-20T08:00:00Z", "updated_at": "2026-11-20T08:00:00Z"},
@@ -243,15 +228,15 @@ async def test_github_also_reads_review_summaries_and_pull_requests_closed_withi
             return [{"id": 51, "user": {"login": "a"}, "body": "Use the cents helper here.",
                      "state": "CHANGES_REQUESTED", "submitted_at": "2026-11-20T07:59:00Z"},
                     {"id": 52, "user": {"login": "a"}, "body": "", "state": "APPROVED",
-                     "submitted_at": "2026-11-20T07:59:30Z"},  # no text: nothing to learn
+                     "submitted_at": "2026-11-20T07:59:30Z"},
                     {"id": 53, "user": {"login": "a"}, "body": "draft", "state": "PENDING", "submitted_at": None},
                     {"id": 50, "user": {"login": "a"}, "body": "old", "state": "COMMENTED",
-                     "submitted_at": "2026-11-19T07:00:00Z"}]  # before the cursor
+                     "submitted_at": "2026-11-19T07:00:00Z"}]
         return []
 
     now = datetime(2026, 11, 20, 9, 0, tzinfo=UTC)
     closed = await github_pr_comments.recently_closed(http, {}, "https://api/repos/a/b", now=now)
-    assert [pr["number"] for pr in closed] == [7]  # #6 closed two days ago
+    assert [pr["number"] for pr in closed] == [7]
     assert github_pr_comments.updated_since(closed, "2026-11-20T07:00:00Z") == {"7"}
     found = await github_pr_comments.comments_since(http, {}, "https://api/repos/a/b", "2026-11-20T07:00:00Z",
                                                     {"7"}, reviewed={"7"})
@@ -269,7 +254,7 @@ async def test_a_command_on_a_closed_pull_request_or_in_a_review_summary_is_only
 
     monkeypatch.setattr(comment_poll, "_people_comments", corrections)
     bot_state.set_cursor(record, "2026-11-17T19:00:00+00:00")
-    provider["comments"] = [_comment("c9", "octryx-ai", "@octryx pause", pr="77"),  # #77 is closed: not listed open
+    provider["comments"] = [_comment("c9", "octryx-ai", "@octryx pause", pr="77"),
                             _comment("review-5", "octryx-ai", "@octryx pause"),
                             _comment("c10", "octryx-ai", "Please keep the totals in cents.")]
     assert await comment_poll.poll_comments(db, record, "bot") == {}

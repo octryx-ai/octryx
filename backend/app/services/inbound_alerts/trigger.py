@@ -1,23 +1,4 @@
-"""Alert in → Action started in its Workspace → outcome recorded.
-
-:func:`receive_alert` is the one path for a webhook call, a test alert and a polled change:
-
-1. the signature is checked (a test alert is sent by an admin from the drawer and skips it);
-   a bad one is recorded as ``rejected_signature`` and refused (401);
-2. the payload is normalized, mapped to the Workspace's alert target when the Action requires one and the
-   decision taken (``admission.decide``, with the occurrence dedup of ``occurrence``);
-3. the event is recorded with its outcome, fingerprint and title, the payload bounded;
-4. when it starts, the Action is queued through the scheduler as the webhook's automation identity
-   with the alert in the run's input; the run's end updates the same event (``inbound_alert_turn``).
-
-An identical body again from an untimestamped Alertmanager sender (Bearer, body HMAC or shared header) is
-Alertmanager's own ``repeat_interval`` resend, not an attack it can tell apart: it is answered ``grouped`` when
-the dedup finds the same occurrence, and refused as a replay (409) otherwise; a timestamped sender's
-repeat is always a replay. A grouped alert is recorded on the open workflow run it joined (``alert_linked``).
-
-The Action's workflow, the execution gate, tool approval and MCP policies apply to the run like to
-any other Action run: an alert never gets more rights than the Action's workflow.
-"""
+"""Alert in → Action started in its Workspace → outcome recorded."""
 
 from __future__ import annotations
 
@@ -64,7 +45,7 @@ from .call_guard import (
 from .intake_trigger import is_intake_task, trigger_intake_sync
 from .normalize import RUN_EVENT_SOURCE_TYPES, NormalizedAlert, normalize_alert
 from .occurrence import KIND_SAME_OCCURRENCE
-from .signature import verify_call
+from .signature import CallCheck, verify_call
 from .targets import workspace_alert_targets
 
 logger = logging.getLogger(__name__)
@@ -77,7 +58,6 @@ _RESENDING_SOURCE_TYPES = frozenset({"alertmanager"})
 
 
 def _may_be_resend(webhook: Webhook, signature_method: str | None, delivery_key: str) -> bool:
-    """An Alertmanager ``repeat_interval`` resend: same body, no timestamp, no delivery id."""
     return ((webhook.source_type or "") in _RESENDING_SOURCE_TYPES and signature_method in _UNTIMESTAMPED_METHODS
             and delivery_key.startswith("body:"))
 
@@ -95,19 +75,24 @@ def _scheduler(scheduler: Any | None) -> Any:
     return get_task_scheduler()
 
 
+async def verify_signature(db: AsyncSession, webhook: Webhook, body: bytes,
+                           headers: Mapping[str, str] | None) -> CallCheck:
+    secret = await resolve_webhook_secret(db, webhook, purpose="inbound_webhook.verify_signature")
+    check = verify_call(headers or {}, body, secret, accept_untimestamped=bool(webhook.accept_untimestamped))
+    if not check.ok:
+        await record_rejection(db, webhook, outcome=OUTCOME_REJECTED_SIGNATURE, reason=check.reason)
+        raise HTTPException(status_code=401, detail="Invalid webhook signature")
+    return check
+
+
 async def _check_call(
     db: AsyncSession, webhook: Webhook, body: bytes, headers: Mapping[str, str] | None, *, verified: bool,
-    delivery_key: str | None,
+    delivery_key: str | None, signature: CallCheck | None,
 ) -> tuple[str | None, str | None, bool]:
-    """Signature, paused state and delivery key: the signature method, the delivery key and whether it is a resend."""
     signature_method = "connector" if verified else None
     if not verified:
         # The signature is checked first, so an unauthenticated caller cannot even tell a paused webhook.
-        secret = await resolve_webhook_secret(db, webhook)
-        check = verify_call(headers or {}, body, secret, accept_untimestamped=bool(webhook.accept_untimestamped))
-        if not check.ok:
-            await record_rejection(db, webhook, outcome=OUTCOME_REJECTED_SIGNATURE, reason=check.reason)
-            raise HTTPException(status_code=401, detail="Invalid webhook signature")
+        check = signature or await verify_signature(db, webhook, body, headers)
         signature_method, delivery_key = check.method, check.delivery_key
     if not webhook.is_active:
         raise HTTPException(status_code=403, detail="Webhook is paused")
@@ -159,8 +144,6 @@ async def _start_action(
     event: WebhookEvent, data: Any, result: dict[str, Any], *, is_test: bool, delivery_key: str | None,
     scheduler: Any | None,
 ) -> dict[str, Any]:
-    """Queue the Action as the webhook's automation identity; a failure marks the event and frees the key."""
-
     async def _fail(code: str, status: int, detail: str | dict[str, Any]) -> HTTPException:
         event.outcome, event.status = "failed", "failed"
         event.error = code
@@ -222,9 +205,10 @@ async def receive_alert(
     verified: bool = False,
     delivery_key: str | None = None,
     scheduler: Any | None = None,
+    signature: CallCheck | None = None,
 ) -> dict[str, Any]:
     signature_method, delivery_key, resend = await _check_call(
-        db, webhook, body, headers, verified=verified, delivery_key=delivery_key
+        db, webhook, body, headers, verified=verified, delivery_key=delivery_key, signature=signature
     )
     data = payload if payload is not None else _parse(body)
     bound = await db.get(Task, webhook.task_id) if webhook.task_id else None

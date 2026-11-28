@@ -11,7 +11,7 @@ RESOLVER_MODULE = "app.services.workflow_runs.specification.lineage"
 
 
 async def resolve_spec_review_snapshot(db, run, node, *, actor, envelope, proof, review_entry=None):
-    """No draft/URL fallback: producer authority and this review's current-pass proof must agree."""
+    # No draft or URL fallback.
     try:
         lineage = import_module(RESOLVER_MODULE)
     except ModuleNotFoundError as error:

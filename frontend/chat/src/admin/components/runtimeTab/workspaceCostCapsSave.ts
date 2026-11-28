@@ -1,11 +1,4 @@
-// Workspace cost-cap overrides (runtime audit P-7). Each cap is either an override (a
-// number; 0 turns the cap off for this Workspace) or "inherit", which removes the
-// override so the platform value applies again. An empty field is never guessed into
-// either: the admin must type a number or choose inherit.
-//
-// Backend contract (services/budget/project_cost_limits.py): a cap sent with a value
-// sets it, a cap listed in `inherit_cost_limits` is removed, an unnamed cap is unchanged.
-// The platform level keeps its own semantics (0 or empty = no cap) and has no inherit.
+// An empty field is never guessed into a number or inherit: the admin must choose.
 
 export const SESSION_COST_CAP = "agent_session_cost_limit_usd";
 export const REQUEST_COST_CAP = "agent_request_cost_limit_usd";
@@ -22,7 +15,6 @@ export const MISSING_OVERRIDE_ERROR =
 
 type CostCapScope = { session_source?: string; request_source?: string } | null | undefined;
 
-/** A cap inherits when the Workspace has no override for it. */
 export function costCapInheritFromScope(scope: CostCapScope): CostCapInherit {
   return {
     [SESSION_COST_CAP]: scope?.session_source !== "project",
@@ -30,7 +22,6 @@ export function costCapInheritFromScope(scope: CostCapScope): CostCapInherit {
   };
 }
 
-/** The exact PUT body, or the cap whose override is empty (nothing may be written then). */
 export function buildWorkspaceCostCapsPayload(
   values: Record<CostCapKey, string>,
   inherit: CostCapInherit,

@@ -1,7 +1,5 @@
-"""The governed inbound Anthropic Messages route with LiteLLM as an ``httpx.MockTransport`` that records every request.
-
-``gateway_setup`` is the fixture; a test module imports it by name.
-"""
+"""The governed inbound Anthropic Messages route with LiteLLM as an ``httpx.MockTransport`` that records every
+request."""
 
 from __future__ import annotations
 
@@ -80,8 +78,6 @@ class FakeAnthropicGateway:
 
 @pytest.fixture
 async def gateway_setup(db, monkeypatch):
-    """Workspace + membership + gateway provider + OAuth grant; returns a header builder."""
-
     fake = FakeAnthropicGateway()
     monkeypatch.setattr(inbound_upstream, "upstream_transport", lambda: httpx.MockTransport(fake.handle))
     user = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()

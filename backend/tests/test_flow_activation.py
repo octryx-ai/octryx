@@ -1,6 +1,4 @@
-"""An admin switches a shipped optional workflow on and off ("optional" is shipped, off, and an admin can switch
-it on). The start list reads the switch live; a running run keeps running; a re-seed keeps it;
-an archived workflow and a non-admin are refused; every change is audited."""
+"""An admin switches a shipped optional workflow (shipped, off by default) on and off."""
 
 from __future__ import annotations
 

@@ -1,15 +1,5 @@
-"""The extra Knowledge MCP tool tables (Claude Code parity), free of server and runner imports.
-
-``mcp_governed_knowledge`` and ``mcp_parity_dispatch`` merge these tables into their own, so this
-module imports neither of them (no import cycle):
-
-- ``EXTRA_GOVERNED_MCP_TOOLS``: chat tool classes for ``run_governed_mcp_tool`` (connector reads,
-  diagrams, governed web search and fetch, the structured graph), all ``knowledge:read``;
-- ``EXTRA_HANDLER_MCP_TOOLS``: platform handlers for ``run_parity_mcp_tool`` (``knowledge_sources``
-  with ``knowledge:read``, ``knowledge_feedback`` with ``knowledge:write``);
-- ``EXTRA_MCP_EVIDENCE_TOOLS``: the evidence tools a workflow contract may require that MCP
-  serves, for ``mcp_workflow_tools.MCP_EVIDENCE_TOOLS``.
-"""
+"""The extra Knowledge MCP tool tables (Claude Code parity), free of server and runner imports. Free of those imports so
+the two runners can merge them without an import cycle."""
 
 from __future__ import annotations
 

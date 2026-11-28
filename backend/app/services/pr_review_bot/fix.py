@@ -1,24 +1,4 @@
-"""``@octryx fix`` / ``@octryx write tests`` .
-
-The command starts a run of ``pr-fix`` as the commenter (their device and seat, their cost; their default engine):
-
-1. ``pr_review.fix_prepare``: the pull request's source branch in the run's working copy (the repository's
-   ``branch`` operation), its head as the run's base; the conditions checked again (``refusal``);
-2. ``workspace.prepare`` and the phase ``fix``: the agent gets ``inputs.pr_fix`` (the mode, the findings, the note);
-3. ``pr_review.fix_scope``: a ``tests`` run changed only test files (the code style's ``test_globs``); a ``fix`` run
-   changed something;
-4. the independent review of the pass (the findings are its previous verdict: it answers each one) and its gate;
-5. ``scm.push`` onto the pull request's branch (never forced: a branch that moved meanwhile refuses the push);
-6. ``pr_review.fix_report``: the answer in the thread or the conversation, also when a step failed.
-
-The branch is never created or adopted through ``scm.create_branch``: the succession rule there stays as it is, and
-this module's conditions decide alone, for this workflow only:
-
-- the repository's bot settings switch fix runs on (``fix_runs``, default off);
-- the pull request is open and not from a fork;
-- its source branch is not its target branch and not a protected branch;
-- no other fix run of the pull request is running.
-"""
+"""``@octryx fix`` / ``@octryx write tests`` ."""
 
 from __future__ import annotations
 
@@ -56,7 +36,6 @@ async def running_fix(db: AsyncSession, project_id: str, repository: str, pr_id:
 
 async def refusal(db: AsyncSession, project_id: str, record: CodeRepository | None, pr: Any, *,
                   running: bool = True) -> str:
-    """Why a fix run may not push onto this pull request's branch; ``''`` when it may."""
     from .settings import settings_of
 
     settings = settings_of(record)
@@ -78,9 +57,6 @@ WORKFLOWS_PAGE = "Agents › Workflows"  # the rail, then "Workflows" under "Bui
 
 
 async def switched_off(db: AsyncSession, project_id: str, mode: str) -> str:
-    """What to tell the commenter when ``pr-fix`` cannot start here, ``''`` when it can. ``pr-fix`` ships optional and
-    switched off, so on a fresh installation the command would meet "No published workflow 'pr-fix'";
-    the answer names the workflow as its definition does and where it is switched on."""
     from sqlalchemy import or_
 
     from ...models.runtime.flow_definition import FlowDefinition
@@ -99,18 +75,11 @@ async def switched_off(db: AsyncSession, project_id: str, mode: str) -> str:
 
 
 def parse_args(words: str) -> tuple[str, str]:
-    """``(engine or '', note)`` of ``fix [claude|codex] [note]``."""
     first, _, rest = words.strip().partition(" ")
     return (first.lower(), rest.strip()) if first.lower() in ENGINES else ("", words.strip())
 
 
 async def device_target(db: AsyncSession, user_id: str, repository: str) -> dict[str, Any] | str:
-    """The commenter's device and folder for this repository, else ``"auto"`` (a repository
-    nobody ran on a device yet must not fall back to the governed route).
-
-    The server cannot read a device's folders, so it picks an active device with a seat profile whose allowed folder
-    is named like the repository (``…/shop`` for ``acme/shop``); ``workspace.prepare``
-    verifies the folder's repository on the device before anything changes, so a wrong pick stops there."""
     from ...models.security.device import DEVICE_STATUS_ACTIVE, UserDevice
 
     name = repository.rstrip("/").rsplit("/", 1)[-1].lower()
@@ -129,7 +98,6 @@ async def device_target(db: AsyncSession, user_id: str, repository: str) -> dict
 
 async def start_fix(db: AsyncSession, project_id: str, pr: Any, event: Any, user_id: str, *, mode: str,
                     findings: list[dict[str, Any]], note: str, engine: str) -> str:
-    """Start the fix run as the commenter; its id (its first steps run in this call, in the background)."""
     from ...models import User
     from ..workflow_runs.phase_outputs import HANDOFF_KEY
     from ..workflow_runs.records import new_chat_session, start_run
@@ -160,8 +128,6 @@ async def start_fix(db: AsyncSession, project_id: str, pr: Any, event: Any, user
 
 
 def commit_message(mode: str, findings: list[dict[str, Any]], pr: Any, event: Any) -> tuple[str, str]:
-    """``(subject, body)`` of the fix run's commit: ``Fix F1: <the finding, short> (octryx review)``; the body lists
-    every finding and links the pull request."""
     from .ci_results import short
 
     ids = ", ".join(str(item.get("id")) for item in findings)
@@ -206,7 +172,6 @@ def _event_of(facts: dict[str, Any]) -> Any:
 
 
 async def _changed(run: WorkflowRun) -> list[str]:
-    """The paths the pass changed: the device's reported patch, else the server working copy against the base."""
     from ..workflow_runs.review.convergence import changed_paths
 
     context = dict(run.context or {})
@@ -247,9 +212,6 @@ async def fix_scope(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) 
 
 
 def _last_failure(run: WorkflowRun) -> str:
-    """Why the run pushed nothing: the failed step's own reason (``context.actions``: ``{action, result, reason}``),
-    else the run's own review when it gave one. Otherwise a refused checkout is
-    answered with the findings the run was started with, as if a review had failed the fix."""
     actions = dict(dict(run.context or {}).get("actions") or {})
     failed = [dict(item) for item in actions.values() if dict(item).get("result") == FAILED]
     if failed:

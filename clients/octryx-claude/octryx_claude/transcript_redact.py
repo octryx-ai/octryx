@@ -1,16 +1,4 @@
-"""The Mac's secret pass over a transcript line before it leaves for the platform (full transcripts).
-
-With the Workspace's ``session_transcripts`` switch on, file contents are the point and they go. Secret values
-never do. The rules are the platform's own file, ``backend/scripts/transcript_secrets.py``, loaded the way
-:mod:`digest` loads the finalize digest's redactor: from the checkout, or from the copy the platform vendors into the
-installed package. The Mac, the platform's store and the platform's reads therefore apply exactly the same rules:
-secret-like assignments, known token formats, JSON fields (also escaped), and the whole output of secret commands
-and credential-file reads. The session lessons' shapes (:func:`session_lessons.redact`) and the digest's redactor
-also run on every string.
-
-Shape-only filters miss e.g. ``STRIPE_KEY=sk_live_…`` and a ``{"password": …}`` inside a string. If the rules file is
-missing, the upload fails closed: nothing is sent.
-"""
+"""The Mac's secret pass over a transcript line before it leaves for the platform (full transcripts)."""
 
 from __future__ import annotations
 
@@ -33,7 +21,6 @@ def _scripts() -> None:
 
 
 def rules() -> ModuleType:
-    """``transcript_secrets`` (required: an ImportError stops the upload, it never sends unredacted lines)."""
     if "rules" not in _LOADED:
         _scripts()
         import transcript_secrets  # noqa: PLC0415 - lives outside this package
@@ -75,8 +62,6 @@ def secret_source(name: str, tool_input: dict[str, Any]) -> bool:
 
 
 def redact_line(entry: Any, secret_ids: set[str]) -> Any:
-    """One transcript line ready to leave the Mac; ``secret_ids`` collects, across lines, the tool calls whose
-    output is replaced as a whole."""
     return _strings(rules().redact_line(entry, secret_ids))
 
 

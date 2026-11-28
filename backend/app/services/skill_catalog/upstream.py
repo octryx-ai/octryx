@@ -1,18 +1,4 @@
-"""Upstream renewal: check, update draft (3-way merge), pin/follow, scheduled checks.
-
-- **Change detection is per skill path**: the upstream bundle digest at the latest commit of the tracked ref is
-  compared with the reference version's ``upstream_bundle_digest``; repository commits that do not touch the
-  skill never raise "update available". A source pinned to a commit is compared with the remote's default branch.
-- **Moved folder**: when the tracked path is gone, the repository is searched for the skill by name (a folder
-  whose ``SKILL.md`` has the same frontmatter ``name``; for an MCP server entry, a plugin defining the server).
-  Exactly one match → the update follows it and publishing moves the tracked path; none or several →
-  ``skill_upstream_path_missing`` and the admin picks the path.
-- **Update** builds a new draft from the 3-way merge (base = the upstream snapshot the reference version came
-  from, ours = the reference version, theirs = the new upstream) with the merge report; it goes through four-eyes
-  review like every draft. ``pinned`` informs only (the update is an explicit admin action that moves the pin at
-  publish); ``follow`` lets the scheduled check create the update draft by itself and notifies the
-  owner.
-"""
+"""Upstream renewal: check, update draft (3-way merge), pin/follow, scheduled checks."""
 
 from __future__ import annotations
 
@@ -55,7 +41,6 @@ def _join(root: str, name: str) -> str:
 
 
 async def _reference(db: AsyncSession, skill: Skill) -> SkillVersion:
-    """The version the update compares with: the published one, else the latest one."""
     published = await published_version(db, skill)
     if published is not None:
         return published
@@ -126,7 +111,6 @@ async def _latest(db: AsyncSession, skill: Skill, source: SkillSource, snapshot:
 
 async def check_skill(db: AsyncSession, skill: Skill, *, actor_id: str | None,
                       path_override: str | None = None) -> dict[str, Any]:
-    """Compare the reference version with the upstream; stores and returns ``skill.upstream_status``."""
     source = await _tracked_source(db, skill)
     settings = await load_settings(db)
     reference = await _reference(db, skill)
@@ -161,7 +145,6 @@ async def check_skill(db: AsyncSession, skill: Skill, *, actor_id: str | None,
 
 
 def _carried_launch_spec(reference: SkillVersion, files: dict[str, str], name: str) -> dict[str, Any] | None:
-    """The reviewed launch-spec choices that stay valid: the digest only for the same image, known env mappings."""
     old = reference.launch_spec if isinstance(reference.launch_spec, dict) else None
     if old is None:
         return None
@@ -180,7 +163,6 @@ def _carried_launch_spec(reference: SkillVersion, files: dict[str, str], name: s
 
 async def update_from_upstream(db: AsyncSession, skill: Skill, *, actor_id: str | None, audit_user: str,
                                path_override: str | None = None, automatic: bool = False) -> SkillVersion:
-    """A new draft merging the latest upstream into the reference version (3-way)."""
     opened = await open_version(db, skill)
     if opened is not None:
         raise SkillCatalogError("skill_draft_exists", 409, version=opened.version, state=opened.state)
@@ -254,7 +236,6 @@ def _due(source: SkillSource, hours: int) -> bool:
 
 
 async def run_scheduled_checks(db: AsyncSession, *, force: bool = False) -> dict[str, int]:
-    """One pass of the scheduled check (every source due by ``update_check_hours``); commits per skill."""
     from ..team_notification import create_notification
 
     settings = await load_settings(db)

@@ -1,9 +1,4 @@
-"""One askpass script per provider and process user, written once; it holds no secret.
-
-The script only reads the username and the token from the git process's environment, so one per provider serves
-every GitHub or GitLab git call; it lives in a folder only the process user may enter and is rewritten when it is
-missing or changed.
-"""
+"""One askpass script per provider and process user, written once; it holds no secret."""
 
 from __future__ import annotations
 
@@ -19,7 +14,6 @@ _SCRIPT = ("#!/bin/sh\n"
 
 
 def askpass_script(provider: str, default_username: str) -> Path:
-    """The provider's askpass script (``GITHUB`` / ``GITLAB``), created on first use, never one per call."""
     folder = Path(tempfile.gettempdir()) / f"octryx-askpass-{os.getuid()}"
     folder.mkdir(mode=0o700, exist_ok=True)
     folder.chmod(0o700)

@@ -1,17 +1,4 @@
-"""How to read a pull request: each changed file is
-
-- **mechanical** (conservative: when in doubt, skim), as
-  ``review.mechanical`` decides: renamed at 100 %, line endings only, whitespace only where it carries no meaning,
-  Python with the same syntax tree and pragmas. The reviewer's diff leaves it out (``review_summarized_paths``; the
-  evidence checks every path again) and lists it with the reason;
-- **skim**: tests (the code style's ``test_globs``), excluded or generated files (its ``exclude``), lockfiles,
-  translations, documentation (``*.md`` but a ``SPEC.md``);
-- **read carefully**: everything else.
-
-The **size brake**: more carefully read lines or files than the repository allows (``size_limit_lines`` /
-``size_limit_files``, default 800 / 25) adds a note to the summary with a split into stacked pull requests by
-folder. It never blocks and never changes the status.
-"""
+"""How to read a pull request: each changed file is mechanical, skimmed or read carefully, with a size brake."""
 
 from __future__ import annotations
 
@@ -49,7 +36,6 @@ def _matches(path: str, globs: list[str] | tuple[str, ...]) -> bool:
 
 
 def skim_reason(path: str, style: dict[str, Any]) -> str:
-    """Why a file is only skimmed; ``''`` when it is read carefully. Pure."""
     general = dict(style.get("general") or {})
     name = Path(path).name
     if name in LOCKFILES:
@@ -68,7 +54,6 @@ def skim_reason(path: str, style: dict[str, Any]) -> str:
 
 
 async def classify(root: str, base: str, head: str, style: dict[str, Any]) -> list[FileTriage]:
-    """Every file the pull request changes with how to read it (renames detected)."""
     code, out, _err = await safe_git.git(root, *safe_git.DIFF, "--numstat", "-M", "-z", base, head)
     if code != 0:
         return []
@@ -103,8 +88,6 @@ async def _one(root: str, base: str, head: str, old: str, path: str, lines: int,
 
 
 def split(files: list[FileTriage], limit_lines: int, limit_files: int) -> list[tuple[str, list[FileTriage]]]:
-    """Groups of carefully read files within the limits: by folder, one level deeper while a folder is still too large,
-    and a folder that cannot be split further in batches of files (``name (1/3)``). Pure."""
     def fits(items: list[FileTriage]) -> bool:
         return len(items) <= limit_files and sum(item.lines for item in items) <= limit_lines
 
@@ -141,7 +124,6 @@ def split(files: list[FileTriage], limit_lines: int, limit_files: int) -> list[t
 
 
 def size_note(files: list[FileTriage], limit_lines: int, limit_files: int) -> str:
-    """The size brake's note with a split into stacked pull requests; ``''`` within the limits. Pure."""
     careful = [item for item in files if item.kind == CAREFUL]
     lines = sum(item.lines for item in careful)
     if lines <= limit_lines and len(careful) <= limit_files:
@@ -156,7 +138,6 @@ def size_note(files: list[FileTriage], limit_lines: int, limit_files: int) -> st
 
 
 def reading_section(files: list[FileTriage]) -> str:
-    """The reviewer's guide: what to read carefully, what to skim, what the platform left out. Pure."""
     def listed(kind: str, with_reason: bool) -> list[str]:
         rows = [f"  {item.path}" + (f" ({item.reason})" if with_reason else "") for item in files if item.kind == kind]
         return rows or ["  (none)"]

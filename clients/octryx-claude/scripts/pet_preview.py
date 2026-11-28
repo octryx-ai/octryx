@@ -1,10 +1,5 @@
-"""Show the real tray icon with a state from the shared contract examples, without a platform (dev tool).
-
-    python scripts/pet_preview.py needs_you [--open-menu] [--seconds 20]
-
-The states come from ``backend/tests/fixtures/agent_gateway/pet_v1.json``; settings live in a temporary state dir.
-``--open-menu`` opens the menu after two seconds (for a screenshot) and closes it again after four.
-"""
+"""Shows the real tray icon with a state from the shared contract examples, without a platform (dev tool).
+Usage: python scripts/pet_preview.py needs_you [--open-menu] [--seconds 20]"""
 
 from __future__ import annotations
 

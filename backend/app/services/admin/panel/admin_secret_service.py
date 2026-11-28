@@ -38,7 +38,8 @@ async def update_stored_secret_for_admin(
     actor_user_id: str | None = None,
 ):
     try:
-        before = _stored_secret_audit_snapshot(await db.get(StoredSecret, secret_id))
+        stored = await db.get(StoredSecret, secret_id)
+        before = _stored_secret_audit_snapshot(stored)
         result = await update_secret_metadata(db, secret_id=secret_id, expires_at=payload.get("expires_at"))
         record_admin_config_audit(
             db,
@@ -46,6 +47,7 @@ async def update_stored_secret_for_admin(
             action="admin.security.stored_secret.metadata_updated",
             resource_type="stored_secret",
             resource_id=secret_id,
+            project_id=stored.project_id if stored else None,
             before=before,
             after=result,
             details={
@@ -71,7 +73,8 @@ async def rotate_stored_secret_for_admin(
     if not raw_value:
         raise HTTPException(status_code=422, detail="value is required")
     try:
-        before = _stored_secret_audit_snapshot(await db.get(StoredSecret, secret_id))
+        stored = await db.get(StoredSecret, secret_id)
+        before = _stored_secret_audit_snapshot(stored)
         result = await rotate_secret_value(
             db,
             secret_id=secret_id,
@@ -86,6 +89,7 @@ async def rotate_stored_secret_for_admin(
             action="admin.security.stored_secret.rotated",
             resource_type="stored_secret",
             resource_id=secret_id,
+            project_id=stored.project_id if stored else None,
             before=before,
             after=result,
             details={
@@ -109,7 +113,8 @@ async def revoke_stored_secret_for_admin(
     actor_user_id: str | None = None,
 ):
     try:
-        before = _stored_secret_audit_snapshot(await db.get(StoredSecret, secret_id))
+        stored = await db.get(StoredSecret, secret_id)
+        before = _stored_secret_audit_snapshot(stored)
         result = await revoke_secret_value(
             db,
             secret_id=secret_id,
@@ -122,6 +127,7 @@ async def revoke_stored_secret_for_admin(
             action="admin.security.stored_secret.revoked",
             resource_type="stored_secret",
             resource_id=secret_id,
+            project_id=stored.project_id if stored else None,
             before=before,
             after=result,
             details={

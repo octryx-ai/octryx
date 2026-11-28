@@ -1,18 +1,4 @@
-"""Platform-native work items: agent-creatable epics and tasks.
-
-These items live ONLY on the platform (``source_type="platform"``) — they are
-never synced to Jira or any external tracker. Jira stays the manually
-curated human task list; platform items are the working memory of agent
-work: an LLM plans something, creates an epic, assigns tasks to it, and
-links the CLI sessions that worked on them. A later worker (any MCP client)
-pulls the full handover context — task, plan, notes, and the linked
-sessions' conversation digests — and continues where the previous one
-stopped.
-
-Platform items reuse the full WorkItem machinery (workflows, change plans,
-verification contracts, coding pipeline); only the tracker sync never
-touches them.
-"""
+"""Platform-native work items (``source_type="platform"``): agent-creatable epics and tasks."""
 
 from __future__ import annotations
 
@@ -65,7 +51,6 @@ def _key_number(key: object, prefix: str) -> int:
 
 
 async def _next_platform_key(db: AsyncSession, *, prefix: str, above: int = 0) -> str:
-    """The next key after the highest stored one and after ``above`` (a number another create just took)."""
     rows = (
         await db.execute(
             select(WorkItem.source_key).where(
@@ -90,7 +75,7 @@ async def create_platform_work_item(
     labels: list[str] | None = None,
     priority: str = "normal",
 ) -> WorkItem:
-    """Create a platform-only work item; never reaches an external tracker."""
+    # Never reaches an external tracker.
     project = await _require_project_access(db, current_user, project_id)
     normalized_title = str(title or "").strip()
     if not normalized_title:
@@ -127,6 +112,7 @@ async def create_platform_work_item(
             action="secure_work.platform_item_created",
             resource_type="work_item",
             resource_id=item.id,
+            project_id=item.project_id,
             details={
                 "source_key": item.source_key,
                 "issue_type": normalized_type,
@@ -171,7 +157,6 @@ def _platform_item_fields(
     epic_key: str,
     now: Any,
 ) -> dict[str, Any]:
-    """The new item's columns except its key, which ``_insert_with_free_key`` picks."""
     return {
         "project_id": project,
         "source_type": PLATFORM_SOURCE_TYPE,
@@ -211,7 +196,6 @@ async def _insert_with_free_key(db: AsyncSession, *, prefix: str, fields: dict[s
 
 
 async def _ingest_item_into_graph(db: AsyncSession, *, item: WorkItem) -> None:
-    """Best effort: the task becomes a graph node like every synced ticket."""
     try:
         from ..knowledge_graph import ingest_ticket_record
 
@@ -238,8 +222,6 @@ async def add_work_item_note(
     current_user: User,
     limit: int = _MAX_NOTE_CHARS,
 ) -> dict[str, Any]:
-    """Append a progress note — the small handover breadcrumbs between workers (``limit``: a product owner's answer
-    from a workflow run keeps its whole text)."""
     text = str(note or "").strip()
     if not text:
         raise HTTPException(status_code=422, detail="note is required")

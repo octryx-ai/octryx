@@ -1,31 +1,4 @@
-"""Execution gate that enforces the persisted execution profile at the runtime boundary.
-
-The execution profile (see ``services/execution_profile_service.py``) records whether a
-turn is allowed to run. This gate is the single enforcement point for that contract. ``run_agent`` evaluates it after
-run preparation and must not start the model/tool loop when the decision is blocked; the turn ends
-with an explicit user-facing message instead.
-
-Enforcement rules:
-
-- ``allowed`` runs.
-- ``denied``, ``needs_approval``, ``needs_configuration``, ``needs_clarification``
-  block with a status-specific message.
-- A profile with an unknown or missing status blocks (deny-by-default for unclear
-  execution state).
-- An allowed profile whose policy is a pending workflow proposal
-  (``policy.source == "workflow_proposal"`` and ``policy.status ==
-  "needs_confirmation"``, see ``services/workflow_routing/proposal.py``) blocks
-  with ``needs_confirmation``: a proposed workflow that can change things never
-  starts without the user's confirmation.
-- A turn without any execution profile is ``denied`` with the decision source
-  ``missing_profile`` (Product Run end reason ``gate_missing_profile``). There is
-  no compatibility allow: run preparation
-  (``agent/core/context/run_context_routing.py``) builds a profile for every
-  ``run_agent`` caller from its declared origin (chat routing, workflow, parent
-  run, schedule, flow, worker profile or agent definition), and a caller that
-  declares no origin gets a ``needs_configuration`` profile, never an allow.
-  A missing profile can only mean corrupted or bypassed preparation state.
-"""
+"""The execution gate: a turn runs only when its persisted execution profile allows it."""
 
 from __future__ import annotations
 
@@ -86,8 +59,6 @@ _MISSING_ORIGIN_MESSAGE = (
 
 @dataclass(frozen=True, slots=True)
 class ExecutionGateDecision:
-    """Result of evaluating the execution profile before starting the agent loop."""
-
     allowed: bool
     status: str
     decision_source: str
@@ -103,7 +74,6 @@ class ExecutionGateDecision:
         }
 
     def trace_output(self) -> dict[str, Any]:
-        """Raw output persisted with a blocked turn's trace, marked as an explicit gate outcome."""
         output = {
             "source": EXECUTION_GATE_TRACE_SOURCE,
             "profile_status": self.status,
@@ -122,13 +92,11 @@ def _pending_workflow_proposal(profile: dict[str, Any]) -> bool:
 
 
 def _missing_origin(profile: dict[str, Any]) -> bool:
-    """The run recorded no origin at all (``run_capability.resolution``: ``missing_declaration``)."""
     capability = profile.get("capability") if isinstance(profile.get("capability"), dict) else {}
     return capability.get("source") == _CAPABILITY_SOURCE_MISSING_DECLARATION
 
 
 def evaluate_execution_gate(execution_profile: Any) -> ExecutionGateDecision:
-    """Decide whether the runtime may start the agent loop for this turn."""
     if execution_profile is None:
         return ExecutionGateDecision(
             allowed=False,

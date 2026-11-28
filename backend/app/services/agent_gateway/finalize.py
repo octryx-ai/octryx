@@ -1,20 +1,4 @@
-"""SessionEnd for a governed client session (``POST sessions/finalize``).
-
-Marks the shadow session completed and turns the client's conversation digest
-into platform knowledge through the same path as the external session ingest
-(``mcp_external_session.persist_session_knowledge``): knowledge-graph processing
-and the work-item link. The transcript lives on the shadow session.
-
-Unlike that ingest, finalize never deletes or replaces what the gateway recorded
-during the session (usage events, messages, tool calls): those are the governed
-record; the digest only adds knowledge. Summary and digest are re-redacted and
-bounded server-side, whatever the client already did.
-
-The knowledge key uses a gateway-owned client session id
-(``octryx-claude-<session key>``) so a CLI watcher ingesting the same Claude Code
-session under its own ``claude-code-<id>`` never re-ingests (and so never wipes)
-the gateway session.
-"""
+"""SessionEnd for a governed client session (``POST sessions/finalize``)."""
 
 from __future__ import annotations
 
@@ -97,10 +81,9 @@ async def finalize_gateway_session(
     identity: GatewayIdentity,
     body: dict[str, Any],
 ) -> dict[str, Any]:
-    """Complete the session and persist its digest as knowledge. Commits."""
-
     data = FinalizeInput.from_body(body)
     metadata = dict(session.metadata_ or {})
+    # Its own prefix: a CLI watcher ingesting the same Claude Code session never replaces this one.
     client_session_id = f"{CLIENT_SESSION_PREFIX}{metadata.get(SESSION_KEY_METADATA) or identity.session_key}"
     work_item_key = identity.work_item_key or str(metadata.get("work_item_key") or "")
     if data.summary:

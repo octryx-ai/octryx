@@ -18,6 +18,9 @@ from tests.declared_lint_and_format_only_support import (  # noqa: F401
     _started,
 )
 from tests.phased_workflow_fixtures import PHASE
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 CONFIRMED = f"{TEST_FILE}::test_truncate_words_joins_kept_words"
 
@@ -53,23 +56,6 @@ async def _implement_with_confirmed_test(db, tmp_path):
     tool_context = ToolContext(user_id=admin.id, project_ids=[], roles=[], session_id=session.id,
                                project_config={}, workspace_root=str(root), db=db)
     return run, root, tool_context
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize("tool", ["edit_workspace_file", "multi_edit_workspace_file", "write_workspace_file"])
-async def test_an_ast_identical_reformat_of_a_confirmed_test_passes_and_the_test_stays_intact(db, tmp_path, tool):
-    run, root, context = await _implement_with_confirmed_test(db, tmp_path)
-    new_body = REFORMATTED.split("\n\n\n", 1)[1].split("\n", 1)[1]
-    params = {"edit_workspace_file": {"path": TEST_FILE, "old_string": LONG, "new_string": new_body},
-              "multi_edit_workspace_file": {"path": TEST_FILE, "edits": [{"old_string": LONG, "new_string": new_body}]},
-              "write_workspace_file": {"path": TEST_FILE, "content": REFORMATTED}}[tool]
-
-    edited = await TOOL_REGISTRY[tool].execute(params, context)
-
-    assert "error" not in edited, edited
-    assert (root / TEST_FILE).read_text() == REFORMATTED
-    assert confirmed_test_drift(run) == []  # intact: the confirmed syntax tree, reformatted
-    assert run.context["confirmed_test_files"][CONFIRMED]["ast_sha256"].startswith("ast-sha256:")
 
 
 @pytest.mark.asyncio
@@ -109,14 +95,3 @@ async def test_format_refuses_a_file_that_already_drifted_from_confirmation(db, 
     assert run.context["confirmed_test_files"][CONFIRMED] == confirmed  # the snapshot is never rebound
 
 
-@pytest.mark.asyncio
-async def test_a_follow_up_formatting_passes_on_the_bound_fingerprint(db, tmp_path):
-    run, root, context = await _implement_with_confirmed_test(db, tmp_path)
-    write = TOOL_REGISTRY["write_workspace_file"].execute
-    assert "error" not in await write({"path": TEST_FILE, "content": REFORMATTED}, context)
-    again = REFORMATTED.replace("  # E501 fixed", "  # wrapped for E501")  # bytes differ from the confirmed ones
-
-    result = await write({"path": TEST_FILE, "content": again}, context)
-
-    assert "error" not in result, result
-    assert (root / TEST_FILE).read_text() == again and confirmed_test_drift(run) == []

@@ -1,7 +1,3 @@
-"""Device credential renewal (D1): a channel closed with ``device_token_expired`` whose refresh is refused
-renews the credential with the device key and reconnects without a login; a revoked device or a refused
-renewal is reported as such and never loops."""
-
 from __future__ import annotations
 
 import asyncio
@@ -25,8 +21,6 @@ BASE_URL = "https://octryx.example.test"
 
 
 class FakeTokenPlatform:
-    """``/oauth/token`` refuses the lost refresh token; ``/devices/self/renew`` checks the device key."""
-
     def __init__(self, state, *, renew_status: int = 200, renew_reason: str = "") -> None:
         self.public = device_state.load_device(state)["public_key_for_test"]
         self.renew_status = renew_status
@@ -144,8 +138,6 @@ async def test_a_revoked_renewal_marks_the_device_revoked_and_a_rejected_one_nee
 
 
 def test_a_revoked_mark_persisted_during_a_successful_renewal_is_cleared_by_it(state):
-    """A ``revoked`` mark persisted while the token provider's renewal is in flight is cleared when that renewal
-    succeeds."""
     _enabled(state)
     _device_credential(state)
     platform_tokens = FakeTokenPlatform(state)

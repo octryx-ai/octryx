@@ -1,14 +1,5 @@
-"""Where a connection is used (the detail's ``uses``): Knowledge sources and intakes that name it by ``connection_id``.
-
-- **knowledge**: ``knowledge_source_connectors.connection_id``; per source its Workspace, enabled (``state`` active),
-  scope (the type's scope key), schedule (the shared list, ``schedules.py``), last run and ingested item count.
-- **tickets**: ``work_item_sync_configs.connection_id``; per intake its Workspace, enabled, filter, schedule, status
-  map (read through the intake's own draft, ``secure_work/intake/setup.draft_of``), last sync; write-back is the
-  Workspace's work item workflow (``sync_policy.sync_mode`` ``execute``, transitions from its mappings).
-- **agent_tools**: the connection's level and the tools its type routes.
-
-Only ids, names, keys, states and times are read; never a config value of the source system or a secret.
-"""
+"""Where a connection is used (the detail's ``uses``): Knowledge sources and intakes that name it by
+``connection_id``."""
 
 from __future__ import annotations
 
@@ -120,8 +111,6 @@ async def knowledge_use(db: AsyncSession, connection_type: str, rows: list[Knowl
 
 
 async def write_back_of(db: AsyncSession, workspace_id: str | None, source_mode: str = "") -> dict[str, Any]:
-    """The Workspace's work item workflow: write-back on (``execute``) and its transitions. ``source_mode`` is the
-    intake's own ``sync_mode``: it overrides the workflow's default (``sync_policy``)."""
     from ..secure_work.lifecycle_transitions import default_workflow_for_item
     from ..secure_work.sync_policy import executes, mapped_status, mapped_transition
 
@@ -202,7 +191,6 @@ async def uses_of_row(db: AsyncSession, row: ConnectorNamedConnection, knowledge
 
 
 def uses_summary(row: ConnectorNamedConnection, knowledge: list, intakes: list) -> dict[str, Any]:
-    """The list's short form: ``{knowledge: bool, tickets: bool, agent_tools: level}``."""
     kinds = uses_of(str(row.tool_name))
     summary: dict[str, Any] = {}
     if USE_KNOWLEDGE in kinds:

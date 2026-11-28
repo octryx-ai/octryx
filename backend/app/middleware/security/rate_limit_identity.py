@@ -1,19 +1,4 @@
-"""Who a request is for the rate limiter: a verified user, or nobody (then the client address).
-
-The limiter runs before any route resolves the caller, so it verifies the credential itself, in process and
-without a database round trip, exactly as the platform would accept it:
-
-- a platform session token (``Authorization: Bearer`` or, without a bearer, the ``access_token`` cookie or a
-  phone's ``octryx_phone_access`` cookie, chosen by ``services.auth.service.cookie_access_token``):
-  signature, audience, issuer and expiry, as ``services.auth.decode_token`` checks them -> ``user:<id>``;
-- a platform OAuth access token (MCP clients): signature, issuer and expiry -> ``user:<id>:grant:<grant>``,
-  so each grant of a user has its own budget.
-
-Everything else is anonymous: no credential, a forged, expired or wrongly signed token, an API key or a gateway
-login token (those need the database), and the seat route's subscription bearer, which is never decoded
-An anonymous request is limited per client address, so a forged token can never select a fresh
-per-user bucket. Nothing here logs or returns a token.
-"""
+"""Who a request is for the rate limiter: a verified user, or nobody (then the client address)."""
 
 from __future__ import annotations
 
@@ -49,7 +34,6 @@ def _oauth_principal(token: str) -> str | None:
 
 
 def request_principal(request: Request) -> str | None:
-    """The verified principal key of the request, or ``None`` (anonymous: keyed by client address)."""
     if request.url.path.startswith(SEAT_MODEL_ROUTE_PREFIXES):
         return None
     token = _presented_token(request)

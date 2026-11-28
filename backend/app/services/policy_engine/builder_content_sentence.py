@@ -1,10 +1,4 @@
-"""The plain-language sentence of a builder content policy, e.g. "When a model request contains email
-addresses, phone numbers or IBANs (or could not be fully scanned), mask them and route the request to company-model,
-for everyone in all Workspaces. The conversation stays on company-model until it is cleared. If company-model cannot
-take the request, it is blocked."
-
-The who- and where-parts are the ones of every builder sentence (``builder_sentence``); they are passed in.
-"""
+"""The plain-language sentence of a builder content policy."""
 
 from __future__ import annotations
 
@@ -23,7 +17,6 @@ CATEGORY_LABELS = {item.id: item.label.lower() for item in BUILTIN_CATEGORIES}
 
 
 def detector_noun(detector: str) -> str:
-    """A built-in detector's noun; a custom detector by its id (the label lives in the policy set)."""
     if detector in DETECTOR_NOUNS:
         return DETECTOR_NOUNS[detector]
     return detector.removeprefix(CUSTOM_PREFIX).replace("_", " ")

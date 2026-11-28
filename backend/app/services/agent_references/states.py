@@ -1,19 +1,4 @@
-"""The closed reference states of workflow references.
-
-One entry per workflow carries the *most significant* version that references the
-agent, in this precedence:
-
-* ``published`` - the version that runs: a workflow's current published version
-  (``flow_definitions.current_version_id`` on a published flow);
-* ``current_draft`` - the version the editor works on and that has not been
-  published: a workflow's newest version when it is a draft;
-* ``older_revision_only`` - only versions that neither run nor are edited reference
-  the agent (superseded, unpublished or retired versions).
-
-The editor opens the *latest* version, so every entry also carries
-``latest_revision`` and ``latest_references_agent``: a client must never imply that
-the editor link shows a referencing revision the latest revision no longer contains.
-"""
+"""The closed reference states of workflow references."""
 
 from __future__ import annotations
 
@@ -28,15 +13,12 @@ REFERENCE_STATES: tuple[str, ...] = (PUBLISHED, CURRENT_DRAFT, OLDER_REVISION_ON
 
 
 def most_significant(candidates: Iterable[tuple[str, int]]) -> tuple[str, int] | None:
-    """Pick ``(state, revision)`` by state precedence, then the highest revision number."""
     ranked = sorted(candidates, key=lambda item: (REFERENCE_STATES.index(item[0]), -item[1]))
     return ranked[0] if ranked else None
 
 
 @dataclass(frozen=True, slots=True)
 class Reference:
-    """The most significant referencing revision and what the editor link opens."""
-
     state: str
     revision: int
     latest_revision: int

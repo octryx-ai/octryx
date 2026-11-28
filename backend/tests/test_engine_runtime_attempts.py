@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.agent.engine.runtime._engine_runtime_attempts import _build_runtime_attempt, _record_retry_history
+from app.agent.runtime.attempts import _build_runtime_attempt, _record_retry_history
 
 
 def test_build_runtime_attempt_preserves_runtime_fields_and_metadata_copy():

@@ -1,8 +1,4 @@
-"""Test helpers for System prompt texts (A7): every key publishes through the four-eyes review.
-
-``publish_reviewed`` drafts, submits and publishes a version with a second admin's approval, for
-the global scope or an overridable one (a Workspace, or a workflow that exists).
-"""
+"""Test helpers for System prompt texts (A7): every key publishes through the four-eyes review."""
 
 from __future__ import annotations
 
@@ -39,4 +35,3 @@ async def publish_reviewed(db, key: str, body: str, *, scope_type: str = "global
     approval.status, approval.approved_by = "approved", (await second_admin(db)).id
     published, _gate = await lifecycle.publish(db, version_id=version.id, user=admin, approval_id=approval.id)
     return published
-

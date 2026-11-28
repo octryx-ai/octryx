@@ -89,20 +89,10 @@
   color: var(--accent-strong);
 }
 
-[data-theme="light"] .composer__submit-hint {
-  color: var(--muted);
-}
-
 [data-theme="light"] .composer__hint,
 [data-theme="light"] .composer__hint-text,
 [data-theme="light"] .composer__hint-separator {
   color: var(--muted);
-}
-
-[data-theme="light"] .composer__hint-kbd {
-  border-color: rgba(36, 39, 35, 0.08);
-  background: rgba(246, 241, 233, 0.92);
-  color: var(--muted-strong);
 }
 
 /* Ghost message actions follow the theme tokens in light too. */
@@ -157,21 +147,10 @@
   color: var(--muted-strong);
 }
 
-[data-theme="light"] .workspace__signal-chip--muted {
-  color: var(--muted);
-  background: rgba(246, 241, 233, 0.8);
-}
-
 [data-theme="light"] .workspace__signal-chip--warning {
   border-color: color-mix(in srgb, var(--status-attention) 30%, transparent);
   background: var(--status-attention-soft);
   color: var(--status-attention-ink);
-}
-
-[data-theme="light"] .workspace__signal-chip--route {
-  border-color: color-mix(in srgb, var(--accent) 14%, transparent);
-  background: color-mix(in srgb, var(--accent) 12%, #ffffff);
-  color: var(--accent-strong);
 }
 
 [data-theme="light"] .workspace__signal-chip--pending {

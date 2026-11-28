@@ -76,6 +76,16 @@ export const OBSERVABILITY_TAB_GROUP: AdminTabGroup = {
       ),
     },
     {
+      id: "complianceAudit",
+      label: "Compliance audit",
+      icon: (
+        <svg viewBox="0 0 24 24">
+          <path d="M12 3l8 3v6c0 4.5-3.4 8-8 9-4.6-1-8-4.5-8-9V6z" />
+          <path d="M9 11h6M9 15h4" />
+        </svg>
+      ),
+    },
+    {
       id: "usage",
       label: "Usage & costs",
       icon: (

@@ -1,12 +1,4 @@
-"""Which projects a project's entity-graph knowledge reads may span (``knowledge_retrieve``).
-
-The scope is the project itself, the configured central knowledge projects
-(``central_knowledge_project_ids``), the default workspace knowledge bases (projects whose
-``knowledge_base.scope`` is ``workspace``/``central``, unless the project's ``knowledge_access`` opts
-out), and the active knowledge mounts (``knowledge_mounts``).
-
-Governed cross-Workspace reads of the Knowledge module are Workspace bindings, not this policy.
-"""
+"""Which projects a project's entity-graph knowledge reads may span (``knowledge_retrieve``)."""
 
 from __future__ import annotations
 
@@ -42,8 +34,7 @@ async def load_knowledge_access_policy(db: AsyncSession, *, project_id: str | No
 
 
 async def _resolve_direct_knowledge_project_ids(db: AsyncSession, *, project: Project) -> list[str]:
-    """The reading Workspace and the Workspaces whose knowledge it may read. A private Workspace is never a source
-    for any other Workspace: its own knowledge is read only from inside it."""
+    # A private Workspace is never a source for any other Workspace.
     project_ids = await _direct_knowledge_project_ids(db, project=project)
     others = [project_id for project_id in project_ids if project_id != project.id]
     if not others:

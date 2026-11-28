@@ -39,7 +39,6 @@ def _write_event(tool_name: str, target_change_path: str, workspace_root: Path, 
 def _refused_write_records(tool_name: str, target_change_path: str, workspace_root: Path, started_at: float,
                            before_change_state: Any, *, metadata: dict[str, Any],
                            blocked_paths: list[str]) -> dict[str, Any]:
-    """The failed write event and change contract of a refused write."""
     return {
         "execution_event": _write_event(
             tool_name, target_change_path, workspace_root, started_at, status="failed", metadata=metadata,
@@ -55,7 +54,6 @@ def _refused_write_records(tool_name: str, target_change_path: str, workspace_ro
 
 def _written_records(tool_name: str, target_change_path: str, workspace_root: Path, started_at: float,
                      before_change_state: Any, *, final_content: str, override_dirty: bool) -> dict[str, Any]:
-    """The succeeded write event and change contract of a written file."""
     after_change_state = capture_workspace_change_state(workspace_root)
     return {
         "execution_event": _write_event(
@@ -116,7 +114,6 @@ class WriteWorkspaceFileTool:
 
     async def _guarded_write(self, params: dict, context: ToolContext, target_path: Path, content: str,
                              bootstrap: dict[str, Any] | None, started_at: float) -> dict:
-        """Refuse a write over dirty work or against the coding policy; otherwise write and report it."""
         workspace_root = _workspace_root(context)
         before_change_state = capture_workspace_change_state(workspace_root)
         target_change_path = relative_change_path(before_change_state, workspace_root, target_path)

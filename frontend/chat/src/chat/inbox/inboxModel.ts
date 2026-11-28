@@ -1,5 +1,3 @@
-// The personal Inbox (observability O6, GET /api/v1/inbox): what the signed-in user can decide, each opening the
-// screen that owns the decision (chat card, publishing page, device prompt, the thread of a clarification).
 import { resolveAdminAreaForTab } from "../../admin/config/adminPanelAreas";
 import type { AdminTab } from "../../admin/types/adminPanelTypes.governance";
 
@@ -54,7 +52,6 @@ export function readInbox(payload: unknown): InboxPayload | null {
   return { waiting: value.waiting, requested_by_me: value.requested_by_me, count: Number(value.count ?? value.waiting.length) };
 }
 
-/** Where an item opens: a chat thread as is, an admin page in its area. */
 export function inboxHref(link: InboxLink): string {
   if (link.href) return link.href;
   if (link.tab) return `/chat?area=${resolveAdminAreaForTab(link.tab)}&tab=${encodeURIComponent(link.tab)}`;

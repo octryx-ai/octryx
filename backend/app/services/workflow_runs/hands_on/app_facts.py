@@ -1,12 +1,4 @@
-"""Facts about the app the scenario generator cannot see in the specification of one story.
-
-Without them:
-
-- a ``fresh_profile`` scenario of another feature expected the main list, but a fresh profile first shows the app's
-  onboarding: every such scenario was red for the scenario, not the app;
-- a scenario expected the app title (its name) as page text at phone width; the title is the window title
-  (the stack's ``title_pattern`` finds it in the code) and shows on the page only where a screen renders it.
-"""
+"""Facts about the app the scenario generator cannot see in the specification of one story."""
 
 from __future__ import annotations
 
@@ -20,7 +12,6 @@ MAX_SOURCE_FILES = 400
 
 
 def _hidden_or(names: set[str], relative: Path) -> bool:
-    """A path inside a hidden folder (package caches, tool state: not the app) or a named one."""
     return any(part.startswith(".") or part in names for part in relative.parts[:-1])
 
 
@@ -40,8 +31,6 @@ def _read(path: Path) -> str:
 
 
 def first_start_note(root: Path, catalog: dict[str, str], stacks: dict[str, Any] | None = None) -> str:
-    """How a fresh profile starts when the app has a first-start flow (the stack's ``first_start_folder`` or l10n
-    keys starting with its ``first_start_key``); ``""`` without one."""
     for facts in stack_data.app_facts(stacks):
         prefix, folder = str(facts.get("first_start_key") or ""), str(facts.get("first_start_folder") or "")
         keys = [key for key in catalog if prefix and key.lower().startswith(prefix)]
@@ -59,7 +48,6 @@ def first_start_note(root: Path, catalog: dict[str, str], stacks: dict[str, Any]
 
 
 def title_note(root: Path, catalog: dict[str, str], stacks: dict[str, Any] | None = None) -> str:
-    """The app title is the window title, not proof of a page; ``""`` when the app sets none."""
     for facts in stack_data.app_facts(stacks):
         if not facts.get("title_pattern"):
             continue

@@ -1,14 +1,3 @@
-// MCP servers allowed per Workspace. Pure: no requests, no React.
-//
-// Contract (backend api/routes/mcp_workspace_allow.py):
-//   GET /api/v1/admin/mcp-servers/allow -> {servers: [{server_id, name, registered, connected, allowed_workspaces,
-//       tools_visible, tool_count}]}
-//   GET /api/v1/admin/mcp-servers/{id}/allow -> {server_id, name, connected, tools: [name],
-//       workspaces: [{workspace_id, name, allowed, tools: null | [name]}]}
-//   PUT /api/v1/admin/mcp-servers/{id}/allow {workspace_ids, tools: null | [name]} -> same as GET
-//   GET /api/v1/admin/workspaces/{id}/mcp-servers -> {servers: [{server_id, name, allowed, tools}]}
-//   PUT /api/v1/admin/workspaces/{id}/mcp-servers/{server_id} {allowed}
-
 export const MCP_ALLOW_API = "/api/v1/admin";
 
 export type ServerStatus = {
@@ -57,13 +46,11 @@ export function pipeline(status: ServerStatus | undefined): PipelineStep[] {
 
 export const inUse = (status: ServerStatus | undefined) => Boolean(status && status.allowedWorkspaces > 0);
 
-/** The PUT body: the ticked Workspaces and "all tools" (null) or the selected tools. */
 export function allowBody(selectedWorkspaces: string[], allTools: boolean, tools: string[]): { body?: Record<string, unknown>; error?: string } {
   if (!allTools && !tools.length) return { error: "Select at least one tool, or expose all tools." };
   return { body: { workspace_ids: [...selectedWorkspaces].sort(), tools: allTools ? null : [...tools].sort() } };
 }
 
-/** The drawer's starting tool choice: the first allowing Workspace's selection, else all tools. */
 export function initialTools(allow: ServerAllow): { allTools: boolean; tools: string[] } {
   const selected = allow.workspaces.find((row) => row.allowed && row.tools)?.tools;
   return selected ? { allTools: false, tools: selected } : { allTools: true, tools: [] };

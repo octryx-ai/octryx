@@ -65,13 +65,13 @@ async def panel_list_agents(request: Request, db: AsyncSession = Depends(get_db)
 
 @router.get("/chat/api/panel/agents/overview")
 async def panel_agents_overview(request: Request, db: AsyncSession = Depends(get_db)):
-    """The Agents page extras (A3): built-ins shipped in code and usage in the last 30 days."""
-    await _require_admin_api(request, db)
+    """The Agents page extras: built-ins shipped in code and usage in the last 30 days."""
+    user = await _require_admin_api(request, db)
     return JSONResponse({
         # The platform agents replace the listed built-ins (Assistant, Engineer, Reviewer).
         "builtins": await platform_agents_overview(db),
         "usage_window_days": USAGE_WINDOW_DAYS,
-        "usage": await agent_usage_counts(db),
+        "usage": await agent_usage_counts(db, viewer_id=user.id),
     })
 
 
@@ -89,7 +89,7 @@ async def panel_create_agent_group(
     db: AsyncSession = Depends(get_db),
 ):
     user = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    await require_existing_workspace(db, user.id, payload.project_id)
     return JSONResponse(await admin_create_agent_group(db, user_id=user.id, payload=payload.model_dump()))
 
 
@@ -101,7 +101,7 @@ async def panel_update_agent_group(
     db: AsyncSession = Depends(get_db),
 ):
     user = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    await require_existing_workspace(db, user.id, payload.project_id)
     return JSONResponse(
         await admin_update_agent_group(
             db, user_id=user.id, group_id=group_id, payload=payload.model_dump(exclude_none=True)

@@ -32,7 +32,6 @@ COMMAND = f"python -m pytest -v {FILE}"
 
 
 def _test_first_definition() -> dict:
-    """The contract definition (clarify → draft → confirm → work) with B's red gate after the work phase."""
     definition = contract_definition()
     definition["nodes"].append({"id": "red", "type": "gate", "label": "Red",
                                 "config": {"checks": [{"type": "tests_red", "blocking": True,
@@ -47,7 +46,6 @@ def _test_first_definition() -> dict:
 
 
 def _base_copy(root: Path) -> str:
-    """The run's working copy at its base: the existing tests (normalize_whitespace, word_count, slugify) defined."""
     (root / "tests").mkdir(parents=True)
     names = [test.split("::")[-1] for test in REGRESSION]
     (root / FILE).write_text("".join(f"def {name}():\n    assert True\n\n\n" for name in names))
@@ -63,7 +61,7 @@ async def _clarify(db, tmp_path, *, definition: dict | None = None, dor: list[st
                    with_copy: bool = True):
     item = await _item(db)
     admin = await admin_user(db)
-    if dor is not None:  # the item's confirmed Definition of Ready (Workflow A triage, outcome done)
+    if dor is not None:
         db.add(WorkflowRun(id=str(uuid.uuid4()), workflow_kind="phased", workflow_key="jira-intake-triage",
                            status="completed", outcome="done", work_item_id=item.id, completed_at=utc_now(),
                            requested_by=admin.id,
@@ -92,7 +90,6 @@ def _criterion(ac_id: str, text: str, tests: list[tuple[str, str]]) -> dict:
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)

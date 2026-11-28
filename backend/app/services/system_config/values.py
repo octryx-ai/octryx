@@ -39,9 +39,6 @@ async def set_system_config_value(
     value: str | None,
     description: str | None = None,
     updated_by: str | None = None,
-    change_source: str = "system_config",
-    revision_metadata: dict[str, object] | None = None,
-    record_prompt_revision: bool = True,
 ) -> SystemConfig | None:
     row = (await db.execute(select(SystemConfig).where(SystemConfig.key == key))).scalar_one_or_none()
     normalized = str(value or "").strip()
@@ -49,17 +46,6 @@ async def set_system_config_value(
         if row is not None:
             await db.delete(row)
             await db.flush()
-            if record_prompt_revision:
-                from app.services.prompt_governance.revisions import record_system_prompt_revision_if_applicable
-
-                await record_system_prompt_revision_if_applicable(
-                    db,
-                    config_key=key,
-                    value=None,
-                    created_by=updated_by,
-                    change_source=change_source,
-                    revision_metadata=revision_metadata,
-                )
         return None
     if row is None:
         row = SystemConfig(key=key, value=normalized, description=description)
@@ -69,17 +55,6 @@ async def set_system_config_value(
         if description is not None:
             row.description = description
     await db.flush()
-    if record_prompt_revision:
-        from app.services.prompt_governance.revisions import record_system_prompt_revision_if_applicable
-
-        await record_system_prompt_revision_if_applicable(
-            db,
-            config_key=key,
-            value=normalized,
-            created_by=updated_by,
-            change_source=change_source,
-            revision_metadata=revision_metadata,
-        )
     return row
 
 

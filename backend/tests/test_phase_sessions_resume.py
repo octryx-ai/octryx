@@ -14,6 +14,7 @@ from app.services.workflow_runs.records import new_chat_session, start_run
 from tests.phase_sessions_models_support import _with_phase
 from tests.phased_seed_definitions import seed_definitions
 from tests.phased_workflow_fixtures import PHASE, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import (  # noqa: F401 - autouse fixture: a clean device hub
     DEFINITION,
     FOLDER,
@@ -25,21 +26,18 @@ from tests.workflow_run_octryx_continuation_support import (  # noqa: F401 - aut
     _reenter,
 )
 
-# --- one session per phase node -------------------------------------------------------------------------------------
+pytestmark = pytest.mark.usefixtures("scripted_pool")
+
 
 async def _pass(db, job, run, session: str, next_node: str):
-    """The device reports the pass's session, the pass's Stop moves the run to ``next_node``, the turn ends."""
     await apply_event(db, job, "job_event", {"kind": "session", "claude_session_id": session}, limits={})
     await apply_event(db, job, "job_accepted", {"turn_id": job.turn_id}, limits={})
     await _reenter(db, run, next_node)
     await apply_event(db, job, "turn_finished", {"turn_id": job.turn_id, "status": "success"}, limits={})
 
 
-# --- an epic phase resumes its session of the previous story --------------------------------------------------------
-
 async def _previous_story(db, admin, project_id: str, *, device_id: str, folder: str = FOLDER,
                           profile: str = "governed"):
-    """A finished story run of the same epic whose ``work`` phase ran in ``claude-story-1``."""
     run = await start_run(db, user=admin, workflow_key=await publish_phased(db, DEFINITION), project_id=project_id,
                           session=await new_chat_session(db, admin, project_id))
     run.context = {**dict(run.context or {}), SESSIONS_KEY: {"work": {
@@ -59,8 +57,6 @@ async def _next_story(db, *, epic: bool = True, **previous):
     return run, job
 
 
-# --- the plan after workspace.prepare is the plan's own turn ---------------------------------------------------------
-
 def _seed_node(key: str, node_id: str) -> dict:
 
     definition = next(seed["definition"] for seed in seed_definitions() if seed["key"] == key)
@@ -68,9 +64,8 @@ def _seed_node(key: str, node_id: str) -> dict:
 
 
 def _prepare_then_plan() -> dict:
-    """start → go → workspace.prepare → plan (team-delivery's plan model and session) → done."""
     seeded = _seed_node("team-delivery", "plan")["config"]
-    # Since G the seed names the class ``plan``; this governed run names its model on the node.
+    # The seed names the class ``plan``; this governed run names its model on the node.
     plan = {**copy.deepcopy(PHASE), "model": "claude-sonnet-5-5", "session": seeded["session"]}
     nodes = [*DEFINITION["nodes"][:2],
              {"id": "prepare", "type": "platform_action", "label": "Prepare",
@@ -88,8 +83,6 @@ def _prepare_then_plan() -> dict:
 
 @pytest.mark.asyncio
 async def test_a_loop_back_over_several_phases_resumes_each_phases_own_session(db):
-    """Gap 3: with one remembered session a loop from the pipeline back to ``backend`` after ``frontend`` and
-    ``tests`` ran started ``backend`` fresh. Each phase node now resumes its own."""
     admin, _device, thread, run = await _device_run(db, definition=TWO_PHASES)
     await _confirm(db, run, admin)
     [job] = await _jobs(db, thread)
@@ -132,8 +125,6 @@ async def test_a_phase_without_the_epic_session_starts_each_story_fresh(db):
 
 @pytest.mark.asyncio
 async def test_team_deliverys_plan_after_prepare_runs_on_sonnet_in_its_own_resumable_session(db, monkeypatch):
-    """The plan pass must not run inside the prepare turn on the run's default model, or the replan finds no plan
-    session. The prepare turn is the plan's: its model, and its session is the plan's own on the next pass."""
     from app.services.devices import chat_turn
 
     async def admitted(*_a, **_k):  # the Workspace admits the model (not what this test is about)

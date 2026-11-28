@@ -1,8 +1,4 @@
-"""The page script of the browser worker's snapshot action.
-
-It tags each visible interactive element with a ``data-octryx-ref`` so later click and type
-actions can address it, and returns one preview row per element.
-"""
+"""The page script of the browser worker's snapshot action."""
 
 SNAPSHOT_ELEMENTS_SCRIPT = """(limit, previewChars) => {
                 const selectors = [

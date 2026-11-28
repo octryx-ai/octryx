@@ -75,7 +75,7 @@ export const TOOL_GROUP_NAMES: Record<ToolGroup, string> = {
 export function toolGroup(tool: string): ToolGroup {
   if (/^(write|edit|multi_edit|create|delete|move|rename|apply)_/.test(tool)) return "change";
   if (/^run_/.test(tool) || tool === "bash") return "run";
-  if (/^(todo_|submit_|spawn_)/.test(tool) || tool === "get_context_from_subthreads") return "helper";
+  if (/^(todo_|submit_)/.test(tool)) return "helper";
   return "read";
 }
 

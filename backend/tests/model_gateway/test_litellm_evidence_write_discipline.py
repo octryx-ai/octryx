@@ -1,13 +1,4 @@
-"""Open-time discipline of the qualification evidence write.
-
-``resolve_evidence_path`` refuses a symlinked evidence root, slug directory or
-report file — but it decides that on a resolved path, and the write happens
-afterwards. The write therefore opens every component below the repository root
-relative to an already-open descriptor and atomically replaces the final name.
-
-These suites exercise the open-time guard *directly*, because the resolved-path
-check would otherwise mask it and the tests would pass for the wrong reason.
-"""
+"""Open-time discipline of the qualification evidence write."""
 
 from __future__ import annotations
 
@@ -42,8 +33,6 @@ def test_the_report_is_written_private_through_its_directory_descriptor(tmp_path
 
 
 def test_a_symlinked_report_name_is_refused_at_open_time(tmp_path) -> None:
-    """``O_NOFOLLOW`` on the final component: the name may not be a link."""
-
     directory = evidence_directory(tmp_path)
     outside = tmp_path / "outside.json"
     outside.write_text("original\n")
@@ -57,8 +46,6 @@ def test_a_symlinked_report_name_is_refused_at_open_time(tmp_path) -> None:
 
 
 def test_a_symlinked_slug_directory_is_refused_at_open_time(tmp_path) -> None:
-    """``O_DIRECTORY|O_NOFOLLOW``: the slug directory may not be a link either."""
-
     evidence_root = tmp_path / "repo" / "evidence"
     evidence_root.mkdir(parents=True)
     outside = tmp_path / "outside"
@@ -72,8 +59,6 @@ def test_a_symlinked_slug_directory_is_refused_at_open_time(tmp_path) -> None:
 
 
 def test_a_symlinked_evidence_directory_cannot_redirect_the_write(tmp_path) -> None:
-    """An intermediate component is guarded, not only the final slug directory."""
-
     repo = tmp_path / "repo"
     repo.mkdir()
     outside = tmp_path / "outside"
@@ -90,8 +75,6 @@ def test_a_symlinked_evidence_directory_cannot_redirect_the_write(tmp_path) -> N
 
 
 def test_an_existing_hardlink_is_replaced_without_truncating_its_other_name(tmp_path) -> None:
-    """Atomic rename replaces the evidence name instead of following its inode."""
-
     directory = evidence_directory(tmp_path)
     outside = tmp_path / "outside.json"
     outside.write_text("original\n")
@@ -105,7 +88,5 @@ def test_an_existing_hardlink_is_replaced_without_truncating_its_other_name(tmp_
 
 
 def test_the_write_uses_the_directory_descriptor_when_the_platform_supports_it() -> None:
-    """Pins the mechanism, so a fallback cannot be introduced unnoticed."""
-
     assert os.open in os.supports_dir_fd
     assert os.unlink in os.supports_dir_fd

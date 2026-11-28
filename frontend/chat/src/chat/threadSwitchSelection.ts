@@ -1,13 +1,4 @@
-// A composer selection (a workflow) made while a thread switch
-// is still loading belongs to the thread being opened. Without this,
-// the choice was persisted to the thread that was still shown and then
-// overwritten by the new thread's restore: "New chat" + a quick pick sent the
-// turn without the picked workflow.
-//
-// The owner calls `beginThreadSwitch` when the user starts a navigation to a
-// different thread, `chooseDuringSwitch` for every pick, and
-// `completeThreadSwitch` once the new thread is shown. A pick made in between
-// wins over the restored value and is persisted for the new thread.
+// A pick made while a thread switch loads belongs to the new thread, else the new thread's restore overwrites it.
 
 export type ThreadSwitchState = {
   switching: boolean;
@@ -20,8 +11,7 @@ export const IDLE_THREAD_SWITCH: ThreadSwitchState = {
   pendingChoice: null,
 };
 
-// A navigation to the thread already shown is no switch: nothing would
-// complete it.
+// A navigation to the thread already shown is no switch: nothing would complete it.
 export function beginThreadSwitch(
   shownSessionId: string,
   targetSessionId: string,
@@ -33,8 +23,6 @@ export function beginThreadSwitch(
 
 export type PickOutcome = {
   state: ThreadSwitchState;
-  // Whether the pick is persisted for the shown thread now; while switching
-  // it is held for the thread being opened instead.
   persistForShownThread: boolean;
 };
 
@@ -50,8 +38,6 @@ export function chooseDuringSwitch(
 export type SwitchOutcome = {
   state: ThreadSwitchState;
   value: string;
-  // Whether `value` came from a pick during the switch and must be persisted
-  // for the new thread.
   persistPick: boolean;
 };
 

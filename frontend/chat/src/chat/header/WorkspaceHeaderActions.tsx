@@ -1,4 +1,4 @@
-import type { ThreadCodeIntelligenceStats, ThreadUsageStats } from "../../chatUsageTypes";
+import type { SessionPullRequest, ThreadCodeIntelligenceStats, ThreadUsageStats } from "../../chatUsageTypes";
 import { StatsPopover } from "../StatsPopover";
 import {
   BrainIcon,
@@ -12,6 +12,7 @@ import {
 } from "../ChatShellIcons";
 import type { ChatLayoutMode } from "../responsive/chatLayoutBreakpoints";
 import { TranscriptIcon } from "../transcripts/TranscriptButton";
+import type { SessionPoolItem } from "./useSessionPool";
 import {
   WorkspaceHeaderOverflowMenu,
   type WorkspaceHeaderMenuItem,
@@ -31,6 +32,8 @@ export type WorkspaceHeaderActionsProps = {
   onToggleWorkspace: () => void;
   onExportEvidencePdf: () => void;
   onExportAnalysisJson: () => void;
+  // The holder's "Put into the session pool"; null without an open session.
+  poolItem?: SessionPoolItem | null;
   chatTheme: "dark" | "light";
   setChatTheme: (
     value: "dark" | "light" | ((value: "dark" | "light") => "dark" | "light"),
@@ -39,6 +42,7 @@ export type WorkspaceHeaderActionsProps = {
   setStatsOpen: (value: boolean | ((value: boolean) => boolean)) => void;
   stats: ThreadUsageStats | null;
   codeIntelligence: ThreadCodeIntelligenceStats | null;
+  pullRequests: SessionPullRequest[];
   traceEventCount: number;
   onOpenTrace: () => void;
   // Opens the session's full transcript; null when none is stored or readable (then no entry is shown).
@@ -105,6 +109,10 @@ function renderTraceAction({ traceEventCount, onOpenTrace }: Props, labelled: bo
       <span className={labelled ? "icon-action-button__count" : undefined}>{traceEventCount}</span>
     </button>
   );
+}
+
+function buildHandOverItems({ poolItem = null }: Props): WorkspaceHeaderMenuItem[] {
+  return poolItem ? [{ key: "pool", label: poolItem.label, icon: <ExportIcon />, onSelect: poolItem.onSelect, disabled: poolItem.disabled }] : [];
 }
 
 function buildExportItems({ onExportEvidencePdf, onExportAnalysisJson, hasSelectedSession }: Props): WorkspaceHeaderMenuItem[] {
@@ -176,7 +184,7 @@ function renderFilesButton({ workspaceOpen, onToggleWorkspace }: Props) {
   );
 }
 
-function renderStatsShell({ statsOpen, setStatsOpen, hasSelectedSession, stats, codeIntelligence }: Props) {
+function renderStatsShell({ statsOpen, setStatsOpen, hasSelectedSession, stats, codeIntelligence, pullRequests }: Props) {
   return (
     <div className="stats-popover-shell">
       <button
@@ -190,7 +198,7 @@ function renderStatsShell({ statsOpen, setStatsOpen, hasSelectedSession, stats, 
         <span>Usage</span>
       </button>
       {statsOpen ? (
-        <StatsPopover stats={stats} codeIntelligence={codeIntelligence} />
+        <StatsPopover stats={stats} codeIntelligence={codeIntelligence} pullRequests={pullRequests} />
       ) : null}
     </div>
   );
@@ -218,16 +226,18 @@ function renderTranscriptButton(onOpenTranscript: (() => void) | null) {
 // Review (point 7): every icon names itself on hover and focus (data-tooltip, styled like the rail's), and the
 // theme switch is the rail's alone; the header carries it only where the rail is hidden (compact and phone widths).
 export function WorkspaceHeaderActions(props: WorkspaceHeaderActionsProps) {
-  const { layoutMode, chatTheme, setChatTheme, statsOpen, stats, codeIntelligence, onOpenTranscript = null } = props;
+  const { layoutMode, chatTheme, setChatTheme, statsOpen, stats, codeIntelligence, pullRequests, onOpenTranscript = null } =
+    props;
   const themeActionLabel = `Switch to ${chatTheme === "dark" ? "light" : "dark"} theme`;
   const toggleTheme = () =>
     setChatTheme((current) => (current === "dark" ? "light" : "dark"));
   const errorAction = renderErrorAction(props);
   const traceAction = (labelled: boolean) => renderTraceAction(props, labelled);
   const exportItems = buildExportItems(props);
+  const handOverItems = buildHandOverItems(props);
 
   if (layoutMode === "phone") {
-    const overflowItems = buildPhoneOverflowItems(props, exportItems, themeActionLabel, toggleTheme);
+    const overflowItems = buildPhoneOverflowItems(props, [...handOverItems, ...exportItems], themeActionLabel, toggleTheme);
 
     return (
       <div className="workspace__actions workspace__actions--compact">
@@ -235,7 +245,7 @@ export function WorkspaceHeaderActions(props: WorkspaceHeaderActionsProps) {
         {traceAction(false)}
         <WorkspaceHeaderOverflowMenu items={overflowItems}>
           {statsOpen ? (
-            <StatsPopover stats={stats} codeIntelligence={codeIntelligence} />
+            <StatsPopover stats={stats} codeIntelligence={codeIntelligence} pullRequests={pullRequests} />
           ) : null}
         </WorkspaceHeaderOverflowMenu>
       </div>
@@ -251,6 +261,12 @@ export function WorkspaceHeaderActions(props: WorkspaceHeaderActionsProps) {
         items={exportItems}
         trigger={{ label: "Export", ariaLabel: "Export this chat", icon: <ExportIcon /> }}
       />
+      {handOverItems.length ? (
+        <WorkspaceHeaderOverflowMenu
+          items={handOverItems}
+          trigger={{ label: "Hand over", ariaLabel: "Hand this chat over", icon: <ExportIcon /> }}
+        />
+      ) : null}
       {renderStatsShell(props)}
       {layoutMode === "compact" ? (
         <button

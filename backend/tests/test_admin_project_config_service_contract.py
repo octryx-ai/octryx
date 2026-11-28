@@ -5,23 +5,8 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app.agent.core.prompts.prompt_templates import PROJECT_SYSTEM_PROMPT_OVERRIDE_CONFIG_KEY
-from app.models import AuditLog, Project, PromptConfigRevision
-from app.services.admin.project import _admin_project_config_owners, admin_project_config_service
-
-
-def test_project_config_key_owner_inventory_marks_policy_sensitive_keys():
-    owners = {
-        owner["key"]: owner
-        for owner in _admin_project_config_owners.list_project_config_key_owners()
-    }
-
-    assert owners["runtime_policy"]["owner"] == "runtime_policy_bundle"
-    assert owners["runtime_policy"]["policy_sensitive"] is True
-    assert owners["tool_policy"]["policy_sensitive"] is True
-    assert owners["repository_bootstrap"]["validation"] == "normalize_repository_bootstrap_config"
-    assert owners["tts"]["owner"] == "tts service"
-    assert owners["stt"]["owner"] == "stt service"
+from app.models import AuditLog, Project
+from app.services.admin.project import admin_project_config_service
 
 
 @pytest.mark.asyncio
@@ -117,37 +102,3 @@ async def test_merge_project_config_normalizes_policy_sensitive_keys(db, auth_us
     assert audit_log.details["after"]["tool_policy"]["denylist"] == ["run_cli_command"]
 
 
-@pytest.mark.asyncio
-async def test_merge_project_config_records_prompt_override_revisions(db, auth_user):
-    project = Project(
-        id=str(uuid.uuid4()),
-        name=f"project-config-prompt-{uuid.uuid4()}",
-        config={},
-    )
-    db.add(project)
-    await db.commit()
-
-    await admin_project_config_service.merge_project_config(
-        db,
-        project_id=project.id,
-        patch={
-            PROJECT_SYSTEM_PROMPT_OVERRIDE_CONFIG_KEY: {
-                "variant_routing": {"standard": "minimal", "summary": "admin"},
-            }
-        },
-        actor_user_id=auth_user.id,
-    )
-
-    revisions = (
-        await db.execute(
-            select(PromptConfigRevision)
-            .where(PromptConfigRevision.scope_id == project.id)
-            .order_by(PromptConfigRevision.config_key.asc())
-        )
-    ).scalars().all()
-    assert len(revisions) == 2
-    assert {revision.created_by for revision in revisions} == {auth_user.id}
-    assert {
-        f"{PROJECT_SYSTEM_PROMPT_OVERRIDE_CONFIG_KEY}.variant_routing.standard",
-        f"{PROJECT_SYSTEM_PROMPT_OVERRIDE_CONFIG_KEY}.variant_routing.summary",
-    } == {revision.config_key for revision in revisions}

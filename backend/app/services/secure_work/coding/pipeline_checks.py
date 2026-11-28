@@ -1,14 +1,4 @@
-"""Checks on every change, part of the Delivery pipeline.
-
-Pipeline quality rules evaluate a *change*, not an agent action, so they are checks
-of the Workspace's delivery pipeline (``work_coding_pipeline_configs.controls_json.checks``), declared there and
-nowhere else. Allow/forbid of actions stays in Cedar (Settings → Governance → Policies).
-
-A check is ``{key, type, label, effect, rule}``: ``type`` one of :data:`CHECK_TYPES`, ``effect`` ``warn``,
-``review`` (a reviewer must confirm) or ``block``, ``rule`` the type's settings (thresholds, required commands,
-naming pattern). :func:`preview_pipeline_checks` evaluates them against a change's evidence with the existing
-evaluator (``coding_policy_evaluator``).
-"""
+"""Checks on every change, declared on the Workspace's delivery pipeline."""
 
 from __future__ import annotations
 
@@ -44,7 +34,6 @@ def _refuse(message: str) -> HTTPException:
 
 
 def normalize_checks(raw: Any) -> list[dict[str, Any]]:
-    """The validated checks; 422 on an unknown type or effect, or a duplicate key."""
     if raw in (None, ""):
         return []
     if not isinstance(raw, list):
@@ -78,7 +67,6 @@ def checks_of(config: WorkCodingPipelineConfig | None) -> list[dict[str, Any]]:
 
 
 def as_rule(config: WorkCodingPipelineConfig, check: dict[str, Any]) -> WorkCodingPolicy:
-    """The check as the evaluator's (unsaved) rule object."""
     return WorkCodingPolicy(
         id=f"check:{config.id}:{check['key']}",
         name=check["label"],
@@ -103,14 +91,6 @@ async def workspace_pipelines(db: AsyncSession, project_id: str | None) -> list[
 
 
 async def preview_pipeline_checks(db: AsyncSession, *, payload: dict[str, Any], current_user: User) -> dict[str, Any]:
-    """Every check of the Workspace's pipelines against the change described by ``payload`` (nothing is stored).
-
-    A referenced Work Item is read only within ``current_user``'s Workspaces, a Change Plan through the scoped loader
-    (``related_rows``): either one missing or of another Workspace is the same 404. Only then does the change bind
-    them: the plan belongs to the named item (422), and the item, or the plan's own item when no item is named, lies
-    in the named Workspace (422). A named Workspace that does not exist or that the caller is no member of is 404
-    ``project_not_found`` first.
-    """
     explicit_project = blank_to_none(payload.get("project_id"))
     await require_visible_workspace(db, current_user.id, explicit_project)
     item_id, plan_id = blank_to_none(payload.get("work_item_id")), blank_to_none(payload.get("change_plan_id"))

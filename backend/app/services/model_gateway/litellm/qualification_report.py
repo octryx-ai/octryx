@@ -1,4 +1,4 @@
-"""Qualification checks and the closed report built from them (see ``qualification`` for the gate contract)."""
+"""Qualification checks and the closed report built from them."""
 
 from __future__ import annotations
 
@@ -34,13 +34,9 @@ from .transport_codes import TLS_MODE_PLAINTEXT_LOOPBACK
 from .transport_decisions import TlsTrustPolicy
 
 
+# Structural: only numbers, booleans and closed lowercase codes survive, so the report is safe to persist by
+# construction.
 def _closed_detail(payload: Mapping[str, Any]) -> dict[str, Any]:
-    """Keep only numbers, booleans, and closed lowercase codes.
-
-    Structural, not cosmetic: a body fragment, a header, or a prompt cannot
-    survive this filter, so the report is safe to persist by construction.
-    """
-
     def _value(value: Any) -> Any:
         if isinstance(value, bool) or isinstance(value, (int, float)):
             return value
@@ -112,11 +108,8 @@ class QualificationReport:
 
     @property
     def gate_satisfied(self) -> bool:
-        """True only when every required check passed against confirmed live evidence.
-
-        Read it as "this report is ready for operator review", not as an
-        attestation of the peer's identity (see the module docstring).
-        """
+        """True only when every required check passed against confirmed live evidence: ready for operator review, not an
+        attestation of the peer."""
 
         return (
             self.passed
@@ -140,8 +133,6 @@ class QualificationReport:
 
 
 def transport_assurance(tls: TlsTrustPolicy) -> str:
-    """The closed code for what protects the gateway leg."""
-
     if tls.cluster_internal:
         return TRANSPORT_ASSURANCE_ATTESTED_NODE_ENCRYPTION
     if tls.plaintext:
@@ -149,15 +140,9 @@ def transport_assurance(tls: TlsTrustPolicy) -> str:
     return TRANSPORT_ASSURANCE_VERIFIED_TLS
 
 
+# The first condition an operator has to change comes first; endpoint and transport are validated facts about the run,
+# while the origin and verified_against are declarations a caller supplies.
 def live_evidence_blocking_reason(config: LiteLLMGatewayConfig, origin: str) -> str:
-    """Why this run is not live evidence, or "" when it is.
-
-    Ordered so the returned code names the *first* condition an operator has to
-    change. The endpoint and transport conditions are the load-bearing ones: they
-    are validated facts about the run, while the origin and the posture's
-    ``verified_against`` are declarations a caller supplies.
-    """
-
     if origin != EVIDENCE_ORIGIN_EXTERNAL_LIVE:
         return REASON_ORIGIN_NOT_EXTERNAL_LIVE
     # Transport before endpoint: ``plaintext_loopback`` is only admitted for a

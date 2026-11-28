@@ -1,20 +1,4 @@
-"""What happens to sensitive content where (Content security → Overview): Detect → Decide → Act.
-
-The coverage matrix is computed from what is configured, never typed in:
-
-- **Detect** — the built-in detectors and the published custom detectors (``content_detection``), each mapped to a
-  category;
-- **Decide** — the shipped defaults of content handling (``handling``: enforced on every model call, every
-  driver; a Workspace may choose another action per kind, shown per Workspace by its content-handling endpoint),
-  the published custom content policies (Cedar), read through the policy builder model (action, route,
-  detectors/categories, outcome), plus the gateway default that secrets never leave;
-- **Act** — per surface the strictest outcome: *Refuse*, *Mask → reroute*, *Mask*, *Ask a person*, *Report*, or
-  *Not scanned*. A policy outcome only acts while the policy engine enforces; in shadow it is reported.
-
-Surfaces: the user prompt at the company gateway and seat route, a model call of the platform (every driver: the
-shipped policies run there), tool results, commands (Command safety), model output (the shipped policies) and
-uploads/Knowledge ingest (not scanned).
-"""
+"""What happens to sensitive content where (Content security, Overview), computed from the configuration."""
 
 from __future__ import annotations
 
@@ -55,8 +39,6 @@ _SHIPPED_LABELS = {POLICY_PROMPT_INJECTION_REFUSED: "Prompt injection is refused
 
 
 def shipped_policies() -> list[dict[str, Any]]:
-    """The platform surface's shipped defaults (``handling.SHIPPED_DEFAULTS``) grouped by policy id, with the
-    fixed prompt-injection refusal: what a Workspace without its own content handling gets."""
     grouped: dict[str, dict[str, Any]] = {POLICY_PROMPT_INJECTION_REFUSED: {
         "outcome": ACTION_REFUSE, "detectors": {"prompt_injection"}, "directions": [DIRECTION_INPUT]}}
     for kind, action in SHIPPED_DEFAULTS[SURFACE_PLATFORM].items():
@@ -103,7 +85,6 @@ def _policy_categories(model: Any, custom: Mapping[str, str]) -> set[str]:
 
 
 def content_policies(text: str, custom: Mapping[str, str]) -> list[dict[str, Any]]:
-    """``[{id, actions, route, categories, outcome}]`` of the builder-made content policies of a published text."""
     found: list[dict[str, Any]] = []
     for statement in index(text):
         model = builder_model_of(statement)
@@ -133,7 +114,6 @@ def _policy_outcome(
 
 
 def _platform_outcome(category: str, direction: str) -> str:
-    """The strictest shipped platform default for ``category`` in ``direction`` (prompt injection: input only)."""
     outcome = "none"
     for policy in shipped_policies():
         if direction in policy["directions"] and category in policy["categories"]:

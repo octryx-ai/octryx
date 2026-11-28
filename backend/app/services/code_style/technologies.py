@@ -1,13 +1,5 @@
-"""The technologies a specification decision can name, as data (central and extendable like
-the code style): the built-in catalog (``technologies.json``) under the installation's, the Workspace's and the
-repository's ``code_style.technologies`` (``{key: entry}``, the more specific level wins per key; an entry
-``null`` removes a built-in one).
-
-An entry: ``kind`` ``library`` (implemented = a dependency in the app's manifest *and* a use in its code) or
-``platform_api`` (a browser or OS API without a package: a use in its code is enough), ``words`` (how a decision
-names it, matched as whole words), ``packages`` (manifest names), ``uses`` (a regular expression over one line of
-code: an import or a call).
-"""
+"""The technologies a specification decision can name: a built-in catalog under the installation's, the Workspace's and
+the repository's own entries."""
 
 from __future__ import annotations
 
@@ -38,7 +30,6 @@ def _strings(value: Any, path: str) -> list[str]:
 
 
 def normalize(value: Any, path: str = "code_style.technologies") -> dict[str, Any]:
-    """A level's ``technologies`` validated; raises :class:`CodeStyleError`."""
     if not isinstance(value, dict) or len(value) > MAX_ENTRIES:
         raise CodeStyleError("invalid_technologies", path)
     out: dict[str, Any] = {}
@@ -68,7 +59,6 @@ def normalize(value: Any, path: str = "code_style.technologies") -> dict[str, An
 
 
 def catalog(levels: dict[str, dict[str, Any]] | None = None) -> dict[str, dict[str, Any]]:
-    """The effective catalog: built in, then installation, Workspace and repository entries by key."""
     merged = dict(built_in())
     for level in ("installation", "workspace", "repository"):
         for key, entry in dict(dict(levels or {}).get(level, {}).get("technologies") or {}).items():

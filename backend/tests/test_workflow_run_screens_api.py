@@ -1,8 +1,5 @@
 """The system tests' screenshots on the decision card: a run reader lists the current
-pass's screenshots and reads one by its name; nobody else sees them, and a name never reaches outside the folder.
-
-The pass's folder is named by the review node's ``config.phase`` (the changing phase, here ``implement``), not by the
-review node's own id; it is per pass and cleared on a new entry, so the list shows only the current pass."""
+pass's screenshots and reads one by its name; nobody else sees them, and a name never reaches outside the folder."""
 
 from __future__ import annotations
 
@@ -16,8 +13,9 @@ from app.services.workflow_runs.records import new_chat_session, start_run
 from tests.knowledge_evidence_seed_support import seed_member, seed_outsider, seed_workspace
 from tests.phased_workflow_fixtures import publish_phased
 from tests.policy_engine_support import bearer
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 
 DEFINITION = {
     "execution_kind": "phased",
@@ -60,7 +58,6 @@ def _pass(tmp_path, node_id: str, files: dict[str, bytes], *, age: float = 0) ->
 
 async def test_a_reader_lists_the_last_pass_and_reads_one_screenshot(client, db, tmp_path):
     run, requester, _ = await _run(db, tmp_path)
-    # The review node's own id is not the folder; another phase's folder is not this pass either.
     _pass(tmp_path, "review", {"old.png": PNG})
     _pass(tmp_path, "build", {"other.png": PNG}, age=600)
     _pass(tmp_path, "implement", {"recipe-list.png": PNG, "cart.jpg": JPEG, "notes.txt": b"not an image"})
@@ -73,7 +70,7 @@ async def test_a_reader_lists_the_last_pass_and_reads_one_screenshot(client, db,
     assert one.status_code == 200 and one.content == PNG
     assert one.headers["content-type"] == "image/png" and one.headers["x-content-type-options"] == "nosniff"
     missing = await client.get(f"/api/v1/workflow-runs/{run.id}/screens/old.png", headers=bearer(requester.id))
-    assert missing.status_code == 404  # the review node's folder is not the pass's
+    assert missing.status_code == 404
     other = await client.get(f"/api/v1/workflow-runs/{run.id}/screens/other.png", headers=bearer(requester.id))
     assert other.status_code == 404
 
@@ -111,7 +108,6 @@ async def test_a_name_never_leaves_the_screenshot_folder(client, db, tmp_path, n
     (tmp_path / "secret.png").write_bytes(PNG)
     (tmp_path / ".git" / "secret.png").write_bytes(PNG)
     refused = await client.get(f"/api/v1/workflow-runs/{run.id}/screens/{name}", headers=bearer(requester.id))
-    # ".." is folded by the client into the run's own URL (its JSON); every other spelling is refused
     assert refused.content != PNG and not refused.headers.get("content-type", "").startswith("image/")
     if name != "..":
         assert refused.status_code in (400, 404)
@@ -135,7 +131,6 @@ async def test_a_new_entry_of_the_phase_shows_only_its_own_screenshots(client, d
 
 
 def test_a_device_run_without_a_server_copy_keeps_its_screens_in_the_data_folder(tmp_path, monkeypatch):
-    """A device run's hands-on screenshot is not refused "no_working_copy"."""
     from types import SimpleNamespace
 
     from app.config import get_settings

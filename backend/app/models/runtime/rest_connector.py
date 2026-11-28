@@ -1,26 +1,11 @@
-"""Custom REST connector: an admin adds an arbitrary REST API without code (reads and writes).
-
-- ``RestApiDefinition``: one API (servers, auth scheme, timeout), imported from OpenAPI or entered by hand;
-- ``RestApiOperation``: one operation of it; an enabled one becomes the tool ``rest__<definition>__<operation>``.
-  ``grants`` decide who may call it (Octryx role, optionally one Workspace) and the data scope each grant gets
-  (fixed parameter values the executor injects, an optional result filter, for a JSON body ``body_scope``). A write
-  operation needs the run class ``capability`` (``deliver`` unless an admin set ``change``); ``idempotent`` lets a
-  PUT/DELETE be retried;
-- ``RestApiConnection``: where and with which technical account the API is reached, per Workspace or platform-wide;
-  ``config`` holds non-secret fields and ``*_secret_ref`` ids only (the secret store holds the values);
-- ``RestApiCallRun``: the audit row of every call (who, where, which scope, how many records were dropped, and for a
-  write the approval or chat write plan that admitted it), never a secret and never a body.
-
-Own tables, not named connections (``services/named_connections``): a named connection is one more account of a
-fixed connector preset whose fields are the same for every row and whose tools are a static list; a custom REST
-definition brings its own auth fields and its own dynamic tools, so neither the descriptor nor the router fits.
-"""
+"""Custom REST connector: an API an admin adds without code, its operations, connections and call runs."""
 
 import uuid
 
 from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 GLOBAL_CONNECTION_SCOPE = "global"
@@ -78,7 +63,7 @@ class RestApiOperation(Base):
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
 
-class RestApiConnection(Base):
+class RestApiConnection(WorkspaceBound, Base):
     __tablename__ = "rest_api_connections"
     __table_args__ = (UniqueConstraint("definition_id", "scope_key", name="uq_rest_api_connections_scope"),)
 
@@ -94,7 +79,8 @@ class RestApiConnection(Base):
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
 
-class RestApiCallRun(Base):
+class RestApiCallRun(WorkspaceBound, Base):
+    __workspace_owners__ = {"session_id": "sessions"}
     __tablename__ = "rest_api_call_runs"
     __table_args__ = (Index("ix_rest_api_call_runs_operation_started", "operation_id", "started_at"),)
 

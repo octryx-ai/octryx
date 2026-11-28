@@ -12,9 +12,7 @@ type ProjectConfig = {
 
 type CaptureMode = "standard" | "minimal";
 
-// What a run stores for this Workspace (observability O8, backend services/observability/run_capture.py). The
-// setting governs the run store (turn_traces) at storage; secrets are redacted before storage in every mode. A stored
-// ``debug`` or ``audit`` value stores the same as standard and is shown as standard.
+// A stored debug or audit value stores the same as standard and is shown as standard.
 const CAPTURE_MODES: Array<{ value: CaptureMode; label: string; help: string }> = [
   {
     value: "standard",

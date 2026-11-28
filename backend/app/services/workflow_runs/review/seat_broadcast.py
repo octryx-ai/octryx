@@ -1,18 +1,4 @@
-"""A seat review offered to several people at once: the first device that takes it reviews.
-
-The PR review bot asks the team before the author (``review.seat_person.seat_phases``):
-
-1. every phase's seats get the call at the same time (each its own review thread and tool-less device turn);
-2. the first turn a device accepts wins; every other offer is withdrawn at once: a turn not yet delivered is cancelled
-   on the spot and frees its device slot, an accepted one gets a stop request (a withdrawn offer
-   must never hold a person's device). The withdrawn threads lose their request;
-3. nobody accepts within :data:`ACCEPT_SECONDS`: the next phase (the pull request's author); after the last phase
-   the review is unavailable on a seat, and the caller takes the visible company fallback
-   (``seat_fallback.SeatOrCompanyReviewModel``).
-
-Only the winner answers, so only the winner's usage is recorded on the run; later calls of the same review attempt go
-to the winner directly. The run's event ``review_seat_broadcast`` names who was offered the review and who took it.
-"""
+"""A seat review offered to several people at once: the first device that takes it reviews."""
 
 from __future__ import annotations
 
@@ -42,8 +28,6 @@ async def _wait_a_moment(seconds: float) -> None:
 
 
 class BroadcastSeatReviewModel:
-    """One review attempt offered to the seats of each phase in turn; behaves like one ``SeatReviewModel``."""
-
     runtime_shared = False
 
     def __init__(self, db: AsyncSession, run: WorkflowRun, phases: list[list[Any]], *,
@@ -61,7 +45,7 @@ class BroadcastSeatReviewModel:
         for index, phase in enumerate(self._phases):
             offered = []
             for seat in phase:
-                with contextlib.suppress(SeatReviewUnavailableError):  # a refused device is simply not offered
+                with contextlib.suppress(SeatReviewUnavailableError):
                     offered.append((seat, *await seat.start(system=system, user=user, images=images)))
             taken = await self._first_taken(offered)
             self._record(index, offered, taken)

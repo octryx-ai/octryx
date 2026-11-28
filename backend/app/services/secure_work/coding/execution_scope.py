@@ -63,12 +63,7 @@ async def _selected_units(db: AsyncSession, item: WorkItem, raw_ids: Any) -> lis
 async def _delivery_context(
     db: AsyncSession, *, item: WorkItem, units: list[WorkItemChangeUnit]
 ) -> dict[str, str]:
-    """Resolve the delivery providers for this run.
-
-    The source-control provider comes from the change units' repository
-    profiles; it is only set when every unit agrees on one provider. The
-    ticket provider is the work item's source system.
-    """
+    # The source-control provider is set only when every unit's repository profile agrees on one.
     profile_ids = {
         str(unit.repository_profile_id)
         for unit in units or []

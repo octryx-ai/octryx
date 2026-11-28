@@ -1,13 +1,4 @@
-"""The repository's own Git token for a Bitbucket Server/Data Center Git command.
-
-Data Center answers 500 on Git over HTTPS (``/scm/...``) for the OpenID Connect client credentials token, so a
-workflow run's clone, fetch, pull or push fails with the connection's sign-in. A Workspace may register the
-repository with its own Bitbucket HTTP access token (``services/knowledge/sources/repository_git_token.py``):
-:func:`repository_git_token` answers it for the remote when exactly one Workspace is in play (the session's, else
-the context's only one) and the remote is a repository on the connection's own instance; else ``None`` and Git
-signs in with the connection. REST calls never use it. The token is never logged or returned to a caller
-other than the Git environment builder (``_bitbucket_internal_core._bitbucket_git_auth_env_async``).
-"""
+"""The repository's own Git token for a Bitbucket Server/Data Center Git command."""
 
 from __future__ import annotations
 
@@ -27,7 +18,6 @@ def _workspace(context: ToolContext) -> str | None:
 
 
 async def repository_git_token(context: ToolContext, remote_url: str) -> str | None:
-    """The Workspace's own Git token for the Data Center repository at ``remote_url``, else ``None``."""
     db = getattr(context, "db", None)
     workspace = _workspace(context)
     if db is None or workspace is None:

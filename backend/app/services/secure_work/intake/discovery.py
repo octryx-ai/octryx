@@ -1,10 +1,5 @@
-"""Discovery for the setup drawer (intake redesign §3.2–3.3): what a Workspace connection offers an intake.
-
-Each source answers for itself (``intake/registry``): Jira lists projects, issue types, statuses and the fields an
-intake maps by plain name (``jira_discovery``); ServiceNow its tables, default open-state filter and mapping and the
-groups and services seen in recent records. The Work states every mapping may target are the shared workflow
-vocabulary. The connection is checked first, so an unknown one never reaches a source.
-"""
+"""Discovery for the setup drawer: what a Workspace connection offers an intake. Each source answers for itself; the
+connection is checked first, so an unknown one never reaches a source."""
 
 from __future__ import annotations
 

@@ -1,10 +1,3 @@
-"""Company models in the ``/model`` picker of an octryx-claude session.
-
-The client policy's ``models`` rows become ``modelPicker`` in the session's own settings file; the governed profile
-also turns on Claude Code's gateway model discovery, the seat profile turns it off; the status block names the
-company models before Claude Code starts. Nothing is written under ``~/.claude*``.
-"""
-
 from __future__ import annotations
 
 import json
@@ -133,8 +126,6 @@ def test_the_status_block_shows_the_company_models_of_the_chosen_profile(state):
 
 
 def test_status_says_needs_configuration_when_neither_a_company_model_nor_the_seat_can_run_a_session(state):
-    """No company model admitted and seat refused: governed is not "ready", a Claude Code session has nothing to run
-    on."""
     def governed_line(body):
         result = PlatformResult("ok", body=body, status_code=200, state="allowed")
         lines = status_block.lines_for(state, result, "ok", workspace="w", requested="auto")
@@ -161,8 +152,6 @@ def test_status_says_needs_configuration_when_neither_a_company_model_nor_the_se
 
 
 def test_the_status_says_when_the_governed_main_model_is_not_admitted_here():
-    """Fresh-install test: "next session: governed, model claude-opus-5-5" while the Workspace offered only a
-    local model. The status keeps naming the model the session sends and says it is not admitted."""
     from octryx_claude import status_block
     from octryx_claude.launch_process import PROFILE_GOVERNED, PROFILE_SEAT
 

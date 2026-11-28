@@ -21,7 +21,7 @@ PENDING_COMMIT = "handoff_commit_pending"
 
 
 async def allocate_child(*, db: AsyncSession, parent: WorkflowRun, handoff, actor: User, runtime_proof: dict) -> dict:
-    """No start_run, advance, clone, credential resolution or provider I/O occurs in this factory."""
+    # No run start, advance, clone, credential resolution or provider I/O happens here.
     descriptor = handoff.child_descriptor
     if not isinstance(descriptor, dict) or set(descriptor) != {"workflow_key", "version_id", "checksum"}:
         refuse("needs_configuration", "A server-pinned child version and checksum are required")

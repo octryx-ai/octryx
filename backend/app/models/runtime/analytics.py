@@ -4,6 +4,7 @@ from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Index, Integer
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 from ..json_text import dump_json_dict, safe_json_dict
 
@@ -12,7 +13,7 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class AnalyticsDaily(Base):
+class AnalyticsDaily(WorkspaceBound, Base):
     __tablename__ = "analytics_daily"
     # One row per scope and day.
     __table_args__ = (Index("ix_analytics_daily_scope_date", "project_id", "team_id", "date", unique=True),)

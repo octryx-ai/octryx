@@ -1,21 +1,5 @@
-"""The report of one Source Sync run.
-
-Counts per fixed outcome (``COUNT_KEYS``), a bounded list of per-item outcomes (a withheld item's
-title is never recorded: every Workspace member can read the report), skip reasons, and the run's
-freshness facts:
-
-- ``mode``: ``full`` (header listing pass only), ``incremental`` (changed pages first, then the
-  header pass) or ``incremental_fallback`` (the change listing failed; the header pass covered it);
-- ``withheld`` / ``withheld_reasons``: the connector's *current* withheld items, counted from
-  item state among the items the source still lists, not only this run's;
-- ``acl_enforced``: whether the Workspace enforces source ACLs (the withheld explanation depends on it);
-- ``pass_completed``: this run completed a listing pass (deletions were retired);
-- ``scopes`` (a Confluence connector over spaces of several named connections): per space, the
-  connection that read it (its name and id, ``default`` for the default connection) and the space's
-  listed items and outcomes;
-- ``listing`` (a connector reading through a data scope, ``custom_rest``): the role it read as, the pages it read
-  and how many records the scope's result filter dropped (never ingested).
-"""
+"""The report of one Source Sync run. A withheld item's title is never recorded: every Workspace member can read the
+report."""
 
 from __future__ import annotations
 
@@ -34,6 +18,7 @@ from .contract import WITHHELD_REASONS
 from .cursor import SyncCursor
 from .incremental import MODE_FULL
 from .items import ConnectorRef
+from .stored_types import RecordedOutcome, RestListingFacts, StoredRunReport, SyncOutcome
 
 MAX_RECORDED_OUTCOMES = 200
 COUNT_KEYS = ("created", "updated", "unchanged", "retired", "skipped", "failed", "deferred")
@@ -43,7 +28,7 @@ UNFINISHED_OUTCOMES = ("failed", "deferred")
 @dataclass
 class RunReport:
     counts: dict[str, int] = field(default_factory=lambda: dict.fromkeys(COUNT_KEYS, 0))
-    outcomes: list[dict[str, object]] = field(default_factory=list)
+    outcomes: list[RecordedOutcome] = field(default_factory=list)
     listed: int = 0
     skipped_reasons: dict[str, int] = field(default_factory=dict)
     mode: str = MODE_FULL
@@ -61,10 +46,9 @@ class RunReport:
     per_scope: dict[str, dict[str, int]] = field(default_factory=dict)
     # A connector's own listing facts (``custom_rest``: the acting role, pages read, records its data scope dropped),
     # read when the report is written, so the facts of the whole run are included.
-    listing_facts: dict[str, object] | None = field(default=None, repr=False)
+    listing_facts: RestListingFacts | None = field(default=None, repr=False)
 
     def attach_scopes(self, connector: object) -> None:
-        """Count per space for a connector that reads its spaces with several connections."""
         scope_of, names = getattr(connector, "scope_of", None), getattr(connector, "scope_connections", None)
         if callable(scope_of) and callable(names):
             self.scope_of = scope_of
@@ -80,7 +64,6 @@ class RunReport:
         return self.per_scope.setdefault(scope, {"listed": 0, **dict.fromkeys(COUNT_KEYS, 0)})
 
     def count_listed(self, items: tuple[object, ...]) -> None:
-        """Count the items of a listed page not yet handled in this run, also per space."""
         for item in items:
             if self.is_new(item):
                 self.listed += 1
@@ -89,11 +72,9 @@ class RunReport:
                     bucket["listed"] += 1
 
     def is_new(self, item: object) -> bool:
-        """Whether ``item`` was not yet handled in this run (it counts as listed)."""
         return getattr(item, "external_id", None) not in self.handled
 
     def repeats(self, external_id: str) -> bool:
-        """True (and nothing is counted again) when this run already handled ``external_id``."""
         earlier = self.handled.get(external_id)
         if earlier is None:
             return False
@@ -103,11 +84,10 @@ class RunReport:
 
     @property
     def unfinished(self) -> int:
-        """Failed or deferred items so far, including repeats of them."""
         return self.counts["failed"] + self.counts["deferred"] + self.repeated_unfinished
 
     def record(
-        self, external_id: str | None, outcome: str, *, reason: str | None = None, title: str | None = None
+        self, external_id: str | None, outcome: SyncOutcome, *, reason: str | None = None, title: str | None = None
     ) -> None:
         self.counts[outcome] += 1
         bucket = self._scope_bucket(external_id)
@@ -121,12 +101,12 @@ class RunReport:
             # A withheld item's title is never recorded: the report is readable by the Workspace.
             self.outcomes.append({"external_id": external_id, "title": title, "outcome": outcome, "reason": reason})
 
-    def as_dict(self) -> dict[str, object]:
+    def as_dict(self) -> StoredRunReport:
         if self.withheld_current is None:
             withheld_reasons = {r: n for r, n in self.skipped_reasons.items() if r in WITHHELD_REASONS}
         else:
             withheld_reasons = dict(self.withheld_current)
-        described: dict[str, object] = {
+        described: StoredRunReport = {
             **self.counts,
             "listed": self.listed,
             "outcomes_recorded": len(self.outcomes),
@@ -153,7 +133,6 @@ class RunReport:
 
 
 async def current_withheld(db: AsyncSession, ref: ConnectorRef) -> dict[str, int]:
-    """Withheld items by reason among those the source still lists (seen in the last or open pass)."""
     row = await db.get(KnowledgeSourceConnector, ref.id)
     cursor = SyncCursor.load(row.cursor)
     since_pass = cursor.pass_number - 1 if cursor.pass_open else cursor.pass_number

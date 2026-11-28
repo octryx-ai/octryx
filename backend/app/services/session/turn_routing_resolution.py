@@ -1,11 +1,5 @@
-"""The routing half of turn preparation: workflow selection and execution strategy.
-
-Moved unchanged from ``web/_helpers/chat_turn_prepare`` so both entry paths route a turn
-the same way. Preparation makes no chat-model call: the workflow proposal is
-resolved before the preparation lock (``workflow_routing/proposal_prefetch``) and handed
-in; a model may still select a workflow inside the governed agent turn via the
-``select_workflow`` catalog tool.
-"""
+"""The routing half of turn preparation: workflow selection and execution strategy. Preparation makes no chat-model
+call: the proposal is resolved before the preparation lock and handed in."""
 
 from __future__ import annotations
 
@@ -24,7 +18,6 @@ from ..agent_mode import resolve_agent_mode
 from ..execution_strategy_service import ExecutionStrategyDecision, resolve_execution_strategy
 from ..workflow_contracts.decisions import recorded_workflow_decisions
 from ..workflow_routing.explicit_selection import resolve_workflow_selection_for_turn
-from ..workflow_routing.proposal_prefetch import PrecomputedWorkflowProposal
 from ..workflow_routing.workflow_selection import workflow_selection_from_resolution
 from ..workflow_runs.binding import run_turn_resolution
 from .turn_preparation import preserve_waiting_session_contract
@@ -59,12 +52,11 @@ async def resolve_turn_routing(
     effective_project_id: str,
     agent_id: str,
     workflow_key: str,
-    precomputed_proposal: PrecomputedWorkflowProposal | None,
     platform_workflow_service: str = "",
     workflow_decisions: dict[str, str] | None = None,
 ) -> TurnRouting:
     # The routing resolution is the turn's only workflow selection: a platform service's own
-    # workflow, an explicit workflow_key, "no workflow", or (explicit mode) the proposal. The
+    # workflow, an explicit workflow_key, or no workflow (no proposal model call per message). The
     # strategy below builds a contract only for the workflow this resolution selects.
     turn_decisions = _turn_workflow_decisions(session, workflow_decisions)
     # A session bound to an active workflow run follows the run's current phase (or is held by it).
@@ -74,7 +66,6 @@ async def resolve_turn_routing(
         workflow_key=workflow_key,
         user_message=clean_prompt,
         project_id=effective_project_id or None,
-        precomputed_proposal=precomputed_proposal,
         platform_workflow_service=platform_workflow_service,
     )
     support_request_signature = await support_request_signature_applies(clean_prompt, db=db)
@@ -131,7 +122,6 @@ async def resolve_turn_routing(
 
 
 def selected_workflow_contract(policy_resolution: dict[str, Any] | None) -> dict[str, Any]:
-    """The configured contract of the workflow the turn selected; ``{}`` without a selection."""
     if not workflow_selection_from_resolution(policy_resolution).selected:
         return {}
     contract = (policy_resolution or {}).get("workflow_contract")

@@ -1,15 +1,4 @@
-"""Deterministic presentation composition from turn evidence.
-
-``create_presentation`` is the only sanctioned way to produce a slide deck: it
-takes the corporate template's layout catalog, the evidence the turn already
-collected (AWS topology snapshot, optional knowledge facts, diagrams from our
-own pipeline), plans the slides deterministically, composes the deck from the
-template's own layouts, and runs the slide gate on the result.
-
-It never invents evidence. Without an ``aws_topology_snapshot`` in the turn it
-returns an error naming the tool that must run first, rather than writing a
-deck of plausible-sounding claims.
-"""
+"""Deterministic presentation composition from turn evidence."""
 
 from __future__ import annotations
 
@@ -211,11 +200,6 @@ class CreatePresentationTool:
 
 
 def _parse_content(raw: Any) -> dict[str, Any]:
-    """Normalise the optional ``content`` param to a sections-bearing dict.
-
-    Accepts a dict or a JSON string; returns ``{}`` when there is nothing usable,
-    so the AWS-snapshot path stays the default.
-    """
     if isinstance(raw, str) and raw.strip():
         import json
 
@@ -240,11 +224,6 @@ def _bounded_max_slides(raw: Any) -> int:
 
 
 def _apply_max_slides(plan: list[dict[str, Any]], max_slides: int) -> tuple[list[dict[str, Any]], int]:
-    """Trim the plan while keeping the closing open-points slide.
-
-    The open points are the deck's honesty ledger; dropping them to satisfy a
-    slide budget would hide exactly what must stay visible.
-    """
     if len(plan) <= max_slides:
         return plan, 0
     trimmed = len(plan) - max_slides

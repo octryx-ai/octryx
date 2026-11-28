@@ -187,7 +187,7 @@ function WorkAreaContentGrid({ nav, view, projects, workspaceId, workspaceName, 
     ) : null}
     {activeNav === "runs" ? <WorkRunsPage projectId={workspaceId} reloadKey={reloadToken} /> : null}
     {ready && activeNav === "epics" ? (
-      <WorkEpicsPage items={items} projectId={workspaceId} reloadKey={reloadToken} onOpenItem={detail.openItem} />
+      <WorkEpicsPage items={items} reloadKey={reloadToken} onOpenItem={detail.openItem} />
     ) : null}
     {activeNav === "intake" ? (
       workspaceId ? (

@@ -1,22 +1,4 @@
-"""Device credential renewal with the device key: a background service never needs a human login.
-
-The device grant's refresh token rotates on every refresh. A rotated token that is lost on the way (a platform
-restart mid-refresh, a crash before the client stored it) is a "replay" on the next refresh and kills the grant;
-the 90-day absolute lifetime ends it too. Neither may strand an active device, so the device renews its grant by
-proving possession of the Ed25519 key it registered:
-
-- the device signs :func:`renewal_payload` (``device_id`` and its ``issued_at`` unix time) with its key;
-- the platform refuses a revoked device or an inactive owner (``device_revoked`` / ``device_login_required``),
-  and a device whose login validity (``login_validity``, counted from its registration) has passed
-  (``device_login_expired``: renewal never extends a device beyond it),
-  a timestamp outside ``RENEWAL_WINDOW_SECONDS`` or not newer than the current grant (``device_renewal_stale``:
-  the new grant is never older than the request, so a used request cannot be replayed), and any other key
-  (``device_signature_invalid``);
-- otherwise the current grant is revoked and a new one with the same scopes and client is issued; its first
-  refresh token is returned once.
-
-A credential change (password change, deactivation) revokes the devices themselves, so renewal never undoes it.
-"""
+"""Device credential renewal with the device key: a background service never needs a human login."""
 
 from __future__ import annotations
 
@@ -61,7 +43,6 @@ def renewal_payload(device_id: str, issued_at: int) -> bytes:
 
 
 async def renew_device_credential(db: AsyncSession, body: Any, *, now: float) -> Renewal | str:
-    """A new device grant for a signed renewal request, or the fixed refusal reason. Flushes."""
     if not isinstance(body, dict):
         return REASON_RENEWAL_INVALID
     device_id, issued_at, signature = body.get("device_id"), body.get("issued_at"), body.get("signature")

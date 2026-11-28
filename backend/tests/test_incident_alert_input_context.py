@@ -17,7 +17,7 @@ from app.services.workflow_runs.alert_context import (
     alert_window,
     alert_window_of,
 )
-from tests.test_incident_alert_input_normalize import ALERTMANAGER_V034
+from tests.services.channels.test_incident_alert_input_normalize import ALERTMANAGER_V034
 
 NOW = datetime(2026, 10, 15, 12, 0, tzinfo=UTC)
 TARGET = {"id": "octryx-s5-canary", "service": "octryx-s5-canary", "lookback_minutes": 45,

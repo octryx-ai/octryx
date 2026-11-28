@@ -1,9 +1,4 @@
-"""Acknowledging a problem: hidden for that person until it occurs again, an audit row, no new table.
-
-Like the companion dismissals (``services/attention/dismissals.py``) an acknowledgement is an ``audit_log`` row per
-person and key; it also records the problem's ``since``. The problem stays hidden while its ``since`` is not newer
-than the acknowledged one, so a new occurrence (a new failure series, a new expiry date) shows again.
-"""
+"""Acknowledging a problem: hidden for that person until it occurs again, an audit row, no new table."""
 
 from __future__ import annotations
 
@@ -22,7 +17,6 @@ MAX_KEY_LENGTH = 200
 
 
 async def acknowledged(db: AsyncSession, user: User) -> dict[str, datetime | None]:
-    """``key -> since`` of the person's acknowledgements of the last 30 days (the latest one per key)."""
     rows = (await db.execute(
         select(AuditLog.resource_id, AuditLog.details)
         .where(AuditLog.user_id == user.id, AuditLog.action == AUDIT_ACTION,

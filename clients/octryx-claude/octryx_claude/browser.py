@@ -1,24 +1,5 @@
-"""System tests use the device's installed Google Chrome, not a Playwright Chromium downloaded per repository.
-
-The Chrome already installed replaces a browser download per repository and per item worktree, and the agents'
-conftests launch ``p.chromium.launch()`` without knowing about it.
-
-So the platform default is the system Chrome (Playwright's ``channel="chrome"``), applied to every test run on the
-device without the agent knowing anything about it:
-
-- the agent's session, the pipeline and the environment setup get ``OCTRYX_BROWSER_CHANNEL=chrome`` and the pytest
-  plugin ``octryx_pytest`` (``PYTEST_PLUGINS`` plus its folder on ``PYTHONPATH``), which gives a Chromium launch
-  without its own channel the device's Chrome (``octryx_pytest``);
-- a repository that wants Playwright's bundled browser says so: ``coding_setup.environment.browser = "chromium"``
-  (then nothing changes and its own ``playwright install chromium`` runs as declared);
-- no Chrome on the device: ``OCTRYX_BROWSER_MISSING`` makes a failed launch say what to install or declare, instead
-  of Playwright's "Executable doesn't exist"; a person's own ``OCTRYX_BROWSER_CHANNEL`` always wins;
-- with Chrome as the browser, a declared setup step that only downloads Playwright's Chromium is skipped
-  (:func:`skips_setup`): the repository may drop it, and until it does nothing is downloaded per worktree.
-
-The plugin is copied into a folder of its own outside the launcher's state (:func:`plugin_dir`), because Claude
-Code's sandbox may not read that state and the repository's interpreter has no octryx-claude installed.
-"""
+"""System tests use the device's installed Google Chrome instead of a Playwright Chromium per repository.
+The pytest plugin gets its own folder because Claude Code's sandbox may not read the launcher's state."""
 
 from __future__ import annotations
 
@@ -49,7 +30,6 @@ _BROWSER_DOWNLOAD = re.compile(
 
 
 def chrome_installed(platform: str | None = None) -> bool:
-    """Whether Google Chrome is installed where Playwright's ``chrome`` channel looks for it."""
     platform = platform or sys.platform
     if platform == "darwin":
         return any(Path(os.path.expanduser(path)).is_file() for path in MAC_CHROME)
@@ -59,7 +39,6 @@ def chrome_installed(platform: str | None = None) -> bool:
 
 
 def wanted(environment: Mapping[str, Any] | None) -> str:
-    """The repository's browser: ``chrome`` (the default) or ``chromium`` (Playwright's bundled one)."""
     value = str((environment or {}).get("browser") or "").strip().lower()
     return value if value in BROWSERS else CHROME
 
@@ -71,8 +50,6 @@ def cache_root() -> Path:
 
 
 def plugin_dir(root: Path | None = None) -> Path | None:
-    """The folder that holds only the pytest plugin, written once per launcher version; ``None`` when it cannot be
-    written (the test runs then simply go without it)."""
     folder = (root or cache_root()) / f"pytest-{__version__}"
     source = Path(__file__).with_name(f"{PLUGIN_MODULE}.py")
     target = folder / f"{PLUGIN_MODULE}.py"
@@ -96,7 +73,6 @@ def _prepend(env: MutableMapping[str, str], key: str, value: str, separator: str
 
 def apply(env: MutableMapping[str, str], environment: Mapping[str, Any] | None = None, *,
           installed: bool | None = None, root: Path | None = None) -> MutableMapping[str, str]:
-    """Put the browser default and the pytest plugin into ``env`` (in place) and return it."""
     if not env.get(CHANNEL_ENV, "").strip():
         env.pop(CHANNEL_ENV, None)
         env.pop(MISSING_ENV, None)
@@ -113,7 +89,6 @@ def apply(env: MutableMapping[str, str], environment: Mapping[str, Any] | None =
 
 
 def skips_setup(command: str, env: Mapping[str, str]) -> bool:
-    """A declared setup step that only downloads Playwright's Chromium, while the runs use the device's Chrome."""
     return env.get(CHANNEL_ENV) == CHROME and bool(_BROWSER_DOWNLOAD.match(command or ""))
 
 

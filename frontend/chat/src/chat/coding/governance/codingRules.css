@@ -14,7 +14,7 @@
 /* Coding rules table: words with the command, argument or pattern in mono; the source opens its home. */
 .coding-rules__text{display:inline-flex;flex-wrap:wrap;gap:0.25rem;align-items:baseline}
 .coding-rules__code{font-family:var(--font-mono,ui-monospace,monospace);font-size: var(--ds-text-xs);padding:.05rem 0.25rem;border-radius:var(--ds-radius-sm);background:var(--surface-overlay-strong)}
-.coding-rules .coding-rules__source{text-align:left;font-weight:400;color:var(--muted-strong);text-decoration:none}
+.coding-rules .coding-rules__source{text-align:left;font-weight:var(--ds-weight-regular);color:var(--muted-strong);text-decoration:none}
 .coding-rules .coding-rules__source:hover,.coding-rules .coding-rules__source:focus-visible{color:var(--text);text-decoration:underline}
 /* Rule side panel: read-only facts as label/value pairs; the form's problems only after a save try. */
 .coding-rule-panel__facts{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:0.5rem 1rem;margin:0;font-size: var(--ds-text-sm)}
@@ -31,7 +31,7 @@
   .coding-rules .ds-table thead{display:none}
   .coding-rules .ds-table tr{position:relative;padding:0.5rem 2.25rem 0.5rem 0.25rem;border-bottom:1px solid var(--border-soft)}
   .coding-rules .ds-table td{padding:.1rem 0;border:0;white-space:normal;height:auto}
-  .coding-rules .ds-table td:first-child{font-weight:600}
+  .coding-rules .ds-table td:first-child{font-weight:var(--ds-weight-strong)}
   .coding-rules .ds-table td.ds-table__menu-cell{position:absolute;top:.4rem;right:0;padding:0}
   .coding-rules__cell[data-label]::before{content:attr(data-label) " · ";color:var(--muted)}
   .coding-rules__cell{color:var(--muted-strong);font-size: var(--ds-text-xs)}

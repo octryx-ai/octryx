@@ -25,19 +25,6 @@
   min-width: 240px;
 }
 
-.entity-graph__query-input {
-  flex: 1 1 420px;
-  min-width: 260px;
-}
-
-.entity-graph__max-nodes {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: var(--ds-text-sm);
-  color: var(--muted-strong);
-}
-
 .entity-graph__advanced {
   font-size: var(--ds-text-sm);
   color: var(--muted-strong);
@@ -50,12 +37,6 @@
 
 .entity-graph__advanced > summary {
   cursor: pointer;
-}
-
-.entity-graph__show-noise {
-  display: flex;
-  align-items: center;
-  gap: 8px;
 }
 
 .entity-graph__stats {
@@ -77,7 +58,7 @@
   align-items: center;
   gap: 8px;
   padding: 0.25rem 0.75rem;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   border: 1px solid var(--border-strong);
   background: transparent;
   color: inherit;
@@ -182,7 +163,7 @@
 .entity-graph__chip {
   display: inline-block;
   padding: 1px 8px;
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   background: var(--surface-overlay-strong);
   font-size: var(--ds-text-2xs);
   white-space: nowrap;
@@ -190,10 +171,6 @@
 
 .entity-graph__chip--warn {
   background: var(--surface-overlay-strong);
-}
-
-.entity-graph__chip--muted {
-  opacity: 0.7;
 }
 
 .entity-graph__list {

@@ -1,11 +1,5 @@
-"""The hands-on scenarios in a real browser (``hands_on``): Playwright on the device's installed Google Chrome
-(``channel="chrome"``, never a download), one persistent profile per scenario so a reload or a restart keeps what the
-app stored (IndexedDB, localStorage, OPFS). A Flutter web app draws on a canvas: its texts are read from its
-accessibility tree, which the runner switches on after every load.
-
-A missing Playwright or Chrome raises :class:`BrowserUnavailableError` with how to install it; the device never
-installs.
-"""
+"""The hands-on scenarios in Playwright on the device's installed Chrome, one persistent profile per scenario.
+A Flutter web app draws on a canvas, so its texts come from the accessibility tree switched on after each load."""
 
 from __future__ import annotations
 
@@ -47,7 +41,6 @@ class BrowserUnavailableError(Exception):
 
 
 class Session:
-    """One scenario's browser on its own profile."""
 
     def __init__(self, playwright: Any, channel: str | None, viewport: dict[str, int], base_url: str,
                  start_seconds: int = START_SECONDS, settle: dict[str, int] | None = None) -> None:
@@ -84,8 +77,7 @@ class Session:
             self.context = None
 
     def settle_before_close(self) -> None:
-        """Let the app finish what the last step started before the browser closes (closing
-        right after a click lost a bean written to localStorage, so a scenario about surviving a restart was red)."""
+        # Closing right after a click lost data the app wrote to localStorage a moment later.
         idle, storage = int(self.settle["network_idle_seconds"]), int(self.settle["storage_ms"])
         if self.page is None:
             return
@@ -101,7 +93,6 @@ class Session:
         shutil.rmtree(self.profile, ignore_errors=True)
 
     def step(self, step: dict[str, Any], shots: Path, prefix: str) -> str | None:
-        """Run one step; the screenshot's file name when it took one."""
         op, page = step["do"], self.page
         if op == "goto":
             self.url = self.base_url.rstrip("/") + step["path"]
@@ -156,10 +147,6 @@ PASSIVE_OPS = ("screenshot", "wait")
 
 
 def symptom_steps(steps: list[dict[str, Any]]) -> list[int]:
-    """The steps that show a bug's symptom: those marked ``"symptom": true``, else the closing expect steps (every
-    expect after the scenario's last action; the reproduce phase writes the correct behaviour there). Live
-    : 's scenario failed while it still added its grinder and counted as reproduced; 's
-    symptom showed at the first of its two closing expects ("No grinder yet" after the reload)."""
     marked = [index for index, step in enumerate(steps) if step.get("symptom") is True]
     if marked:
         return marked
@@ -171,7 +158,6 @@ def symptom_steps(steps: list[dict[str, Any]]) -> list[int]:
 def run_scenario(playwright: Any, channel: str | None, scenario: dict[str, Any], base_url: str,
                  shots: Path, start_seconds: int = START_SECONDS,
                  settle: dict[str, int] | None = None) -> dict[str, Any]:
-    """``{id, passed, failed_step, error, screenshots}`` of one scenario; a missing browser propagates."""
     # A repository scenario's id is a path (repo:tests/hands_on/bugs/.json#1): one flat file name, else the
     # screenshot lands in subfolders and its upload (by name) never finds it.
     prefix = "hands-on-" + re.sub(r"[^a-z0-9._#-]+", "_", scenario["id"].lower())

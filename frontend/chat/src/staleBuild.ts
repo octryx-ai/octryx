@@ -1,7 +1,4 @@
-// After a deploy the old build's lazy chunks are gone, so a tab opened before the deploy fails on its next lazy
-// import ("Failed to fetch dynamically imported module"). Vite announces that as `vite:preloadError`; the page then
-// reloads once onto the new build. A second failure within RELOAD_GAP_MS is left to the error boundary, which says
-// what happened and offers the reload, instead of looping.
+// After a deploy the old build's lazy chunks are gone: reload once, and leave a second failure to the error boundary instead of looping.
 
 const KEY = "octryx.staleBuildReloadAt";
 const RELOAD_GAP_MS = 60_000;
@@ -24,7 +21,6 @@ function readLast(): number | null {
   }
 }
 
-/** Reloads onto the new build once; false when it already tried a moment ago. */
 export function reloadForNewBuild(): boolean {
   const now = Date.now();
   if (!shouldReload(readLast(), now)) return false;

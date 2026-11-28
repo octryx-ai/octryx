@@ -1,9 +1,4 @@
-// The Codex seat's model list (backend): `agent_gateway_policy.codex_seat_models`, under the Codex seat switch.
-// Saved through the same `PUT /api/v1/workspaces/{id}/agent-gateway/seat-mode`, one key per call:
-//   {codex_seat_models: [model id]}  restrict to these ids (1..max_models, the same id rule as seat_models)
-//   {codex_seat_models: null}        no list again: every Codex model (the default)
-// GET/PUT answer `codex_seat_models`: the list, or null for every Codex model; a stored invalid value is null too and
-// is named in `invalid_settings`. An answer without the key reads as unknown.
+// A stored invalid value is answered as null too; an answer without the key reads as unknown.
 
 export const CODEX_SEAT_MODELS_LABEL = "Models a Codex seat session may use";
 export const CODEX_SEAT_MODELS_EXPLANATION =
@@ -29,27 +24,22 @@ export function readCodexSeatModels(payload: unknown): CodexModelsView {
   return { kind: "unknown" };
 }
 
-/** The badge: Default for every Codex model, Custom for a list. */
 export function codexModelsValueText(view: CodexModelsView): string {
   if (view.kind === "all") return "Default";
   if (view.kind === "list") return "Custom";
   return "Unknown";
 }
 
-/** The save body: only the Codex list key; null goes back to every Codex model. */
 export const codexSeatModelsBody = (models: string[] | null) => ({ codex_seat_models: models });
 export type CodexSeatModelsBody = ReturnType<typeof codexSeatModelsBody>;
 
-/** Whether going from `before` to `after` loosens the rule (null = every Codex model). Mirrors backend
- * workspace_settings/bounds.py check_seat_setting: back to every model, or an added id, loosens; restricting from
- * every model to a list, or removing ids, tightens. */
+/** Mirrors backend workspace_settings/bounds.py check_seat_setting (null = every Codex model). */
 export function codexModelsChangeLoosens(before: string[] | null, after: string[] | null): boolean {
   if (before === null) return false;
   if (after === null) return true;
   return after.some((model) => !before.includes(model));
 }
 
-/** Which steps this user may take. Tightening needs `can_edit`; loosening also `can_loosen` (platform admin). */
 export function codexModelsActions(view: CodexModelsView, canEdit: boolean, canLoosen: boolean) {
   const edit = canEdit && view.kind !== "unknown";
   return {
@@ -60,7 +50,6 @@ export function codexModelsActions(view: CodexModelsView, canEdit: boolean, canL
   };
 }
 
-/** The confirmation after a save. */
 export function codexSeatModelsSavedText(body: CodexSeatModelsBody): string {
   return body.codex_seat_models === null
     ? "Codex seat sessions may use every Codex model again."

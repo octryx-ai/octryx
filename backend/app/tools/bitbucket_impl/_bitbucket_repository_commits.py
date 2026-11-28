@@ -56,7 +56,6 @@ def _commit_matches_author(commit: dict[str, Any], aliases: list[str]) -> bool:
 
 
 async def _default_branch_or_none(context: ToolContext, project_key: str, repo_slug: str) -> str | None:
-    """The repository's default branch, or ``None`` when Bitbucket does not name one (never a guessed name)."""
     try:
         payload = await _bitbucket_internal_network._bitbucket_json_get(
             context, f"/rest/api/1.0/projects/{project_key}/repos/{repo_slug}/branches/default"

@@ -26,17 +26,13 @@ async def list_coding_session_candidates(
     project_scope: set[str] | None,
     limit: int = 1000,
 ) -> dict[str, object]:
-    """Coding cockpit candidates with their plans, units, state events and agent sessions.
-
-    ``project_scope`` is ``work_scope_project_ids``: ``None`` (platform admin) lists every Work
-    Item; a set restricts the candidate SQL itself, before the limit and the count, so no
-    foreign or workspace-less item, nor its plan evidence, is ever loaded.
-    """
+    """Coding cockpit candidates with their plans, units, state events and agent sessions."""
     capped_limit = max(1, min(limit, 5000))
     if project_scope is not None and not project_scope:
         return {"items": [], "count": 0, "limit": capped_limit}
     stmt = select(WorkItem)
     if project_scope is not None:
+        # Scoped in SQL before the limit and the count, so no foreign item or its plan evidence is loaded
         stmt = stmt.where(WorkItem.project_id.in_(sorted(project_scope)))
     items = (
         (
@@ -58,7 +54,7 @@ async def list_coding_session_candidates(
     agent_sessions_by_item: dict[str, list[dict[str, object]]] = defaultdict(list)
     pull_requests_by_item: dict[str, list[WorkPullRequest]] = defaultdict(list)
     if item_ids:
-        # D12: the item's pull requests come from work_pull_requests, the one PR source.
+        # The item's pull requests come from work_pull_requests, the one PR source.
         for pull_request in (await db.execute(
             select(WorkPullRequest).where(WorkPullRequest.work_item_id.in_(item_ids), in_item_workspace())
             .order_by(WorkPullRequest.updated_at.desc())

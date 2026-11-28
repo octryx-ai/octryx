@@ -1,28 +1,4 @@
-"""The capability a run declares when it does not come from a chat workflow selection.
-
-A chat turn takes its class from the selected workflow (:mod:`.resolution`). Every other path that
-dispatches tools carries an explicit class too, and this module is the one contract for it:
-
-- a **flow** declares ``capability_class`` on its definition (``FlowDefinitionVersion.definition_json``);
-- a **schedule** declares ``capability_class`` in its task config (``Task.config``);
-- an **internal worker** takes the class of its explicit worker profile (:mod:`.worker_profiles`);
-- a **resumed or strategy-driven** dispatch takes the class the session's run recorded
-  (``execution_profile.capability``);
-- a **sub-agent** spawned by a running turn takes the enforced class of that turn
-  (``sub_agent_parent``, written by the spawning tool from its frozen run capability).
-
-A definition that declares no class runs ``read_only`` and records it as such
-(``source: undeclared_read_only``); a declared value outside the closed classes is
-``needs_configuration`` and dispatches nothing. A run started from another run never exceeds it:
-the declared class is capped by the parent's class (:func:`capped_by_parent`).
-
-A ``run_agent`` caller that records no declaration at all (no ``declared_run_capability`` session
-metadata, no workflow, parent run, agent definition or chat routing resolution) has no profile
-origin: its run is ``needs_configuration`` (``source: missing_declaration``), never an allow.
-
-Validation mirrors the workflow definition validator: an unsupported value is refused, and so is a
-tool that needs more than the declared class (or than ``read_only`` when nothing is declared).
-"""
+"""The capability a run declares when it does not come from a chat workflow selection."""
 
 from __future__ import annotations
 
@@ -61,8 +37,6 @@ STATUS_NEEDS_CONFIGURATION = "needs_configuration"
 
 @dataclass(frozen=True, slots=True)
 class DeclaredRunCapability:
-    """A declared (or undeclared, hence ``read_only``) class; ``capability_class`` is None when invalid."""
-
     capability_class: str | None
     source: str
     error: str = ""
@@ -72,7 +46,6 @@ class DeclaredRunCapability:
     chat_connector_writes: bool = False
 
     def to_metadata(self) -> dict[str, Any]:
-        """What the run records: the class, where it came from, and why it cannot run if invalid."""
         payload: dict[str, Any] = {RUN_CAPABILITY_CLASS_KEY: self.capability_class, "source": self.source}
         if self.error:
             payload["status"] = STATUS_NEEDS_CONFIGURATION
@@ -82,7 +55,6 @@ class DeclaredRunCapability:
         return payload
 
     def tool_context_state(self) -> dict[str, Any]:
-        """The frozen ``ToolContext.run_capability`` state; always enforced at dispatch."""
         state = {
             RUN_CAPABILITY_CLASS_KEY: self.capability_class,
             "enforced": True,
@@ -97,7 +69,6 @@ class DeclaredRunCapability:
 
 
 def declared_run_capability(raw_class: Any, *, source: str) -> DeclaredRunCapability:
-    """The class a flow, schedule or worker declares; nothing declared runs ``read_only``."""
     if raw_class is None or raw_class == "":
         return DeclaredRunCapability(capability_class=CAPABILITY_READ_ONLY, source=SOURCE_UNDECLARED_READ_ONLY)
     capability_class = normalize_capability_class(raw_class)
@@ -114,7 +85,6 @@ def declared_run_capability(raw_class: Any, *, source: str) -> DeclaredRunCapabi
 
 
 def capped_by_parent(declared: DeclaredRunCapability, parent_class: str | None) -> DeclaredRunCapability:
-    """A run started from another run never exceeds the parent's class (no silent escalation)."""
     parent = normalize_capability_class(parent_class)
     if declared.capability_class is None or parent is None or capability_covers(parent, declared.capability_class):
         return declared
@@ -122,7 +92,6 @@ def capped_by_parent(declared: DeclaredRunCapability, parent_class: str | None) 
 
 
 def declared_from_metadata(value: Any) -> DeclaredRunCapability | None:
-    """Read the ``declared_run_capability`` session metadata a caller set; ``None`` when absent."""
     if not isinstance(value, dict):
         return None
     source = str(value.get("source") or "").strip()
@@ -142,7 +111,6 @@ def declared_from_metadata(value: Any) -> DeclaredRunCapability | None:
 
 
 def capability_from_run_profile(execution_profile: Any) -> DeclaredRunCapability:
-    """The class the session's run recorded (``execution_profile.capability``); ``read_only`` without one."""
     profile = execution_profile if isinstance(execution_profile, dict) else {}
     capability = profile.get("capability") if isinstance(profile.get("capability"), dict) else {}
     recorded = normalize_capability_class(capability.get(RUN_CAPABILITY_CLASS_KEY))
@@ -153,11 +121,6 @@ def capability_from_run_profile(execution_profile: Any) -> DeclaredRunCapability
 
 
 def resumed_run_capability_metadata(session_metadata: Any) -> dict[str, Any]:
-    """Declare the class a resumed session's own run recorded, for a caller that continues it.
-
-    Empty when the session already carries a declaration, or when its run recorded no enforced
-    class: such a session has no origin to resume under, and its turn is refused.
-    """
     metadata = session_metadata if isinstance(session_metadata, dict) else {}
     if DECLARED_RUN_CAPABILITY_METADATA_KEY in metadata:
         return {}
@@ -170,7 +133,6 @@ def resumed_run_capability_metadata(session_metadata: Any) -> dict[str, Any]:
 def validate_declared_capability_class(
     raw_class: Any, *, tool_names: Iterable[str], subject: str
 ) -> list[dict[str, str]]:
-    """Errors for a declared class: unsupported values, and tools the (effective) class does not cover."""
     declared = declared_run_capability(raw_class, source=SOURCE_FLOW_DEFINITION)
     if declared.capability_class is None:
         return [{"code": "unsupported_capability_class", "message": f"{subject}: {declared.error}"}]

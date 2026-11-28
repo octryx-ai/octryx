@@ -17,6 +17,9 @@ from ...engineering_knowledge import (
     upsert_engineering_knowledge_edge,
     upsert_engineering_knowledge_node,
 )
+from ...engineering_knowledge.lifecycle_state import nodes_by_workspace
+from ...engineering_knowledge.workspace_scope import WORKSPACE_SCOPE_TYPES
+from ...project.private_workspace import hidden_private_ids
 from ._admin_engineering_knowledge_common import (
     _optional_id,
     _pagination,
@@ -39,11 +42,13 @@ async def list_engineering_knowledge_graph_nodes(
     source: str = "",
     reviewer: str = "",
     validity: str = "",
+    viewer_id: str,
     limit: int = 50,
     offset: int = 0,
 ) -> dict[str, Any]:
     safe_limit, safe_offset = _pagination(limit, offset, max_limit=100)
-    filters = _graph_node_filters(
+    visible = await _visible_nodes(db, viewer_id)
+    filters = visible + _graph_node_filters(
         query=query,
         node_type=node_type,
         status=status,
@@ -58,9 +63,8 @@ async def list_engineering_knowledge_graph_nodes(
     )
     stmt = select(EngineeringKnowledgeGraphNode).options(selectinload(EngineeringKnowledgeGraphNode.aliases))
     count_stmt = select(func.count()).select_from(EngineeringKnowledgeGraphNode)
-    if filters:
-        stmt = stmt.where(*filters)
-        count_stmt = count_stmt.where(*filters)
+    stmt = stmt.where(*filters)
+    count_stmt = count_stmt.where(*filters)
     total = int((await db.execute(count_stmt)).scalar_one() or 0)
     nodes = (
         (
@@ -83,7 +87,7 @@ async def list_engineering_knowledge_graph_nodes(
         "limit": safe_limit,
         "offset": safe_offset,
         "hasMore": safe_offset + len(nodes) < total,
-        "stats": await _graph_review_stats(db),
+        "stats": await _graph_review_stats(db, visible),
     }
 
 
@@ -129,6 +133,7 @@ async def review_engineering_knowledge_graph_node(
             f"engineering_knowledge_graph.node_{action}",
             node.id,
             {"previous": previous, "current": serialize_graph_node(node), "reason": payload.get("reason") or ""},
+        project_id=await _node_workspace(db, node.id),
         )
     )
     await db.commit()
@@ -166,7 +171,8 @@ async def upsert_engineering_knowledge_graph_node(
         aliases=list(payload.get("aliases") or []),
         created_by_user_id=admin_id,
     )
-    db.add(_graph_audit(admin_id, "engineering_knowledge_graph.node_upserted", node.id, {"node_type": node.node_type}))
+    db.add(_graph_audit(admin_id, "engineering_knowledge_graph.node_upserted", node.id, {"node_type": node.node_type},
+                        project_id=await _node_workspace(db, node.id)))
     await db.commit()
     return await inspect_engineering_knowledge_entity(
         db,
@@ -198,7 +204,8 @@ async def upsert_engineering_knowledge_graph_edge(
         source_refs=list(payload.get("source_refs") or []),
         created_by_user_id=admin_id,
     )
-    db.add(_graph_audit(admin_id, "engineering_knowledge_graph.edge_upserted", edge.id, {"edge_type": edge.edge_type}))
+    db.add(_graph_audit(admin_id, "engineering_knowledge_graph.edge_upserted", edge.id, {"edge_type": edge.edge_type},
+                        project_id=await _node_workspace(db, edge.source_node_id)))
     await db.commit()
     return serialize_graph_edge(edge)
 
@@ -220,20 +227,34 @@ async def get_engineering_knowledge_graph_entity(
     )
 
 
-def _graph_audit(admin_id: str, action: str, resource_id: str, details: dict[str, Any]) -> AuditLog:
+def _graph_audit(admin_id: str, action: str, resource_id: str, details: dict[str, Any], *,
+                 project_id: str | None) -> AuditLog:
     return AuditLog(
         user_id=admin_id,
         action=action,
         resource_type="engineering_knowledge_graph",
         resource_id=resource_id,
+        project_id=project_id,
         details=details,
     )
 
 
-async def _graph_review_stats(db: AsyncSession) -> dict[str, Any]:
+async def _node_workspace(db: AsyncSession, node_id: str) -> str | None:
+    node = await db.get(EngineeringKnowledgeGraphNode, node_id)
+    return next(iter(await nodes_by_workspace(db, [node]))) if node is not None else None
+
+
+async def _visible_nodes(db: AsyncSession, viewer_id: str) -> list[Any]:
+    node, hidden = EngineeringKnowledgeGraphNode, await hidden_private_ids(db, viewer_id)
+    return [node.workspace_id.is_(None) | node.workspace_id.not_in(hidden),
+            ~(node.scope_type.in_(WORKSPACE_SCOPE_TYPES) & func.coalesce(node.scope_id, "").in_(hidden))]
+
+
+async def _graph_review_stats(db: AsyncSession, visible: list[Any]) -> dict[str, Any]:
     status_rows = (
         await db.execute(
             select(EngineeringKnowledgeGraphNode.status, func.count())
+            .where(*visible)
             .group_by(EngineeringKnowledgeGraphNode.status)
             .order_by(EngineeringKnowledgeGraphNode.status.asc())
         )
@@ -241,6 +262,7 @@ async def _graph_review_stats(db: AsyncSession) -> dict[str, Any]:
     trust_rows = (
         await db.execute(
             select(EngineeringKnowledgeGraphNode.trust_level, func.count())
+            .where(*visible)
             .group_by(EngineeringKnowledgeGraphNode.trust_level)
             .order_by(EngineeringKnowledgeGraphNode.trust_level.asc())
         )

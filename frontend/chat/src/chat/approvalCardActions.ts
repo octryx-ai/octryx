@@ -1,20 +1,8 @@
-// Which actions an inline approval card offers, decided by the server's
-// explicit approval view, never by the action string or the reason text.
-//
-// Every approval is a tool approval with the inline permission answers:
-// "Deny", "Allow once" and, when the server offers it and the viewer is a
-// Workspace admin or owner, "Always for this Workspace". The hidden button is
-// refused by the server too.
-//
-// Which decisions are offered is the server's list (the change preview's
-// `offered_decisions`, ["once","deny"] plus "always" only where a standing rule
-// may answer the request; never for a write to another system: REST, connector,
-// MCP, database, http_request); an approval without a preview offers no "always".
+// Decided by the server's approval view, never by the action string or the reason text.
 
 import type { ApprovalSummary } from "../chatDecisionTypes";
 
 export type ApprovalCardActionKind = "reject" | "retry" | "approve" | "always";
-// The decisions an approval card sends: one record, three answers.
 export type ApprovalDecisionKind = "approve" | "reject" | "always";
 
 export type ApprovalCardAction = {
@@ -24,7 +12,6 @@ export type ApprovalCardAction = {
 
 export type ApprovalCardModel = {
   actions: ApprovalCardAction[];
-  // Shown when no action remains (a decided approval without a retry).
   statusLabel: string | null;
 };
 
@@ -39,13 +26,11 @@ export function formatApprovalStatus(value: string | null | undefined) {
     return "Denied";
   }
   if (normalized === "expired") {
-    // A gate whose timeout decided it (nobody did).
     return "Timed out";
   }
   return "Pending";
 }
 
-// "Always for this Workspace · git status": the scope the grant covers.
 export function standingRuleScopeLabel(
   rule: ApprovalSummary["standingRule"],
 ): string | null {
@@ -58,29 +43,20 @@ export function standingRuleScopeLabel(
 export type OfferedDecision = "once" | "always" | "deny";
 const OFFERED: ReadonlySet<string> = new Set(["once", "always", "deny"]);
 
-/** The decisions the server offers for this request (the stored preview's `offered_decisions`, written with every
- * preview by `change_preview.service.upsert_change_preview`), or null without a preview. */
 export function offeredDecisions(preview: unknown): OfferedDecision[] | null {
   const raw = preview && typeof preview === "object" ? (preview as { offered_decisions?: unknown }).offered_decisions : null;
   if (!Array.isArray(raw) || !raw.length) return null;
   return raw.map((item) => String(item)).filter((item): item is OfferedDecision => OFFERED.has(item));
 }
 
-/** Whether "Always for this Workspace" is offered: only when the server's list names it. */
 export function alwaysOffered(approval: Pick<ApprovalSummary, "changePreview">): boolean {
   return offeredDecisions(approval.changePreview?.preview)?.includes("always") ?? false;
 }
 
-/** The server's refusal code for a decision that came too late (409 on every decision path). */
 export const APPROVAL_ALREADY_RESOLVED = "approval_already_resolved";
 export const ALREADY_DECIDED_TEXT = "This approval was already decided.";
 
-/**
- * A refused decision in words, the one place the web and the phone share. `status` is the HTTP status when known,
- * `code` the server's refusal code. An already decided approval is a 409 with `approval_already_resolved`; another 409
- * on "always" is the server saying the request may not get a standing rule (a write to another system); any other
- * 409 is a gate whose time ran out.
- */
+// Another 409 on "always" means no standing rule is allowed; any other 409 is an expired gate.
 export function approvalDecisionErrorText(
   decision: ApprovalDecisionKind,
   status: number | null,

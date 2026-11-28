@@ -1,9 +1,5 @@
-"""The code graph for agents over MCP: ``code_graph_search`` and ``code_graph_summary``.
-
-Both read the graph of a repository of one of the caller's own Workspaces (membership, as the entity graph tools:
-``knowledge:read`` scope, shared rate limit and audit, results fenced as data). A repository is named by its id or
-by its name in a Workspace; without one, ``code_graph_summary`` lists the caller's repositories with a graph.
-"""
+"""The code graph for agents over MCP: ``code_graph_search`` and ``code_graph_summary``. Only repositories of the
+caller's own Workspaces; results are fenced as data."""
 
 from __future__ import annotations
 
@@ -81,8 +77,6 @@ MCP_CODE_GRAPH_TOOL_HANDLERS = {
 
 
 def register_code_graph_tools(server: Any, call: Any) -> None:
-    """Register the code graph tools; ``call`` is the authenticated knowledge dispatch."""
-
     @server.tool(description=(
         "Search the code graph of a repository of your Workspaces: functions, classes, modules, routes by name or "
         "path, with their file, line and relations. repository = its id or name; optional language, path prefix, "

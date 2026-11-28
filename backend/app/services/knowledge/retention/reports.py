@@ -1,10 +1,5 @@
-"""The read side an operator surface may show: counts, finding ids, sizes and ages.
-
-What this module must never return is as much of its contract as what it does return: no
-object key, no content address, no bucket, no endpoint, no prefix, no credential and no
-server text. A finding is identified by its own uuid, so an operator can refer to exactly one
-object without ever learning where it lives or what it contains.
-"""
+"""The read side an operator surface may show: counts, finding ids, sizes and ages. Never a key, content address,
+bucket, endpoint or server text."""
 
 from __future__ import annotations
 
@@ -27,8 +22,6 @@ MAX_REPORT_FINDINGS = 200
 
 @dataclass(frozen=True, slots=True)
 class RunReport:
-    """One reconciliation run as an operator may read it back."""
-
     run_id: str
     project_id: str
     state: str
@@ -52,7 +45,6 @@ class RunReport:
 async def latest_run_report(
     db: AsyncSession, project_id: str, *, limit: int = DEFAULT_REPORT_FINDINGS
 ) -> RunReport | None:
-    """The newest run of one Workspace, or ``None`` when it was never reconciled."""
     if type(project_id) is not str or not project_id:
         raise InvalidRetentionRequestError()
     if type(limit) is not int or not 0 < limit <= MAX_REPORT_FINDINGS:

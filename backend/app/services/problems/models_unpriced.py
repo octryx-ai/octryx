@@ -1,10 +1,4 @@
-"""``budget`` attention: an active model of a platform-billed provider without a price.
-
-Costs of such a model are not counted (``budget.unpriced_guard``), so budgets and the cost view under-report
-silently. One row per model: active model, active provider, provider billed per token by the platform
-(``is_platform_billed_driver``), ``pricing_input`` or ``pricing_output`` missing. Platform-wide for a global
-provider, else the provider's Workspace. The fix is the model in Runtime › Model catalog.
-"""
+"""``budget`` attention: an active model of a platform-billed provider without a price."""
 
 from __future__ import annotations
 
@@ -30,7 +24,7 @@ async def collect(db: AsyncSession, ctx: CollectContext) -> list[Problem]:
     )).all()
     problems = []
     for model, provider in rows:
-        if not is_platform_billed_driver(provider.driver, provider.runtime_kind):
+        if not is_platform_billed_driver(provider.driver):
             continue
         name = model.display_name or model.model_id
         problems.append(Problem(

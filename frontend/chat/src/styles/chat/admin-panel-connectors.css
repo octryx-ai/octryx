@@ -37,15 +37,3 @@
   background: var(--surface-overlay);
   transition: background 0.15s;
 }
-
-/* Collapsed connector tool list below the connection fields. */
-.connector-card__tools-summary {
-  cursor: pointer;
-  list-style-position: inside;
-}
-
-.connector-card__tools-summary:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px var(--accent-soft);
-  border-radius: var(--ds-radius-md);
-}

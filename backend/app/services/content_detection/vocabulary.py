@@ -1,12 +1,4 @@
-"""The fixed vocabulary of content detection: categories, built-in detectors, mask styles, sources.
-
-Detectors only *find*; Cedar policies decide what happens (``context.content`` / ``principal.sensitive``). A
-finding is described by its detector id, category, confidence and the source it was found in — never by its
-value, its position or a hash of it (a hash of a short identifier can be brute-forced).
-
-Categories are extensible: the built-in ones below always exist, and a policy-set version may add its own
-(``custom_detectors``), so a Workspace can group its own identifiers.
-"""
+"""The fixed vocabulary of content detection: categories, built-in detectors, mask styles, sources."""
 
 from __future__ import annotations
 
@@ -58,8 +50,6 @@ class Category:
 
 @dataclass(frozen=True, slots=True)
 class DetectorInfo:
-    """What the catalog, the builder and the Detectors tab show about a detector."""
-
     id: str
     category: str
     label: str

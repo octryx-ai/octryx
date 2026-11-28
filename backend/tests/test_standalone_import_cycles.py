@@ -1,9 +1,4 @@
-"""Modules prone to import cycles import standalone.
-
-Each module is imported on its own, without app/conftest importing the package graph first, so an
-order-dependent import fails here. request_analysis.contract imports lazily to keep the request_analysis
-(and the loops setup) cycle-free.
-"""
+"""Modules prone to import cycles import standalone."""
 
 import importlib
 
@@ -14,12 +9,10 @@ import pytest
     "module_path",
     [
         "app.services.request_analysis.contract",
-        "app.agent.loops.setup._loop_setup",
     ],
 )
 def test_module_imports_standalone(module_path: str) -> None:
-    # A fresh import in a subprocess-like clean state is approximated by
-    # importlib.import_module; the real guard is that these do not raise a
-    # partially-initialized-module ImportError when imported first.
+    # In-process import_module only approximates a clean interpreter; the guard is the absence of a
+    # partially-initialized-module ImportError when the module is imported first.
     module = importlib.import_module(module_path)
     assert module is not None

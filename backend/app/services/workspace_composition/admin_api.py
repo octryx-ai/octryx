@@ -10,10 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from ...models import Project, WorkspaceCapabilityBinding, WorkspacePolicy
-from ..mcp_capability_admin_policy import guard_mcp_capability_binding_update
-from ..mcp_capability_policy import MCP_CAPABILITY_KIND
-from ..mcp_resource_admin_policy import guard_mcp_resource_binding_update
-from ..mcp_resource_identity import MCP_RESOURCE_BINDING_KINDS
+from ..data_access.read_filter import require_visible_workspace
+from ..mcp_governance.capability_admin_policy import guard_mcp_capability_binding_update
+from ..mcp_governance.capability_policy import MCP_CAPABILITY_KIND
+from ..mcp_governance.resource_admin_policy import guard_mcp_resource_binding_update
+from ..mcp_governance.resource_identity import MCP_RESOURCE_BINDING_KINDS
 from .service import seed_workspace_bundle_foundation, sync_workspace_runtime_catalog_bindings
 
 _ALLOWED_BINDING_STATUSES = {"active", "hidden"}
@@ -177,6 +178,7 @@ async def _load_workspace(
     workspace_id: str,
     ensure_foundation: bool = True,
 ) -> Project:
+    await require_visible_workspace(db, workspace_id)
     workspace = (
         await db.execute(
             select(Project)
@@ -248,11 +250,11 @@ async def update_workspace_binding(
         raise HTTPException(status_code=404, detail="Workspace binding not found")
     if binding.capability_kind == MCP_CAPABILITY_KIND:
         # Mirrored capability identity is server-owned; only governance fields
-        # pass (see ``services/mcp_capability_admin_policy``).
+        # pass (see ``services/mcp_governance/capability_admin_policy``).
         payload = guard_mcp_capability_binding_update(binding, payload)
     elif binding.capability_kind in MCP_RESOURCE_BINDING_KINDS:
         # Same rule for mirrored MCP resources and prompts
-        # (see ``services/mcp_resource_admin_policy``).
+        # (see ``services/mcp_governance/resource_admin_policy``).
         payload = guard_mcp_resource_binding_update(binding, payload)
 
     normalized_status = None

@@ -1,18 +1,4 @@
-"""Cedar policy engine persistence: custom policy-set versions and the decision log.
-
-``policy_set_versions`` holds the hand-written (custom) Cedar policies of the instance, one row per version, in
-the governed lifecycle ``draft -> in_review -> published -> retired`` (``runtime/governed_revision``): at most one
-version is published, a published or retired row is immutable, and publishing needs a four-eyes approval. The
-generated baseline is not stored here: it is a pure function of its sources (``policy_engine/translator``) and
-each version records the baseline digest it was published against.
-
-``policy_decision_log`` keeps the decisions worth reading (shadow mismatches, custom-policy divergences,
-evaluation errors, enforced denials) as bounded OCSF-like records; retention prunes it.
-
-``policy_draft_impact`` aggregates what an open draft would have blocked in live traffic: one row
-per draft digest, policy, point, action and hour, with a bounded set of hashed principals and a few redacted
-sample records; retention prunes it with the decision log.
-"""
+"""Cedar policy engine persistence: custom policy-set versions, the decision log and draft impact."""
 
 from __future__ import annotations
 
@@ -32,6 +18,7 @@ from sqlalchemy import (
 )
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 from ..runtime.governed_revision import (
     REVISION_STATES,
@@ -85,7 +72,9 @@ class PolicySetVersion(Base):
 install_immutability_guard(PolicySetVersion)
 
 
-class PolicyDecisionLog(Base):
+class PolicyDecisionLog(WorkspaceBound, Base):
+    __workspace_owners__ = {"session_id": "sessions"}
+    __workspace_column__ = "workspace_id"
     __tablename__ = "policy_decision_log"
     __table_args__ = (
         Index("ix_policy_decision_log_created", "created_at"),
@@ -115,9 +104,9 @@ class PolicyDecisionLog(Base):
     # values, spans or hashes) and the obligation applied or that would have been applied.
     content = Column(JSON, nullable=True)
     obligation = Column(JSON, nullable=True)
-    # Decision timeline (observability O2, services/decisions): which gate decided, the run and session it
-    # belongs to, the deciding rule, the reason given at the time (never overwritten), and for the approval
-    # lifecycle the approval and the person who decided.
+    # Decision timeline (services/decisions): which gate decided, the run and session it belongs to, the deciding
+    # rule, the reason given at the time (never overwritten), and for the approval lifecycle the approval and the
+    # person who decided.
     gate = Column(String(40), nullable=True)
     session_id = Column(String(36), nullable=True, index=True)
     run_key = Column(String(120), nullable=True, index=True)
@@ -127,8 +116,9 @@ class PolicyDecisionLog(Base):
     actor_id = Column(String(36), nullable=True)
 
 
-class PolicyDecisionCounter(Base):
-    """Allowed decisions per hour, gate, action and Workspace (observability O2): allows are counted, not stored."""
+class PolicyDecisionCounter(WorkspaceBound, Base):
+    """Allowed decisions per hour, gate, action and Workspace: allows are counted, not stored."""
+    __workspace_column__ = "workspace_id"
 
     __tablename__ = "policy_decision_counters"
     __table_args__ = (

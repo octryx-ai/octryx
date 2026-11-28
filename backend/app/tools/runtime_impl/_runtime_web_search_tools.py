@@ -1,12 +1,4 @@
-"""Runtime web and code search tools over the platform's governed web search.
-
-Both tools are thin: they read the model's bounded parameters and call
-``services/web_search/service.governed_search``, which owns the provider, the data-policy admission,
-the blocklist, the trusted-source registry and the anomaly check. The Workspace's search mode
-(``open`` or ``trusted_only``) is the admin's setting on the project row; the model cannot choose it.
-A search that cannot run answers with its closed state (``needs_configuration``, ``denied``,
-``unavailable``) and a fixed message, never with provider text.
-"""
+"""Runtime web and code search tools over the platform's governed web search."""
 
 from __future__ import annotations
 

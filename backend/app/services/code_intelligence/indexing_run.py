@@ -22,7 +22,6 @@ from .indexing_snapshot import _build_snapshot
 from .outline import _outline_from_symbols, _python_ast_outline, _tree_sitter_outline
 from .outline_java import _tree_sitter_java_outline
 from .process import _maybe_build_zoekt_index
-from .semantic_build import _maybe_build_scip_indices
 from .storage_repository import _serialize_repository
 from .storage_runtime import _coerce_dict, _read_snapshot
 from .structure import _maybe_build_structure_index
@@ -43,7 +42,6 @@ async def _checked_repo_root(db: AsyncSession, repo: Any, repo_root: Path) -> No
 
 
 def _resolve_backends(repo: Any, capabilities: dict[str, Any]) -> dict[str, str]:
-    """The four engine backends; an explicit repository setting wins over ``auto``."""
     return {
         "index_backend": (
             repo.index_backend
@@ -53,7 +51,7 @@ def _resolve_backends(repo: Any, capabilities: dict[str, Any]) -> dict[str, str]
         "semantic_backend": (
             repo.semantic_backend
             if repo.semantic_backend not in {"", "auto"}
-            else ("scip" if any(capabilities["semantic"]["scip"]["languages"].values()) else "regex")
+            else "regex"
         ),
         "structure_backend": (
             repo.structure_backend
@@ -90,7 +88,6 @@ async def _cached_index_result(
     graph_sync_enabled: bool,
     sync_plan: dict[str, Any],
 ) -> dict[str, Any] | None:
-    """The cached snapshot result, or ``None`` when the repository must be indexed again."""
     if not force and latest_path.exists() and repo.last_index_status == "ready":
         snapshot = _read_snapshot(latest_path)
         if snapshot:
@@ -143,18 +140,7 @@ async def _build_indexed_snapshot(
     backends: dict[str, str],
     sync_plan: dict[str, Any],
 ) -> dict[str, Any]:
-    """Build the snapshot and its engine artifacts.
-
-    ``backends`` is updated in place when a ``graphify`` request is served by the native graph,
-    so the caller logs the backend that really ran even when a later step fails.
-    """
     snapshot = await asyncio.to_thread(_build_snapshot, repo_root, capabilities=capabilities, **backends)
-    if backends["semantic_backend"] == "scip":
-        snapshot.setdefault("artifacts", {})["scip"] = await _maybe_build_scip_indices(
-            repository_id=repo.id,
-            repo_root=repo_root,
-            snapshot=snapshot,
-        )
     if backends["index_backend"] == "zoekt":
         snapshot.setdefault("artifacts", {})["zoekt"] = await _maybe_build_zoekt_index(
             repository_id=repo.id,

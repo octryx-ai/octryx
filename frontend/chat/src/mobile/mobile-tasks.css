@@ -236,3 +236,36 @@
 .m-run-start details input {
   margin-top: 0.5rem;
 }
+
+/* The Epic summary card above the task rows: one line and a four-lane mini bar per Epic. */
+.m-epic-card {
+  display: grid;
+  margin-bottom: 12px;
+}
+.m-epic-row {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  background: transparent;
+  color: var(--m-text);
+  font: inherit;
+  font-size: var(--ds-text-sm);
+  text-align: left;
+  cursor: pointer;
+}
+.m-epic-row + .m-epic-row {
+  border-top: 1px solid var(--m-line-soft);
+}
+.m-epic-bar {
+  display: flex;
+  height: 6px;
+  border-radius: var(--m-radius-sm);
+  overflow: hidden;
+  background: var(--m-line-soft);
+}
+.m-epic-done { background: var(--m-green); }
+.m-epic-in_review { background: var(--m-need); }
+.m-epic-in_progress { background: var(--m-blue); }
+.m-epic-open { background: var(--m-grey); }

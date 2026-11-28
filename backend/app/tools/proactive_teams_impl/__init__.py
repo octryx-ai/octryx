@@ -1,9 +1,4 @@
-"""Agent tool: ask the Jira reporter a question via Teams proactive messaging.
-
-This tool allows the agent to send a clarification question to a Jira ticket's
-reporter via Microsoft Teams. The conversation is tracked so that when the
-reporter replies, the answer is routed back to the agent session.
-"""
+"""Agent tool: ask the Jira reporter a question via Teams proactive messaging."""
 
 from __future__ import annotations
 
@@ -66,9 +61,9 @@ class AskReporterViaTeams:
             return {"error": "No Teams channel configured for this project"}
 
         config = configs[0]
-        import json
+        from ...services.channel_config.credentials import CHANNEL_SEND, resolved_channel_config
 
-        channel_data = json.loads(config.config) if isinstance(config.config, str) else config.config
+        channel_data = await resolved_channel_config(db, config, purpose=CHANNEL_SEND)
         app_id = channel_data.get("app_id", "")
         app_password = channel_data.get("app_password", "")
         tenant_id = channel_data.get("tenant_id", "botframework.com")

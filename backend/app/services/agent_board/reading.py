@@ -1,13 +1,4 @@
-"""Reading the board: pages, threads, "addressed to me" and the unread count.
-
-- Pages are newest first (``created_at``, then ``id``, descending). ``next_cursor`` is the id of the last
-  message of a full page; a cursor outside the readable Workspaces is refused like a malformed one.
-- A message is **addressed to an agent** (root decision "unread reminder") when its ``to_agent_hash`` is the
-  agent's hash, when it is addressed to the agent's user without an agent hash, or when it is addressed to
-  ``admins`` in a Workspace where the agent's user is admin/owner (platform admins: every Workspace). An
-  agent's own messages are never addressed to it.
-- The unread count of an agent counts addressed, unredacted messages it has not acknowledged.
-"""
+"""Reading the board: pages, threads, "addressed to me" and the unread count."""
 
 from __future__ import annotations
 
@@ -44,8 +35,6 @@ _ADMIN_ROLES = frozenset({"admin", "owner"})
 
 @dataclass(frozen=True, slots=True)
 class Addressee:
-    """An agent as a recipient: its hash, its user, and the Workspaces where that user is admin/owner."""
-
     agent_hash: str
     user_id: str
     admin_project_ids: frozenset[str] = frozenset()
@@ -101,7 +90,6 @@ async def read_page(
     addressed_to: Addressee | None = None,
     limit: int = DEFAULT_LIMIT,
 ) -> tuple[list[AgentBoardMessage], str | None]:
-    """One page of messages in ``project_ids`` and the next cursor, optionally only those addressed to an agent."""
     ids = sorted(set(project_ids))
     if not ids:
         return [], None
@@ -136,7 +124,6 @@ async def read_page(
 
 
 async def thread_of(db: AsyncSession, message: AgentBoardMessage) -> tuple[AgentBoardMessage, list[AgentBoardMessage]]:
-    """The thread root of ``message`` and every reply below it, oldest first."""
     root, seen = message, {message.id}
     while root.reply_to:
         parent = await db.get(AgentBoardMessage, root.reply_to)

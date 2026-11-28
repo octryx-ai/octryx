@@ -98,7 +98,7 @@
   margin: 0;
   color: var(--text);
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .workspace-overview .sk-link {
@@ -111,7 +111,7 @@
 
 .workspace-overview .work-detail__kv dt {
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: normal;
   text-transform: none;
 }

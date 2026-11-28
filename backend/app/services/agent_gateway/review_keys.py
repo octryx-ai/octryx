@@ -1,25 +1,5 @@
 """The independent reviewer's model per coding engine: keys and validation.
-
-The reviewer of a workflow run (``workflow_runs/review``) runs as its own session on a model of the run's engine
-family: a Claude model for a Claude Code run, a Codex model for a Codex run. Where the setting lives:
-
-- **review node** ``config.reviewer`` = ``{"claude_code": {"model", "route"}, "codex": {...}}`` (a flat
-  ``config.model`` / ``config.route`` counts for the engine whose family the model is);
-- **Workspace** ``agent_gateway_policy.review`` = the same per-engine object;
-- **installation** (platform admins, ``GET/PUT /api/v1/admin/review-defaults``): the same per-engine object, plus
-  the thresholds of a shallow review (:data:`SHALLOW_DEFAULTS`);
-- **platform** :data:`DEFAULT_MODELS`, data in ``review_models.json`` (``claude-sonnet-5-5`` / ``gpt-6.1-terra``:
-  the models every review was measured and accepted on; the file says why).
-
-``route``: ``company`` (a governed runtime of the Workspace that serves exactly this model) or ``seat`` (the run's
-person's own subscription, as a separate tool-less device turn). Without a route the reviewer follows the run's
-route (a seat run reviews on the seat, any other on a company model).
-
-A seat serves only its engine's family (never a Claude model on the Codex seat or the other way round); a model of
-neither family (a local Qwen, an alias) runs only when named explicitly and only on the company route.
-
-Kept free of database imports because ``agent_gateway/policy`` validates the Workspace section on every admin write.
-"""
+Free of database imports: ``policy`` validates the Workspace section on every admin write."""
 
 from __future__ import annotations
 
@@ -64,7 +44,6 @@ class ReviewPolicyError(ValueError):
 
 
 def model_family(model: str) -> str | None:
-    """The engine whose seat serves ``model`` (``claude_code`` / ``codex``), ``None`` for any other model."""
     name = str(model or "").strip().lower()
     if name.startswith("gpt-"):
         return ENGINE_CODEX
@@ -74,7 +53,6 @@ def model_family(model: str) -> str | None:
 
 
 def check_model_for_engine(model: str, engine: str, route: str | None) -> str | None:
-    """The refusal reason when ``model`` may not review a run of ``engine`` on ``route``; ``None`` when it may."""
     family = model_family(model)
     if family is not None and family != engine:
         return REASON_MODEL_WRONG_FAMILY  # never a Claude model on a Codex route or the other way round
@@ -106,7 +84,6 @@ def normalize_engine_choice(value: Any, path: str, engine: str) -> dict[str, str
 
 
 def normalize_review_section(value: Any, path: str) -> dict[str, dict[str, str]]:
-    """The validated per-engine section for storage; raises :class:`ReviewPolicyError`."""
     if not isinstance(value, dict):
         raise ReviewPolicyError("not_an_object", path)
     unknown = sorted(set(value) - set(ENGINES))
@@ -117,7 +94,6 @@ def normalize_review_section(value: Any, path: str) -> dict[str, dict[str, str]]
 
 
 def normalize_installation(value: Any, path: str = "review_defaults") -> dict[str, Any]:
-    """The installation's reviewer defaults: per-engine ``{model, route}`` and ``shallow`` thresholds."""
     if value in (None, {}):
         return {}
     if not isinstance(value, dict) or set(value) - {*ENGINES, "shallow"}:

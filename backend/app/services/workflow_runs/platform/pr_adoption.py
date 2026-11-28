@@ -1,15 +1,4 @@
-"""An earlier run's pull request at ``scm.open_pr``: one Work item, at most one open pull request.
-
-Before opening a pull request the run reads (on the provider, never from its records alone) every pull request an
-earlier run of the same Work item recorded on the same repository (its stored identity: host, path and number; read
-only through a connection on that host, ``read_recorded_pull_request``):
-
-- still open on the run's branch → **reused**: recorded on this run with the run it came from (``adopted_from_run``);
-- still open on another branch (the requester chose a new branch name) → the step fails ``pr_conflict``: the person
-  closes it in the SCM (an explicit act) and retries, so no second open pull request appears;
-- merged or declined → not adopted; this run opens its own;
-- unreadable → the step fails with the read's failure class (a transient read never duplicates a pull request).
-"""
+"""An earlier run's pull request at ``scm.open_pr``: one Work item, at most one open pull request."""
 
 from __future__ import annotations
 
@@ -27,10 +16,7 @@ _NUMBER_KEYS = {"github": "pr_number", "gitlab": "mr_iid", "bitbucket": "pr_id"}
 
 async def read_recorded_pull_request(db: AsyncSession, run: WorkflowRun, identity: dict[str, str]
                                      ) -> ToolOutcome | None:
-    """The provider's answer for the pull request of the stored ``identity`` (``record_identity.stored_identity``),
-    read through the governed read tool on the connection the run's Workspace routes its repository to; ``None``
-    when that connection is not on the recorded host: the pull request is then not read at all, so another host's
-    pull request with the same path and number is never taken for it."""
+    # Another host's pull request with the same path and number is never taken for the recorded one.
     from ...secure_work.pull_requests.host_target import connection_host
     from .bitbucket_cloud import serving_config
     from .repo_ref import TOOLS, RepoRef
@@ -45,10 +31,6 @@ async def read_recorded_pull_request(db: AsyncSession, run: WorkflowRun, identit
 
 
 async def earlier_pull_request(db: AsyncSession, run: WorkflowRun, ref: Any) -> ToolOutcome | None:
-    """``None``: no earlier open pull request, open one; else the reused one or why the step refuses.
-
-    An earlier run's pull request is its stored identity on the run's repository; one recorded on another host than
-    the repository's connection now serves is another repository's and is never adopted or blocking."""
     from ...secure_work.pull_requests.record_identity import stored_identity
     from ..succession import earlier_runs
     from ..watch import PR_DECLINED, PR_MERGED, pr_condition

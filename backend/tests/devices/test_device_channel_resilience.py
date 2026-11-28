@@ -1,11 +1,4 @@
-"""The device channel stays truthful under faults.
-
-- One failing tick (a database hiccup) never ends the ticker while the socket stays open (a "zombie" that the
-  hub shows as connected but that gets no offers, cancels or revocation checks); a ticker that cannot go on
-  closes the channel 1011 so the device reconnects, and a connection whose tick stopped succeeding does not
-  count as connected.
-- Only a revoked *device* closes as ``revoke`` (4410); a grant or token refusal closes 1000 with its reason.
-"""
+"""The device channel stays truthful under faults."""
 
 from __future__ import annotations
 
@@ -25,8 +18,6 @@ from tests.devices.device_support import FakeSocket, SharedSession, keyed_device
 
 
 class FlakyHandlers(ChannelHandlers):
-    """``tick`` raises for the first ``failures`` rounds (``None``: always), then counts healthy rounds."""
-
     def __init__(self, failures: int | None) -> None:
         self.failures = failures
         self.calls = 0
@@ -116,7 +107,7 @@ async def test_a_connection_whose_tick_stopped_succeeding_is_not_counted_as_conn
 
     session.connection.last_tick_at = time.monotonic() - channel_protocol.STALE_AFTER_SECONDS - 1
     assert not device_hub.connected(device.id)
-    assert device_hub.attached(device.id) is session.connection  # a revoke still reaches it
+    assert device_hub.attached(device.id) is session.connection
     await device_revoked(device.id)
     await asyncio.wait_for(task, 2)
     assert socket.closed == (CLOSE_REVOKED, "revoke")
@@ -133,9 +124,10 @@ class _Clock:
 @pytest.mark.asyncio
 async def test_a_revoked_grant_closes_as_a_token_problem_not_as_a_revocation(db):
     clock = _Clock()
-    device, socket, _session, task = await _connected(db, ChannelHandlers(), clock=clock)
+    device, socket, session, task = await _connected(db, ChannelHandlers(), clock=clock)
 
-    await revoke_device_grant(db, device.grant_id)  # a refresh replay ended the grant; the device is active
+    async with session.session_factory() as shared:  # not while a tick uses the session
+        await revoke_device_grant(shared, device.grant_id)  # a refresh replay ended the grant; the device is active
     clock.now += channel_module.RECHECK_SECONDS + 1
     await asyncio.wait_for(task, 2)
 
@@ -149,10 +141,11 @@ async def test_a_revoked_grant_closes_as_a_token_problem_not_as_a_revocation(db)
 @pytest.mark.asyncio
 async def test_a_revoked_device_still_closes_as_revoke(db):
     clock = _Clock()
-    device, socket, _session, task = await _connected(db, ChannelHandlers(), clock=clock)
+    device, socket, session, task = await _connected(db, ChannelHandlers(), clock=clock)
 
-    device.status = DEVICE_STATUS_REVOKED
-    await db.flush()
+    async with session.session_factory() as shared:  # not while a tick uses the session
+        device.status = DEVICE_STATUS_REVOKED
+        await shared.flush()
     clock.now += channel_module.RECHECK_SECONDS + 1
     await asyncio.wait_for(task, 2)
 
@@ -173,8 +166,9 @@ async def test_a_failing_recheck_is_retried_on_the_next_round_not_skipped_for_th
         return await original(token)
 
     monkeypatch.setattr(session, "_credential", flaky_credential)
-    device.status = DEVICE_STATUS_REVOKED
-    await db.flush()
+    async with session.session_factory() as shared:  # not while a tick uses the session
+        device.status = DEVICE_STATUS_REVOKED
+        await shared.flush()
     clock.now += channel_module.RECHECK_SECONDS + 1
     await asyncio.wait_for(task, 2)  # no further clock advance needed: the failed check runs again
 

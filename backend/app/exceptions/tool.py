@@ -9,24 +9,18 @@ from .base import OctryxError
 
 
 class ToolExecutionError(OctryxError):
-    """A tool invocation failed with a recoverable error."""
-
     def __init__(self, tool_name: str, message: str) -> None:
         super().__init__(f"Tool '{tool_name}' failed: {message}")
         self.tool_name = tool_name
 
 
 class ProviderError(OctryxError):
-    """An LLM provider returned an error or is unreachable."""
-
     def __init__(self, provider: str, message: str) -> None:
         super().__init__(f"Provider '{provider}': {message}")
         self.provider = provider
 
 
 class BudgetLimitExceededError(OctryxError):
-    """A budget policy threshold was crossed."""
-
     def __init__(
         self,
         *,

@@ -1,17 +1,5 @@
-"""Execution profile and gate for an internal worker that plans and dispatches tools itself.
-
-Most programmatic paths reach the agent loop through ``run_agent``, whose run preparation builds
-the ``execution_profile.v1`` envelope and whose admission evaluates the execution gate. A worker
-that runs its own model-plans-tools loop outside ``run_agent`` (the Teams CallAgent) gets the same
-envelope here, built only from governed configuration:
-
-- the capability section is the worker's registered profile
-  (``services/run_capability/worker_profiles.py``; an unregistered worker raises);
-- the decision source is ``worker_profile``, never the text of the message;
-- the gate (``services/session/execution_gate.py``) decides before any model call, exactly as it
-  does for ``run_agent`` turns: an empty message is ``needs_clarification``, an invalid class is
-  ``needs_configuration``.
-"""
+"""Execution profile and gate for an internal worker that plans and dispatches tools itself. Such a worker gets the same
+envelope and gate as ``run_agent``."""
 
 from __future__ import annotations
 
@@ -29,7 +17,7 @@ WORKER_ROUTING_INTENT = "worker"
 
 
 def build_worker_execution_profile(worker_key: str, *, prompt: str) -> dict[str, Any]:
-    """The worker turn's profile envelope, from its registered worker profile only."""
+    # From its registered worker profile only.
     declared = worker_run_capability(worker_key)
     capability = {**declared.to_metadata(), "enforced": True, "worker": str(worker_key)}
     return build_execution_profile(
@@ -50,7 +38,6 @@ def build_worker_execution_profile(worker_key: str, *, prompt: str) -> dict[str,
 
 
 def worker_turn_refusal(worker_key: str, *, prompt: str) -> ExecutionGateDecision | None:
-    """Evaluate the gate for one worker turn; the refusal when it is blocked, else ``None``."""
     profile = build_worker_execution_profile(worker_key, prompt=prompt)
     decision = evaluate_execution_gate(profile)
     if decision.allowed:

@@ -1,14 +1,4 @@
-"""The Octryx client's work-item lifecycle tools in the chat.
-
-The chat must be able to work the way the client does. The client reaches these
-operations through its MCP server (``services/mcp_secure_work_tools``); the chat runs exactly the same handler, inside
-the chat's MCP-equivalent scope (``_chat_scope``: the person's Work scope narrowed by the session's Workspaces), so
-there is one implementation and one authorization. Reads run freely; the writes are confirmed per call in a chat
-(``tool_approval_gate`` rule ``chat_platform_write``).
-
-The chat is its own agent (``agent_board.identity.chat_session_identity``): the client's claim fencing applies to its
-writes exactly as to a client session's, so a chat cannot transition or re-plan an item another agent holds.
-"""
+"""The Octryx client's work-item lifecycle tools in the chat."""
 
 from __future__ import annotations
 
@@ -21,7 +11,6 @@ from ._work_item_tools import _chat_scope, _error, _require_db_and_user
 
 
 def client_handlers(identity: Any) -> dict[str, Any]:
-    """Every client MCP handler the chat runs, as the chat's own agent ``identity`` (claims fence its writes)."""
     from ...services.agent_board.fencing import fenced_handlers
     from ...services.mcp_agent_board_tools import board_tool_handlers
     from ...services.mcp_agent_presence_tools import AGENT_PRESENCE_TOOL_HANDLERS
@@ -39,8 +28,6 @@ def client_handlers(identity: Any) -> dict[str, Any]:
 
 
 class _ClientWorkTool:
-    """One client MCP handler as a chat tool, run in the chat's scope as the chat session's agent."""
-
     name = ""
     description = ""
 

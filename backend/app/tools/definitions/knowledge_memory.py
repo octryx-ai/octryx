@@ -1,9 +1,4 @@
-"""Schemas of the Memory lobe tools.
-
-Like the Knowledge evidence tools, neither schema has a scope, Workspace or user property: the
-Workspace and the author come from the run. The bounds mirror ``services/knowledge/memory`` (a
-definition module imports no service).
-"""
+"""Schemas of the Memory lobe tools."""
 
 from __future__ import annotations
 

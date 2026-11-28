@@ -1,34 +1,5 @@
 """The device's job manager: accept or reject turns, run them, ask for approvals, stop them.
-
-For every ``job_offer`` the device re-checks locally, whatever the platform decided:
-
-- not paused (local ``device pause`` or the platform's pause), else ``device_paused``;
-- fewer running turns than the device's own limit (default 6, ``device parallel 1-8``), else ``device_busy``; a
-  turn the offer marks ``slot_exempt`` (a team's git work or coordinator answer on its run's main thread) is not
-  counted and never waits for a slot;
-- the folder's realpath (symlinks resolved) inside the local allowlist, else ``folder_not_allowlisted_on_device``;
-- the folder really readable by this process (macOS privacy blocks a LaunchAgent from external volumes), else
-  ``device_folder_not_accessible`` with the interpreter to allow (``device_folder_access``), instead of a Claude
-  Code start that hangs until the SDK's initialize timeout;
-- the profile available here (``seat`` needs the seat login), else ``profile_unavailable_on_device``;
-- a requested model is a well-formed model id, else ``model_invalid``; whether the profile offers it is checked
-  against this session's own client policy (``device_session``), else ``model_not_offered``.
-
-Only the prompt, folder, profile, model, Workspace, resume id and workflow run id (the run the chat thread follows;
-its session is bound to it at registration after the platform's own checks, and the folder's repository must be that
-run's, ``device_session``) are read from the offer; any other field (settings,
-rules, MCP servers, a permission mode) is ignored. Each accepted turn runs as an ordinary octryx-claude session
-(``device_session``) through the SDK (``device_sdk``), and everything it reports goes through the outbox
-(``ChannelClient.send_job``) in order.
-
-Approvals: Claude Code's permission prompt becomes ``approval_request`` with ``expires_at``; the owner's decision
-arrives as ``approval_decision``. No decision in time is a deny here, on the device's own clock
-(``approval_resolved {timed_out}`` tells the platform). Stop: ``interrupt()``, then ``disconnect()`` after 10 s.
-
-Restarts: the running turns are kept in ``device-running.json``. A turn that was still listed when the service
-started again (an update, a crash, a kill) is reported ``turn_finished {status: failed, reason:
-service_restarted}`` once the channel is connected, so the platform sets the job back to idle.
-"""
+Every offer is re-checked locally whatever the platform decided; no approval in time is a deny."""
 
 from __future__ import annotations
 
@@ -99,14 +70,11 @@ class JobManager(OfferChecks, TurnRunner, TurnServices):
     def attach(self, channel: Any) -> None:
         self.channel = channel
 
-    # --- platform messages ------------------------------------------------------------------------------------
-
     def _save_running(self) -> None:
         running = {**self._orphans, **{job_id: turn.turn_id for job_id, turn in self.turns.items()}}
         write_private_json(self.state.root / RUNNING_FILE, {"turns": running})
 
     async def report_orphans(self) -> None:
-        """The previous run's unfinished turns end as failed (``service_restarted``); then they are forgotten."""
         for job_id, turn_id in list(self._orphans.items()):
             try:
                 await self._send(job_id, "turn_finished", {"turn_id": turn_id, "status": "failed",
@@ -145,7 +113,6 @@ class JobManager(OfferChecks, TurnRunner, TurnServices):
             task.add_done_callback(self._file_tasks.discard)
 
     def _remember(self, turn_id: str) -> bool:
-        """``False`` when the turn was seen before (a redelivery after a reconnect or restart)."""
         if turn_id in self._seen:
             return False
         self._seen = [*self._seen, turn_id][-MAX_SEEN:]
@@ -189,8 +156,6 @@ class JobManager(OfferChecks, TurnRunner, TurnServices):
         current["running_jobs"] = len(self.turns)
         device_state.write_status(self.state, current)
 
-    # --- stopping ---------------------------------------------------------------------------------------------
-
     async def _interrupt(self, turn: Turn) -> None:
         if turn.driver is None:
             return
@@ -198,7 +163,6 @@ class JobManager(OfferChecks, TurnRunner, TurnServices):
             await turn.driver.interrupt()
 
     async def stop(self, turn: Turn, reason: str) -> None:
-        """Interrupt the turn; if it has not ended after the grace, end the Claude Code process."""
         turn.stop_reason = reason
         for approval_id, (job_id, future) in list(self._approvals.items()):
             if job_id == turn.job_id and not future.done():

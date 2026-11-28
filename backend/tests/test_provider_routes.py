@@ -3,10 +3,11 @@ import uuid
 import pytest
 from sqlalchemy import select
 
-from app.agent.core.runtime.runtime_errors import ProviderRuntimeError
+from app.agent.runtime.runtime_errors import ProviderRuntimeError
 from app.models import LLMModel, LLMProvider
 from app.services import provider as provider_service
 from app.services.secret import get_secret_value
+from tests.model_gateway.conftest import BASE_URL, gateway_config, gateway_provider
 
 
 @pytest.mark.asyncio
@@ -14,22 +15,23 @@ async def test_public_provider_create_and_list(client, auth_headers, db):
     create_resp = await client.post(
         "/api/v1/providers",
         headers=auth_headers,
-        json={"name": "openrouter", "driver": "openrouter_api", "display_name": "OpenRouter Public", "api_key": "sk-public-create"},
+        json={"name": "gateway", "driver": "litellm_gateway", "display_name": "Gateway Public", "endpoint_url": BASE_URL,
+              "config_json": gateway_config(), "api_key": "sk-public-create"},
     )
     assert create_resp.status_code == 200
     created = create_resp.json()
     assert "sk-public-create" not in str(created)
     assert "api_key" not in created
     assert "api_key_secret_ref" not in created
-    assert created["name"] == "openrouter"
-    assert created["display_name"] == "OpenRouter Public"
+    assert created["name"] == "gateway"
+    assert created["display_name"] == "Gateway Public"
     assert created["model_count"] == 0
 
     provider = await db.get(LLMProvider, created["id"])
     assert provider is not None
     assert not hasattr(provider, "api_key")
     assert provider.api_key_secret_ref
-    assert await get_secret_value(db, secret_id=provider.api_key_secret_ref) == "sk-public-create"
+    assert await get_secret_value(db, secret_id=provider.api_key_secret_ref, purpose="test.read") == "sk-public-create"
 
     list_resp = await client.get("/api/v1/providers", headers=auth_headers)
     assert list_resp.status_code == 200
@@ -40,20 +42,32 @@ async def test_public_provider_create_and_list(client, auth_headers, db):
 
 
 @pytest.mark.asyncio
-async def test_public_provider_model_sync_adds_missing_models(client, auth_headers, db, monkeypatch):
-    provider = LLMProvider(
-        id=str(uuid.uuid4()),
-        name="openrouter",
-        driver="openrouter_api",
-        display_name="OpenRouter",
-        is_global=True,
-        is_active=True,
+async def test_public_provider_create_persists_config_json(client, auth_headers, db):
+    resp = await client.post(
+        "/api/v1/providers",
+        headers=auth_headers,
+        json={
+            "name": "gateway",
+            "driver": "litellm_gateway",
+            "endpoint_url": BASE_URL,
+            "config_json": {**gateway_config(), "request_timeout_seconds": 42},
+        },
     )
+
+    assert resp.status_code == 200
+    provider = await db.get(LLMProvider, resp.json()["id"])
+    await db.refresh(provider)
+    assert provider.config_json == {**gateway_config(), "request_timeout_seconds": 42}
+
+
+@pytest.mark.asyncio
+async def test_public_provider_model_sync_adds_missing_models(client, auth_headers, db, monkeypatch):
+    provider = gateway_provider(display_name="OpenRouter", is_global=True)
     db.add(provider)
     await db.commit()
 
     async def fake_build_provider_client_kwargs_async(_db, _provider):
-        return {"provider_name": "openrouter", "api_key": "test-key"}
+        return {"provider_name": "litellm_gateway", "api_key": "test-key"}
 
     class FakeClient:
         async def list_models(self):
@@ -67,7 +81,7 @@ async def test_public_provider_model_sync_adds_missing_models(client, auth_heade
             return None
 
     monkeypatch.setattr(
-        "app.api.routes.providers.build_provider_client_kwargs_async",
+        "app.api.routes.models.providers.build_provider_client_kwargs_async",
         fake_build_provider_client_kwargs_async,
     )
     monkeypatch.setattr(provider_service, "get_provider_client", lambda **kwargs: FakeClient())
@@ -88,19 +102,12 @@ async def test_public_provider_model_sync_adds_missing_models(client, auth_heade
 
 @pytest.mark.asyncio
 async def test_public_provider_model_sync_returns_no_models_state(client, auth_headers, db, monkeypatch):
-    provider = LLMProvider(
-        id=str(uuid.uuid4()),
-        name="openrouter",
-        driver="openrouter_api",
-        display_name="OpenRouter Empty",
-        is_global=True,
-        is_active=True,
-    )
+    provider = gateway_provider(display_name="OpenRouter Empty", is_global=True)
     db.add(provider)
     await db.commit()
 
     async def fake_build_provider_client_kwargs_async(_db, _provider):
-        return {"provider_name": "openrouter", "api_key": "test-key"}
+        return {"provider_name": "litellm_gateway", "api_key": "test-key"}
 
     class FakeClient:
         async def list_models(self):
@@ -110,7 +117,7 @@ async def test_public_provider_model_sync_returns_no_models_state(client, auth_h
             return None
 
     monkeypatch.setattr(
-        "app.api.routes.providers.build_provider_client_kwargs_async",
+        "app.api.routes.models.providers.build_provider_client_kwargs_async",
         fake_build_provider_client_kwargs_async,
     )
     monkeypatch.setattr(provider_service, "get_provider_client", lambda **kwargs: FakeClient())
@@ -125,14 +132,7 @@ async def test_public_provider_model_sync_returns_no_models_state(client, auth_h
 
 @pytest.mark.asyncio
 async def test_public_provider_model_sync_returns_structured_auth_failure(client, auth_headers, db, monkeypatch):
-    provider = LLMProvider(
-        id=str(uuid.uuid4()),
-        name="openrouter",
-        driver="openrouter_api",
-        display_name="OpenRouter Failure",
-        is_global=True,
-        is_active=True,
-    )
+    provider = gateway_provider(display_name="OpenRouter Failure", is_global=True)
     existing_model = LLMModel(
         id=str(uuid.uuid4()),
         provider_id=provider.id,
@@ -144,7 +144,7 @@ async def test_public_provider_model_sync_returns_structured_auth_failure(client
     await db.commit()
 
     async def fake_build_provider_client_kwargs_async(_db, _provider):
-        return {"provider_name": "openrouter", "api_key": "test-key"}
+        return {"provider_name": "litellm_gateway", "api_key": "test-key"}
 
     class FakeClient:
         async def list_models(self):
@@ -156,7 +156,7 @@ async def test_public_provider_model_sync_returns_structured_auth_failure(client
             return None
 
     monkeypatch.setattr(
-        "app.api.routes.providers.build_provider_client_kwargs_async",
+        "app.api.routes.models.providers.build_provider_client_kwargs_async",
         fake_build_provider_client_kwargs_async,
     )
     monkeypatch.setattr(provider_service, "get_provider_client", lambda **kwargs: FakeClient())

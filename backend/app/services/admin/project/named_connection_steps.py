@@ -82,8 +82,6 @@ _NAME_CONSTRAINTS = ("uq_connector_named_connections_name", "connector_named_con
 
 
 async def _flush_named(db: AsyncSession, row: ConnectorNamedConnection) -> None:
-    """Flush ``row``; a concurrent save that took the name (unique per connector and scope, case-insensitive,
-    in the database) is a 409 ``named_connection_name_taken``, any other integrity error is raised as is."""
     try:
         await db.flush()
     except IntegrityError as error:
@@ -102,6 +100,7 @@ def _audit(db, actor_id, action: str, row: ConnectorNamedConnection, *, before=N
         action=action,
         resource_type="named_connection",
         resource_id=f"{scope_key_of(row.project_id)}:{row.tool_name}:{row.id}",
+        project_id=row.project_id,
         before=before,
         after=after,
         # Names, scope keys and field names only; keys avoid the redactor markers ("secret", "credential").

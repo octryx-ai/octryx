@@ -94,4 +94,5 @@ async def resolve_connector_config(
     db: AsyncSession, *, connector: DatabaseConnector, secret_scope: str
 ) -> dict[str, Any]:
     config = dict(connector.connection_config or {})
-    return await resolve_secret_refs(db, config, tool_name=secret_scope, project_id=connector.project_id)
+    return await resolve_secret_refs(db, config, tool_name=secret_scope, project_id=connector.project_id,
+                                     purpose="database_connector.query")

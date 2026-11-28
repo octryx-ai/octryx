@@ -1,21 +1,4 @@
-"""The Workspace graph explorer over every layer: extracted (Graphiti) plus structured.
-
-``layers`` selects what is read: ``extracted`` (the Graphiti facts of ``temporal/visualization``),
-``manual``, ``configuration`` and ``operations``; empty means all. Extracted nodes come first, then
-structured ones until ``max_nodes``; every node and edge names its ``layer``. A structured node id
-(64 hex digits) focuses the structured layers, any other id the extracted graph. The payload keeps
-the explorer contract (``nodes``, ``edges``, ``match_ids``, ``stats``) and adds ``layer_states``, so
-an unconfigured extracted graph does not hide a built structured one.
-
-Two additions:
-
-- **Totals.** ``stats.total_nodes``/``total_edges`` are the whole visible graph (sum over the stores),
-  ``stats.totals_by_store`` per store (``extracted``, ``structured``; null = not read or not answered).
-- **Expand.** ``expand_node_id`` (+ ``current_node_ids``, the ids the client already shows) returns
-  only that node's neighbourhood that is *new* to the view — nodes not in ``current_node_ids`` and
-  the edges reaching them or the expanded node — with ``mode: "expand"`` and ``additive: true``, so
-  the client merges instead of replacing. ``max_nodes`` bounds the new nodes.
-"""
+"""The Workspace graph explorer over every layer: extracted (Graphiti) plus structured."""
 
 from __future__ import annotations
 
@@ -37,7 +20,7 @@ _STRUCTURED_ID = re.compile(r"^[0-9a-f]{64}$")
 
 
 class UnknownLayerError(ValueError):
-    """A requested layer the explorer does not know."""
+    pass
 
 
 def parse_layers(raw: str | None) -> tuple[str, ...]:
@@ -76,7 +59,6 @@ async def build_workspace_graph(
 
 
 async def _expand(db, *, runtime, authorized, node_id, current, max_nodes, layers) -> dict[str, Any]:
-    """The focus window of ``node_id``, minus what the client already shows; budget for new nodes."""
     from ..temporal.visualization_queries import MAX_NODES
 
     budget = min(MAX_NODES, max_nodes + len(current))

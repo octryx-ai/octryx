@@ -24,7 +24,6 @@ async def render_prometheus_metrics(
     outbound_webhook_worker: Any,
     connector_health_worker: Any,
     analytics_worker: Any,
-    prefetch_worker: Any,
     worker_monitor_worker: Any,
     worker_agenda_worker: Any,
     worker_report_worker: Any,
@@ -50,9 +49,6 @@ async def render_prometheus_metrics(
             "# TYPE octryx_queue_depth gauge",
             *([f"octryx_queue_depth {queue_depth}"] if (queue_depth := await _redis_queue_depth(task_scheduler))
               is not None else []),
-            "# HELP prefetch_queue_depth Pending predictive prefetch jobs",
-            "# TYPE prefetch_queue_depth gauge",
-            f"prefetch_queue_depth {getattr(prefetch_worker, 'queue_depth', 0)}",
         ]
     )
     lines.extend(_health_lines(health_checks, health_summary, health_checked_at))
@@ -66,7 +62,6 @@ async def render_prometheus_metrics(
 
 
 def _request_lines(request_counter: Counter[tuple[str, str, str]]) -> list[str]:
-    """API requests and database concurrency events, counted in this process."""
     lines = [
         "# HELP octryx_api_requests_total Total API requests by endpoint, method and status code",
         "# TYPE octryx_api_requests_total counter",
@@ -91,7 +86,6 @@ def _request_lines(request_counter: Counter[tuple[str, str, str]]) -> list[str]:
 def _health_lines(
     health_checks: dict[str, dict[str, Any]], health_summary: dict[str, Any] | None, health_checked_at: float | None
 ) -> list[str]:
-    """The newest health run of this process: per component, the aggregate state and when it ran."""
     lines: list[str] = []
     for component, payload in sorted(health_checks.items()):
         lines.append(f'connector_health{{component="{component}"}} {1 if payload["status"] == "ok" else 0}')
@@ -131,8 +125,6 @@ def _health_lines(
 
 
 async def _redis_queue_depth(task_scheduler: Any) -> int | None:
-    """The Redis task queue's depth over the configured Redis URLs (the default one and those the scheduler holds
-    for Redis worker pools): read from Redis, never from the database. ``None`` when no Redis answers."""
     from ...config import get_settings
     from ..redis_queue import task_queue_depth
 
@@ -145,11 +137,6 @@ async def _redis_queue_depth(task_scheduler: Any) -> int | None:
 
 
 def _agent_metric_lines() -> list[str]:
-    """The ``octryx_*`` agent metrics and live gauges (services/observability/agent_metrics.py, live_state.py).
-
-    Held in memory, never read from the database. API and
-    worker each serve what they wrote; object gauges carry their id, so Grafana takes the newest per id.
-    """
     from .sync_metrics import render as sync_lines
 
     return agent_metrics.render() + sync_lines()  # + the work item syncs (sync_metrics)
@@ -163,7 +150,6 @@ def _devices_online_lines() -> list[str]:
 
 
 def _runtime_lines() -> list[str]:
-    """Pool, event loop, process and build of this process (services/observability/runtime_metrics.py)."""
     from ...config import get_settings
     from ...db import core as db_core
 
@@ -172,5 +158,4 @@ def _runtime_lines() -> list[str]:
 
 
 async def render_worker_metrics(session_factory: async_sessionmaker[AsyncSession]) -> str:
-    """``/metrics`` of the worker process (app/worker_main.py): the agent counters of what ran there."""
     return "\n".join([*_agent_metric_lines(), *_runtime_lines()]) + "\n"

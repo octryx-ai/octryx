@@ -2,7 +2,6 @@ import type { AdminTab } from "../types/adminPanelTypes.governance";
 import {
   loadProjectsTabData,
   loadProvidersTabData,
-  loadScenariosTabData,
   loadToolCatalogTabData,
   loadUsersTabData,
 } from "./useAdminCoreTabLoader";
@@ -26,7 +25,7 @@ import {
 // unmounts the panel that just mounted and mounts it again, so it fetches everything twice (perf audit).
 const TABS_WITH_SHELL_DATA: ReadonlySet<AdminTab> = new Set<AdminTab>([
   "users", "identityRoles", "identityGroups", "identityAccess", "projects", "providers", "connectors", "databases",
-  "toolCatalog", "scenarios", "agents", "runtimeExecution", "runtimeLimits", "runtimeCompression", "schedulers",
+  "toolCatalog", "agents", "runtimeExecution", "runtimeLimits", "schedulers",
   "tasks", "webhooks", "channels", "mcp", "tts", "branding",
 ]);
 
@@ -46,7 +45,7 @@ const loadConnectors: TabLoader = (a) =>
     setDatabaseTools: a.setDatabaseTools,
     setDatabaseToolForm: a.setDatabaseToolForm,
   });
-// The runtime loader reads its own fields (settings drafts, compressors, corporate identity) from the loader args.
+// The runtime loader reads its own fields (settings drafts, corporate identity) from the loader args.
 const loadRuntimes: TabLoader = (a) => loadRuntimesTabData(a as any);
 
 const loadWebhooks: TabLoader = (a) =>
@@ -92,17 +91,13 @@ const TAB_LOADERS: Partial<Record<AdminTab, TabLoader>> = {
     loadProvidersTabData({
       readJson: a.readJson,
       setProviders: a.setProviders,
-      loadLocalBootstrapState: a.loadLocalBootstrapState,
-      loadSetupGuide: a.loadSetupGuide,
     }),
   connectors: loadConnectors,
   databases: loadConnectors,
   toolCatalog: (a) => loadToolCatalogTabData(a.readJson, a.setToolCatalog),
-  scenarios: (a) => loadScenariosTabData(a.readJson, a.setScenarioProfiles),
   agents: (a) => a.refreshAgentsPanel(),
   runtimeExecution: loadRuntimes,
   runtimeLimits: loadRuntimes,
-  runtimeCompression: loadRuntimes,
   schedulers: (a) =>
     loadSchedulersTabData({ readJson: a.readJson, tasks: a.tasks, setSchedulers: a.setSchedulers, setTasks: a.setTasks }),
   tasks: (a) => loadTasksTabData({ readJson: a.readJson, setTasks: a.setTasks, setPanelAgents: a.setPanelAgents }),

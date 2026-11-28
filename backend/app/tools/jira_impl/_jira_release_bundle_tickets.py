@@ -34,7 +34,6 @@ async def _new_ticket_fields(
     version: ReleaseVersion,
     cloud_accounts: dict[str, str],
 ) -> tuple[dict[str, Any], str, str]:
-    """The create fields of one new ticket (issue type still as asked) and the resolved assignee and priority."""
     summary = str(ticket.get("summary") or "").strip()
     description = str(ticket.get("description") or "").strip()
     issue_type = str(ticket.get("issue_type") or request.issue_type_default).strip() or request.issue_type_default
@@ -182,7 +181,6 @@ def _bundle_result(
 async def run_release_bundle(
     client: httpx.AsyncClient, jira_url: str, *, headers: dict[str, str], request: BundleRequest
 ) -> dict[str, Any]:
-    """All writes of one bundle, in order: version, new tickets, existing tickets, release."""
     cloud_accounts: dict[str, str] = {}
     if request.cloud:
         error, cloud_accounts = await resolve_cloud_accounts(client, jira_url, headers=headers, request=request)

@@ -1,15 +1,4 @@
-"""The push, the epic chain, the stacked pull requests and the pipeline.
-
-- a retried push on Bitbucket Cloud (a push to the clone URL) sees its own commit and records it;
-- a failed push says why (non-fast-forward, credentials, network) without echoing git's output;
-- a person's restart of an aborted story builds on the chain by itself; the chain skips only active or done
-  stories;
-- a chained story's pull request targets the branch it was built on and names the pull request it stacks on;
-- a failed chain start keeps the build order;
-- a story the Jira sync inserted meanwhile is taken, not an IntegrityError;
-- the commit trailer names every model the run used;
-- a pytest command that collected nothing is "no tests", not red, unless a proof test was expected.
-"""
+"""The push, the epic chain, the stacked pull requests and the pipeline."""
 
 from __future__ import annotations
 
@@ -19,18 +8,18 @@ from app.models.runtime.secure_work import WorkItem
 from app.services.workflow_runs import epic_chain
 from app.services.workflow_runs.platform import scm
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_epic_chain import _epic, _finished, _recording_start
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 async def _value(value):
     return value
 
 
-# --- the epic chain ------------------------------------------------------------------------------------------------
-
 @pytest.mark.asyncio
 async def test_the_chain_skips_only_stories_with_an_active_or_done_run(db):
-    """An aborted story does not count as started: the chain neither moves past it nor finishes the epic without it."""
     admin, project, epic, s1, s2 = await _epic(db)
     aborted = _finished(admin, project, s1, "team-delivery", outcome=None)
     aborted.status = "stopped"
@@ -51,11 +40,9 @@ async def test_the_chain_skips_only_stories_with_an_active_or_done_run(db):
 
 @pytest.mark.asyncio
 async def test_a_person_restarting_a_story_gets_the_chain_by_itself(db):
-    """A restarted story gets ``base_branch`` and ``epic_chain`` by itself instead of branching from main. S2
-    builds on S1's done run; S1 on the spec run; a chain start keeps its own."""
     admin, project, epic, s1, s2 = await _epic(db)
     spec = _finished(admin, project, epic, "spec-writing", branch="docs/OCX-90-spec")
-    spec.context = {"stories": ["OCX-92", "OCX-91"], "story_workflow": "team-delivery"}  # S2 is built first
+    spec.context = {"stories": ["OCX-92", "OCX-91"], "story_workflow": "team-delivery"}
     db.add(spec)
     await db.flush()
 
@@ -79,7 +66,6 @@ async def test_a_person_restarting_a_story_gets_the_chain_by_itself(db):
 
 @pytest.mark.asyncio
 async def test_start_run_derives_the_chain_for_a_persons_story_start(db, monkeypatch):
-    """The wiring of the restart: ``start_run`` without a parent hands the derived chain to the phased start."""
     from types import SimpleNamespace
 
     from app.services.workflow_runs import engine, records
@@ -116,7 +102,6 @@ async def test_start_run_derives_the_chain_for_a_persons_story_start(db, monkeyp
 
 @pytest.mark.asyncio
 async def test_a_failed_chain_start_keeps_the_build_order(db, monkeypatch):
-    """A failed start keeps ``stories`` in ``epic_chain``, so the retry does not fall back to creation order."""
     admin, project, epic, s1, s2 = await _epic(db)
     started = []
     monkeypatch.setattr("app.services.workflow_runs.records.start_run", _recording_start(project, admin, started))
@@ -129,11 +114,8 @@ async def test_a_failed_chain_start_keeps_the_build_order(db, monkeypatch):
     assert story1.context["epic_chain"]["state"] == "failed"
 
 
-# --- stacked pull requests -----------------------------------------------------------------------------------------
-
 @pytest.mark.asyncio
 async def test_a_chained_storys_pull_request_stacks_on_the_one_before(db, monkeypatch):
-    """A story PR targets its base, not main, so it does not show the spec and every earlier story."""
     from tests.linked_accounts_support import _cloud_run, _scripted
 
     admin = await admin_user(db)
@@ -155,14 +137,11 @@ async def test_a_chained_storys_pull_request_stacks_on_the_one_before(db, monkey
                                     "status": "created", "reviewers_unresolved": []})
     assert (await scm.open_pr(db, alone, {})).ok
     pr = dict(next(arguments for tool, arguments in calls if tool == "create_bitbucket_pull_request"))
-    assert "to_branch" not in pr and "Stacks on" not in pr["description"]  # no chain: the default branch
+    assert "to_branch" not in pr and "Stacks on" not in pr["description"]
 
-
-# --- create_stories against the Jira sync --------------------------------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_a_story_the_sync_inserted_meanwhile_is_taken_instead_of_failing(db):
-    """The sync inserting a story between ``create_jira_ticket`` and the insert raises no IntegrityError."""
     from app.services.workflow_runs.teamwork.stories import _insert_or_synced
 
     _admin, project, epic, _s1, _s2 = await _epic(db)

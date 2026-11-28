@@ -1,23 +1,11 @@
-// Arguments of the admin bootstrap and user account actions.
+// Arguments of the admin user account actions.
 import type { Dispatch, SetStateAction } from "react";
-import type { AdminProvider, AdminUser, LocalBootstrapStatus, SetupGuideStatus } from "../types/adminPanelTypes.usersProviders";
-import type { AdminRuntime, AdminRuntimeSettings } from "../types/adminPanelTypes.runtimeCorp";
+import type { AdminUser } from "../types/adminPanelTypes.usersProviders";
 
 export type ReadJsonFn = <T>(input: RequestInfo, init?: RequestInit) => Promise<T>;
 
 export type UseAdminBootstrapUserApprovalArgs = {
   readJson: ReadJsonFn;
-  setLocalBootstrap: Dispatch<SetStateAction<LocalBootstrapStatus | null>>;
-  setLocalBootstrapEndpointDraft: Dispatch<SetStateAction<string>>;
-  setLocalBootstrapModelDraft: Dispatch<SetStateAction<string>>;
-  setLocalBootstrapDisplayDraft: Dispatch<SetStateAction<string>>;
-  setSetupGuide: Dispatch<SetStateAction<SetupGuideStatus | null>>;
-  setLocalBootstrapLoading: Dispatch<SetStateAction<boolean>>;
-  setLocalBootstrapError: Dispatch<SetStateAction<string | null>>;
-  setProviders: Dispatch<SetStateAction<AdminProvider[]>>;
-  setRuntimes: Dispatch<SetStateAction<AdminRuntime[]>>;
-  setRuntimeSettings: Dispatch<SetStateAction<AdminRuntimeSettings>>;
-  setRuntimeDefaultModelDraft: Dispatch<SetStateAction<string>>;
   setTabError: Dispatch<SetStateAction<string | null>>;
   loadTab: (tab: string) => Promise<void>;
   setUsers: Dispatch<SetStateAction<AdminUser[]>>;

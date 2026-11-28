@@ -1,24 +1,4 @@
-"""What a user confirmation decides on: its typed payload, rebuilt from recorded artefacts.
-
-Every payload comes from data the server recorded, never from the chat:
-
-- ``test_contract``: the change plan the run drafted from its phase's submitted test contract (``platform/work_plan``)
-  — exactly that plan (id, version, ``plan_hash``), its criteria with their tests (each with its role, ``test_roles``;
-  a role the recorded test runs contradict blocks the confirm) and commands, the manual-only criteria the confirmer
-  takes over by confirming, and what still blocks it. A run on a version without the drafting step (before the
-  data-flow law) shows the item's newest open plan, and says plainly when the version itself cannot produce one;
-- ``reproduction``: the tests the phase submitted as the reproduction and the symptom, next to the tests the
-  server saw failing in the newest test run — every submitted test must be failing;
-- ``questions``: the Definition of Ready's open points;
-- ``advance``: the run's ticket, branch, pull request and newest gate;
-- publish & prove (``documentation/acceptance``): ``functional_acceptance`` (statement (a)), ``publication`` (statement
-  (b), the exact body with the reserved marker), ``followup`` (the exact follow-up issue), ``exception``; a
-  ``test_contract`` card with ``documentation_contract: true`` also shows the documentation contract;
-- any subject with ``shows: <kind>``: that recorded artefact (a phase output, or the reviewer's verdict).
-
-``missing`` names what keeps a payload from being confirmable at runtime; a design gap (nothing in the definition
-can produce it) is refused when the definition is published (``data_flow``).
-"""
+"""What a user confirmation decides on: its typed payload, rebuilt from recorded artefacts."""
 
 from __future__ import annotations
 
@@ -48,14 +28,12 @@ def _last_answer(run: WorkflowRun, phase_id: str) -> str:
 
 
 def capped(text: str, limit: int) -> str:
-    """``text`` up to ``limit`` characters; a cut says so visibly, with how much was left out."""
     if len(text) <= limit:
         return text
     return f"{text[:limit]}\n\n(truncated, {len(text) - limit:,} more characters)"
 
 
 def plan_hash(plan: Any) -> str:
-    """The hash of what a change plan commits to: its criteria, validation plan and open questions."""
     return output_hash({"id": plan.id, "version": plan.version,
                         "acceptance_criteria": list(plan.acceptance_criteria_json or []),
                         "validation_plan": list(plan.validation_plan_json or []),
@@ -111,7 +89,6 @@ async def _test_contract(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -
 
 
 def _failing_tests(run: WorkflowRun) -> list[dict[str, str]]:
-    """The tests the newest run saw failing on an assertion: what a reproduction confirmation shows."""
     runs = recorded_runs(run)
     results = dict(runs[-1].get("results") or {}) if runs else {}
     return [{"id": test_id, "message": str(value.get("message") or "")}
@@ -133,7 +110,7 @@ async def _reproduction(db: AsyncSession, run: WorkflowRun, node: PhasedNode) ->
             payload["missing"] = ("The submitted reproduction tests do not fail in the last test run: "
                                   f"{', '.join(not_failing[:10])}.")
     elif await _missing_producer(db, run, node):
-        payload["text"] = _last_answer(run, str(node.config.get("payload_from") or ""))  # a version before outputs
+        payload["text"] = _last_answer(run, str(node.config.get("payload_from") or ""))
     else:
         payload["missing"] = "No reproduction was submitted yet."
     if not failing:
@@ -142,7 +119,6 @@ async def _reproduction(db: AsyncSession, run: WorkflowRun, node: PhasedNode) ->
 
 
 def _shown(run: WorkflowRun, kind: str) -> dict[str, Any] | None:
-    """A recorded artefact a confirmation shows: a phase output, or the reviewer's verdict."""
     if kind == "review_verdict":
         review = dict(dict(run.context or {}).get("review") or {})
         return {key: review.get(key) for key in ("verdict", "summary", "findings", "assumptions", "at")
@@ -159,7 +135,6 @@ def _latest_gate_state(run: WorkflowRun) -> dict[str, Any]:
 
 
 async def documentation_contract(db: AsyncSession, run: WorkflowRun) -> dict[str, Any]:
-    """What the run will publish, to whom and when — shown on the test-contract card, in its hash."""
     from ..project.service import get_project_config
     from .documentation.page import documentation_settings
     from .documentation.preflight import audience_settings
@@ -191,7 +166,7 @@ async def _subject_payload(db: AsyncSession, run: WorkflowRun, node: PhasedNode)
     subject = str(node.config.get("subject") or "")
     if subject == "test_contract":
         payload = {"subject": subject, **await _test_contract(db, run, node)}
-        if node.config.get("documentation_contract") is True:  # newer versions only: v7's payload and hash unchanged
+        if node.config.get("documentation_contract") is True:
             payload["documentation_contract"] = await documentation_contract(db, run)
         return payload
     if subject in ("functional_acceptance", "publication", "followup", "exception"):
@@ -211,7 +186,6 @@ async def _subject_payload(db: AsyncSession, run: WorkflowRun, node: PhasedNode)
 
 async def confirmation_payload(db: AsyncSession, run: WorkflowRun, node: PhasedNode, *, principal=None,
                                purpose="preview") -> dict[str, Any]:
-    """What a confirmation decides on; a run a test alert started says so in it (and in its hash)."""
     payload = await _subject_payload(db, run, node)
     shows = str(node.config.get("shows") or "").strip()
     from .specification.integration import KINDS, shown_payload
@@ -237,8 +211,6 @@ _TEST_FILE = re.compile(r"(^|/)(test_[^/\s]+|[^/\s]+_test|[^/\s]+Test[s]?|[^/\s]
 
 
 def contract_test_ids(payload: dict[str, Any]) -> list[str]:
-    """The test ids a confirmed test contract names: a criterion's ``tests``, else the test node ids and test
-    files in its validation commands (never guessed from prose)."""
     ids: list[str] = []
     for criterion in payload.get("acceptance_criteria") or []:
         if not isinstance(criterion, dict):
@@ -254,7 +226,6 @@ def contract_test_ids(payload: dict[str, Any]) -> list[str]:
 
 
 def contract_test_roles(payload: dict[str, Any]) -> dict[str, str]:
-    """Each confirmed contract test's role (``test_roles``): what the payload showed, a test without one new."""
     ids = contract_test_ids(payload)
     shown = {str(key): str(value) for key, value in dict(payload.get("test_roles") or {}).items()}
     planned = contract_roles(payload.get("acceptance_criteria") or [], ids)
@@ -262,16 +233,11 @@ def contract_test_roles(payload: dict[str, Any]) -> dict[str, str]:
 
 
 def reproduction_roles(tests: list[str]) -> dict[str, str]:
-    """C: every confirmed reproduction test is new (it fails with the symptom); the rest of the suite is regression."""
     return {test_id: ROLE_NEW for test_id in tests}
 
 
 def same_test(ran: str, named: str) -> bool:
-    """A test the run saw and a test the agent named are the same when one id is the other with more of its path.
-
-    An agent may submit the reproduction test from the repository root
-    ("app/flutter/test/...::name") while Flutter, run in the app folder, reports "test/...::name"; an exact
-    match would bind no test and the reproduce gate would find "no new confirmed test"."""
+    # The agent may name a test from the repository root while the runner, run in the app folder, reports it shorter.
     from ..workflow_checks.unittest_blocks import path_form
 
     # unittest's dotted id and pytest's path id name the same test.
@@ -280,8 +246,6 @@ def same_test(ran: str, named: str) -> bool:
 
 
 def reproduction_tests(payload: dict[str, Any]) -> tuple[list[str], str | None]:
-    """The tests a confirmed reproduction binds and their symptom: the submitted tests (each failing), else — a
-    version before phase outputs — every failing test; the symptom is the failure the server saw."""
     failing = [item for item in payload.get("failing_tests") or [] if isinstance(item, dict)]
     submitted = [str(item) for item in payload.get("tests") or []]
     chosen = [item for item in failing if any(same_test(str(item.get("id")), test) for test in submitted)] \

@@ -1,11 +1,4 @@
-"""Give an evaluation Workspace vectors in one embedding space, directly.
-
-The product path owes vectors through ``embed_revision`` obligations, which the background
-projector serves in the Instance's configured space. An evaluation compares several spaces, so it
-must not reopen those obligations (the running projector would embed them in the wrong space).
-It uses the same building blocks instead: admission and the per-space setter. The index keys every
-vector by its space, so this cannot disturb the configured space's vectors.
-"""
+"""Give an evaluation Workspace vectors in one embedding space, directly."""
 
 from __future__ import annotations
 
@@ -23,7 +16,6 @@ from ..runtime import EvidenceRuntime
 
 
 async def embed_workspace(db: AsyncSession, *, runtime: EvidenceRuntime, authorized: AuthorizedWorkspace) -> int:
-    """Embed every span of the Workspace's current revisions in ``runtime``'s space. Returns the count."""
     embedding = runtime.embedding
     if embedding is None:
         raise ValueError("the evaluation runtime has no embedding space")

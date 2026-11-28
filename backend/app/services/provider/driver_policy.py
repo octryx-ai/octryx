@@ -1,10 +1,4 @@
-"""Admin provider write boundary: a provider row names one supported driver id.
-
-The runtime constructs a client from the exact driver id only
-(`agent/providers/provider_registry.py` DRIVER_SPECS), so a create or update that names
-anything else is refused before a row, secret or audit record exists. The refusal never
-echoes the submitted value.
-"""
+"""Admin provider write boundary: a provider row names one supported driver id."""
 
 from __future__ import annotations
 

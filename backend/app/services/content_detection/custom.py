@@ -1,25 +1,4 @@
-"""Custom detectors and categories of a policy-set version.
-
-A Workspace (or the whole instance) defines its own identifiers as custom detectors. They change what a
-policy means, so they live in the policy-set version beside the Cedar text: the set digest covers them, and the
-draft → review → four-eyes publish lifecycle, the saved test cases and rollback cover them too.
-
-A definition (:func:`check_detector_set` validates; every rule refuses with an issue, never silently drops):
-
-- ``id`` ``custom.<slug>`` (unique), ``label``, ``category`` (built-in or a custom category of the same set);
-- ``pattern``: RE2 only, checked like a structured-profile pattern (``knowledge/structured/profile_patterns``:
-  at most 300 characters, no ambiguous nested repeat, compiles on RE2) and it may not match the empty text;
-- ``check``: ``none`` | ``mod10`` | ``mod97`` (the match must pass it);
-- ``context_words``: optional; when given, a match counts only with one of them within
-  :data:`CONTEXT_WINDOW` characters before or after it (case-insensitive);
-- ``mask_style``: ``type_token`` | ``last4`` | ``full``;
-- ``workspace_id``: the Workspace it applies to, or empty for every Workspace. Outside its scope it never runs.
-
-Confidence: high with a check or context words, medium for the pattern alone. Custom categories
-(``categories``: ``id``, ``label``) extend the built-in ones for the set's detectors and the alias field
-"approved for sensitive data". Sample texts are never part of a definition: the preview takes them per
-request and keeps nothing.
-"""
+"""Custom detectors and categories of a policy-set version."""
 
 from __future__ import annotations
 
@@ -47,8 +26,6 @@ _OPTIONS = _options()
 
 @dataclass(frozen=True, slots=True)
 class CompiledCustomDetector:
-    """A custom detector ready to scan (``scanner.CustomMatcher``)."""
-
     definition: CustomDetectorDefinition
     regexp: Any = field(repr=False)
 
@@ -88,7 +65,6 @@ class CompiledCustomDetector:
 
 
 def compile_detector(definition: CustomDetectorDefinition) -> CompiledCustomDetector:
-    """The RE2 program of a validated definition (``check_detector_set`` ran first)."""
     return CompiledCustomDetector(definition, re2.compile(to_re2(definition.pattern), _OPTIONS))
 
 

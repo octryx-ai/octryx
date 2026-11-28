@@ -1,16 +1,5 @@
-"""A device job session is set up like a terminal session.
-
-Without this, a device run stops at Tests first: every Write is ``repository_root_unknown`` because only the
-interactive launcher reports its repository, and the device turn starts unbound to its run. Here a device job
-session goes through the real HTTP endpoints with a real device grant:
-
-- ``sessions/register`` with the job's run header binds the session to the run at registration (no
-  ``workflow_select``), under the attach rule; a run the user may not act on, or an unknown one, refuses it;
-- ``sessions/repository`` binds the job folder's repository only when its remote is the run's repository on the
-  Workspace's connection and its root lies inside the device's allowed folders;
-- then B's Tests first (tests written, run, red) and Implement (the code changed, the confirmed test protected, the
-  suite green) pass on that session.
-"""
+"""A device job session is set up like a terminal session: bound to its run at registration and to its repository,
+so B's Tests first and Implement pass on it."""
 
 from __future__ import annotations
 
@@ -21,8 +10,9 @@ from datetime import timedelta
 from pathlib import Path
 
 import pytest
+from sqlalchemy import select
 
-from app.models import ToolCall, WorkflowRun
+from app.models import ToolCall, WorkflowRun, WorkflowRunEvent
 from app.services.agent_gateway.policy import load_workspace_policy
 from app.services.agent_gateway.tool_decision import decide_tool_check
 from app.services.workflow_runs.gateway_tests import record_gateway_tests
@@ -43,6 +33,7 @@ from tests.device_job_session_parity_support import (  # noqa: F401
     _server_pipeline,
 )
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_acceptance_support import systems  # noqa: F401 - the stubbed Jira and GitHub fixture
 
 FIXED = "def round_total(value: float) -> int:\n    return int(value + 0.5)\n"
@@ -56,13 +47,13 @@ def _pytest_output(working_copy: Path) -> str:
 
 @pytest.mark.asyncio
 async def test_a_device_job_session_is_bound_at_registration_and_runs_bs_tests_first_and_implement(
-        client, auth_headers, db, systems):  # noqa: F811 - the imported fixture
+        client, auth_headers, db, systems, scripted_pool):  # noqa: F811 - the imported fixture
     project, run_id, working_copy = await _b_at_tests_first(client, auth_headers, db, systems)
+    [pool_turn] = [job for job in scripted_pool if job.status == "offered"]  # the runners' Tests first turn
     admin = await admin_user(db)
     token = await _device(db, admin, [str(working_copy.parent)])
     headers = _headers(token, project.id, run_id)
 
-    # Registration binds the session to the job's run and answers with its contract (no workflow_select).
     registered = await _register(client, headers)
     assert registered["status"] == 200, registered
     assert registered["workflow_run_attach"] == {"state": "attached"}
@@ -70,8 +61,17 @@ async def test_a_device_job_session_is_bound_at_registration_and_runs_bs_tests_f
     assert registered["workflow_run"]["phase"]["node_id"] == "tests_first"
     gateway = await _gateway(db, headers)
     assert (await active_run_for_session(db, gateway.id)).id == run_id
+    # The person's terminal took the run over from the runners: an explicit, recorded change; their turn ends.
+    run = await db.get(WorkflowRun, run_id)
+    await db.refresh(run)
+    assert run.context["runtime_target"]["kind"] == "terminal" and "device_continuation" not in run.context
+    [changed] = (await db.execute(select(WorkflowRunEvent).where(
+        WorkflowRunEvent.run_id == run_id, WorkflowRunEvent.kind == "runtime_target_changed"))).scalars().all()
+    assert changed.detail["cause"] == "terminal_attached" and changed.detail["from"]["pool"] is True
+    await db.refresh(pool_turn)
+    assert (pool_turn.status, pool_turn.status_reason) == ("idle", "stopped_by_owner")
+    offered = len(scripted_pool)
 
-    # The job folder's repository: the run's repository on the Workspace's connection, inside the allowed folders.
     bound = await client.post(f"{GATEWAY}/repository", headers=headers, json=_binding(str(working_copy)))
     assert bound.status_code == 200 and bound.json()["state"] == "bound", bound.text
     await db.refresh(gateway)
@@ -81,7 +81,6 @@ async def test_a_device_job_session_is_bound_at_registration_and_runs_bs_tests_f
     policy = (await load_workspace_policy(db, project.id)).policy
 
     async def facts(**extra) -> dict:
-        """What the launcher reports for the pass its contract names (``run_contract.facts``)."""
         current = await db.get(WorkflowRun, run_id)
         reported = {"node_id": current.current_node_id, "entry": current.node_state.get("entry"), **extra}
         if (working_copy / CONFIRMED).exists():
@@ -105,7 +104,6 @@ async def test_a_device_job_session_is_bound_at_registration_and_runs_bs_tests_f
         await db.commit()
         return answer
 
-    # Tests first: the test file is written (no repository_root_unknown), the tests run and fail on the assertion.
     test_path = str(working_copy / CONFIRMED)
     written = await pre_tool_use("Write", exists=False, file_path=test_path, content=TOTALS_TEST)
     assert written["decision"] == "allow", written
@@ -126,7 +124,6 @@ async def test_a_device_job_session_is_bound_at_registration_and_runs_bs_tests_f
     assert run.gate_results["red"]["state"] == "passed", run.gate_results["red"]["results"][0].get("detail")
     assert run.current_node_id == "implement"
 
-    # Implement: the code changes, the confirmed test is protected, the suite goes green.
     edited = await pre_tool_use("Edit", file_path=str(working_copy / "pay" / "totals.py"), old_string="int(value)",
                                 new_string="int(value + 0.5)")
     assert edited["decision"] == "allow", edited
@@ -144,3 +141,4 @@ async def test_a_device_job_session_is_bound_at_registration_and_runs_bs_tests_f
     assert run.gate_results["green"]["state"] == "passed", [
         (item["type"], item["outcome"], item.get("detail")) for item in run.gate_results["green"]["results"]]
     assert run.current_node_id != "implement"
+    assert len(scripted_pool) == offered, "no phase of the taken-over run is offered to the runners"

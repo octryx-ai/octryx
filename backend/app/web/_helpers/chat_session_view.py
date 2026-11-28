@@ -1,13 +1,5 @@
-"""The selected-session view: what the chat needs to switch to one thread, without the workspace bootstrap.
-
-A chat switch does not reload the whole bootstrap (sidebar pages, archived threads, agent
-catalogs, launch surface). This view loads only the requested thread's own tree (its root and the
-root's descendants, which the thread stats sum over) and returns the bootstrap's selected-session keys
-built by the same helper (``build_selected_view_fields``), so both payloads agree field by field.
-
-``selectedSession.threadNumber`` is a sidebar ordinal (position across all loaded groups); the view
-never loads the sidebar, so it reports 0, as the running-turn acknowledgement does.
-"""
+"""The selected-session view: what the chat needs to switch to one thread, without the workspace bootstrap. Its keys
+come from the bootstrap's own builder, so both payloads agree field by field."""
 
 from __future__ import annotations
 
@@ -30,7 +22,7 @@ __all__ = ["build_chat_session_view"]
 
 
 async def _load_selected_thread_tree(db: AsyncSession, *, user: User, selected_session: AgentSession) -> list[AgentSession]:
-    """The selected thread's root and every descendant of the root, owner-scoped, newest activity first."""
+    # Owner-scoped.
     root = await _resolve_root_session(db, selected_session)
     root_id = root.id if root is not None else selected_session.id
     descendants = await load_descendant_sessions(db, user=user, top_level_session_ids={root_id})
@@ -51,7 +43,7 @@ async def build_chat_session_view(
     session_id: str,
     chat_message_page_size: int | None = None,
 ) -> dict[str, Any]:
-    """The bootstrap's selected-session keys for ``session_id``; a missing or foreign id is reported, not swapped."""
+    # A missing or foreign id is reported, not swapped.
     if chat_message_page_size is None:
         from .chat_state import CHAT_MESSAGE_PAGE_SIZE
 

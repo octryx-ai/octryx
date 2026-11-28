@@ -1,7 +1,4 @@
-"""Lifecycle controls for Engineering Knowledge Graph facts.
-
-State helpers and reference matching live in sibling modules; this module keeps the lifecycle operations.
-"""
+"""Lifecycle controls for Engineering Knowledge Graph facts."""
 
 from __future__ import annotations
 
@@ -25,6 +22,7 @@ from .lifecycle_state import (
     _add_lifecycle_audit,
     _bounded_limit,
     _transition_node,
+    nodes_by_workspace,
 )
 
 __all__ = [
@@ -73,13 +71,16 @@ async def expire_engineering_knowledge(
             extra={"valid_until": node.valid_until.isoformat() if node.valid_until else None},
         )
         affected.append(node.id)
-    _add_lifecycle_audit(
-        db,
-        actor_id=actor_id,
-        action="engineering_knowledge.lifecycle.expired",
-        resource_id="bulk",
-        details={"matched_count": len(affected), "affected_node_ids": affected, "reason": reason},
-    )
+    # One record per Workspace: a private Workspace's nodes are named only in a record of that Workspace.
+    for workspace_id, node_ids in (await nodes_by_workspace(db, list(rows)) or {None: []}).items():
+        _add_lifecycle_audit(
+            db,
+            actor_id=actor_id,
+            action="engineering_knowledge.lifecycle.expired",
+            resource_id="bulk",
+            project_id=workspace_id,
+            details={"matched_count": len(node_ids), "affected_node_ids": node_ids, "reason": reason},
+        )
     await db.flush()
     return EngineeringKnowledgeLifecycleResult("expire", len(affected), tuple(affected), reason)
 
@@ -108,6 +109,7 @@ async def retract_engineering_knowledge_node(
         actor_id=actor_id,
         action="engineering_knowledge.lifecycle.retracted",
         resource_id=node.id,
+        project_id=next(iter(await nodes_by_workspace(db, [node]))),
         details={"reason": reason, "source": source, "event_ref": event_ref},
     )
     await db.flush()
@@ -136,6 +138,7 @@ async def supersede_engineering_knowledge_node(
         actor_id=actor_id,
         action="engineering_knowledge.lifecycle.superseded",
         resource_id=node.id,
+        project_id=next(iter(await nodes_by_workspace(db, [node]))),
         details={"reason": reason, "superseded_by_node_id": superseded_by_node_id},
     )
     await db.flush()
@@ -238,15 +241,16 @@ async def invalidate_engineering_knowledge_by_refs(
             extra=extra,
         )
         affected.append(node.id)
-    if affected:
+    for workspace_id, node_ids in (await nodes_by_workspace(db, list(rows))).items():
         _add_lifecycle_audit(
             db,
             actor_id=actor_id,
             action=f"engineering_knowledge.lifecycle.{status}",
             resource_id=event_ref or "bulk",
+            project_id=workspace_id,
             details={
-                "matched_count": len(affected),
-                "affected_node_ids": affected,
+                "matched_count": len(node_ids),
+                "affected_node_ids": node_ids,
                 "reason": reason,
                 "source": source,
                 "refs": safe_refs,

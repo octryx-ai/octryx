@@ -1,21 +1,5 @@
-"""Governed ``web_search`` and ``web_fetch`` on the Knowledge MCP.
-
-``web_search`` is the chat's ``WebSearchTool``: it calls ``services/web_search/service.
-governed_search``, which owns the provider, the data-policy admission, the platform blocklist, the
-trusted-source registry and the anomaly quarantine. The Workspace's search mode (``open`` or
-``trusted_only``) and its provider key are read from the Workspace row by the service itself, as in
-the chat; the MCP path supplies nothing else. The data classification is resolved from the Workspace
-and the grant's MCP auto session.
-
-``web_fetch`` is the chat's ``WebFetchTool`` (pinned public-web egress, redirect-bounded, no
-environment proxy). The chat tool itself checks the requested URL against the same source registry
-the search results pass, with one shared check (``web_search/fetch_policy.web_fetch_refusal``): a
-blocked source (platform blocklist or a ``blocked`` entry) is ``denied`` / ``source_blocked``, and a
-``trusted_only`` Workspace fetches only from a trusted source (``denied`` / ``source_not_trusted``).
-A redirect target is checked by the egress policy, not by the registry.
-
-Both tools first authorize the connection Workspace for the user (``not_found`` otherwise).
-"""
+"""Governed ``web_search`` and ``web_fetch`` on the Knowledge MCP. The chat's tools, with the same data-policy admission
+and source registry."""
 
 from __future__ import annotations
 
@@ -30,8 +14,6 @@ from .mcp_extra_scope import WorkspaceBoundTool
 
 
 class McpWebFetchTool:
-    """The chat's ``web_fetch`` behind the Workspace's source registry."""
-
     name = "web_fetch"
 
     def __init__(self) -> None:

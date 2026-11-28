@@ -1,17 +1,4 @@
-"""What a non-admin sees of the Workspace-bound config families.
-
-Lists show the rows of the caller's Workspaces and the global rows (``project_id`` null), so an organisation's
-global Jenkins or baseline is usable in a CI/CD action request. A global row is ``read_only`` for a non-admin
-(its PUT, DELETE and id actions stay admin-only, ``api/routes/_secure_work_scope.py``).
-
-For non-admins every secret-bearing field is masked at any depth: a key naming a credential, secret, token,
-password, private value, HMAC, ``auth`` or a ``key`` (``api_key``, ``signing_key``; not identifiers such as
-``project_key``). Lists keep their shape (each element becomes ``***``). URL userinfo in ``base_url`` and
-``repository_url`` reads as ``***@``, and a write carrying userinfo is refused.
-
-A family update first restores every value the caller left in its masked form (``unmasked``), so saving a listed
-row never overwrites a stored secret with ``***``.
-"""
+"""What a non-admin sees of the Workspace-bound config families."""
 
 from __future__ import annotations
 
@@ -22,6 +9,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import HTTPException
 
+from ..project.private_workspace import outside_foreign_private
 from ..tool_config.url_userinfo import carries_userinfo
 
 MASK = "***"
@@ -68,7 +56,6 @@ def _mask_userinfo(value: str) -> str:
 
 
 def mask_field(key: object, value: Any) -> Any:
-    """``value`` of field ``key`` as a non-admin reads it."""
     if is_secret_field(key):
         return _mask_secret(value)
     if key in URL_FIELDS and isinstance(value, str):
@@ -99,24 +86,23 @@ def _restore(key: object, sent: Any, stored: Any) -> Any:
 
 
 def unmasked(payload: dict[str, Any], stored: dict[str, Any]) -> dict[str, Any]:
-    """``payload`` with every value left in its masked form replaced by the ``stored`` (serialized) one."""
     return {key: _restore(key, value, stored[key]) if key in stored else value for key, value in payload.items()}
 
 
 def refuse_userinfo(value: Any, field: str) -> Any:
-    """``value``, unless it carries URL userinfo (credentials belong in ``credential_ref``): then 422."""
+    # Credentials belong in ``credential_ref``, never in URL userinfo.
     if carries_userinfo(value):
         raise HTTPException(status_code=422, detail=f"{field} must not carry credentials (user:password@)")
     return value
 
 
-def scope_filter(model: Any, project_scope: set[str]) -> Any:
-    """Rows of ``model`` in ``project_scope`` or global (``project_id`` null)."""
+def scope_filter(model: Any, project_scope: set[str] | None, viewer_id: str) -> Any:
+    if project_scope is None:
+        return outside_foreign_private(model.project_id, viewer_id)
     return model.project_id.in_(project_scope) | model.project_id.is_(None)
 
 
 def visible_rows(items: Iterable[dict[str, Any]], project_scope: set[str] | None) -> list[dict[str, Any]]:
-    """``items`` as a caller with ``project_scope`` sees them (``None``: a platform admin sees everything)."""
     if project_scope is None:
         return list(items)
     return [{**_masked(item), "read_only": item.get("project_id") is None} for item in items]

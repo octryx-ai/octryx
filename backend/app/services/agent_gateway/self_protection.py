@@ -1,21 +1,5 @@
-"""Code-owned rules that keep a governed session's own tools away from the platform's credentials.
-
-These rules are not Workspace policy: no Workspace can switch them off. Each one denies, before any
-Workspace rule, a tool call that would give the agent the launcher's tokens or a direct line to the
-platform's control endpoints:
-
-- a Bash segment that runs the launcher itself (``octryx-claude`` / ``python -m octryx_claude``):
-  its ``api-key-helper`` and ``mcp-headers`` print tokens, and ``hook`` would forge a hook call;
-- a Bash command that names a platform control path: the agent gateway, the MCP endpoint, the
-  OAuth token and authorization endpoints, or the model gateway. That is how a ``curl`` would mint
-  or redeem a confirmation;
-- any tool that touches the launcher's state directory (``.octryx/claude`` or
-  ``OCTRYX_CLAUDE_HOME``).
-
-The OS sandbox the launcher configures for Bash (denied state directory, denied platform host) is
-the boundary. These rules are a second, structural layer, and every match is recorded as a denial
-like any policy rule. The reason is ``platform_credentials_protected``.
-"""
+"""Code-owned rules that keep a governed session's tools away from the platform's credentials.
+No Workspace can switch them off."""
 
 from __future__ import annotations
 
@@ -64,10 +48,6 @@ def _launcher_segment(segment: tuple[str, ...]) -> bool:
 
 
 def self_protection_decision(hook_input: dict[str, Any], *, state_root: str | None = None) -> ToolDecision | None:
-    """The denial of a tool call that reaches for the platform's credentials; ``None`` otherwise. Pure.
-
-    ``state_root`` is the launcher's registered state directory (``hook_key.launcher_state_root``).
-    """
     markers = (*PROTECTED_MARKERS, state_root) if state_root else PROTECTED_MARKERS
 
     def _names_protected(text: str) -> bool:

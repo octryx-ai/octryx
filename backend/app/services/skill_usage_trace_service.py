@@ -55,10 +55,7 @@ async def record_skill_get_usage(
     context: Any,
     version: SkillVersion | None = None,
 ) -> None:
-    """One ``get`` event; a refused request is ``policy_denied`` and names no skill (no metadata leak).
-
-    ``diagnostics`` (an admin/operator loading a skill that is not delivered) is recorded as a get with that status.
-    """
+    # A refused request names no skill (no metadata leak).
     successful = skill is not None and version is not None and policy_status in {"success", "diagnostics"}
     db.add(
         SkillUsageEvent(

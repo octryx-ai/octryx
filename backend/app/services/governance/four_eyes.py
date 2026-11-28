@@ -1,19 +1,4 @@
-"""The one four-eyes decision every governance-gated publish goes through.
-
-An approval counts when someone other than the requester (and, where a flow names them, the
-authors of the change) approved it. Whether the author may approve their own change is a
-platform decision, made in one place:
-
-* the platform **approval rule** (``services.governance.approval_rule``, Settings → Governance →
-  "Approval rule"): ``four_eyes`` (the default) or ``single_admin``, for installations with one
-  admin. Under ``single_admin`` the author approves and publishes in one step;
-* the development exception: ``OCTRYX_FOUR_EYES_DEV_SELF_APPROVAL`` on an environment that positively
-  excludes production (``app.four_eyes_dev_policy``), re-checked on every decision.
-
-Every gate calls :func:`decide_four_eyes`; no flow keeps its own "approver must differ" rule. A
-self-approval carries ``approval_mode == "self"`` and is audited in the publish transaction
-(:func:`record_self_approval_audit`).
-"""
+"""The one four-eyes decision every governance-gated publish goes through."""
 
 from __future__ import annotations
 
@@ -75,7 +60,6 @@ class FourEyesDecision:
 
 
 def dev_self_approval_permitted(settings: Settings | None = None) -> bool:
-    """True only when a development flag is set and production is positively excluded."""
     resolved = settings if settings is not None else get_settings()
     if getattr(resolved, "four_eyes_dev_self_approval", False) is not True:
         return False
@@ -86,7 +70,6 @@ def dev_self_approval_permitted(settings: Settings | None = None) -> bool:
 
 
 async def self_approval_source(db: AsyncSession, settings: Settings | None = None) -> str | None:
-    """Why an author may approve their own change right now, or ``None`` (four-eyes applies)."""
     if await load_approval_rule(db) == APPROVAL_RULE_SINGLE_ADMIN:
         return SELF_APPROVAL_SOURCE_RULE
     if dev_self_approval_permitted(settings):
@@ -107,8 +90,6 @@ def evaluate_four_eyes(
     self_approval: str | None = None,
     settings: Settings | None = None,
 ) -> FourEyesDecision:
-    """The pure decision. ``self_approval`` is the source :func:`self_approval_source` returned;
-    without it only the development exception (from ``settings``) can allow a self-approval."""
     requester = _normalized_user_id(requested_by)
     approver = _normalized_user_id(approved_by)
     if approver is None:
@@ -124,7 +105,6 @@ def evaluate_four_eyes(
 
 
 def recorded_approval_mode(approval: Approval | None, *, authors: Iterable[str | None] = ()) -> str | None:
-    """``self`` or ``four_eyes`` for a decided ``approved`` review, for histories; ``None`` otherwise."""
     if approval is None or approval.status != "approved" or not approval.approved_by:
         return None
     own = {_normalized_user_id(approval.requested_by), *(_normalized_user_id(item) for item in authors)} - {None}
@@ -138,18 +118,12 @@ async def decide_four_eyes(
     *,
     authors: Iterable[str | None] = (),
 ) -> FourEyesDecision:
-    """The decision every publish gate uses: the pure rule plus the platform approval rule."""
     return evaluate_four_eyes(
         requested_by, approved_by, authors=authors, self_approval=await self_approval_source(db)
     )
 
 
 async def self_approve_pending(db: AsyncSession, approval: Approval, *, actor_id: str) -> Approval:
-    """The single-step publish: the requester approves their own pending review.
-
-    Allowed only when the approval rule (or the development exception) permits self-approval and
-    the actor is the requester. Decided with the same compare-and-set as the approvals API.
-    """
     from ..approval.resolution_service import decide_pending_approval
 
     if await self_approval_source(db) is None or str(approval.requested_by or "") != str(actor_id):
@@ -163,7 +137,6 @@ async def self_approve_pending(db: AsyncSession, approval: Approval, *, actor_id
 
 
 async def self_approve_review(db: AsyncSession, approval_id: str | None, *, actor_id: str) -> str:
-    """:func:`self_approve_pending` for the review a revision recorded at submit; returns its id."""
     approval = await db.get(Approval, approval_id) if approval_id else None
     if approval is None:
         raise SelfApprovalRefusedError(REFUSAL_REVIEW_MISSING)
@@ -178,12 +151,8 @@ def record_self_approval_audit(
     resource_type: str,
     resource_id: str,
     approval_id: str,
+    project_id: str | None,
 ) -> None:
-    """Add the audit row for a self-approval to the caller's transaction (no-op otherwise).
-
-    Ids and closed values only. It is written in the same transaction as the publish it
-    justifies, so a self-approved publish cannot commit without its evidence.
-    """
     if not decision.self_approved or decision.approved_by is None:
         return
     db.add(
@@ -192,6 +161,7 @@ def record_self_approval_audit(
             action=DEV_SELF_APPROVAL_AUDIT_ACTION if decision.dev_exception else SELF_APPROVAL_AUDIT_ACTION,
             resource_type=resource_type,
             resource_id=resource_id,
+            project_id=project_id,
             details={
                 "approval_id": approval_id,
                 "requested_by": decision.requested_by,

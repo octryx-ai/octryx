@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from .admin import get_admin_definitions
-from .agents import get_agents_definitions
 from .bitbucket import get_bitbucket_definitions
 from .cicd import get_cicd_definitions
 from .clarification import get_clarification_definitions
-from .client_parity import get_client_run_definitions
 from .confluence import get_confluence_definitions
 from .connectors import get_connectors_definitions
 from .database import get_database_definitions
@@ -39,6 +37,7 @@ from .presentation import get_presentation_definitions
 from .prometheus import get_prometheus_definitions
 from .quality import get_quality_definitions
 from .secure_work import get_client_work_definitions, get_secure_work_definitions
+from .session_platform import get_session_run_definitions
 from .skills import get_skills_definitions
 from .specification_outputs import get_specification_output_definitions
 from .workflow_outputs import get_workflow_output_definitions
@@ -47,7 +46,6 @@ from .write_plan import get_write_plan_definitions
 
 DEFINITION_GETTERS = (
     get_admin_definitions,
-    get_agents_definitions,
     get_clarification_definitions,
     get_write_plan_definitions,
     get_bitbucket_definitions,
@@ -85,7 +83,7 @@ DEFINITION_GETTERS = (
     get_prometheus_definitions,
     get_secure_work_definitions,
     get_client_work_definitions,
-    get_client_run_definitions,
+    get_session_run_definitions,
     get_skills_definitions,
     get_workspace_definitions,
     get_workflow_output_definitions,

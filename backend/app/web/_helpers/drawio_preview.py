@@ -1,12 +1,4 @@
-"""Standalone diagram preview page for diagram artifacts.
-
-The page itself is the built frontend entry ``diagram-preview.html``
-(``frontend/chat/src/chat/diagramPreviewEntry.tsx``), which renders the same
-React ``DiagramViewer`` used inline in chat. The draw.io embed protocol and
-the app.diagrams.net editor deep link therefore live exclusively in the
-frontend (``drawioEditorUrl.ts``); this module only injects the diagram
-payload into the built template.
-"""
+"""Standalone diagram preview page for diagram artifacts: the built frontend entry with the diagram payload."""
 
 from __future__ import annotations
 

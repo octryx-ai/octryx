@@ -42,12 +42,10 @@ def _artifact_for_path(context: ToolContext, resolved: Path) -> dict[str, Any]:
 
 
 async def _engine(operation: Callable[..., dict[str, Any]], *args: Any, **kwargs: Any) -> dict[str, Any]:
-    """Run one Office engine operation (``services/office/engine/api.py``) off the event loop."""
     return await asyncio.to_thread(operation, *args, **kwargs)
 
 
 def _template_path_refusal(context: ToolContext, template_path: str) -> dict[str, Any] | None:
-    """A closed refusal when an explicit ``template_path`` points outside the workspace and the template stores."""
     if not template_path:
         return None
     try:
@@ -103,7 +101,6 @@ async def _resolve_template_for_output(
 
 
 def _resolve_builtin_generic_presentation_template() -> tuple[Path, dict[str, Any]]:
-    """The tracked neutral template; never scan uploads or borrow another profile."""
     from ...services.office.neutral_presentation_template import NEUTRAL_TEMPLATE_PATH
 
     if not NEUTRAL_TEMPLATE_PATH.is_file():
@@ -118,10 +115,6 @@ def _resolve_builtin_generic_presentation_template() -> tuple[Path, dict[str, An
 
 
 async def _resolve_presentation_template_with_fallback(db: Any | None) -> tuple[Path, dict[str, Any], str] | None:
-    """Indexed-slide scripts require an explicitly configured corporate template.
-
-    The neutral template has no indexed example slides; it serves create_presentation only.
-    """
     if db is None:
         return None
     try:

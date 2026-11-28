@@ -28,7 +28,6 @@ DEFAULT_PCM_FORMAT = PcmAudioFormat()
 
 
 def pcm_to_wav(pcm: bytes, audio_format: PcmAudioFormat = DEFAULT_PCM_FORMAT) -> bytes:
-    """Wrap raw PCM in a minimal WAV container."""
     buf = io.BytesIO()
     with wave.open(buf, "wb") as wav_file:
         wav_file.setnchannels(audio_format.channels)
@@ -39,7 +38,6 @@ def pcm_to_wav(pcm: bytes, audio_format: PcmAudioFormat = DEFAULT_PCM_FORMAT) ->
 
 
 def pcm_rms(pcm_chunk: bytes, audio_format: PcmAudioFormat = DEFAULT_PCM_FORMAT) -> float:
-    """Return RMS energy for signed 16-bit little-endian PCM."""
     sample_width = audio_format.sample_width
     if sample_width != 2:
         raise ValueError("pcm_rms currently supports 16-bit PCM only")
@@ -52,8 +50,6 @@ def pcm_rms(pcm_chunk: bytes, audio_format: PcmAudioFormat = DEFAULT_PCM_FORMAT)
 
 @dataclass
 class SpeechBuffer:
-    """Accumulates speech PCM and tracks silence-triggered flush state."""
-
     audio_format: PcmAudioFormat = DEFAULT_PCM_FORMAT
     silence_flush_ms: int = 700
     energy_threshold: int = 200
@@ -73,7 +69,6 @@ class SpeechBuffer:
         return bool(self.pcm)
 
     def add_chunk(self, chunk: bytes) -> bool:
-        """Add a PCM chunk and return True when buffered speech should flush."""
         rms = pcm_rms(chunk, self.audio_format)
         if rms < self.energy_threshold:
             self.silent_bytes += len(chunk)
@@ -85,7 +80,6 @@ class SpeechBuffer:
         return False
 
     def take(self) -> bytes:
-        """Return buffered speech and reset the buffer."""
         assert self.pcm is not None
         pcm = bytes(self.pcm)
         self.pcm.clear()

@@ -1,4 +1,4 @@
-/* Flow builder stylesheet: imports its partials in cascade order. */
+/* The workflow editors' shared stylesheet (phased designer, steps canvas): its partials in cascade order. */
 @import "./flowBuilderLayout.css";
 @import "./flowBuilderPanels.css";
 @import "./flowBuilderHeaderPanels.css";

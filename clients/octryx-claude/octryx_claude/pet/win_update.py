@@ -1,29 +1,4 @@
-"""Self-update of the native Windows pet.
-
-On Windows octryx-claude runs in WSL2 and updates itself there. The pet runs in its own venv on the Windows side
-(``%LOCALAPPDATA%\\Octryx\\octryx-claude\\pet\\venv``, set up by install.ps1), so that update never reaches it;
-the running pet updates itself:
-
-1. **when:** at start and every :data:`CHECK_SECONDS`; never while :data:`AUTO_UPDATE_ENV` is ``0``; a version that
-   failed is not tried again for :data:`FAILED_RETRY_SECONDS`.
-2. **what:** the platform's release (``update_check.served_release``: version, wheel name, sha256), from the URL in
-   ``account.json`` and nowhere else. Same version as the pet: nothing to do.
-3. **how:** the wheel is downloaded and refused unless its sha256 matches the published one; then
-   ``python -m pip install --no-deps --upgrade <wheel>`` in the pet's own venv. ``--no-deps`` keeps Pillow and pystray
-   as they are: their ``.pyd`` files are loaded by the running pet and locked on Windows, and the pet's dependencies
-   do not change with a client release. Afterwards the new code must import and report the new version, else the
-   attempt counts as failed.
-4. **restart:** the tray ends (its lock is released), then the new pet starts windowless (``pythonw``) through the
-   same command as the logon start; the person sees the icon blink once.
-
-Everything is best effort: offline, refused, a wrong digest or a failed install keep the running pet as it is, with
-one log line. Nothing here asks for a token: the release and the package are public on the configured platform.
-
-**Only over https**: the sha256 comes from the same server as the wheel, so it proves an intact
-download, not who made it; the trust anchor is TLS to the platform URL. Over plain http a network attacker could
-hand over both and the pet would install and start them, so :func:`trusted_base_url` refuses anything but
-``https://`` (and ``http://localhost`` / ``127.0.0.1`` for a local test platform).
-"""
+"""Self-update of the native Windows pet."""
 
 from __future__ import annotations
 
@@ -64,7 +39,6 @@ def default_runner(argv: Sequence[str]) -> subprocess.CompletedProcess:
 
 
 def venv_python(executable: str | None = None) -> Path:
-    """The venv's console ``python.exe`` (pip and the check need its output; the pet itself runs on ``pythonw``)."""
     current = Path(executable or sys.executable)
     candidate = current.with_name("python.exe")
     return candidate if candidate.exists() else current
@@ -87,8 +61,8 @@ def _write_state(root: Path, **entries: Any) -> None:
         logger.warning("could not record the update state")
 
 
+# The sha256 comes from the same server as the wheel, so TLS to the platform is the trust anchor.
 def trusted_base_url(base_url: str) -> bool:
-    """``https://…`` only; plain http just for a platform on this machine (tests, a local dev server)."""
     lowered = base_url.strip().lower()
     if lowered.startswith("https://"):
         return True
@@ -99,7 +73,6 @@ def trusted_base_url(base_url: str) -> bool:
 def update_once(account: Any, *, http: httpx.Client, runner: Runner = default_runner, now: float | None = None,
                 installed: str = __version__, python: Path | None = None,
                 env: dict[str, str] | None = None) -> str | None:
-    """Install the platform's release into this venv when it differs; returns the new version, else ``None``."""
     source = os.environ if env is None else env
     if source.get(AUTO_UPDATE_ENV, "").strip().lower() in ("0", "off", "false", "no"):
         return None
@@ -133,6 +106,7 @@ def update_once(account: Any, *, http: httpx.Client, runner: Runner = default_ru
         with tempfile.TemporaryDirectory(prefix="octryx-pet-update-") as folder:
             wheel = Path(folder) / release.filename  # pip needs the wheel's own name
             wheel.write_bytes(response.content)
+            # --no-deps: the running pet holds Pillow's and pystray's .pyd files, which Windows locks.
             installed_run = runner([str(python), "-m", "pip", "install", "--disable-pip-version-check", "--no-input",
                                     "--no-deps", "--upgrade", str(wheel)])
             if installed_run.returncode != 0:
@@ -153,7 +127,6 @@ def update_once(account: Any, *, http: httpx.Client, runner: Runner = default_ru
 
 def watch(account: Any, stop: threading.Event, on_updated: Callable[[str], None], *,
           check: Callable[[], str | None] | None = None, interval: float = CHECK_SECONDS) -> None:
-    """At start and every ``interval``: update, and when it did, hand over to ``on_updated`` and end."""
     def default_check() -> str | None:
         with httpx.Client(follow_redirects=False) as http:
             return update_once(account, http=http)

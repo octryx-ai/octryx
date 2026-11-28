@@ -3,9 +3,7 @@ import { readJson } from "../../utils/adminPanelHelpers";
 import type { SettingsSchema } from "./pluginSettingsModel";
 import type { PluginUiView } from "./pluginUiModel";
 
-// Plugin UI requests: a frame's view, the bridge, the settings, and the approval a bridge
-// call waits for. Desktop uses the admin `readJson`; the phone passes its own `api` (it renews the phone session), so
-// every function takes the fetcher.
+// Every function takes the fetcher: the phone passes its own, which renews the phone session.
 
 export type Fetcher = <T>(path: string, init?: RequestInit) => Promise<T>;
 
@@ -26,20 +24,10 @@ export const loadPluginSettings = (installId: string) => readJson<PluginSettings
 export const savePluginSettings = (installId: string, values: Record<string, unknown>) =>
   readJson<PluginSettings>(`${BASE}/${id(installId)}/settings`, { method: "PUT", body: JSON.stringify({ values }) });
 
-// ---- the approval of a bridge call (the chat's approval API) -----------------------------------------------------
-
-/**
- * Approve or reject through the chat's own approval route (POST /chat/api/approvals/{id}/approve|reject): the one
- * route the web and the phone both decide a session approval with; it checks who may decide.
- */
+// The one route the web and the phone both decide an approval with; it checks who may decide.
 export const decideApproval = (fetcher: Fetcher, approvalId: string, decision: "approve" | "reject") =>
   fetcher<unknown>(`/chat/api/approvals/${id(approvalId)}/${decision}`, { method: "POST" });
 
-/**
- * The approval with its change preview, as the chat shows it: the approval's session (GET /api/v1/approvals/{id})
- * and that session's view (the plugin's own per-viewer session). Null when either is not readable; the dialog then
- * shows the tool in words only.
- */
 export async function loadApprovalWithPreview(fetcher: Fetcher, approvalId: string): Promise<ApprovalSummary | null> {
   try {
     const meta = await fetcher<{ session_id?: string | null }>(`/api/v1/approvals/${id(approvalId)}`);

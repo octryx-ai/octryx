@@ -1,24 +1,4 @@
-"""Per-test results and the TDD checks over them. Pure.
-
-A **test run** is ``{"source", "results": {canonical test id: {"outcome", "message"}}, "all_green"}`` (plus
-``unresolved`` / ``problems`` when the platform could not key every result, ``test_output``) read from what a test
-command printed or the JUnit report it wrote. ``failed`` means the test ran and an assertion failed; ``error`` means
-it did not get that far (import, collection, setup, compile) — a red test must fail on an assertion.
-
-A **structured report** wins over free output lines: when the output carries JUnit XML only the XML counts, and
-when the runner reports its ``failed_tests`` a ``FAILED`` line printed for any other test is ignored (a test cannot
-fake another test's failure by printing one).
-
-**Shell calls** (``bash``): a command whose segment starts with one of the Workspace's test command prefixes (the
-octryx-claude ``test_command_prefixes``, default ``pytest`` / ``python -m pytest``) is a test run; any other shell
-call counts as a change (what it wrote is unknown, so the tests must run again after it).
-
-A **confirmed test** id is canonical (``test_ids``) and selects the results under it (a test, its parametrized
-cases, a class, a file, a directory); a file- or class-level collection error covers the tests under it. Nothing is
-guessed: a confirmed test no run reported is *not seen*, which fails the checks that need it. When it is not seen
-*because* the platform could not key the run's results (:func:`evidence_unresolved`), that is the platform's
-problem, not the agent's: the gate pauses the run ``evidence_unresolved`` instead of failing a loop.
-"""
+"""Per-test results and the TDD checks over them."""
 
 from __future__ import annotations
 
@@ -38,13 +18,10 @@ DEFAULT_TEST_PREFIXES: tuple[tuple[str, ...], ...] = (("pytest",), ("python", "-
 
 
 def parse_test_output(text: str) -> dict[str, dict[str, str]]:
-    """``{canonical test id: {"outcome", "message"}}`` of a test command's output (ids that need the repository's
-    files to resolve are left out; :func:`test_output.parse` keeps them as ``unresolved``)."""
     return parse(text).results
 
 
 def test_run_from_tool(name: str, result: Any, *, source: str, command: str = "") -> dict[str, Any] | None:
-    """A test run from a ``run_test_suite`` result (or ``None`` for any other tool)."""
     if name not in TEST_TOOLS or not isinstance(result, Mapping) or result.get("error"):
         return None
     report = result.get("test_report") if isinstance(result.get("test_report"), Mapping) else {}
@@ -73,7 +50,6 @@ def test_run_from_tool(name: str, result: Any, *, source: str, command: str = ""
 
 
 def is_test_command(use: Any, prefixes: Iterable[Iterable[str]] = DEFAULT_TEST_PREFIXES) -> bool:
-    """A shell call whose command runs one of the test command prefixes (parsed like octryx-claude's gate)."""
     from ..agent_gateway.command_match import command_segments, segment_matches
 
     if use.name not in SHELL_TOOLS:
@@ -86,7 +62,6 @@ def is_test_command(use: Any, prefixes: Iterable[Iterable[str]] = DEFAULT_TEST_P
 
 def test_run_from_use(use: Any, *, source: str,
                       prefixes: Iterable[Iterable[str]] = DEFAULT_TEST_PREFIXES) -> dict[str, Any] | None:
-    """A test run from a ``run_test_suite`` call or a shell call that runs a test command."""
     if use.name in TEST_TOOLS:
         return test_run_from_tool(use.name, use.result, source=source)
     if not is_test_command(use, prefixes) or not isinstance(use.result, Mapping):
@@ -96,7 +71,6 @@ def test_run_from_use(use: Any, *, source: str,
 
 
 def is_change(use: Any, prefixes: Iterable[Iterable[str]] = DEFAULT_TEST_PREFIXES) -> bool:
-    """An edit tool that succeeded, or any shell call that is not a test command (its writes are unknown)."""
     if use.name in CHANGE_TOOLS:
         return bool(use.succeeded)
     return use.name in SHELL_TOOLS and not is_test_command(use, prefixes)
@@ -107,7 +81,6 @@ def _selected(confirmed: str, test_id: str, value: Mapping[str, Any]) -> bool:
 
 
 def confirmed_outcomes(run: Mapping[str, Any], confirmed: Iterable[str]) -> dict[str, list[dict[str, str]]]:
-    """Each confirmed id with the results it selects in ``run`` (an empty list: not seen)."""
     results = dict(run.get("results") or {})
     found = {item: [value for test_id, value in results.items() if _selected(item, test_id, value)]
              for item in confirmed}
@@ -121,11 +94,6 @@ def confirmed_outcomes(run: Mapping[str, Any], confirmed: Iterable[str]) -> dict
 
 
 def evidence_unresolved(run: Mapping[str, Any], confirmed: list[str], *, suite: bool = False) -> list[str]:
-    """Why the platform cannot judge the confirmed tests in ``run`` (empty: it can).
-
-    A confirmed id that is not canonical, a confirmed test not seen while the run holds results the platform could
-    not key or a report it could not read, and — with the rest of the suite as regression (``suite``) — a failing
-    result whose id is unknown: none of these is the agent's doing, so no gate may count it against a loop."""
     reasons = [f"{item}: not a canonical test id (path/to/test_file.py::test)" for item in confirmed
                if not is_canonical(item)]
     unresolved = [item for item in run.get("unresolved") or [] if isinstance(item, Mapping)]
@@ -150,20 +118,12 @@ _MISSING_MODULE = ("modulenotfounderror", "no module named", "importerror: canno
 
 
 def _missing_module(value: Mapping[str, Any]) -> bool:
-    """The error is the module under test not existing yet: the red state of new code.
-
-    The tests-first phase may write tests only, so a test of a new module can only
-    fail at its import; demanding an assertion failure would leave the agent one way out — a stub of the class inside
-    the test file — which the implement phase then cannot remove (confirmed tests are protected)."""
     message = str(value.get("message") or "").lower()
     return any(marker in message for marker in _MISSING_MODULE)
 
 
 def all_red(run: Mapping[str, Any], confirmed: list[str],
             roles: Mapping[str, str] | None = None) -> tuple[bool, str]:
-    """The red state of the confirmed tests by their role (``workflow_runs/test_roles``): every new test fails on an
-    assertion — or cannot import its module under test yet (new code) — and every regression test passes. Without
-    roles (a contract before roles) every test is new."""
     roles = roles or {}
     new = [item for item in confirmed if roles.get(item) != "regression"]
     if not new:
@@ -185,8 +145,6 @@ def all_red(run: Mapping[str, Any], confirmed: list[str],
 
 
 def suite_regressions(run: Mapping[str, Any], confirmed: list[str]) -> list[str]:
-    """The tests outside the confirmed ones that fail in ``run``: with the rest of the suite as regression (C), none
-    may fail while only the confirmed tests reproduce the bug."""
     return sorted(test_id for test_id, value in dict(run.get("results") or {}).items()
                   if value.get("outcome") in (FAILED, ERROR)
                   and not any(_selected(item, test_id, value) for item in confirmed))
@@ -219,7 +177,6 @@ def intact(run: Mapping[str, Any], confirmed: list[str]) -> tuple[bool, str]:
 
 
 def chat_verification_state(uses: Iterable[Any], prefixes: Iterable[Iterable[str]] = DEFAULT_TEST_PREFIXES) -> str:
-    """The chat counterpart of octryx-claude's Stop test gate: the last test run after the last change decides."""
     sequence = list(uses)
     prefixes = tuple(tuple(item) for item in prefixes)
     last_change = max((index for index, use in enumerate(sequence) if is_change(use, prefixes)), default=-1)

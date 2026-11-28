@@ -1,8 +1,5 @@
-"""Seeds of the request-analysis and evidence-planning prompts: the execution contract, the bounded
-AWS read, the AWS topology detail selection and the person-research follow-up reminders.
-
-The only code copy of these texts; the catalog serves the published version.
-"""
+"""Seeds of the request-analysis and evidence-planning prompts: the execution contract, the bounded AWS read, the AWS
+topology detail selection and the person-research follow-up reminders."""
 
 from __future__ import annotations
 

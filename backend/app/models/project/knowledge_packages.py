@@ -1,15 +1,5 @@
-"""Research-built knowledge packages of a Workspace (Knowledge, research packages).
-
-A package is general knowledge about a product and its versions (for example the Spring Boot 3.5
-to 4.0 upgrade) that a governed research run assembled from the web: which sources are
-authoritative, which version each covers, and why. It is a proposal until an author approves it;
-only approved documents are fetched and ingested, as ordinary sources with the product, version
-and origin link the research gave them.
-
-``KnowledgePackage.research`` keeps the provenance of the run: the search queries, the search
-provider that answered, and the model usage. No page content is stored here; fetched documents live
-in the evidence ledger like any upload.
-"""
+"""Research-built knowledge packages of a Workspace. A package is a proposal until an author approves it; only approved
+documents are fetched and ingested."""
 
 from __future__ import annotations
 
@@ -18,6 +8,7 @@ import uuid
 from sqlalchemy import JSON, Column, DateTime, ForeignKey, Index, Integer, String, Text
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 PACKAGE_STATE_DRAFT = "draft"
@@ -36,7 +27,7 @@ def _uuid() -> str:
     return str(uuid.uuid4())
 
 
-class KnowledgePackage(Base):
+class KnowledgePackage(WorkspaceBound, Base):
     __tablename__ = "knowledge_packages"
     __table_args__ = (Index("ix_knowledge_packages_workspace", "project_id"),)
 
@@ -54,7 +45,7 @@ class KnowledgePackage(Base):
     updated_at = Column(DateTime, nullable=False, default=utc_now, onupdate=utc_now)
 
 
-class KnowledgePackageDocument(Base):
+class KnowledgePackageDocument(WorkspaceBound, Base):
     __tablename__ = "knowledge_package_documents"
     __table_args__ = (Index("ix_knowledge_package_documents_package", "package_id"),)
 

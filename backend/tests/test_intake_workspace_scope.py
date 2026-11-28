@@ -1,24 +1,4 @@
-"""Contract: an intake run reads, closes and counts only the items of its own Workspace.
-
-For every intake kind (ServiceNow, Custom REST, Jira), with the same source identity stored as an item of another
-Workspace:
-
-- a record the sync would write (an open record; for Jira every listed issue) fails the sync with the typed 409
-  ``workspace_immutable`` before anything is written; the other Workspace's item is untouched;
-- a preview stays inside the intake's Workspace: with such a record it answers exactly as with a missing one;
-- a closed record whose only item is in another Workspace answers like a missing one (``skipped_closed``): the preview
-  does not count it as closing, the sync does not close it;
-- an item of another Workspace attached to this intake (an older row) is never closed because its record left the
-  listing (left the open set, closed since the last sync, removed from the Jira filter).
-
-Two first imports of the same source key in different Workspaces that both pass that check before either writes
-(ServiceNow through the shared ServiceNow/Custom REST pipeline, Jira): the loser's insert hits the source-key
-uniqueness, is rolled back and answers the same typed 409; when the winner is in the same Workspace, the loser updates
-it like any existing item.
-
-Next to the intakes, the same source identity is not followed into another Workspace either: an epic's story key
-the sync stored there is the 409 (never tied to the epic), a parent there gives no budget.
-"""
+"""Contract: an intake run reads, closes and counts only the items of its own Workspace."""
 
 from __future__ import annotations
 
@@ -79,7 +59,6 @@ async def _own_items(db, project_id: str) -> list[WorkItem]:
 
 
 def _answer(result: dict) -> dict:
-    """A preview's answer without its run's own identity and times."""
     run = {key: value for key, value in result["sync_run"].items()
            if key not in {"id", "created_at", "started_at", "completed_at", "updated_at"}}
     return {**{key: value for key, value in result.items() if key != "sync_run"}, "sync_run": run}
@@ -87,9 +66,6 @@ def _answer(result: dict) -> dict:
 
 def _immutable(refused: pytest.ExceptionInfo) -> bool:
     return refused.value.status_code == 409 and refused.value.detail["code"] == "workspace_immutable"
-
-
-# --- ServiceNow --------------------------------------------------------------------------------------------------
 
 
 async def _servicenow_intake(db):
@@ -138,9 +114,6 @@ async def test_servicenow_an_older_row_of_another_workspace_never_closes_when_it
     await _untouched(db, foreign)
 
 
-# --- Custom REST -------------------------------------------------------------------------------------------------
-
-
 @pytest.mark.usefixtures("public_source_dns")
 async def test_custom_rest_an_open_record_of_another_workspace_previews_as_missing_and_refuses_the_sync(
         db, api):  # noqa: F811
@@ -173,9 +146,6 @@ async def test_custom_rest_a_closed_record_of_another_workspace_answers_like_a_m
     await db.commit()
     await _untouched(db, foreign)
     assert [item.source_key for item in await _own_items(db, world.project_id)] == ["T-1"]
-
-
-# --- Jira --------------------------------------------------------------------------------------------------------
 
 
 async def _jira_intake(db) -> dict:
@@ -214,7 +184,6 @@ async def test_jira_an_older_row_of_another_workspace_is_never_removed_from_the_
     await _untouched(db, foreign)
 
 
-# --- concurrent first imports --------------------------------------------------------------------------------------
 # The competing run executes inside the losing run, right after the losing run read (collision check, Jira prefetch)
 # and before it inserts: the interleaving of two concurrent first imports.
 
@@ -281,9 +250,6 @@ async def test_jira_a_concurrent_first_import_in_the_same_workspace_takes_the_up
     summary = (await run_jira_intake(db, config["id"], {"issues": issues}))["sync_run"]["summary"]
     assert raced and (summary.get("imported", 0), summary["unchanged"] + summary.get("updated", 0)) == (0, 1)
     assert [item.source_key for item in await _own_items(db, winner["project_id"])] == ["OCX-7300"]
-
-
-# --- the same class next to the intakes ----------------------------------------------------------------------------
 
 
 async def test_a_story_key_synced_into_another_workspace_is_never_taken_or_tied_to_the_epic(db):

@@ -1,6 +1,4 @@
-// The phone's view of a chat's held workflow proposal (chat parity). The phone has no turn snapshot, so it
-// reads the session's own proposal: a phased one shows the start card (`workflowStartView`), any other pending one the
-// plain prompt (Allow once / Other workflow… / Deny). Pure, so the unit harness can load it.
+// The phone has no turn snapshot, so it reads the session's own proposal.
 
 import type { WorkflowProposalView } from "../chatDecisionTypes";
 import { PROPOSAL_ANSWERS, proposalReasonText, type ProposalAnswer } from "../chat/composer/automaticWorkflow";
@@ -18,7 +16,6 @@ export type PhoneProposal =
       answers: readonly ProposalAnswer[];
     };
 
-/** What the chat shows for the session's proposal; null when nothing waits (an offered one, or none). */
 export function phoneProposal(proposal: WorkflowProposalView | null | undefined): PhoneProposal | null {
   if (!proposal || proposal.status !== "needs_confirmation" || !proposal.proposalId || !proposal.workflowKey) return null;
   const reason = proposalReasonText(proposal.reasonCode) ?? (proposal.reason?.trim() || null);
@@ -35,7 +32,6 @@ export function phoneProposal(proposal: WorkflowProposalView | null | undefined)
   };
 }
 
-/** Whether the chat keeps reading its state: an unanswered proposal, or a start whose run is not linked yet. */
 export function proposalStillOpen(card: PhoneProposal | null): boolean {
   if (!card) return false;
   if (!card.decided) return true;

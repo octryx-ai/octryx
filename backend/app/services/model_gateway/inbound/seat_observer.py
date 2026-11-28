@@ -11,8 +11,6 @@ from .sse_framing import split_sse_event, sse_event_fields
 
 
 class SeatSseObserver:
-    """Observes an Anthropic event stream for the transcript without changing a single byte of it."""
-
     def __init__(self, observation: Observation) -> None:
         self.observation = observation
         self._buffer = b""
@@ -69,7 +67,6 @@ def observe_event(observation: Observation, name: str, payload: Mapping[str, Any
 
 
 def observe_message(observation: Observation, body: Any) -> None:
-    """Non-streaming answer: usage, stop reason, text and tool uses."""
     if not isinstance(body, Mapping):
         return
     observation.add_usage(body.get("usage"))

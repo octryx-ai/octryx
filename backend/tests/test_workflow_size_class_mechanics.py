@@ -1,12 +1,4 @@
-"""The mechanisms a size class switches on, shown on synthetic workflows with their own names.
-
-- ``skip_nodes``: the check is left out and the run takes its succeeded exit, with ``node_skipped`` naming the class;
-- ``session: "shared"``: the next phase resumes the run's session (not one session per phase);
-- ``context_cap_tokens``: past the cap the pass starts fresh with a handoff note (no unbounded context per call);
-- ``agent_note``: the class's note reaches the agent's contract;
-- a launcher restart retries the pass once in its session (generic, not a pause for a person).
-Nothing here names a shipped workflow, step or class.
-"""
+"""The mechanisms a size class switches on, shown on synthetic workflows with their own names."""
 
 from __future__ import annotations
 
@@ -20,6 +12,7 @@ from app.services.devices.job_events import apply_event
 from app.services.devices.job_offer import offer_body
 from app.services.workflow_runs.records import start_run
 from tests.phased_workflow_fixtures import PHASE, admin_user, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_continuation_support import (  # noqa: F401
     TWO_PHASES,
     _confirm,
@@ -28,6 +21,8 @@ from tests.workflow_run_octryx_continuation_support import (  # noqa: F401
     _jobs,
     _reenter,
 )
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def _classes(settings: dict) -> dict:
@@ -92,7 +87,6 @@ async def test_without_a_shared_session_each_phase_starts_fresh_as_before(db, se
 
 @pytest.mark.asyncio
 async def test_past_the_classes_context_cap_another_engine_starts_fresh_with_a_handoff_once(db, monkeypatch):
-    """An engine without auto-compaction (the session to resume is not Claude Code's) starts fresh past the cap."""
     from app.services.workflow_runs.octryx import compaction
     from app.services.workflow_runs.run_texts import run_text
 
@@ -112,8 +106,6 @@ async def test_past_the_classes_context_cap_another_engine_starts_fresh_with_a_h
 
 @pytest.mark.asyncio
 async def test_past_the_classes_context_cap_a_claude_code_session_goes_on_and_compacts_at_the_cap(db):
-    """Claude Code compacts itself: its session is resumed past the cap, no handoff, and the
-    offer carries the class's cap as the window it compacts at (``octryx.compaction``)."""
     from app.services.devices.jobs_channel import _thread_run
     from app.services.workflow_runs.run_texts import run_text
 
@@ -168,8 +160,6 @@ def test_a_red_hands_on_pass_resumes_with_its_delta_not_the_whole_contract(monke
 @pytest.mark.parametrize(("mode", "confirms"), [("reproduce", True), (None, False)])
 async def test_a_skipped_reproduce_check_still_confirms_the_reproduction_the_next_gate_judges(
         monkeypatch, mode, confirms):
-    """A skipped reproduce check must still confirm the submitted reproduction, else the gate after it finds no
-    confirmed test, loops and the run pauses."""
     from app.services.workflow_runs.graph import PhasedNode
     from app.services.workflow_runs.hands_on import reproduce
     from app.services.workflow_runs.size_class import steps
@@ -194,13 +184,11 @@ async def _passed_into_next_phase(db, settings: dict):
     await _confirm(db, run, admin)
     [job] = await _jobs(db, thread)
     await apply_event(db, job, "job_accepted", {"turn_id": job.turn_id}, limits={})
-    await _reenter(db, run, "more")  # the Stop that passed the first phase moved the run on, its turn still runs
+    await _reenter(db, run, "more")
     return run, job
 
 
 def _ended_unfinished_once(run) -> None:
-    """The pass already ended unfinished once: the second time (stall_after, default 2) pauses (the
-    first time it goes on by itself, tests/test_platform_evidence.py)."""
     from app.services.workflow_runs.octryx.same_pass import UNFINISHED_KEY
 
     run.context = {**dict(run.context or {}), UNFINISHED_KEY: {
@@ -209,9 +197,6 @@ def _ended_unfinished_once(run) -> None:
 
 @pytest.mark.asyncio
 async def test_a_same_turn_class_goes_on_with_the_next_phase_in_the_running_turn(db):
-    """Ending the turn at each phase change of a small item and starting the same session again costs 20-30 s.
-    With ``phase_change: same_turn`` the passing Stop hands the agent the next phase's prompt and the
-    running turn becomes that phase's pass: when it ends unfinished the run pauses, no new turn starts."""
     from app.services.workflow_runs.octryx.continuation_marker import CONTEXT_KEY
     from app.services.workflow_runs.octryx.same_turn import CAPABILITY, continue_in_turn
 
@@ -223,15 +208,14 @@ async def test_a_same_turn_class_goes_on_with_the_next_phase_in_the_running_turn
     _ended_unfinished_once(run)
     await apply_event(db, job, "turn_finished", {"turn_id": job.turn_id, "status": "success"}, limits={})
     assert (run.status, run.pause_reason) == ("paused", "phase_not_finished")
-    assert job.status != "offered"  # no second turn for the phase the running turn already did
+    assert job.status != "offered"
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(("settings", "capabilities"), [
     ({"session": "shared", "phase_change": "new_turn"}, ["next_phase"]),
-    # Without phase_change a shared class changes inside the turn (see tests/test_session_keep.py).
     ({"session": "per_phase"}, ["next_phase"]),
-    ({"session": "shared", "phase_change": "same_turn"}, []),  # a launcher without the phase change: the turn ends
+    ({"session": "shared", "phase_change": "same_turn"}, []),
 ])
 async def test_otherwise_the_phase_change_ends_the_turn_and_the_next_one_starts_as_before(db, settings, capabilities):
     from app.services.workflow_runs.octryx.same_turn import continue_in_turn

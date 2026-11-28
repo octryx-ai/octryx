@@ -1,13 +1,4 @@
-"""Coding engine per platform, Workspace and person: Claude Code or Codex.
-
-- without any setting, Claude Code applies and both engines are allowed;
-- the platform admin sets the platform default; a Workspace admin overrides it and limits the allowed engines;
-- a person chooses only among the Workspace's allowed engines; a choice the Workspace no longer allows falls back
-  to the Workspace default;
-- every write is audited; members cannot change the Workspace setting;
-- the launcher reads the same with its gateway login;
-- a device job keeps the engine of its first offer, and a job that continues another job's session takes its engine.
-"""
+"""Coding engine per platform, Workspace and person: Claude Code or Codex."""
 
 from __future__ import annotations
 
@@ -52,7 +43,6 @@ def test_resolution_order():
     assert resolve(platform="claude_code", section={**both, "default": "codex"}, choice=None).engine == "codex"
     chosen = resolve(platform="claude_code", section=both, choice="codex")
     assert (chosen.engine, chosen.source) == ("codex", "person")
-    # the Workspace no longer allows the person's choice: its default applies, the choice stays visible
     only_claude = resolve(platform="codex", section={"allowed": ["claude_code"]}, choice="codex")
     assert (only_claude.engine, only_claude.source, only_claude.person_choice) == ("claude_code", "workspace", "codex")
 
@@ -64,7 +54,6 @@ async def test_defaults_platform_workspace_and_person_with_audit(client, db, aut
     assert shown["effective"]["engine"] == "claude_code" and shown["effective"]["allowed"] == ["claude_code", "codex"]
     assert shown["source"] == "default" and shown["can_edit"] is False
 
-    # platform admin: Codex by default for the whole platform
     refused = await client.put(PLATFORM, json={"default": "codex"}, headers=await _bearer(member))
     assert refused.status_code == 403
     assert (await client.put(PLATFORM, json={"default": "gpt"}, headers=auth_headers)).status_code == 422
@@ -72,7 +61,6 @@ async def test_defaults_platform_workspace_and_person_with_audit(client, db, aut
     shown = (await client.get(WORKSPACE.format(workspace), headers=await _bearer(member))).json()
     assert (shown["effective"]["engine"], shown["effective"]["source"]) == ("codex", "platform")
 
-    # Workspace admin: back to Claude Code here, and Codex not allowed; a member cannot change it
     assert (await client.put(WORKSPACE.format(workspace), json={"allowed": ["claude_code"]},
                              headers=await _bearer(member))).status_code == 403
     bad = await client.put(WORKSPACE.format(workspace), json={"allowed": ["claude_code"], "default": "codex"},
@@ -83,7 +71,6 @@ async def test_defaults_platform_workspace_and_person_with_audit(client, db, aut
     assert saved.status_code == 200, saved.text
     assert saved.json()["effective"]["engine"] == "claude_code" and saved.json()["source"] == "workspace"
 
-    # person: Codex is not allowed in this Workspace; once it is, the member's own choice applies
     me = WORKSPACE.format(workspace) + "/me"
     denied = await client.put(me, json={"engine": "codex"}, headers=await _bearer(member))
     assert denied.status_code == 422
@@ -127,25 +114,19 @@ async def test_a_job_keeps_its_engine_and_a_continued_session_takes_its_jobs_eng
     first = job()
     assert await job_engine(db, first) == "codex"
     assert offer_body(first, limits={}, engine=first.engine)["engine"] == "codex"
-    # the person switches back to Claude Code: the job keeps Codex (its session cannot move engines)
     await set_person_choice(db, user_id=member, engine="claude_code")
     assert await job_engine(db, first) == "codex"
 
-    # the next story continues the first job's Codex session: Codex, whatever the person chose since
     first.claude_session_id = "codex-thread-1"
     db.add(first)
     await db.flush()
     assert await job_engine(db, job(resume_claude_session_id="codex-thread-1")) == "codex"
-    # the epic chain gives the next story's job the epic's session as its own: still the session's engine
     assert await job_engine(db, job(claude_session_id="codex-thread-1")) == "codex"
-    # a story that only resumed the epic's thread (its own session never reported) still names its engine
     resumed = job(resume_claude_session_id="codex-thread-2")
     resumed.engine = "codex"
     db.add(resumed)
     await db.flush()
     assert await job_engine(db, job(claude_session_id="codex-thread-2")) == "codex"
-    # a session no job knows (a Mac session continued from the phone) is Claude Code; a fresh job follows the
-    # person's choice
     assert await job_engine(db, job(claude_session_id="mac-only-session")) == "claude_code"
     await set_person_choice(db, user_id=member, engine="codex")
     assert await job_engine(db, job(resume_claude_session_id="fork:mac-session")) == "claude_code"

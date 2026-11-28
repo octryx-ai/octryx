@@ -1,11 +1,4 @@
-"""Who may write a catalog text at a scope (the workflow owner defines the flow).
-
-- ``global``: a platform admin;
-- ``workspace:<id>``: a platform admin or an owner / admin of that Workspace;
-- ``workflow:<flow key>``: a platform admin or the owner (creator) of a workflow with that key.
-
-The same rule decides who may approve a version of that scope (four eyes: the approver is another person).
-"""
+"""Who may write a catalog text at a scope (the workflow owner defines the flow)."""
 
 from __future__ import annotations
 
@@ -29,10 +22,10 @@ async def workflow_exists(db: AsyncSession, key: str) -> bool:
 async def may_write(db: AsyncSession, user_id: str, scope_type: str, scope_id: str | None) -> bool:
     if scope_type not in OVERRIDABLE_SCOPES:
         return False
+    if scope_type == PROMPT_SCOPE_WORKSPACE:
+        return bool(scope_id) and await _may_write_workspace(db, user_id, str(scope_id))
     if await is_global_admin(db, user_id):
         return True
-    if scope_type == PROMPT_SCOPE_WORKSPACE and scope_id:
-        return await get_project_role_for_user(db, user_id, scope_id) in WORKSPACE_EDITOR_ROLES
     if scope_type == PROMPT_SCOPE_WORKFLOW and scope_id:
         from ...models.runtime.flow_definition import FlowDefinition
 
@@ -42,8 +35,16 @@ async def may_write(db: AsyncSession, user_id: str, scope_type: str, scope_id: s
     return False
 
 
+async def _may_write_workspace(db: AsyncSession, user_id: str, workspace_id: str) -> bool:
+    from ...models import Project
+
+    # A platform admin holds no role in somebody else's private Workspace; an unknown id answers the same.
+    if await get_project_role_for_user(db, user_id, workspace_id) not in WORKSPACE_EDITOR_ROLES:
+        return False
+    return await db.get(Project, workspace_id) is not None
+
+
 async def may_read_catalog(db: AsyncSession, user_id: str) -> bool:
-    """A platform admin, an owner / admin of some Workspace, or the owner of some workflow."""
     if await is_global_admin(db, user_id):
         return True
     from ...models.runtime.flow_definition import FlowDefinition
@@ -56,9 +57,6 @@ async def may_read_catalog(db: AsyncSession, user_id: str) -> bool:
 
 
 async def writable_scopes(db: AsyncSession, user_id: str) -> list[dict[str, object]]:
-    """The scopes ``user_id`` may write, with labels for the editor's selector: global (platform admins), the
-    Workspaces it owns or administers (every active one for an admin), the workflows it created (every one for an
-    admin); ordered global, Workspaces, workflows, each by label."""
     from ...models import Project
     from ...models.runtime.flow_definition import FlowDefinition
     from ..project.service import get_project_access_details
@@ -84,8 +82,6 @@ async def writable_scopes(db: AsyncSession, user_id: str) -> list[dict[str, obje
 
 
 async def owned_workflow_publish_actions(db: AsyncSession, user_id: str) -> list[str]:
-    """The approval actions (``prompt_template.publish:<version>:<digest>``) of the workflow texts in review whose
-    workflow ``user_id`` owns: the workflow's owner sees and decides them."""
     from ...models.runtime.flow_definition import FlowDefinition
     from ...models.runtime.governed_revision import REVISION_STATE_IN_REVIEW
     from ...models.runtime.prompt_template import PromptTemplate, PromptTemplateVersion

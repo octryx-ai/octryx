@@ -1,4 +1,3 @@
-// Handoff and takeover view helpers: decision and policy wording, permissions, expiry and section lines.
 import { serverTimeOf } from "../../admin/utils/serverTime";
 import { shortId } from "./agentBoardLabels";
 import type { BoardUser, BoardViewer } from "./agentBoardTypes";
@@ -11,10 +10,6 @@ const CONDITION_LABEL: Record<string, string> = {
   handoff_exists: "a handoff existed",
 };
 
-/**
- * "Handed over automatically" for a system decision, "Confirmed by Alex" for a person's, the cancellation for a
- * takeover whose claim changed before a decision (judge-s4 F2); "" while undecided.
- */
 export function decisionLabel(takeover: Takeover): string {
   if (takeover.status === "cancelled") return "Cancelled: the claim changed before a decision";
   if (!takeover.decidedBy) return "";
@@ -25,7 +20,6 @@ export function decisionLabel(takeover: Takeover): string {
   return takeover.decidedBy.user ? `${verb} by ${takeover.decidedBy.user.name}` : verb;
 }
 
-/** The policy an automatic handoff applied, in words: the snapshot when sent, else the recorded mode. */
 export function snapshotLines(takeover: Takeover): string[] {
   const snapshot = takeover.policySnapshot;
   if (!snapshot) return takeover.policyMode ? [`Workspace handoff mode at the request: ${takeover.policyMode === "auto" ? "automatic" : "confirm each handoff"}`] : [];
@@ -42,15 +36,11 @@ export function snapshotLines(takeover: Takeover): string[] {
 }
 
 
-/** Newest version first; the history list and the "latest" choice read from this order. */
 export function byVersionDesc(handoffs: Handoff[]): Handoff[] {
   return [...handoffs].sort((a, b) => (b.version ?? -1) - (a.version ?? -1));
 }
 
-/**
- * Whether to offer Confirm/Decline: a pending takeover addressed to me, or any pending takeover when the viewer can
- * admin (Workspace admin/owner or platform admin, D-F1). The server authorizes for real; a refusal is shown.
- */
+// The server authorizes for real; a refusal is shown.
 export function mayDecideTakeover(takeover: Takeover, viewer: BoardViewer | null, now = Date.now()): boolean {
   if (takeover.status !== "pending" || !viewer) return false;
   const expires = serverTimeOf(takeover.expiresAt);
@@ -58,12 +48,10 @@ export function mayDecideTakeover(takeover: Takeover, viewer: BoardViewer | null
   return takeover.to.user?.id === viewer.userId || viewer.canAdmin;
 }
 
-/** Whether confirming hands the claim to an agent (an agent's request) or only releases it for a person (an admin's). */
 export function handsToAgent(takeover: Takeover): boolean {
   return Boolean(takeover.to.agentHash);
 }
 
-/** "agent of Ben" for an agent party, the user's name otherwise. */
 export function partyLabel(party: { user: BoardUser | null; agentHash: string }): string {
   if (party.user) return party.agentHash ? `agent of ${party.user.name}` : party.user.name;
   return party.agentHash ? `agent ${shortId(party.agentHash)}` : "unknown";
@@ -78,7 +66,6 @@ export const TAKEOVER_STATUS_LABEL: Record<TakeoverStatus, string> = {
   unknown: "status not reported",
 };
 
-/** "expires in 3 h 20 min" / "expired"; nothing estimated without a server time. */
 export function expiryText(expiresAt: string | null, now = Date.now()): string {
   const until = serverTimeOf(expiresAt);
   if (until === null) return "expiry not reported";
@@ -88,7 +75,6 @@ export function expiryText(expiresAt: string | null, now = Date.now()): string {
   return hours ? `expires in ${hours} h ${minutes % 60} min` : `expires in ${minutes} min`;
 }
 
-/** The viewer's sections in reading order; only the ones that carry content are shown. */
 export const SECTION_ORDER: Array<{ key: keyof HandoffSections; label: string }> = [
   { key: "goal", label: "Goal" },
   { key: "acceptance", label: "Acceptance" },
@@ -105,7 +91,6 @@ export const SECTION_ORDER: Array<{ key: keyof HandoffSections; label: string }>
   { key: "changedFiles", label: "Changed files" },
 ];
 
-/** A section as plain lines, or [] when it is empty. Repo and commands become "label: value" lines. */
 export function sectionLines(sections: HandoffSections, key: keyof HandoffSections): string[] {
   const value = sections[key];
   if (key === "repo" && sections.repo) {

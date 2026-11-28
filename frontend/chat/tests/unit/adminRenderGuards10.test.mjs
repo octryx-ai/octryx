@@ -100,7 +100,7 @@ test("the emergency stop panel lists what stops, asks for a reason and a platfor
   const panel = stubs(view, "SidePanel")[0];
   assert.equal(panel.props.title, "Stop everything?");
   assert.equal(panel.props.subtitle, "Emergency stop for every Workspace");
-  includesAll(text(view.root), ["Running runs pause", "This stops every Workspace on the platform", "Yes, stop the whole platform",
+  includesAll(text(view.root), ["Running runs pause", "This stops the whole platform", "Yes, stop the whole platform",
     "Runs that pause", "Device jobs that stop", "Reason (required)", "Cancel", "Stop the whole platform"]);
   assert.deepEqual(stubs(view, "DataTable").map((node) => node.props.testId), ["ops-stop-runs", "ops-stop-jobs"]);
   assert.equal(stubs(view, "DataTable")[1].props.columns[0].render({ folder: "" }), "Device job");

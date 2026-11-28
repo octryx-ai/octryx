@@ -1,20 +1,4 @@
-"""An Action run started by an inbound alert.
-
-The webhook queues the Action with ``input.inbound_alert`` = the normalized alert, the bounded raw
-payload, the webhook and event ids and whether it is a test. This module is what the general agent
-branch of ``task_execution`` needs for such a run:
-
-* **Runs as** the run's ``started_by``: the webhook's automation identity (a Workspace viewer
-  service user), never the Action's owner. Capability still comes from the Action's workflow.
-* **Alert as data**: the instruction is the Action's own. Only closed fields are appended, between
-  untrusted-data fence markers (``content_security.untrusted_fence``): the title (the one free text),
-  status, severity, source, the mapped target's id, the evidence window and a fingerprint prefix.
-  Summary, annotations and labels never enter the prompt: the agent reads the alert with
-  ``get_run_alert`` (``tools/run_alert``), as untrusted data.
-* **Test runs** post nothing (no result delivery).
-* **Outcome**: when the run ends, the webhook event records completed/failed and where the result
-  went, in words.
-"""
+"""An Action run started by an inbound alert."""
 
 from __future__ import annotations
 
@@ -49,7 +33,6 @@ def _target_id(alert: dict[str, Any]) -> str | None:
 
 
 def alert_prompt_fields(alert: dict[str, Any], *, now: datetime | None = None) -> dict[str, Any]:
-    """The closed set of alert fields the prompt shows (fenced): the title is the only free text."""
     from ...services.workflow_runs.alert_context import DEFAULT_LOOKBACK_MINUTES, alert_window
 
     data = alert.get("alert") if isinstance(alert.get("alert"), dict) else {}
@@ -88,7 +71,6 @@ def alert_session_metadata(alert: dict[str, Any]) -> dict[str, Any]:
 
 
 def alert_retry_identity(task_run: Any) -> dict[str, Any]:
-    """What a retry of this run must keep: the automation identity and the alert (empty for other runs)."""
     alert = inbound_alert_of(task_run)
     if not alert:
         return {}
@@ -112,7 +94,6 @@ def _delivered_to(delivery: dict[str, Any] | None, is_test: bool) -> str:
 
 
 async def finalize_alert_event(db: Any, task_run: Any, delivery: dict[str, Any] | None) -> None:
-    """Record the run's end on the webhook event that started it."""
     alert = inbound_alert_of(task_run)
     if not alert or not alert.get("event_id"):
         return

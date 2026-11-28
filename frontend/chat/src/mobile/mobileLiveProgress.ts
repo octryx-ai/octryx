@@ -1,8 +1,5 @@
-// Live progress of a session: its events as steps, folded tool groups and short step texts.
 import { liveText } from "./mobilePayloadValues";
 
-// What a listed session is doing (only the replies were visible, not what
-// runs in between): the Mac reads the session's transcript and sends short steps; the app shows them between the messages.
 export type ProgressEvent = {
   seq: number;
   kind: "text" | "tool" | "result" | "prompt" | "compact";
@@ -46,7 +43,6 @@ export function readLiveProgress(raw: unknown): LiveProgress {
   };
 }
 
-/** New events added to the known ones, each seq once, the newest ``keep``. */
 export function mergeProgress(known: ProgressEvent[], fresh: ProgressEvent[], keep = 400): ProgressEvent[] {
   const bySeq = new Map(known.map((event) => [event.seq, event]));
   for (const event of fresh) bySeq.set(event.seq, event);
@@ -59,7 +55,6 @@ export type ProgressStep =
   | { key: string; kind: "compact"; at: string }
   | { key: string; kind: "tool"; at: string; tool: string; input: string; done: boolean; ok: boolean; line: string };
 
-/** The steps to show: a tool call and its result as one step (still running until the result came). */
 export function progressSteps(events: ProgressEvent[]): ProgressStep[] {
   const steps: ProgressStep[] = [];
   const open = new Map<string, number>();
@@ -91,8 +86,6 @@ export function liveStatusText(status: string, running: boolean): string {
   return status === "busy" ? "Working…" : status === "waiting" ? "Waiting for input" : "Idle";
 }
 
-// On the first iPhone test: the steps should fold open to show what happens,
-// otherwise there is too much to see. Tool steps between two narration texts become one collapsible group; narration stays.
 export type ToolStep = Extract<ProgressStep, { kind: "tool" }>;
 export type ProgressBlock =
   | { kind: "step"; key: string; at: string; step: Exclude<ProgressStep, ToolStep> }
@@ -116,7 +109,6 @@ export function groupSteps(steps: ProgressStep[]): ProgressBlock[] {
   return blocks;
 }
 
-/** The collapsed line: "5 steps · Bash ×4 · Read", or how many failed. */
 export function groupSummary(group: Extract<ProgressBlock, { kind: "tools" }>): string {
   const count = group.tools.length;
   if (group.failed) return `${group.failed} of ${count} failed`;
@@ -135,18 +127,14 @@ const baseName = (path: string) => path.replace(/\/+$/, "").split("/").pop() || 
 // An absolute or home path (``/Volumes/…/PLAN.md``, ``~/x/y``) shown by its last part only.
 const ABSOLUTE_PATH = /(^|[\s=:'"(])((?:~|\/)[^\s'"():;|&]*\/([^\s'"():;|&/]+))/g;
 
-/** One short line for a step (the file name, not the path): a command without its ``cd …&&`` and
- * ``VAR=value`` prefixes, ``python -m X`` as ``X``, a file read with ``sed -n``/``cat``/``head``/``tail`` as "reads
- * <file>", every absolute path by its file name; a file tool's file by its name; at most ~60 characters. The full
- * command is shown only when the step is opened. */
 export function shortStep(tool: ToolStep): string {
   let text = tool.input.trim();
   if (tool.tool === "Bash") {
     text = text
       .replace(/^(cd\s+\S+\s*(&&|;)\s*)+/, "")
       .replace(/^([A-Za-z_][A-Za-z0-9_]*=\S*\s+)+/, "") // leading VAR=value settings say nothing (and may be secret)
-      .replace(/^\S*python3?(\.\d+)?\s+-m\s+/, "") // venv/bin/python -m pytest … → pytest …
-      .replace(/^\S*\/(\S+)/, "$1"); // /usr/bin/git … → git …
+      .replace(/^\S*python3?(\.\d+)?\s+-m\s+/, "")
+      .replace(/^\S*\/(\S+)/, "$1");
     const ranged = /^sed\s+-n\s+'?(\d+),(\d+)p'?\s+(\S+)\s*$/.exec(text);
     const read = /^(cat|head|tail|less|more)(\s+-\S+)*\s+(\S+)\s*$/.exec(text);
     if (ranged) text = `reads ${baseName(ranged[3])} lines ${ranged[1]}–${ranged[2]}`;

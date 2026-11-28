@@ -22,7 +22,6 @@ PRESENTATION_SOURCE_INDEX: dict[str, int] = {
 
 
 def escape_presentation_py_str(text: str) -> str:
-    """Escape a string for embedding inside a Python triple-quoted string."""
     return text.replace("\\", "\\\\").replace('"""', '\\"\\"\\"')
 
 
@@ -42,7 +41,6 @@ def quality_checked_presentation_slides(
 
 
 def _set_text_line(sp: str, shape: int, text: str, size: str = "") -> str:
-    """One ``set_text`` call of the generated script; the text sits in a triple-quoted string."""
     size_arg = f', size="{size}"' if size else ""
     return f'    set_text(ops, "{sp}/shape[{shape}]", """{escape_presentation_py_str(text)}"""{size_arg})'
 
@@ -113,7 +111,6 @@ def _bullets_slide_ops(slide: dict[str, Any], sp: str) -> list[str]:
 
 
 def _visual_slide_ops(slide: dict[str, Any], sp: str) -> list[str]:
-    """Table, chart and process flow slides: title texts, the body placeholder is emptied for the visual."""
     lines: list[str] = []
     title, subtitle = _field(slide, "title"), _field(slide, "subtitle")
     if title:
@@ -165,7 +162,6 @@ _SLIDE_TEXT_OPS = {
 
 
 def build_presentation_text_ops_code(slides: list[dict[str, Any]]) -> str:
-    """Generate the body of build_text_ops() for the given slides."""
     lines: list[str] = ["    ops: list[dict] = []", ""]
     for idx, slide in enumerate(slides, start=1):
         layout = str(slide.get("layout_type") or "").strip()

@@ -8,15 +8,12 @@ from sqlalchemy import select
 
 from app.models import Project, User, WorkItem, WorkPullRequest
 
-# --- fixtures ------------------------------------------------------------------------------------------------
-
 
 async def _admin(db) -> User:
     return (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
 
 
 async def workspace_item(db, key: str = "OCX-1") -> WorkItem:
-    """A Work Item in a Workspace of its own."""
     project = Project(name=f"ws-{uuid.uuid4().hex[:8]}", config={})
     db.add(project)
     await db.flush()
@@ -29,7 +26,6 @@ async def workspace_item(db, key: str = "OCX-1") -> WorkItem:
 
 
 async def _pr(db, *, work_item_id=None, status="open", provider="bitbucket", number="12", **extra) -> WorkPullRequest:
-    """A record bound to its item's Workspace (a new item in a Workspace of its own unless one is given)."""
     item = await db.get(WorkItem, work_item_id) if work_item_id else await workspace_item(db)
     row = WorkPullRequest(
         work_item_id=item.id, scope_key=item.project_id, provider=provider, repository_slug="runtime", pr_id=number,

@@ -3,11 +3,6 @@ import type { ThreadGroupBanner, ThreadGroupBulk } from "./ThreadGroupBulkParts"
 import { groupCheckState, isThreadSelected, type ThreadRef, type ThreadSelection } from "./threadSelection";
 import type { ThreadBulkController } from "./useThreadBulk";
 
-/**
- * The banner of a group in bulk mode: once every shown chat is selected and the Workspace (or the
- * search) has more, offer the rest; while a scope is selected, say how many and how many of them
- * the list has not loaded.
- */
 export function threadGroupBanner({
   selection,
   group,

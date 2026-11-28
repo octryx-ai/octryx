@@ -159,6 +159,5 @@ _SECRETS_AUTOMATION_DEFINITIONS: dict[str, dict] = {
 
 
 def get_infrastructure_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for infrastructure tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy({**_SECRETS_AUTOMATION_DEFINITIONS, **INFRASTRUCTURE_DELIVERY_DEFINITIONS})

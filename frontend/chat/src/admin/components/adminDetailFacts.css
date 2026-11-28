@@ -46,6 +46,6 @@
 .admin-detail-heading {
   margin: 1rem 0 0.5rem;
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--text);
 }

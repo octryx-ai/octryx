@@ -1,6 +1,6 @@
 /* Knowledge › Sources: the table and side panel come from src/layout; this file only holds what
    is specific to sources. Tokens only. */
-.knowledge-source__name { font-weight: 600; overflow-wrap: break-word; }
+.knowledge-source__name { font-weight: var(--ds-weight-strong); overflow-wrap: break-word; }
 /* The table fits the page width: names wrap between words, never inside one; "Reads" adds
    nothing to the table's minimum width (width 0, then the whole cell) and cuts a long address with an ellipsis. */
 .knowledge-source__name-text { overflow-wrap: break-word; }

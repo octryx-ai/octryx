@@ -1,9 +1,4 @@
-"""Where a published documentation page is recorded: on the run and on the Work item.
-
-The publication itself is the publish & prove executor (``publication_v2``, ``publication_recovery``); its outcome
-(``publication_outcome``) records the read-back page here, on the run and on the Work item (with its connection:
-the same id on another Confluence is another page).
-"""
+"""Where a published documentation page is recorded: on the run and on the Work item."""
 
 from __future__ import annotations
 

@@ -16,7 +16,6 @@ _http_json = connection_http_json(CONNECTION_MICROSOFT_GRAPH)
 
 
 def _with_web_source(item: dict[str, Any], context: ToolContext, *, title: Any) -> dict[str, Any]:
-    """An item's own ``webUrl``, only on the configured SharePoint host (evidence fields)."""
     url = known_web_url(item.get("web_url"), _string(context.project_config.get("sharepoint_url")))
     return with_source(item, title=title, url=url)
 

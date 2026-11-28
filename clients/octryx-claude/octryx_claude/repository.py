@@ -1,17 +1,4 @@
-"""The git repository of the launch folder, read through the local ``git`` binary.
-
-Every call runs ``git`` with an explicit argv (never a shell), a bounded timeout,
-``GIT_TERMINAL_PROMPT=0`` (a credential prompt never blocks the launch) and
-``LC_ALL=C``. Failures are explicit outcomes with fixed codes, never exceptions:
-
-- ``detect_repository`` returns ``RepositoryInfo`` or ``DetectionRefusal`` with one of
-  ``not_a_git_repository``, ``git_unavailable``, ``head_missing``, ``remote_missing``.
-- ``list_head_files`` returns the regular files tracked at HEAD (``TreeListing``) or
-  ``DetectionRefusal("tree_unavailable")``.
-- ``read_blobs`` returns the contents it could read; a missing object is left out.
-
-The remote URL is made credential-free here, before anything leaves the machine.
-"""
+"""The git repository of the launch folder, read through the local ``git`` binary."""
 
 from __future__ import annotations
 
@@ -89,12 +76,8 @@ def _line(run: _GitRun) -> str:
     return run.stdout.decode("utf-8", errors="replace").strip()[:MAX_OUTPUT_LINE_CHARS]
 
 
+# The scp form's ``git@`` user is no credential; ``ssh://`` URLs keep the user and lose the password.
 def credential_free_remote(raw: str) -> str:
-    """Drop userinfo (``user:password@``, ``token@``) plus query and fragment from URLs.
-
-    The scp form ``git@host:owner/repo.git`` stays as is: its ``git@`` user is not a
-    credential. ``ssh://`` URLs keep the user name and lose any password.
-    """
     value = raw.strip()
     if "://" not in value:
         return value
@@ -156,7 +139,6 @@ def detect_repository(cwd: Path | str) -> RepositoryInfo | DetectionRefusal:
 
 
 def parse_ls_tree(output: bytes, *, limit: int = MAX_TREE_FILES) -> TreeListing:
-    """Parse ``git ls-tree -r -l -z`` output: ``<mode> <type> <object> <size>\\t<path>\\0``."""
     files: list[TreeFile] = []
     for entry in output.split(b"\0"):
         meta, tab, raw_path = entry.partition(b"\t")
@@ -187,7 +169,6 @@ def list_head_files(root: Path | str) -> TreeListing | DetectionRefusal:
 
 
 def parse_cat_file_batch(output: bytes) -> dict[str, bytes]:
-    """Parse ``git cat-file --batch`` output: ``<sha> <type> <size>\\n<bytes>\\n`` per object."""
     blobs: dict[str, bytes] = {}
     position = 0
     while position < len(output):

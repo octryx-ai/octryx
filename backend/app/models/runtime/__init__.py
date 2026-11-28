@@ -40,17 +40,9 @@ from . import code_intelligence as _impl_code_intelligence
 
 _export_module(_impl_code_intelligence)
 
-from . import context_budget as _impl_context_budget
-
-_export_module(_impl_context_budget)
-
 from . import context_checkpoint as _impl_context_checkpoint
 
 _export_module(_impl_context_checkpoint)
-
-from . import context_compaction as _impl_context_compaction
-
-_export_module(_impl_context_compaction)
 
 from . import instruction as _impl_instruction
 
@@ -84,10 +76,6 @@ from . import check_proposal as _impl_check_proposal
 
 _export_module(_impl_check_proposal)
 
-from . import llm_cache as _impl_llm_cache
-
-_export_module(_impl_llm_cache)
-
 from . import llm_provider as _impl_llm_provider
 
 _export_module(_impl_llm_provider)
@@ -107,10 +95,6 @@ _export_module(_impl_provider_oauth_config)
 from . import observability as _impl_observability
 
 _export_module(_impl_observability)
-
-from . import prefetch as _impl_prefetch
-
-_export_module(_impl_prefetch)
 
 from . import named_connection as _impl_named_connection
 
@@ -140,7 +124,5 @@ from . import tool_config as _impl_tool_config
 
 _export_module(_impl_tool_config)
 
-from . import tool_result_compression as _impl_tool_result_compression
-
-_export_module(_impl_tool_result_compression)
-
+# Keys every new llm_models row; registered here, as the provider models never import it (no cycle).
+from . import catalog_key as _catalog_key  # noqa: E402,F401 - side effect: registers the insert listener

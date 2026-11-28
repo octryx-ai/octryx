@@ -2,14 +2,7 @@
 
 const SAFE_ADMIN_ERROR = /^[A-Za-z0-9 ,.:;_'()[\]{}/-]{1,240}$/;
 
-/**
- * Bound an admin error before it reaches the screen.
- *
- * The governed Admin API answers with fixed messages, but a gateway or proxy in
- * front of it does not have to. Only a short, narrow-charset string that carries
- * no URL and no userinfo is shown; anything else collapses to fixed copy, so a
- * remote response body, endpoint or auth header can never be rendered.
- */
+/** A proxy in front of the Admin API may answer anything, so only a short, URL-free, narrow-charset string is shown. */
 export function boundedAdminErrorText(
   error: unknown,
   fallback: string,

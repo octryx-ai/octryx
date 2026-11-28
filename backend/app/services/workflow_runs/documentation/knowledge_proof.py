@@ -1,20 +1,4 @@
-"""Knowledge proves the **same** Confluence page the run published, not just the same id and version.
-
-A page id and a version number repeat across Confluence instances, and a response's ``_links.base`` (the source of
-the display/citation link) is untrusted. The proof is bound to the instance the page was published on
-(``page["instance"]``, the normalized non-secret base URL) through the connection the sync **actually reads**:
-:func:`publication_pin` is the check ``run_connector`` applies to its resolved scope connections before any request
-(the connection that serves the documentation space must be the published connection on that instance, else the run
-is refused: no request, nothing ingested).
-
-**Publish & prove.** The publication proof binds Knowledge to the **approved write intent** (the sent-confirmed
-``DocumentationWriteIntent``: page, version, instance, connection and the confirmed (b) card hash), never to a
-mutable sync marker alone. :func:`ledger_binding` is the one re-check every publish & prove step makes against the
-ledger (the provenance step after its sync, the audience challenge at issue, P's record and the run's consume): the
-sync item is ingested at exactly the published version from the published instance, the source's current head is one
-projected revision, and that revision's bytes are the document whose digest the provenance recorded. The
-search-hit ``version`` (a product/subject version) is never read as the page version.
-"""
+"""Knowledge proves the **same** Confluence page the run published, not just the same id and version."""
 
 from __future__ import annotations
 
@@ -48,13 +32,12 @@ REASON_SOURCE_CONNECTION = "source_connection_mismatch"
 
 # Publish & prove failure classes (``failure_routes.py`` routes them; the global
 # ``CLASS_SAFETY`` is unchanged and still used for binding/instance/connection refusals).
-CLASS_PARSE_FAILED = "parse_failed"  # the pinned read or the ingested bytes do not prove the version: relist
-CLASS_INDEX_TIMEOUT = "index_timeout"  # Knowledge is not (yet) at the pinned version / projection: relist, retry
-CLASS_NEEDS_CONFIGURATION = "needs_configuration"  # no configured audience principal (or semantics)
-CLASS_AUDIENCE_UNPROVEN = "audience_unproven"  # a receipt is missing, refused, stale or failed its assertions
+CLASS_PARSE_FAILED = "parse_failed"
+CLASS_INDEX_TIMEOUT = "index_timeout"
+CLASS_NEEDS_CONFIGURATION = "needs_configuration"
+CLASS_AUDIENCE_UNPROVEN = "audience_unproven"
 S1_FAILURE_CLASSES = (CLASS_PARSE_FAILED, CLASS_INDEX_TIMEOUT, CLASS_NEEDS_CONFIGURATION, CLASS_AUDIENCE_UNPROVEN)
 
-# Ledger re-check refusals (fixed reasons, mapped to a class by :func:`binding_class`).
 BINDING_ITEM_MISSING = "item_missing"
 BINDING_WITHHELD = "item_withheld"
 BINDING_NOT_INGESTED = "item_not_ingested"
@@ -66,19 +49,16 @@ BINDING_REVISION = "revision_changed"
 
 
 def sha256_json(value: Any) -> str:
-    """``sha256:<hex>`` of the canonical JSON of ``value`` (sorted keys, no whitespace)."""
     data = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str).encode("utf-8")
     return "sha256:" + hashlib.sha256(data).hexdigest()
 
 
 def as_digest(content_sha256: object) -> str:
-    """The ledger's bare-hex ``content_sha256`` in the ``sha256:<hex>`` form of the publication records."""
     text = str(content_sha256 or "")
     return text if text.startswith("sha256:") else f"sha256:{text}" if text else ""
 
 
 async def published_intent(db: AsyncSession, run: WorkflowRun) -> DocumentationWriteIntent | None:
-    """The run's approved, sent-confirmed documentation write (the confirmed contract of the publication)."""
     return (await db.execute(
         select(DocumentationWriteIntent).where(
             DocumentationWriteIntent.run_id == run.id,
@@ -90,15 +70,13 @@ async def published_intent(db: AsyncSession, run: WorkflowRun) -> DocumentationW
 
 @dataclass(frozen=True, slots=True)
 class LedgerBinding:
-    """The ledger facts one published page version is bound to (all from PostgreSQL, never from a hit)."""
-
     item_id: str
     source_id: str
     source_key: str
     page_version: int
     instance: str
     revision_id: str
-    revision_digest: str  # ``sha256:<hex>`` of the generated document = the revision's bytes
+    revision_digest: str
     span_keys: tuple[str, ...]
 
     @property
@@ -118,7 +96,6 @@ class BindingRefusedError(Exception):
 
 
 def binding_class(reason: str) -> str:
-    """The failure class of a ledger re-check refusal."""
     if reason in (BINDING_INSTANCE, BINDING_REVISION):
         return "safety"
     if reason == BINDING_WITHHELD:
@@ -131,11 +108,6 @@ def binding_class(reason: str) -> str:
 async def ledger_binding(db: AsyncSession, *, connector_id: str, project_id: str, page_id: str, page_version: int,
                          instance: str, revision_id: str | None = None, revision_digest: str | None = None
                          ) -> LedgerBinding:
-    """Re-check the ledger for one published page version, or :class:`BindingRefusedError`.
-
-    ``revision_id``/``revision_digest`` (a recorded binding) must still be the head: a new revision, even with
-    identical bytes at a new page version, refuses (the version check sees the new marker first).
-    """
     item = (await db.execute(select(KnowledgeSourceSyncItem).where(
         KnowledgeSourceSyncItem.connector_id == connector_id, KnowledgeSourceSyncItem.project_id == project_id,
         KnowledgeSourceSyncItem.external_id == str(page_id))
@@ -178,7 +150,6 @@ async def ledger_binding(db: AsyncSession, *, connector_id: str, project_id: str
 
 
 def serving_connection_ref(scoped: Any, space_key: str) -> str:
-    """The actual scope route's identity, including the default connection."""
     wanted = str(space_key or "").upper()
     ref = next((ref for key, ref in scoped.by_key.items() if str(key).upper() == wanted), None)
     refs = set(scoped.by_key.values()) or set(scoped.connections)
@@ -186,7 +157,7 @@ def serving_connection_ref(scoped: Any, space_key: str) -> str:
 
 
 def publication_pin(page: dict[str, Any]) -> Callable[[Any], str]:
-    """The publication dispatch pin: same serving connection AND instance, never endpoint equality alone."""
+    # Same serving connection and instance, never endpoint equality alone.
     from ...knowledge.sources.sync.provenance import scope_connection
 
     instance, space = str(page.get("instance") or ""), str(page.get("space_key") or "")
@@ -204,7 +175,6 @@ def publication_pin(page: dict[str, Any]) -> Callable[[Any], str]:
 
 
 async def publication_source_refusal(db: AsyncSession, page: dict[str, Any], row: KnowledgeSourceConnector) -> str:
-    """Resolve current source routing and reject identity or endpoint drift before the publication proof."""
     from ...knowledge.sources.sync.contract import ConnectorError
     from ...knowledge.sources.sync.scope_connections import resolve_scope_connections
 

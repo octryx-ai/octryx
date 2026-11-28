@@ -1,8 +1,3 @@
-"""Login scopes (SL-1 follow-up): the login records its grant, the start names a missing scope, and
-``analyze`` refuses up front instead of failing at submit with HTTP 403. A login without a grant record lacks every
-requested scope until the next login or refresh records it.
-"""
-
 from __future__ import annotations
 
 import time
@@ -37,17 +32,11 @@ def _seat_ready(launch_env) -> None:
     profile_choice.mark_seat_session_ok(launch_env["state"])
 
 
-# --- login records the grant ----------------------------------------------------------------------------------------
-
-
 def test_the_login_stores_exactly_the_granted_scopes(state):
     oauth._save(state, BASE_URL, "c", "http://127.0.0.1:1/cb",
                 {"access_token": "a", "refresh_token": "r", "expires_in": 60, "scope": PARTIAL_SCOPES})
     assert state.credentials()["scopes"] == sorted(PARTIAL_SCOPES.split())  # what was granted, not what was requested
     assert session_rules.missing_scopes(state) == ["work:manage"]
-
-
-# --- start notice ---------------------------------------------------------------------------------------------------
 
 
 def test_the_start_notice_names_a_missing_scope(launch_env, capsys):
@@ -68,9 +57,6 @@ def test_no_start_notice_when_the_login_has_every_scope(launch_env, capsys):
     assert session_rules.scope_notice(launch_env["state"]) == ""
 
 
-# --- analyze refuses up front ---------------------------------------------------------------------------------------
-
-
 def test_analyze_refuses_up_front_without_work_manage(launch_env, capsys):
     _seat_ready(launch_env)
     _set_scopes(launch_env["state"], sorted(PARTIAL_SCOPES.split()))
@@ -87,9 +73,6 @@ def test_analyze_starts_when_the_login_has_its_scopes(launch_env, capsys):
     # The start still names the other requested scopes; analyze itself needs only these two.
     assert "/sessions/register" in launch_env["steps"] and "analysis not started" not in err
     assert "work:manage" not in err and "knowledge:read" not in err
-
-
-# --- a login without a grant record -------------------------------------------------------------------------------
 
 
 def test_a_login_without_a_grant_record_lacks_every_requested_scope(state):

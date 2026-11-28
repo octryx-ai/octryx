@@ -5,25 +5,10 @@
   min-width: 0;
 }
 
-.agents-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--accent-strong);
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
-}
-
 .agents-table {
   table-layout: fixed;
   width: 100%;
 }
-
-
-.agents-table--modes th:nth-child(2) { width: 13rem; }
-.agents-table--modes th:nth-child(3) { width: 6.5rem; }
-.agents-table--modes th:nth-child(4) { width: 9rem; }
 
 .agents-table__row {
   cursor: pointer;
@@ -71,7 +56,7 @@
 .agents-form__advanced summary {
   color: var(--text);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: pointer;
 }
 
@@ -147,10 +132,6 @@
 
 /* Agents list: fixed side columns, the agent column takes the rest. Below
    ~760px of container width each agent becomes a stacked row (same data). */
-.agents-list {
-  container: agents-list / inline-size;
-  min-width: 0;
-}
 
 .agents-table--list th {
   white-space: nowrap;
@@ -161,18 +142,9 @@
 .agents-table--list th:nth-child(4) { width: 9.5rem; }
 .agents-table--list th:nth-child(5) { width: 10.5rem; }
 
-.agents-list__goal,
 .agents-list__meta {
   display: block;
   margin-top: 0.25rem;
-}
-
-.agents-list__goal {
-  overflow: hidden;
-  color: var(--muted-strong);
-  font-size: var(--ds-text-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .agents-list__meta {
@@ -245,7 +217,7 @@
     margin-bottom: 0.25rem;
     color: var(--muted);
     font-size: var(--ds-text-2xs);
-    font-weight: 600;
+    font-weight: var(--ds-weight-strong);
     letter-spacing: 0.11em;
     text-transform: uppercase;
   }
@@ -258,13 +230,6 @@
   .agents-list__status {
     grid-area: status;
     justify-self: end;
-  }
-
-  .agents-list__goal {
-    display: -webkit-box;
-    white-space: normal;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
   }
 
   .agents-list__actions .agents-table__actions {

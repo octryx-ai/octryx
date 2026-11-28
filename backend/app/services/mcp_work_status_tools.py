@@ -1,14 +1,5 @@
-"""Approvals and run lists over MCP, under the platform's own read rules (C-MCP).
-
-- ``approval_get(approval_id)``: one approval, readable exactly when
-  ``services/approval/access.require_approval_visible`` allows it. That covers a session reader, a
-  task run's owner or starter, a governance review's requester or reviewer, and a global admin.
-  Anything else answers like an unknown id.
-- ``product_run_list``: the connection Workspace's newest workflow runs and scheduled task runs the caller may
-  read; chat turns only on ``include_chat_turns``.
-
-Each answer carries closed facts only. Tool arguments and results are never read.
-"""
+"""Approvals and run lists over MCP, under the platform's own read rules. Anything a caller may not read answers like an
+unknown id."""
 
 from __future__ import annotations
 
@@ -72,22 +63,13 @@ async def _readable_run(db: AsyncSession, run: ProductRun | None, *, user: User,
 
 
 def _listed_turn_filter(arguments: dict[str, Any]) -> list[Any]:
-    """Which Product Runs the list leaves out unless ``include_chat_turns`` asks for them.
-
-    Asked to summarise the latest workflow run, a model would otherwise find the chat's own turn as the newest
-    Product Run (still running while it calls this tool) and summarise it as "the latest run" instead of the
-    person's workflow run; with only the own turn hidden, it summarises another session's chat turn instead.
-    Chat turns and sub-agent child turns are conversation, not runs the person started: by default only the
-    workflow runs (``workflow_runs``) and scheduled task runs are listed.
-    ``include_chat_turns`` lists every turn, the calling chat's own included.
-    """
+    # Chat turns are hidden by default: a model asked for the latest run would otherwise summarise a chat turn.
     if arguments.get("include_chat_turns") is True:
         return []
     return [ProductRun.origin.notin_((RUN_ORIGIN_CHAT_TURN, RUN_ORIGIN_SUB_AGENT))]
 
 
 async def _workflow_runs(db: AsyncSession, *, user: User, workspace_id: str) -> list[dict[str, Any]]:
-    """The Workspace's workflow runs the person may read, newest first (``workflow_runs.access.run_access``)."""
     rows = (
         await db.execute(
             select(WorkflowRun)
@@ -119,7 +101,6 @@ async def _workflow_runs(db: AsyncSession, *, user: User, workspace_id: str) -> 
 async def mcp_product_run_list(
     db: AsyncSession, *, caller: McpCaller, user: User, workspace_id: str, arguments: dict[str, Any]
 ) -> dict[str, Any]:
-    """The person's workflow runs first, then scheduled task runs (chat turns on request), each newest first."""
     rows = (
         (
             await db.execute(

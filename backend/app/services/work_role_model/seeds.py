@@ -1,13 +1,4 @@
-"""The seed functions and roles.
-
-The baseline seeds exactly these rows (``test_work_role_model`` keeps both equal). A ``role:<key>`` decider or
-handoff owner names one of the seed role keys (``WORK_ROLE_KEYS``) and resolves through the Workspace's
-assignments of that role. Admins change the functions of every seed role and add their own roles; a seed can be
-edited but not deleted.
-
-Defaults let people work (too much security blocks the system): every role reads, a Developer
-writes through connectors, the Product owner also decides as product owner.
-"""
+"""The seed functions and roles."""
 from __future__ import annotations
 
 from typing import NamedTuple
@@ -79,9 +70,6 @@ PROTECTED_FUNCTIONS: dict[str, frozenset[str]] = {"workspace_admin": frozenset({
 
 
 async def ensure_seed_catalog(db) -> None:
-    """Insert the seed functions and roles that are missing (a ``create_all`` database: tests, local dev).
-
-    Alembic databases get them from the baseline migration; existing rows are never changed here."""
     from sqlalchemy import select
 
     from ...models.runtime.work_role_model import WorkRole, WorkRoleFunction, WorkRoleFunctionLink

@@ -1,18 +1,4 @@
-"""The effective skill set of a Workspace and surface — one function for chat and octryx-claude.
-
-Deterministic order of filters:
-
-1. published versions only;
-2. the version's availability flag for the surface, and the Workspace surface switch
-   (``runtime_policy.skill_surfaces``, both on by default);
-3. the Workspace mode: ``all_active`` (all published), ``selected_only`` (the selected skills plus every skill
-   published into a selected category or one of its children — later skills included), ``none``;
-4. a skill a plugin brought only where that plugin is installed and active (``plugins/reach``);
-5. minus the Workspace's blocked skills, minus the agent's blocked skills (chat), then the user's roles against
-   the version's ``allowed_roles``.
-
-Each skill that is not delivered keeps the reason, for the readiness view and the usage trace.
-"""
+"""The effective skill set of a Workspace and surface — one function for chat and octryx-claude."""
 
 from __future__ import annotations
 
@@ -97,7 +83,6 @@ def _agent_blocked(agent_definition: dict[str, Any] | None) -> set[str]:
 async def candidates(db: AsyncSession, *, project_id: str | None, surface: str,
                      user_roles: list[str] | None = None, agent_definition: dict[str, Any] | None = None,
                      policy: WorkspaceSkillPolicy | None = None) -> list[Candidate]:
-    """Every published skill with its delivery decision for this Workspace, surface, user and agent."""
     policy = policy or await workspace_policy(db, project_id)
     rows = (await db.execute(select(Skill, SkillVersion).join(SkillVersion, SkillVersion.skill_id == Skill.id)
                              .where(SkillVersion.state == "published").order_by(Skill.name))).all()

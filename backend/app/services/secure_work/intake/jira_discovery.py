@@ -1,11 +1,4 @@
-"""What a Jira connection offers an intake (intake redesign §3.2–3.3): projects, issue types, statuses with the
-state each maps to, the fields an intake can map by plain name, and the live match count of a selection.
-
-Everything is read through the intake's connection (``connections.connection_config_of``) and stays inside its
-reach: only the connection's allowed (bound) projects are offered, and the count's query is confined to them
-exactly like a run's (``jira_scope.restrict_jql``). Failures answer what is known (an empty list, a ``None``
-count with a fixed ``reason``), never a body, a URL or a secret.
-"""
+"""What a Jira connection offers an intake: projects, issue types, statuses, fields and the live match count."""
 
 from __future__ import annotations
 
@@ -14,10 +7,10 @@ from typing import Any
 import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.atlassian_auth_modes import JIRA
+from app.services.connector_auth.atlassian_modes import JIRA
 
 from ....tools.jira_impl._jira_cloud import is_jira_cloud
-from ...atlassian_auth import auth_headers, request_auth
+from ...connector_auth.atlassian import auth_headers, request_auth
 from ...outbound_egress.connections import CONNECTION_JIRA
 from ..jira import jira_connector
 from ..jira.jira_filters import build_jira_query_preview, normalize_jira_sync_filters
@@ -82,7 +75,6 @@ def _field_roles(fields: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 async def discover_jira(db: AsyncSession, project_id: str, connection_id: str) -> dict[str, Any]:
-    """``{projects, issue_types, statuses, fields, reason}`` of the connection (empty lists when unknown)."""
     empty: dict[str, Any] = {"projects": [], "issue_types": [], "statuses": [], "fields": _field_roles([]),
                              "reason": None}
     config, reason = await _config(db, project_id, connection_id)
@@ -125,7 +117,6 @@ async def discover_jira(db: AsyncSession, project_id: str, connection_id: str) -
 
 
 async def count_jira(db: AsyncSession, project_id: str, connection_id: str, what: dict[str, Any]) -> dict[str, Any]:
-    """``{count, reason}``: how many issues the selection matches now (``None`` when Jira does not say)."""
     config, reason = await _config(db, project_id, connection_id)
     if config is None:
         return {"count": None, "reason": reason}

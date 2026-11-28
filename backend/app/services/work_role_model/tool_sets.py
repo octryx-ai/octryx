@@ -1,9 +1,4 @@
-"""A function's tool set: tool names and selectors, matched against a tool's registry metadata.
-
-Entries: an exact tool name, a glob (``jira_*``), ``risk:<read|write|admin>``,
-``connector:<name>`` and ``connector:<name|*>:<risk>``. Unknown names are kept: a tool may arrive later, and an admin
-must not lose an entry because a connector is not installed yet.
-"""
+"""A function's tool set: tool names and selectors, matched against a tool's registry metadata."""
 from __future__ import annotations
 
 import fnmatch
@@ -17,8 +12,6 @@ _CONNECTOR = re.compile(r"^[a-z0-9_*]{1,40}$")
 
 
 class ToolSetError(ValueError):
-    """An entry that is no tool name or selector; ``entry`` names it."""
-
     def __init__(self, entry: str) -> None:
         super().__init__(f"Not a tool name or selector: {entry!r}")
         self.entry = entry
@@ -41,7 +34,6 @@ def normalize_entry(raw: object) -> str:
 
 
 def normalize_entries(raw: Iterable[object] | None) -> list[str]:
-    """Validated, de-duplicated entries in the admin's order."""
     return list(dict.fromkeys(normalize_entry(item) for item in (raw or [])))
 
 

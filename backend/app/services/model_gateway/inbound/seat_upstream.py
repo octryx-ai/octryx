@@ -1,16 +1,4 @@
-"""HTTP boundary from the seat route to Anthropic.
-
-A ``seat`` session's model traffic goes to ``https://api.anthropic.com`` (``ANTHROPIC_SEAT_UPSTREAM``)
-with the user's **own** subscription ``Authorization``, unchanged. Only an allowlist of request
-headers travels (:data:`SEAT_FORWARDED_HEADERS`); in particular no ``x-octryx-*`` header
-(the session key, Workspace, work item and the seat credential stay on the platform) and no
-``x-api-key``. The ``x-stainless-*`` SDK telemetry headers are not forwarded: the Messages API does not
-need them (root's live check confirms).
-
-The client is built with ``trust_env=False`` (no proxy or netrc from the platform's environment), no
-default credential of its own, no redirects, and the same stream read timeout as the governed route.
-The ``Authorization`` value is passed per request and never logged, stored or put into a message.
-"""
+"""HTTP boundary from the seat route to Anthropic, with the user's own subscription Authorization."""
 
 from __future__ import annotations
 
@@ -51,7 +39,6 @@ def _configured(environ: Mapping[str, str] | None) -> str:
 
 
 def _usable(raw: str) -> bool:
-    """``https``, or ``http`` to a loopback host (tests and local stubs only); no userinfo, query or fragment."""
     parts = urlsplit(raw)
     if not parts.netloc or "@" in parts.netloc or parts.query or parts.fragment:
         return False
@@ -61,7 +48,6 @@ def _usable(raw: str) -> bool:
 
 
 def _is_loopback(host: str) -> bool:
-    """A loopback IP literal (``127.0.0.0/8``, ``::1``), or exactly ``localhost``; ``127.0.0.1.evil.com`` is not."""
     try:
         return ipaddress.ip_address(host).is_loopback
     except ValueError:
@@ -69,23 +55,18 @@ def _is_loopback(host: str) -> bool:
 
 
 def seat_upstream_base_url(environ: Mapping[str, str] | None = None) -> str:
-    """The configured upstream origin; an unusable value never becomes the upstream (it reads as the default)."""
     raw = _configured(environ)
     return raw if raw and _usable(raw) else DEFAULT_SEAT_UPSTREAM
 
 
+# An unusable override refuses every call: a mistyped or plain-http upstream never turns into the default, and the
+# subscription token never travels over plain http off the host.
 def seat_upstream_problem(environ: Mapping[str, str] | None = None) -> str:
-    """``seat_upstream_misconfigured`` when ``ANTHROPIC_SEAT_UPSTREAM`` is set but unusable; else ``""``.
-
-    The seat route refuses every call then: a mistyped or plain-``http`` upstream never silently
-    turns into the default, and the subscription token never travels over plain ``http`` off the host.
-    """
     raw = _configured(environ)
     return REASON_SEAT_UPSTREAM_MISCONFIGURED if raw and not _usable(raw) else ""
 
 
 def seat_transport() -> httpx.AsyncBaseTransport | None:
-    """Transport seam: ``None`` in production (httpx's own), a mock in tests."""
     return None
 
 
@@ -106,7 +87,6 @@ _SHARED: dict[str, tuple[asyncio.AbstractEventLoop, httpx.AsyncClient]] = {}
 
 
 def build_seat_client() -> httpx.AsyncClient:
-    """The upstream client for one seat call. Hand it back with :func:`release_seat_client`, never ``aclose``."""
     base_url = seat_upstream_base_url()
     transport = seat_transport()
     if transport is not None:  # a test's mock transport: a client of its own
@@ -121,14 +101,12 @@ def build_seat_client() -> httpx.AsyncClient:
 
 
 async def release_seat_client(client: httpx.AsyncClient) -> None:
-    """Ends one call's use of ``client``: a shared client stays open for the next call, an own one is closed."""
     if any(shared is client for _loop, shared in _SHARED.values()):
         return
     await client.aclose()
 
 
 async def close_seat_clients() -> None:
-    """Closes the shared clients (application shutdown)."""
     for _loop, client in list(_SHARED.values()):
         with contextlib.suppress(Exception):
             await client.aclose()
@@ -136,7 +114,6 @@ async def close_seat_clients() -> None:
 
 
 def seat_request_headers(headers: Mapping[str, str]) -> dict[str, str]:
-    """Exactly the allowlisted request headers, by lower-case name."""
     lowered = {str(name).lower(): str(value) for name, value in headers.items()}
     return {
         name: lowered[name]

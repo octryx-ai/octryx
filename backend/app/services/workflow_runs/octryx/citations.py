@@ -1,17 +1,4 @@
-"""``citations_present`` for a run-bound octryx-claude phase: the observed answer against the platform's sources.
-
-In chat the answer evidence guard compares the final answer with the turn's tool results (``cited_count``,
-``evidence_url_count``). An octryx-claude phase gets the same counts from what the server recorded, never from the
-device's word:
-
-- the **answer** is the newest assistant text the model gateway observed from the upstream in this phase
-  (``Message`` rows the gateway writes, idempotency key ``gw:a:``);
-- the **sources** are the results of the platform's own MCP tools in this phase (the bounded excerpt the gateway
-  recorded); a cut JSON excerpt still yields its ``source_url`` / ``cite_as`` fields.
-
-The comparison is the chat's (``answer_evidence.check_answer_evidence``). A Stop that arrives before the gateway
-recorded the final answer finds none: the check fails closed and the next Stop judges the answer.
-"""
+"""``citations_present`` for a run-bound octryx-claude phase: the observed answer against the platform's sources."""
 
 from __future__ import annotations
 
@@ -53,7 +40,6 @@ def _result_tree(excerpt: str) -> dict[str, Any]:
 
 
 def platform_sources(rows: Sequence[ToolCall], *, since: datetime | None) -> list[dict[str, Any]]:
-    """The successful platform MCP results of the phase, as the answer evidence guard's tool history. Pure."""
     history = []
     for row in rows:
         if since is not None and (row.created_at is None or row.created_at < since):
@@ -77,7 +63,6 @@ async def observed_answer(db: AsyncSession, session_id: str, *, since: datetime 
 
 async def citation_counts(db: AsyncSession, session_id: str, rows: Sequence[ToolCall], *,
                           since: datetime | None) -> tuple[int, int]:
-    """``(cited_count, source_count)`` of the phase's observed answer, as the chat records them."""
     evidence = collect_turn_evidence(platform_sources(rows, since=since))
     check = check_answer_evidence(await observed_answer(db, session_id, since=since), evidence)
     return check.cited_count, check.evidence_url_count

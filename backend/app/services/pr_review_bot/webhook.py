@@ -1,21 +1,4 @@
-"""A signed ``scm_pull_request`` webhook call reaches the review bot (concept §4: an event *starts* a run).
-
-``inbound_alerts.trigger`` checks the signature and the delivery id once for every call (a replayed delivery never
-gets here) and hands the payload of an SCM webhook to the runs that watch it; this module also hands an opened or
-pushed pull request to the bot:
-
-- the decision is taken at once and answered (``starter.admit``: opt-in, draft, fork, already reviewed);
-- an admitted head starts in the background, in a session of its own: a run's first step checks the pull request
-  out, which takes longer than a provider waits for a webhook answer (GitHub: 10 seconds). A start lost with its
-  process (a restart in between) is picked up by the hourly sync, which reviews every head no run has reviewed.
-
-Pushes in quick succession are reviewed once (debounce): a start waits ``DEBOUNCE_SECONDS`` and starts
-only when no newer head of the same pull request arrived meanwhile; the newest head's own start reviews it. A run
-that is already reviewing an older head posts only its status once a newer run exists (``actions.publish``).
-
-A test call from the admin drawer starts nothing (it posts nothing anywhere), and a failure of the bot never fails the
-webhook call: the watching runs still get their event.
-"""
+"""A signed ``scm_pull_request`` webhook call reaches the review bot (concept §4: an event *starts* a run)."""
 
 from __future__ import annotations
 
@@ -27,6 +10,8 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models.integration.webhook import Webhook
+from ..data_access import background_viewer, run_as
+from ..data_access.read_filter import hidden_from_viewer
 from ..observability.review_bot_metrics import count_trigger
 from .events import PullRequestEvent, pull_request_event
 from .starter import SKIPPED, TRIGGER_WEBHOOK, StartOutcome, admit, start_review
@@ -50,7 +35,6 @@ async def _wait(seconds: float) -> None:
 
 
 async def start_in_background(project_id: str, event: PullRequestEvent, session_factory: Any = None) -> None:
-    """The admitted start, in its own session; its outcome is logged and counted."""
     if session_factory is None:
         from ...db import async_session_factory as session_factory
     if DEBOUNCE_SECONDS > 0:
@@ -61,7 +45,10 @@ async def start_in_background(project_id: str, event: PullRequestEvent, session_
     _LATEST.pop(_key(project_id, event), None)
     try:
         async with session_factory() as db:
-            outcome = await start_review(db, project_id, event, trigger=TRIGGER_WEBHOOK)
+            if project_id in await hidden_from_viewer(db):
+                outcome = StartOutcome(SKIPPED, "workspace_not_visible")
+            else:
+                outcome = await start_review(db, project_id, event, trigger=TRIGGER_WEBHOOK)
     except Exception as error:  # noqa: BLE001 - logged and counted; the hourly sync reviews the head instead
         logger.warning("pr_review_bot.webhook_start_failed repository=%s pr=%s", event.repository, event.pr_id,
                        exc_info=True)
@@ -70,14 +57,14 @@ async def start_in_background(project_id: str, event: PullRequestEvent, session_
 
 
 def _spawn(coroutine: Any) -> None:
-    task = asyncio.create_task(coroutine)
+    # The webhook's verified principal, without the request's lifetime: the work runs after the answer.
+    task = asyncio.create_task(run_as(background_viewer(), coroutine))
     _BACKGROUND.add(task)
     task.add_done_callback(_BACKGROUND.discard)
 
 
 async def on_scm_webhook(db: AsyncSession, webhook: Webhook, payload: Any, headers: Mapping[str, str], *,
                          is_test: bool) -> dict[str, str] | None:
-    """What the bot does with the call (``None``: not an opened or pushed pull request)."""
     event = pull_request_event(payload, headers)
     if event is None and webhook.project_id and not is_test:
         return _on_comment(webhook.project_id, payload, headers)
@@ -100,7 +87,6 @@ async def on_scm_webhook(db: AsyncSession, webhook: Webhook, payload: Any, heade
 
 
 def _on_comment(project_id: str, payload: Any, headers: Mapping[str, str]) -> dict[str, str] | None:
-    """A new comment with an ``@octryx`` command, acted on in the background."""
     from .commands import parse_command
     from .comment_events import comment_event
     from .comment_poll import on_comment, on_person_comment

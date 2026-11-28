@@ -1,4 +1,4 @@
-"""Worker-level claim and recovery service for TaskQueueEntry."""
+"""Recovery of TaskQueueEntry claims whose worker stopped heartbeating."""
 
 from __future__ import annotations
 
@@ -13,101 +13,7 @@ logger = logging.getLogger(__name__)
 DEFAULT_HEARTBEAT_STALE_MINUTES = 30
 
 
-async def heartbeat_task_queue_entry(
-    db: AsyncSession,
-    entry_id: str,
-    worker_id: str,
-) -> bool:
-    """Update the heartbeat timestamp for a queue entry owned by worker_id.
-
-    Only succeeds if the entry is assigned to worker_id.
-    Returns True if heartbeat updated, False otherwise.
-    """
-    from ...models import TaskQueueEntry
-
-    entry = await db.get(TaskQueueEntry, entry_id)
-    if entry is None:
-        return False
-    if entry.assigned_to != worker_id:
-        return False
-    entry.last_heartbeat = _utc_now()
-    await db.flush()
-    return True
-
-
-async def claim_task_queue_entry(
-    db: AsyncSession,
-    entry_id: str,
-    worker_id: str,
-    *,
-    timeout_minutes: int | None = None,
-) -> bool:
-    """Atomically claim a task queue entry for a worker.
-
-    Uses DB-level status check to prevent race conditions across workers.
-    Only claims if entry is in 'pending' status and not yet assigned.
-
-    Returns True if claimed, False if already assigned or in wrong status.
-    """
-    from ...models import TaskQueueEntry
-
-    entry = await db.get(TaskQueueEntry, entry_id)
-    if entry is None:
-        return False
-    if entry.status != "pending":
-        return False
-    if entry.assigned_to is not None:
-        return False
-    now = _utc_now()
-    entry.assigned_to = worker_id
-    entry.assigned_at = now
-    entry.started_at = now
-    entry.last_heartbeat = now
-    entry.status = "in_progress"
-    entry.attempt_count = (entry.attempt_count or 0) + 1
-    if timeout_minutes is not None:
-        entry.timeout_minutes = timeout_minutes
-    await db.flush()
-    return True
-
-
-async def release_task_queue_entry(
-    db: AsyncSession,
-    entry_id: str,
-    worker_id: str,
-    *,
-    success: bool,
-    result_session_id: str | None = None,
-) -> bool:
-    """Release a task queue entry after execution completes or fails.
-
-    Only succeeds if the entry is owned by worker_id.
-    Returns True if released, False if not the owner.
-    """
-    from ...models import TaskQueueEntry
-
-    entry = await db.get(TaskQueueEntry, entry_id)
-    if entry is None:
-        return False
-    if entry.assigned_to != worker_id:
-        return False
-    now = _utc_now()
-    entry.status = "completed" if success else "failed"
-    entry.completed_at = now
-    if result_session_id:
-        entry.result_session_id = result_session_id
-    entry.last_heartbeat = now
-    await db.flush()
-    return True
-
-
 async def recover_stale_task_queue_entries(db: AsyncSession) -> int:
-    """Find task queue entries with stale heartbeats and reset them to pending.
-
-    Runs at scheduler startup to recover entries whose worker died mid-execution.
-
-    Returns the number of entries recovered.
-    """
     from datetime import timedelta
 
     from ...models import TaskQueueEntry

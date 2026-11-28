@@ -22,10 +22,11 @@ from app.services.workflow_runs.slices.rules import sub_agent_config
 from app.time_utils import utc_now
 from tests.phased_workflow_fixtures import admin_user, phased_definition, publish_phased, run_workspace
 from tests.platform_agent_publish_support import draft_edit, publish_edit
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.test_workflow_run_pause import _turn
 from tests.workflow_run_review_support import PASS, ScriptedReviewer, _reviewed_definition, changed_repo
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 
 
 def _with_agent(definition: dict, agent: str | None, **extra) -> dict:

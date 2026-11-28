@@ -1,10 +1,5 @@
-"""Execution profile contract for backend routing decisions.
-
-The execution profile is an audit-friendly envelope around the execution strategy
-decision: the backend's one explicit place to record whether a turn is allowed, denied,
-needs approval, needs configuration or needs clarification. The execution gate
-(``services/session/execution_gate.py``) starts the loop only for an allowed profile.
-"""
+"""Execution profile contract for backend routing decisions. The one explicit record of whether a turn is allowed,
+denied, or needs approval, configuration or clarification."""
 
 from __future__ import annotations
 
@@ -23,8 +18,6 @@ LLM_ROUTER_NOT_USED: dict[str, str] = {"status": "not_used"}
 
 @dataclass(frozen=True, slots=True)
 class ExecutionProfile:
-    """Normalized routing/profile decision persisted on a session or trace."""
-
     status: ExecutionProfileStatus
     profile_id: str
     decision_source: str
@@ -135,13 +128,8 @@ def build_execution_profile(
     capability: dict[str, Any] | None = None,
     governed_origin: str | None = None,
 ) -> ExecutionProfile:
-    """Build the turn's profile envelope.
-
-    ``governed_origin`` names the declared non-chat origin that decided the run capability (a
-    schedule, flow, worker profile, recorded run profile or parent run, see
-    ``services/run_capability``). An allowed turn outside a matched workflow then records that
-    origin as its decision source, not the routing classifier of the message text.
-    """
+    # A governed origin, not the message-text classifier, is the decision source of an allowed turn outside a matched
+    # workflow.
     capability_section = dict(capability or {})
     status, decision_source, reason = _decide_status(
         prompt=prompt,

@@ -1,7 +1,4 @@
-"""Step and tool-name checks of an Agent Definition revision snapshot.
-
-The revision validation itself is :mod:`app.services.agent_definition_validation`.
-"""
+"""Step and tool-name checks of an Agent Definition revision snapshot."""
 
 from __future__ import annotations
 
@@ -24,13 +21,7 @@ MAX_STEP_TYPE_LENGTH = 50
 
 
 def known_tool_names() -> frozenset[str]:
-    """Return the tool identifiers an administrator may reference.
-
-    This is the same set the agent builder offers as ``tool_options``
-    (``app/web/routers/panel_agents.py``), so validation cannot reject a tool
-    the authoring UI presented. The registry is populated at import time, not
-    at application startup, so this is deterministic in tests too.
-    """
+    # The same set the agent builder offers as ``tool_options``, so validation never rejects an offered tool.
     from ..tools.definitions.connector_ownership import SERVICE_ONLY_TOOLS
     from ..tools.registry import TOOL_REGISTRY
 
@@ -47,7 +38,6 @@ def is_known_tool(tool_name: str, *, registry_names: frozenset[str]) -> bool:
 
 
 def _validate_step_order(steps: list[Any]) -> list[ValidationIssue]:
-    """Require positions to be exactly ``1..len(steps)`` with no repeats."""
     issues: list[ValidationIssue] = []
     positions: list[int] = []
     for index, step in enumerate(steps):

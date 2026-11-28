@@ -1,15 +1,5 @@
-"""Storage-neutral retrieval request, evidence, and Retrieval Bundle types.
-
-These are product-owned contracts. They carry no ORM rows, database record
-identifiers, query-language text, or connection details; a store adapter maps
-its internal records onto them. All bounds are enforced at construction so an
-adapter never sees an unbounded or unscoped request.
-
-Text, identifier, and limit fields accept exact built-in types only, and
-nested product values are revalidated into fresh instances on construction:
-a subclass could override the methods the checks rely on, and a shared nested
-instance could be mutated in place after validation.
-"""
+"""Storage-neutral retrieval request, evidence, and Retrieval Bundle types. Bounds are enforced at construction; nested
+values are revalidated fresh."""
 
 from __future__ import annotations
 
@@ -19,7 +9,7 @@ from collections import Counter
 from dataclasses import dataclass, replace
 from enum import StrEnum
 
-from ..access.acl_keys import MAX_READER_KEYS, PUBLIC_ACL_KEY, is_principal_key
+from ..access.acl_keys import MAX_READER_KEYS, PUBLIC_ACL_KEY, AclKey, is_principal_key
 from ..identity.workspace import WorkspaceId
 from ..objects.source_object import SourceObjectRef
 from ..text_safety import has_unsafe_chars
@@ -44,8 +34,6 @@ _RECORD_ID = re.compile(r"^#?-?[0-9]+:-?[0-9]+$")
 
 
 class RetrievalMode(StrEnum):
-    """Retrieval channels a store can serve. Declaration order is dispatch order."""
-
     LEXICAL = "lexical"
     VECTOR = "vector"
     GRAPH = "graph"
@@ -97,7 +85,6 @@ def _validated_score(score: object) -> float | None:
 
 
 def is_valid_evidence_id(evidence_id: object) -> bool:
-    """Public: evidence-key producers validate a derived key with the same rule."""
     return (
         type(evidence_id) is str
         and len(evidence_id) <= MAX_EVIDENCE_ID_CHARS
@@ -108,12 +95,7 @@ def is_valid_evidence_id(evidence_id: object) -> bool:
 
 @dataclass(frozen=True, slots=True)
 class RetrievalRequest:
-    """One bounded, Workspace-scoped retrieval request.
-
-    ``query_text`` is data for ranking only; stores must never interpret it as
-    query-language text.
-    """
-
+    # ``query_text`` is data for ranking only; stores must never interpret it as query language.
     workspace: WorkspaceId
     query_text: str
     modes: frozenset[RetrievalMode]
@@ -124,7 +106,7 @@ class RetrievalRequest:
     version: str | None = None
     # Source ACL keys this request admits: always ``public`` first, then at most
     # ``MAX_READER_KEYS`` principal keys of the calling user. The default admits public spans only.
-    acl_keys: tuple[str, ...] = (PUBLIC_ACL_KEY,)
+    acl_keys: tuple[AclKey, ...] = (PUBLIC_ACL_KEY,)
 
     def __post_init__(self) -> None:
         if self.workspace is None:
@@ -160,18 +142,12 @@ class RetrievalRequest:
 
     @property
     def ordered_modes(self) -> tuple[RetrievalMode, ...]:
-        """Requested modes in deterministic dispatch order."""
         return tuple(mode for mode in RetrievalMode if mode in self.modes)
 
 
 @dataclass(frozen=True, slots=True)
 class Evidence:
-    """One retrieved, citable item mapped out of a store's internal records.
-
-    ``workspace`` is the Workspace that owns the underlying record; a bundle
-    only accepts evidence owned by its request's Workspace.
-    """
-
+    # A bundle accepts only evidence owned by its request's Workspace.
     workspace: WorkspaceId
     evidence_id: str
     mode: RetrievalMode
@@ -217,8 +193,6 @@ class Evidence:
 
 @dataclass(frozen=True, slots=True)
 class RetrievalBundle:
-    """The complete, bounded answer to one :class:`RetrievalRequest`."""
-
     request: RetrievalRequest
     evidence: tuple[Evidence, ...]
 

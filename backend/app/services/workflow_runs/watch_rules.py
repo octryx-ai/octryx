@@ -1,13 +1,4 @@
-"""Publish-time rules of a ``watch`` node.
-
-- ``advance`` is ``confirm`` (default: the requester says "go on" after the condition is met) or ``auto``;
-- ``auto`` is allowed only when no exit leads into a higher capability class than the highest class of the
-  phases before the watch, and never into ``deliver`` — entering deploy/release always needs a person;
-- ``params`` are closed: ``work_state`` (needed for ``jira.status``), ``job`` (a Jenkins job for ``ci.*``),
-  ``workflow`` (the GitHub Actions workflow whose success ``ci.succeeded`` waits for; without it the poll judges
-  every workflow of the pushed commit), ``target: deploy`` (the result of the deploy job the run started,
-  ``deploy.run``: its next build after the start, not a commit of the run).
-"""
+"""Publish-time rules of a ``watch`` node."""
 
 from __future__ import annotations
 
@@ -22,7 +13,6 @@ def _error(code: str, message: str) -> dict[str, str]:
 
 
 def node_class(node: Any) -> str:
-    """The capability class a node runs with ('' for nodes that run nothing themselves)."""
     if node.kind == "phase":
         return str(dict(node.config.get("workflow_contract") or {}).get("capability_class") or "")
     if node.kind == "platform_action":

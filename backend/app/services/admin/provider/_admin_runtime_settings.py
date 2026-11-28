@@ -15,10 +15,9 @@ from ...budget.project_cost_limits import (
     project_cost_limit_updates,
     set_project_cost_limit_overrides,
 )
-from ...context_budget import list_context_budget_profiles
 from ...security_analyzer import list_security_analyzer_options
 from ...system_config import get_agent_runtime_settings
-from ._admin_runtime_payload import build_runtime_settings_payload
+from ._admin_runtime_payload import build_runtime_settings_payload, unknown_runtime_settings
 from ._admin_runtime_update_core import apply_core_runtime_settings
 from ._admin_runtime_update_runtime import apply_execution_and_safety_settings
 
@@ -89,7 +88,6 @@ async def get_runtime_settings(
         max_output_tokens_default=config.max_output_tokens_default,
         runtime_settings=runtime_settings,
         security_analyzer_options=list_security_analyzer_options(),
-        context_budget_profiles=await list_context_budget_profiles(db),
         cost_limit_scope=cost_limit_scope,
     )
 
@@ -102,6 +100,10 @@ async def update_runtime_settings(
     project_id: str | None = None,
 ) -> dict[str, Any]:
     normalized_project_id = str(project_id or "").strip()
+    # A key nothing writes is refused by name, never saved as a silent no-op.
+    unknown = unknown_runtime_settings(payload, extra=frozenset({INHERIT_COST_LIMITS_FIELD}))
+    if unknown:
+        raise HTTPException(status_code=400, detail={"code": "unknown_runtime_settings", "keys": unknown})
     config = await get_or_create_control_plane_config_func(db)
     runtime_settings = await get_agent_runtime_settings(db)
     if normalized_project_id:
@@ -124,7 +126,6 @@ async def update_runtime_settings(
         max_output_tokens_default=config.max_output_tokens_default,
         runtime_settings=refreshed_runtime_settings,
         security_analyzer_options=list_security_analyzer_options(),
-        context_budget_profiles=await list_context_budget_profiles(db),
         cost_limit_scope=_cost_limit_scope_payload(
             project_id=None,
             project_session_limit=None,
@@ -152,7 +153,6 @@ async def _update_project_cost_limits(
         max_output_tokens_default=config.max_output_tokens_default,
         runtime_settings=refreshed_runtime_settings,
         security_analyzer_options=list_security_analyzer_options(),
-        context_budget_profiles=await list_context_budget_profiles(db),
         cost_limit_scope=cost_limit_scope,
     )
 

@@ -46,13 +46,6 @@ _ID_CHARS = frozenset("0123456789abcdefABCDEF-")
 
 @dataclass(frozen=True, slots=True)
 class ProjectionRecovery:
-    """The decision one recovery request reached, as fixed tokens only.
-
-    ``outbox_state`` is the state the obligation is in afterwards: ``pending`` for
-    the two transitions, and the observed state for a refusal — which is why a
-    refusal is deterministic information rather than an opaque error.
-    """
-
     entry_id: str
     revision_id: str
     operation: str
@@ -67,8 +60,6 @@ class ProjectionRecovery:
 
 @dataclass(frozen=True, slots=True)
 class _Obligation:
-    """The obligation as read, including the schedule value used as its CAS token."""
-
     entry_id: str
     state: str
     next_attempt_at: datetime
@@ -76,12 +67,6 @@ class _Obligation:
 
 
 def _refused(obligation: _Obligation, revision_id: str, operation: str) -> ProjectionRecovery:
-    """Classify a request this obligation's state does not permit.
-
-    A repeat of a recovery that already succeeded is the idempotent answer
-    (``already_pending`` / ``already_due``); ``claimed`` and ``applied`` are the
-    states recovery may not touch at all.
-    """
     if operation in REQUEUE_OPERATIONS:
         result = (
             RECOVERY_RESULT_ALREADY_PENDING
@@ -103,7 +88,6 @@ def _refused(obligation: _Obligation, revision_id: str, operation: str) -> Proje
 
 
 def _audit_details(recovery: ProjectionRecovery) -> dict[str, str]:
-    """The closed field set of one recovery record, validated before the insert."""
     details = {
         "operation": recovery.operation,
         "outbox_entry_id": recovery.entry_id,

@@ -39,7 +39,7 @@
 .work-empty__eyebrow {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.14em;
   text-transform: uppercase;
 }
@@ -48,7 +48,7 @@
   margin-top: 0.25rem;
   color: var(--text);
   font-size: var(--ds-text-lg);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .work-area__collapse,
@@ -81,7 +81,7 @@
 .work-area__button {
   padding: 0.25rem 0.75rem;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .work-area__collapse:hover,
@@ -115,7 +115,7 @@
   color: var(--muted-strong);
   text-align: left;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   cursor: pointer;
 }
 
@@ -139,7 +139,7 @@
   color: var(--accent-strong);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   border-left-color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .work-area--sidebar-collapsed .work-area__brand {

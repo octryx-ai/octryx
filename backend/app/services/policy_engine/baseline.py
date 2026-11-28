@@ -1,9 +1,4 @@
-"""The instance's generated baseline, read from the current sources in the database.
-
-The sources stay authoritative (the classification matrix page, the Workspace gateway policy, the model
-policy); the baseline is regenerated from them on every read and identified by its digest. Active Workspaces
-only: an inactive Workspace runs nothing.
-"""
+"""The instance's generated baseline, read from the current sources in the database."""
 
 from __future__ import annotations
 

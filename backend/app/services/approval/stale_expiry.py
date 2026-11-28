@@ -1,10 +1,4 @@
-"""Stale pending approvals expire (Observability O0).
-
-An approval nobody decided within ``approval_pending_ttl_hours`` (setting, default 72; 0 never expires) is decided
-``expired`` by the same compare-and-set every decision uses, so a person deciding at the same moment wins or loses
-cleanly, and an ``approval.expired`` audit row records it as the requester's (the turn owner). Its session stops
-with ``approval_timed_out``.
-"""
+"""Stale pending approvals expire."""
 
 from __future__ import annotations
 
@@ -32,7 +26,6 @@ def pending_ttl_hours() -> int:
 
 
 async def expire_stale_approvals(db: AsyncSession, *, ttl_hours: int | None = None) -> int:
-    """Expire pending approvals older than the TTL (oldest first, bounded); returns how many this call expired."""
     ttl = pending_ttl_hours() if ttl_hours is None else ttl_hours
     if ttl <= 0:
         return 0
@@ -60,6 +53,7 @@ async def expire_stale_approvals(db: AsyncSession, *, ttl_hours: int | None = No
             action=EXPIRED_AUDIT_ACTION,
             resource_type="approval",
             resource_id=decided.id,
+            project_id=decided.workspace_id,
             details={"action": decided.action, "ttl_hours": ttl,
                      "requested_at": decided.created_at.isoformat() if decided.created_at else None,
                      "expired_at": decided.resolved_at.isoformat() if decided.resolved_at else None},

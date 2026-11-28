@@ -135,7 +135,6 @@ async def assign_policy(
     policy_key: str,
     platform_id: str,
 ) -> dict[str, Any]:
-    """Assign a policy to a specific platform."""
     result = await db.execute(select(MashPolicy).where(MashPolicy.key == policy_key))
     policy = result.scalar_one_or_none()
     if not policy:

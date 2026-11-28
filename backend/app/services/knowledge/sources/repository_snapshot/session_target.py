@@ -1,21 +1,4 @@
-"""The session's recorded repository binding as a codebase target (resolver step 4).
-
-``session_repository_target`` turns the launcher's binding of one gateway session (``binding.py``)
-into the ``session_target`` that ``code/codebase.resolve_codebase`` takes:
-
-- ``None``: there is no session key, no session of this user in this Workspace, or no binding. The
-  resolver goes on to its next step;
-- :class:`SessionRepositoryTarget`: the bound repository source is indexed at exactly the bound HEAD
-  commit, and the resolver reads that source;
-- a ``CodebaseRefusal``: the session is bound, but its codebase cannot be answered:
-  - ``no_repository_source``: no source exists for the remote, because the snapshot was not allowed;
-  - ``repository_sync_in_progress``: the snapshot is still uploading;
-  - ``repository_not_synced``: the source is at another commit. A stale index never stands in for
-    "this codebase".
-
-The session is looked up by its launcher key. It must belong to the caller and the Workspace,
-exactly like the gateway's own session rule (``agent_gateway/sessions``).
-"""
+"""The session's recorded repository binding as a codebase target."""
 
 from __future__ import annotations
 
@@ -53,7 +36,6 @@ class SessionRepositoryTarget:
 async def bound_gateway_session(
     db: AsyncSession, *, user_id: str, workspace_id: str, session_key: str | None
 ) -> Session | None:
-    """The caller's gateway session in this Workspace for ``session_key``, or ``None``."""
     try:
         key = str(uuid.UUID(str(session_key or "")))
     except ValueError:

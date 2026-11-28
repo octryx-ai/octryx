@@ -94,21 +94,17 @@ async function hookKeys(file, name, stubs = {}) {
 
 test("the admin provider and webhook state hooks return their keys in the same order", async () => {
   const provider = await hookKeys("admin/hooks/useAdminProviderState.ts", "useAdminProviderState");
-  assert.equal(provider.length, 74);
-  assert.deepEqual(provider.slice(0, 6), ["copilotFlow", "setCopilotFlow", "editingKey", "setEditingKey", "expandedProvider", "setExpandedProvider"]);
+  assert.equal(provider.length, 32);
+  assert.deepEqual(provider.slice(0, 4), ["expandedProvider", "setExpandedProvider", "modelFilter", "setModelFilter"]);
   assert.equal(provider.join(","), PROVIDER_KEYS);
   const webhook = await hookKeys("admin/hooks/useAdminWebhookState.ts", "useAdminWebhookState");
   assert.equal(webhook.join(","), WEBHOOK_KEYS);
 });
 
 const pairs = (names) => names.flatMap((name) => [name, `set${name[0].toUpperCase()}${name.slice(1)}`]);
-const PROVIDER_KEYS = pairs(["copilotFlow", "editingKey", "expandedProvider", "googleConnectLoading",
-  "modelBudgetDrafts", "modelFilter", "modelOutputDrafts", "modelPricingInputDrafts", "modelPricingOutputDrafts", "modelSort",
-  "modelsLoading", "newGoogleClientId", "newGoogleCloudProject", "newGoogleClientSecret", "newKeyValue", "newModelDisplay", "newModelId",
-  "newModelMaxTokens", "newModelPlannerBudget", "newModelTools", "newProviderArn", "newProviderAuthMode", "newProviderDisplay",
-  "newProviderEndpointUrl", "newProviderKey", "newProviderSecretKey", "newProviderSessionToken", "newProviderDriver", "newProviderRegion",
-  "providerDrafts", "providerFormError", "providerFormLoading", "providerModels", "savingProviderConfig", "showAddModel",
-  "showAddProvider", "syncingProvider"]).join(",");
+const PROVIDER_KEYS = pairs(["expandedProvider", "modelFilter", "modelOutputDrafts", "modelPricingInputDrafts",
+  "modelPricingOutputDrafts", "modelSort", "modelsLoading", "newModelDisplay", "newModelId", "newModelMaxTokens",
+  "newModelTools", "newProviderDisplay", "providerModels", "showAddModel", "showAddProvider", "syncingProvider"]).join(",");
 const WEBHOOK_KEYS = [...pairs(["createdOutboundSigningSecret", "connectorWatcherEvents", "connectorWatcherRuleDecisions",
   "connectorWatcherRules", "connectorWatchers", "editingWebhookId"]), "filteredOutboundWebhookDeliveries",
 ...pairs(["outboundWebhookDeliveries", "outboundWebhookDeliverySearch", "outboundWebhookFormError", "outboundWebhookFormEvents",
@@ -117,35 +113,3 @@ const WEBHOOK_KEYS = [...pairs(["createdOutboundSigningSecret", "connectorWatche
   "webhookFormAgentType", "webhookFormDescription", "webhookFormError", "webhookFormLoading", "webhookFormName", "webhookFormProjectId",
   "webhookFormSourceType", "webhooks"])].join(",");
 
-test("the Copilot device flow polls, follows a slower interval, then marks the provider connected", async () => {
-  const timers = [];
-  const cleared = [];
-  const answers = [{ flow_id: "f", user_code: "U", verification_uri: "https://v", interval: 5 },
-    { status: "waiting", interval: 9 }, { status: "connected", login: "octo" }];
-  const asked = [];
-  const { createCopilotActions } = load("admin/hooks/useAdminProviderCopilotActions.ts", {}, {
-    setInterval: (fn, ms) => { timers.push({ fn, ms }); return timers.length; }, clearInterval: (id) => cleared.push(id),
-  });
-  let flow = null;
-  let providers = [{ id: "p1" }, { id: "p2" }];
-  const ref = { current: null };
-  const actions = createCopilotActions({
-    readJson: async (url, init) => { asked.push([url.split("/").pop(), init.body ?? null]); return answers.shift(); },
-    setCopilotFlow: (next) => { flow = typeof next === "function" ? next(flow) : next; },
-    setProviders: (next) => { providers = next(providers); }, copilotPollRef: ref,
-  });
-  await actions.handleCopilotConnect("p1");
-  assert.equal(JSON.stringify(flow), JSON.stringify({ providerId: "p1", flowId: "f", userCode: "U", verificationUri: "https://v", interval: 5, status: "pending" }));
-  assert.deepEqual([timers[0].ms, ref.current], [5000, 1]);
-  await timers[0].fn();
-  assert.deepEqual([timers[1].ms, ref.current, cleared], [9000, 2, [1]]);
-  assert.equal(flow.status, "waiting");
-  assert.equal(flow.interval, 9);
-  await timers[1].fn();
-  assert.deepEqual([ref.current, cleared], [null, [1, 2]]);
-  assert.equal(JSON.stringify([flow.status, flow.login, providers]), JSON.stringify(["connected", "octo",
-    [{ id: "p1", has_api_key: true, api_key_masked: "OAuth: octo" }, { id: "p2" }]]));
-  assert.equal(JSON.stringify(asked), JSON.stringify([["start", null], ["poll", "{\"flow_id\":\"f\"}"], ["poll", "{\"flow_id\":\"f\"}"]]));
-  actions.handleCopilotDisconnect();
-  assert.equal(flow, null);
-});

@@ -1,10 +1,4 @@
-"""Decisions and blocked results for mirrored MCP capabilities.
-
-The rules are described in ``mcp_capability_policy``, which owns the catalog keys
-and loads a workspace's mirrored capability index; this module turns that index
-into the one decision dispatch and discovery share, and into the secret-free
-payload a denied capability answers with.
-"""
+"""Decisions and blocked results for mirrored MCP capabilities."""
 
 from __future__ import annotations
 
@@ -13,7 +7,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .mcp_capability_policy import (
+from .mcp_governance.capability_policy import (
     _HIDDEN_BINDING_STATUS,
     DEFAULT_MCP_CAPABILITY_RISK,
     MCP_CAPABILITY_POLICY_NAME,
@@ -62,11 +56,6 @@ def unverifiable_mcp_capability_decision(
     reason: str = "missing_workspace_context",
     matched_rule: str = "unverifiable_context",
 ) -> McpCapabilityDecision:
-    """Missing database or unresolvable workspace context denies.
-
-    ``reason``/``matched_rule`` name *why* the context was unverifiable — no
-    database session, no project id at all, or several ambiguous ones.
-    """
     return McpCapabilityDecision(
         server_name=str(server_name or "").strip(),
         tool_name=str(tool_name or "").strip(),
@@ -79,7 +68,7 @@ def unverifiable_mcp_capability_decision(
 
 
 def _unbound_decision(normalized_server: str, normalized_tool: str) -> McpCapabilityDecision:
-    """No Workspace Capability binding: denied. A tool becomes usable only once an admin enables its binding."""
+    # Unbound denies: a tool is usable only once an admin enables its binding.
     return McpCapabilityDecision(
         server_name=normalized_server,
         tool_name=normalized_tool,
@@ -94,7 +83,7 @@ def _unbound_decision(normalized_server: str, normalized_tool: str) -> McpCapabi
 def _bound_decision(
     capability: MirroredMcpCapability, normalized_server: str, normalized_tool: str
 ) -> McpCapabilityDecision:
-    """A mirrored binding allows only while enabled, visible, active and not waiting for review."""
+    # Allows only while enabled, visible, active and not waiting for review.
     if not capability.capability_type_active:
         return McpCapabilityDecision(
             server_name=normalized_server,
@@ -148,7 +137,7 @@ def decide_mcp_capability(
     server_name: str,
     tool_name: str,
 ) -> McpCapabilityDecision:
-    """Return the single authoritative decision shared by dispatch and discovery."""
+    # The one decision dispatch and discovery share.
     normalized_server = str(server_name or "").strip()
     normalized_tool = str(tool_name or "").strip()
     if not normalized_server or not normalized_tool:
@@ -175,7 +164,6 @@ async def mcp_capability_decision(
     server_name: str,
     tool_name: str,
 ) -> McpCapabilityDecision:
-    """Resolve one capability decision, denying when the workspace is unverifiable."""
     normalized_workspace_id = str(workspace_id or "").strip()
     if db is None or not normalized_workspace_id:
         return unverifiable_mcp_capability_decision(server_name, tool_name)
@@ -194,7 +182,7 @@ def _blocked_capability_message(decision: McpCapabilityDecision) -> str:
 
 
 def blocked_mcp_capability_result(decision: McpCapabilityDecision) -> dict[str, Any]:
-    """Uniform, secret-free tool-result payload for a denied MCP capability."""
+    # Secret-free.
     return {
         "error": _blocked_capability_message(decision),
         "mcp_server": decision.server_name,
@@ -206,13 +194,8 @@ def blocked_mcp_capability_result(decision: McpCapabilityDecision) -> dict[str, 
 
 
 def blocked_mcp_capability_discovery_result(decision: McpCapabilityDecision) -> dict[str, Any]:
-    """Explicit blocked result for capability discovery that cannot be decided.
-
-    Discovery must never answer an unverifiable context with an empty but
-    successful listing: ``connected=true`` plus ``count=0`` is indistinguishable
-    from "this server legitimately exposes nothing". The caller gets a named,
-    auditable denial instead.
-    """
+    # Never an empty success: ``connected=true`` with ``count=0`` would read as a server that legitimately exposes
+    # nothing.
     return {
         "error": (
             f"MCP capability governance for server '{decision.server_name}' cannot be verified in this "

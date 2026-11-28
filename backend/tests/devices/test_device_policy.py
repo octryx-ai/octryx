@@ -1,6 +1,5 @@
-"""Device-run policy: off by default, platform kill switch, Workspace opt-in with profiles, the matrix
-rule (on at every level, D10), seat only where the Workspace's seat decision allows it (D2), Cedar
-``run_on_device`` equal to the legacy decision, and kill switches that stop running turns."""
+"""Device-run policy: off by default, platform kill switch, Workspace opt-in with profiles, the level matrix,
+the seat decision, Cedar ``run_on_device`` and kill switches that stop running turns."""
 
 from __future__ import annotations
 
@@ -65,8 +64,6 @@ async def _setup(db, auth_user, profiles=("governed", "seat")):
 @pytest.mark.asyncio
 async def test_device_runs_are_on_by_default_and_a_workspace_that_switched_them_off_stays_off(client, db, auth_headers,
                                                                                                auth_user):
-    """Default policy: without any Workspace setting a member's chat reaches their own device; a Workspace
-    whose admin stored ``enabled: false`` keeps it off and nothing reaches the device."""
     assert DEFAULTS["enabled"] is True
     device, session = await _setup(db, auth_user)
     assert (await _send(client, auth_headers, device, session))[0] == 200
@@ -101,7 +98,7 @@ async def test_profiles_and_seat_follow_the_workspace(client, db, auth_headers, 
     await enable_device_runs(db, allowed_profiles=["governed"])
     assert await _send(client, auth_headers, device, session, profile="seat") == (403, "device_profile_not_allowed")
     await enable_device_runs(db)
-    # Seat is selectable (D2) but the Workspace's seat decision still decides (an unclassified Workspace here).
+    # Seat is selectable, but the Workspace's seat decision still decides (an unclassified Workspace here).
     assert await _send(client, auth_headers, device, session, profile="seat") == (
         403, "seat_classification_unresolved")
     assert await _send(client, auth_headers, device, session, folder="/etc") == (403, "folder_not_allowlisted")
@@ -116,7 +113,6 @@ async def test_a_thread_with_sensitive_content_refuses_seat_only_when_the_team_o
     db.add(ContentConversationState(session_id=session.id, conversation_key=CHAT_CONVERSATION, categories=["pii"],
                                     detectors={"email": 1}))
     await db.commit()
-    # Default: sensitive content alone does not refuse the seat; the seat decision goes on as usual.
     assert await _send(client, auth_headers, device, session, profile="seat") != (409, "content_requires_governed")
     await enable_device_runs(db, sensitive_content_requires_governed=True)
     await db.commit()
@@ -129,7 +125,7 @@ async def test_the_matrix_rule_turns_a_level_off(client, db, auth_headers, auth_
     device, session = await _setup(db, auth_user)
     await enable_device_runs(db)
 
-    async def level_off(db_arg, workspace_id, level):  # the level's rules with the Workspace's overrides (S4)
+    async def level_off(db_arg, workspace_id, level):
         return LevelRules(seat_allowed=False, device_runs_allowed=level != "confidential")
 
     async def confidential(db_arg, *, project_id):

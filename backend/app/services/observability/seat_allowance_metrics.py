@@ -1,15 +1,4 @@
-"""The seat allowance as Prometheus gauges.
-
-Metrics never go through the database, not even at scrape time. The seat routes
-set the gauges in memory where the account's answer arrives (``presence.record_allowance``: Claude Code's 5h/7d
-utilization, Codex's primary/secondary windows) and ``/metrics`` prints that memory. They run in the API process, so
-only the API's ``/metrics`` reports them; after a restart the series are absent until the next seat answer. No person
-label: the newest allowance per engine. A value that is missing is not exported (no 0, no NaN).
-
-- ``octryx_seat_allowance_used_ratio{engine, window}``: 0..1 of the window used (``window``: ``5h`` | ``7d``);
-- ``octryx_seat_allowance_resets_timestamp_seconds{engine, window}``: when the window resets (Unix seconds);
-- ``octryx_seat_allowance_updated_timestamp_seconds{engine}``: when the allowance was last reported.
-"""
+"""The seat allowance as Prometheus gauges."""
 
 from __future__ import annotations
 
@@ -42,7 +31,6 @@ def _number(value: float) -> str:
 
 
 def observe(engine: str, allowance: Any, *, at: datetime) -> None:
-    """The newest allowance of ``engine``'s seat (its stored values after this answer)."""
     if engine not in _ENGINES:
         return
     windows: dict[str, dict[str, float]] = {}
@@ -64,7 +52,6 @@ def reset() -> None:
 
 
 def seat_allowance_lines() -> list[str]:
-    """The gauges as Prometheus text lines, from memory only."""
     with _lock:
         state = {engine: dict(value) for engine, value in _state.items()}
     series: dict[str, list[str]] = {USED: [], RESETS: [], UPDATED: []}

@@ -1,10 +1,4 @@
-"""Rows one revision registration writes, and the request check before any of them.
-
-The source row (created, or retitled), the revision with its spans, the span locators,
-origin link and scope that hang off it, and its first outbox obligation. All of them run
-inside the caller's one transaction; the caller owns the flush that orders them and the
-commit that ends it.
-"""
+"""Rows one revision registration writes, and the request check before any of them."""
 
 from __future__ import annotations
 
@@ -36,7 +30,6 @@ from .revision_races import _STAGE_SOURCE, _RevisionInsertConflictError
 
 
 def _naive_utc(value: datetime | None) -> datetime | None:
-    """Stored like every timestamp here: naive UTC."""
     return ensure_utc(value).replace(tzinfo=None) if value is not None else None
 
 
@@ -49,7 +42,6 @@ async def _ensure_source(
     display_title: str,
     created_by: str | None,
 ) -> str:
-    """The source the new revision belongs to: created on first upload, retitled otherwise."""
     if source_id is None:
         source_id = str(uuid.uuid4())
         db.add(
@@ -91,7 +83,6 @@ def _add_revision_details(
     products: tuple[str, ...],
     version: str | None,
 ) -> None:
-    """Span locators, origin link and scope of a revision whose row is already flushed."""
     # After the flush of the revision, like the outbox entry: these rows reference the revision by a
     # foreign key without an ORM relationship, so only that flush makes PostgreSQL see the revision first.
     for span in spans:
@@ -123,7 +114,6 @@ def _add_revision_details(
 def _checked_digest(
     authorized: object, stored: object, spans: tuple[DerivedSpan, ...], pending_parse: object
 ) -> str:
-    """The content digest of a well-formed registration request; anything else is a contract error."""
     if type(authorized) is not AuthorizedWorkspace or type(stored) is not StoredObject:
         raise EvidenceLedgerContractError()
     if type(pending_parse) is not bool or (pending_parse and spans):

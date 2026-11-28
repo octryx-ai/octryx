@@ -1,9 +1,4 @@
-"""Deterministic SHA256 token-hash embedding driver.
-
-Explicit, non-semantic, offline/dev only. This is selected only when the
-configured provider is ``local_hash`` — it is never a silent fallback for a
-misconfigured real provider.
-"""
+"""Deterministic SHA256 token-hash embedding driver."""
 
 from __future__ import annotations
 

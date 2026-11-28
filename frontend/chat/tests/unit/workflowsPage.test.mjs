@@ -25,7 +25,7 @@ test("the overview comes from the phased workflows and reads only flows", () => 
   assert.equal(WORKFLOWS_OVERVIEW_PATH, "/api/v1/phased-workflows/overview");
   const { flows, usageWindowDays } = readWorkflowsOverview(RAW);
   assert.equal(usageWindowDays, 14);
-  assert.deepEqual(flows.map((row) => [row.key, row.executionKind]), [["answer-from-docs", "phased"], ["draw-it", "flow"]]);
+  assert.deepEqual(flows.map((row) => row.key), ["answer-from-docs", "draw-it"]);
   assert.equal(statusLabel(flows[0]), "Published v3");
   assert.equal(statusLabel(flows[1]), "Draft v1");
   assert.equal(readWorkflowsOverview({}).usageWindowDays, 30);

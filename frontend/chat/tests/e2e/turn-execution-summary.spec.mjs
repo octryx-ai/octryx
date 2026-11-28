@@ -66,7 +66,7 @@ function blockedProfile(status) {
   return profileSection({
     profileId: "workflow:e2e-release",
     status,
-    decisionSource: PROFILE_DECISION_SOURCES.workflowRequirements,
+    decisionSource: null,
     workflowKey: "e2e-release",
   });
 }

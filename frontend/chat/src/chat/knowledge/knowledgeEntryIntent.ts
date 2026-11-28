@@ -1,6 +1,4 @@
-// One-shot hand-over from the Search entry to Knowledge → Documents: "Upload document" asks the
-// Documents page to open its upload drawer once, for the workspace the request was made in.
-// Nothing is persisted; a request that is not taken by the next Documents mount is discarded.
+// Nothing is persisted; a request not taken by the next Documents mount is discarded.
 
 let pendingUpload: string | null = null;
 

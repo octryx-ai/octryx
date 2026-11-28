@@ -1,11 +1,5 @@
-"""Keyset-paged, optionally title-filtered source list of one Workspace.
-
-The Documents page must reach every source the reader may see, not only the
-newest ``MAX_SOURCE_LIMIT`` (judge finding J-C-001). Pages are newest-first by
-``(created_at, id)`` and the continuation is an opaque cursor; the same
-Workspace authorization and per-source ACL as :func:`queries.list_sources` apply,
-so a cursor never widens what a reader can list.
-"""
+"""Keyset-paged, optionally title-filtered source list of one Workspace. A cursor never widens what a reader can
+list."""
 
 from __future__ import annotations
 
@@ -60,7 +54,6 @@ def _title_filter(query: object):
 
 
 def _page_conditions(authorized: AuthorizedWorkspace, cursor: object, query: object) -> list:
-    """Workspace, ACL, optional title filter and keyset position of one page."""
     conditions = [
         KnowledgeEvidenceSource.project_id == authorized.project_id,
         visible_source(authorized.project_id, KnowledgeEvidenceSource.source_key, authorized.principal_keys),
@@ -115,7 +108,6 @@ async def list_source_page(
     cursor: object = None,
     query: object = None,
 ) -> tuple[tuple[SourceSummary, ...], str | None]:
-    """One newest-first page of visible sources and the cursor of the next page."""
     if type(authorized) is not AuthorizedWorkspace:
         raise EvidenceLedgerContractError()
     bounded = _validated_limit(limit, DEFAULT_SOURCE_LIMIT, MAX_SOURCE_LIMIT)

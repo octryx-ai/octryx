@@ -1,19 +1,4 @@
-"""Per-session rules of the launcher found in the owner's live seat session (seat findings SL-1, SL-2, SL-5).
-
-- **SL-1, grant scopes:** the login stores the scopes the platform granted (``credentials["scopes"]``, from the
-  token response's ``scope`` field, which the platform always sends on code exchange and refresh; a login whose
-  answer lacks ``model:invoke`` is refused, so every login since the record exists has one). Every start compares
-  the scopes the launcher requests now (``oauth.SCOPES``) with the record and prints one line per start naming the
-  missing ones and ``octryx-claude login`` as the fix; ``analyze`` refuses up front when a scope it needs is
-  missing instead of failing at submit with HTTP 403. The unread reminder is only given when the grant can read
-  the board.
-- **No grant record:** a stored login without ``credentials["scopes"]`` is treated as lacking every requested
-  scope, so the start notice and ``analyze`` ask for ``octryx-claude login``; nothing is inferred from its age.
-- **SL-2, the verification notice:** "verification is not configured" is said once per session (the launcher
-  already says it at start); later stops stay silent while the state is unchanged.
-- **SL-5, headless runs:** the launcher marks a ``-p``/``--print`` session as headless (``OCTRYX_SESSION_MODE``);
-  there the board reminder and the handoff nudges never block a stop, they are informational output only.
-"""
+"""Per-session rules of the launcher: grant scopes and once-per-session notices."""
 
 from __future__ import annotations
 
@@ -37,12 +22,10 @@ LOGIN_COMMAND = "octryx-claude login"
 
 
 def requested_scopes() -> tuple[str, ...]:
-    """The scopes the launcher asks for at login today."""
     return tuple(SCOPES.split())
 
 
 def granted_scopes(state: LocalState) -> frozenset[str] | None:
-    """The scopes of the stored login, or ``None`` when it has no grant record."""
     scopes = state.credentials().get("scopes")
     if not isinstance(scopes, list):
         return None
@@ -50,7 +33,6 @@ def granted_scopes(state: LocalState) -> frozenset[str] | None:
 
 
 def missing_scopes(state: LocalState, required: Sequence[str] | None = None) -> list[str]:
-    """The ``required`` scopes (default: all requested ones) the stored login is known to lack."""
     wanted = requested_scopes() if required is None else tuple(required)
     if not str(state.credentials().get("refresh_token") or ""):
         return []  # not logged in: the login check refuses, never a scope claim
@@ -69,7 +51,6 @@ def lacks_scopes_message(missing: Sequence[str]) -> str:
 
 
 def scope_notice(state: LocalState) -> str:
-    """The start notice when the login lacks a scope the launcher requests now; ``""`` when nothing is missing."""
     missing = missing_scopes(state)
     if not missing:
         return ""
@@ -81,7 +62,6 @@ def scope_notice(state: LocalState) -> str:
 
 
 def analyze_scope_refusal(state: LocalState) -> str:
-    """``""`` when the login carries every scope ``analyze`` needs, else the same lacks-scope message."""
     missing = missing_scopes(state, ANALYZE_SCOPES)
     return lacks_scopes_message(missing) if missing else ""
 
@@ -100,7 +80,6 @@ def record_verification_notice(state: LocalState, session_key: str, verification
 
 def verification_notice_once(state: LocalState, session_key: str, output: dict[str, Any] | None,
                              verification_state: str) -> dict[str, Any] | None:
-    """Drop a repeated ``needs_configuration`` notice: it is shown once per session and state."""
     if verification_state != "needs_configuration" or not output or "systemMessage" not in output:
         return output
     path = state.session_dir(session_key) / VERIFICATION_NOTICE_FILE

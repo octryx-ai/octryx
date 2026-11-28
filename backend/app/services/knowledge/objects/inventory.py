@@ -24,13 +24,7 @@ _CURSOR = re.compile(r"^[a-z0-9][a-z0-9/_-]{0,1023}$")
 
 @dataclass(frozen=True, slots=True)
 class InventoryObject:
-    """One object of one Workspace as the inventory saw it: address, size, age.
-
-    ``last_modified`` is **naive UTC**, like every persisted timestamp in this codebase
-    (``time_utils.utc_now``). The server answers a timezone-aware value; it is converted at
-    the boundary below so no caller has to mix the two conventions.
-    """
-
+    # ``last_modified`` is naive UTC like every persisted timestamp; the server's aware value is converted here.
     key: str
     content_sha256: str
     byte_size: int
@@ -45,7 +39,6 @@ class InventoryObject:
             raise KnowledgeObjectContractError(_LIST)
 
     def age_hours(self, now: datetime) -> int:
-        """Whole hours between this object's write and naive-UTC ``now``; never negative."""
         if type(now) is not datetime or now.tzinfo is not None:
             raise KnowledgeObjectContractError(_LIST)
         seconds = (now - self.last_modified).total_seconds()
@@ -54,24 +47,7 @@ class InventoryObject:
 
 @dataclass(frozen=True, slots=True)
 class InventoryPage:
-    """One bounded page of a Workspace's object inventory.
-
-    ``unrecognized_count`` are keys under the Workspace prefix that do not match the
-    product's derivation. They are counted so an operator can see that something else
-    writes into the prefix, and they are never named, returned or deletable.
-
-    ``next_after_key`` is ``None`` when the listing is complete — and also when the server
-    reported more results but the last key of the page was not usable as a cursor, in which
-    case ``truncated`` stays true so the caller records an incomplete view instead of
-    silently treating it as the whole Workspace.
-
-    The cursor is the last key of the page that has the derived shape, so keys *after* it are
-    listed again on the next page. For the objects this returns that changes nothing (they are
-    deduplicated by key), but an unrecognized key can be counted twice. Counting a stray key
-    twice is the acceptable side of that trade: the alternative is carrying foreign key text
-    out of this module to use as a cursor.
-    """
-
+    # Unrecognized keys are counted, never named, returned or deletable; an unusable cursor keeps ``truncated`` true.
     objects: tuple[InventoryObject, ...]
     unrecognized_count: int
     truncated: bool

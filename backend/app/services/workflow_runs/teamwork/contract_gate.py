@@ -1,16 +1,4 @@
-"""The story contract is complete before any item starts (a missing section otherwise costs a whole re-plan).
-
-The coordinator's Stop checks every contract section its items cite against the contract file it wrote in this
-pass (``docs/stories/<KEY>.md``, new in the run's change, plus the plan's ``contract`` text). A cited section that is
-missing is a blocking finding of the plan phase: the coordinator completes the file (or corrects the reference) in the
-same turn, before any item starts. Only what can be judged is judged: a contract file that already existed before the
-story (only its changed lines are in the change), a truncated change or no contract file at all → no finding.
-
-A citation is a section number next to the word *contract* or the contract's file name (``contract 2.1``, ``contract
-2.5/2.6``, ``story contract sections 3.1, 3.3 and 5``, ``.md 3.1``, ``§2.4``). A section exists when a line of the
-contract starts with its number (``## 2.1 Search API``, ``**2.1a** ...``, ``3. Decisions``), or with a sub-section of it
-(``2.1`` makes ``2`` exist).
-"""
+"""The story contract is complete before any item starts (a missing section otherwise costs a whole re-plan)."""
 
 from __future__ import annotations
 
@@ -32,7 +20,6 @@ _HEADING = re.compile(rf"^[\s#>*_|`-]*(?:§\s*|section\s+)?({_NUMBER})(?=[\s.):,
 
 
 def cited_sections(text: str) -> list[str]:
-    """The contract section numbers ``text`` cites, in order."""
     found: list[str] = []
     for pattern in (_AFTER, _BEFORE, _SECTION_SIGN):
         for match in pattern.finditer(text or ""):
@@ -43,7 +30,6 @@ def cited_sections(text: str) -> list[str]:
 
 
 def contract_sections(text: str) -> set[str]:
-    """Every section number a line of the contract starts with, and each of its parents."""
     numbers: set[str] = set()
     for match in _HEADING.finditer(text or ""):
         number = match.group(1).lower()
@@ -54,8 +40,7 @@ def contract_sections(text: str) -> set[str]:
 
 
 def new_story_contracts(change: Any) -> str | None:
-    """The text of the ``docs/stories/*.md`` files the change adds (new files only: their whole text is in the
-    patch); ``None`` when the change cannot tell (no change, truncated, unavailable, or no new contract file)."""
+    # Only new files: their whole text is in the patch.
     if not isinstance(change, dict) or change.get("truncated") or change.get("base_unavailable"):
         return None
     patch = change.get("patch")
@@ -74,7 +59,6 @@ def new_story_contracts(change: Any) -> str | None:
 
 
 def missing_sections(record: dict[str, Any], contract_text: str) -> dict[str, list[str]]:
-    """``{section: [items citing it]}`` for every cited section the contract does not have."""
     present = contract_sections(contract_text)
     missing: dict[str, list[str]] = {}
     for item in record.get("items") or []:
@@ -85,7 +69,6 @@ def missing_sections(record: dict[str, Any], contract_text: str) -> dict[str, li
 
 
 def contract_gap_result(run: Any, change: Any) -> Any:
-    """A failed blocking check when the plan's items cite contract sections the contract file lacks, else ``None``."""
     from ...workflow_checks.library import FAILED, CheckResult
     from ..phase_outputs import recorded_output
     from . import OUTPUT_KIND

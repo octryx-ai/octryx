@@ -49,7 +49,6 @@ def _from_vector(path: Path) -> Image.Image:
 
 
 def mascot(path: Path) -> Image.Image:
-    """The mascot, trimmed to its visible pixels and centred on a transparent square of ``SIZE``."""
     image = _from_embedded(path.read_text(encoding="utf-8")) or _from_vector(path)
     image = image.crop(image.getbbox())
     side = max(image.size)

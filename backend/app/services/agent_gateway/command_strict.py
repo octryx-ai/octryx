@@ -27,12 +27,6 @@ _DISCARD_OUTPUT = re.compile(r"(?<=\s)(?:[12]?>|&>)\s*/dev/null(?=\s|$)")
 
 
 def strict_argv(command: str) -> list[Segment] | None:
-    """Plain argv commands only, joined by ``&&``, ``||``, ``|``, ``;`` or newlines; ``None`` for anything else.
-
-    No redirection, background ``&``, subshell, substitution, variable (``$``), environment assignment, wrapper or
-    nested shell: what runs is exactly the words. The structural form a phase that may not run free shell code
-    accepts (``workflow_runs/octryx/shell_rules``)."""
-
     text = str(command or "")
     if not text.strip() or len(text) > MAX_COMMAND_CHARS or "$" in text or "`" in text or "\\" in text:
         return None

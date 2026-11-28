@@ -28,11 +28,9 @@ def _normalize_jql_shorthand(jql: str) -> str:
 
 
 def _split_order_by_clause(jql: str) -> tuple[str, str]:
-    """The top-level ORDER BY outside quotes (a quoted "order by" is never split)."""
     return split_order_by(jql)
 
 
 def _inject_project_restriction(jql: str, allowed_projects: list[str]) -> str:
-    """``project in (...) AND (<jql>)``; the JQL can never break out of the group."""
     keys_quoted = ", ".join(f'"{k}"' for k in allowed_projects)
     return confine_jql(_normalize_jql_shorthand(jql), f"project in ({keys_quoted})")

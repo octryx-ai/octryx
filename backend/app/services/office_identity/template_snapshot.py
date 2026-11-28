@@ -1,11 +1,4 @@
-"""``office_template_snapshot`` — deterministic evidence brief for a template.
-
-Reads a ``.potx``/``.pptx`` once and emits a bounded, deterministically sorted
-brief: the theme resolved *through the master* (never a hard-coded
-``theme1.xml``), a layout catalog whose entries state their capacity and
-content shape, and an icon catalog. Only metadata and package part paths leave
-this module — no binary payloads.
-"""
+"""``office_template_snapshot`` — deterministic evidence brief for a template."""
 
 from __future__ import annotations
 
@@ -61,15 +54,7 @@ def _slide_size(package: PresentationPackage, warnings: list[str]) -> dict[str, 
 def build_template_snapshot(
     template_path: str | Path, *, example_deck_path: str | Path | None = None
 ) -> dict[str, Any]:
-    """Extract the deterministic evidence brief of a PowerPoint template.
-
-    ``example_deck_path`` is an optional second upload: a real presentation
-    built on the same brand system, whose slides teach *how* each layout is
-    filled (dramaturgy) without contributing any brand, theme, or content. Its
-    per-layout usage — matched to this template's layouts by layout name — wins
-    over the template's own sample slides, which then fill only the layouts the
-    example never demonstrates. The template file itself is never altered.
-    """
+    """Extract the deterministic evidence brief of a PowerPoint template."""
     path = Path(template_path)
     if not path.is_file():
         raise FileNotFoundError(f"template not found: {path}")
@@ -126,12 +111,6 @@ def _apply_example_usage(
     example_deck_path: str | Path | None,
     warnings: list[str],
 ) -> dict[str, Any] | None:
-    """Merge an example deck's per-layout usage into ``usage_by_part`` in place.
-
-    Returns the example-deck metadata when one was applied, or ``None`` when no
-    usable example deck was given. Example usage wins per layout; the template's
-    own sample-slide usage stays for every layout the example did not cover.
-    """
     if not example_deck_path:
         return None
     example_path = Path(example_deck_path)
@@ -194,7 +173,6 @@ def slots_by_role(layout: dict[str, Any], role: str) -> list[dict[str, Any]]:
 
 
 def has_full_bleed_picture(layout: dict[str, Any]) -> bool:
-    """True when any picture slot of this layout swallows the whole slide."""
     return any(slot.get("full_bleed") for slot in slots_by_role(layout, "picture"))
 
 

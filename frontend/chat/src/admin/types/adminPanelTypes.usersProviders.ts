@@ -22,80 +22,16 @@ export type AdminUser = {
 export type AdminProvider = {
   id: string;
   name: string;
-  provider_family: string;
   driver: string;
-  runtime_kind: string;
   display_name: string;
-  profile_name: string;
   endpoint_url: string;
-  binary_path: string;
   is_active: boolean;
   is_global: boolean;
   has_api_key: boolean;
-  api_key_masked: string;
-  auth_mode: string;
-  auth_login: string;
-  auth_name: string;
-  auth_host: string;
-  google_cloud_project: string;
-  google_oauth_client_id: string;
-  google_oauth_client_configured: boolean;
   config_json: Record<string, unknown>;
-  capabilities_json: Record<string, unknown>;
-  aws_region: string;
-  aws_role_arn: string;
-  aws_static_credentials_configured: boolean;
-  bootstrap_role: string;
-  health_status: string;
-  last_health_check_at: string;
-  last_health_error: string;
   model_count: number;
   active_model_count: number;
   created_at: string;
-};
-
-export type LocalBootstrapStatus = {
-  provider_id: string;
-  provider_display_name: string;
-  endpoint_url: string;
-  profile_name: string;
-  model_id: string;
-  bootstrap_role: string;
-  health_status: string;
-  last_health_check_at: string;
-  last_health_error: string;
-  runtime_target_id: string;
-  runtime_priority: number | null;
-  is_primary: boolean;
-  installed: boolean;
-  setup_complete: boolean;
-  available_models: string[];
-  managed_by_system: boolean;
-  recommended_endpoint_url: string;
-  recommended_model_id: string;
-};
-
-export type SetupGuideStep = {
-  key: string;
-  title: string;
-  status: string;
-  description: string;
-  detail: string;
-  blocking: boolean;
-  action: string;
-  action_label: string;
-};
-
-export type SetupGuideStatus = {
-  ready: boolean;
-  summary: string;
-  stats: {
-    active_provider_count: number;
-    api_provider_count: number;
-    local_provider_count: number;
-    active_runtime_count: number;
-  };
-  steps: SetupGuideStep[];
 };
 
 export type AdminModel = {
@@ -103,7 +39,6 @@ export type AdminModel = {
   model_id: string;
   display_name: string;
   context_length: number | null;
-  planner_context_budget: number | null;
   max_tokens_per_request: number | null;
   supports_tools: boolean;
   supports_vision: boolean;

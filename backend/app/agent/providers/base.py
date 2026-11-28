@@ -1,9 +1,4 @@
-"""Base LLM Provider – unified interface for all LLM backends.
-
-Every driver's ``chat`` is wrapped once per class (``__init_subclass__``): it is measured (octryx_llm_* on
-/metrics) and runs under the platform's content policies (``services/content_security/model_call``), the one
-enforcement point every driver call passes.
-"""
+"""Base LLM Provider – unified interface for all LLM backends."""
 
 import asyncio
 import functools
@@ -20,7 +15,6 @@ _IN_CHAT: ContextVar[bool] = ContextVar("octryx_llm_in_chat", default=False)
 
 
 def _measured(chat: Any, provider: str) -> Any:
-    """``chat`` under the content policies that also counts the request, its outcome and its duration."""
     signature = inspect.signature(chat)
 
     @functools.wraps(chat)
@@ -70,15 +64,7 @@ class BaseLLMProvider(ABC):
         max_tokens: int = 4096,
         reasoning_effort: str | None = None,
     ) -> dict[str, Any]:
-        """
-        Send a chat completion request.
-
-        Returns dict with:
-            - content: str
-            - tool_calls: list | None
-            - usage: dict (prompt_tokens, completion_tokens)
-            - model: str
-        """
+        """Send a chat completion request."""
         ...
 
     def content_route(self, model: str) -> Any:

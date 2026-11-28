@@ -18,7 +18,7 @@ from . import (
 from .pet import cli as pet_cli
 
 SUBCOMMANDS = ("login", "seat-login", "status", "configure", "api-key-helper", "mcp-headers", "hook", "handoff",
-               "resume", "analyze", "device", "pet", "mobile", "profiles", "context-manager", "git-credential")
+               "resume", "analyze", "device", "pet", "mobile", "profiles", "context-manager")
 
 
 def subcommand_parser() -> argparse.ArgumentParser:
@@ -35,9 +35,6 @@ def subcommand_parser() -> argparse.ArgumentParser:
     sub.add_parser("status", help="show base URL, Workspace, login state and whether seat and governed are ready")
     sub.add_parser("api-key-helper", help="print the gateway access token (Claude Code apiKeyHelper)")
     sub.add_parser("mcp-headers", help="print knowledge MCP headers (Claude Code headersHelper)")
-    git_credential = sub.add_parser("git-credential", help="git credential helper inside a platform sandbox "
-                                                           "(a fresh, run-bound git gateway token)")
-    git_credential.add_argument("action", choices=("get", "store", "erase"))
     hook = sub.add_parser("hook", help="Claude Code hook entry point")
     hook.add_argument("event", choices=("pre-tool-use", "post-tool-use", "stop", "stop-failure", "session-end",
                                         "user-prompt-submit", "user-prompt-expansion", "pre-compact",

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 
 def get_discovery_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for discovery tools."""
     return {
         "tool_search": {
             "type": "function",

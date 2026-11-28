@@ -1,11 +1,5 @@
-"""The official formatter and linter of each language, run by the platform itself (code style step
-iv): ``dart format`` / ``flutter analyze``, ``ruff format`` / ``ruff check``, ``prettier`` / ``eslint``, ``gofmt`` /
-``go vet``, ``cargo fmt`` / ``cargo clippy``, google-java-format (or Spotless) / Checkstyle, ktlint / detekt, as the
-resolved style names them (``code_style.languages.<language>.formatter|linter``), whatever the
-engine's own environment file declares. The repository's own configuration wins (``config_files``, then
-``repo_config_command``). A tool that is not installed is reported ``missing`` (the platform turns it red, never a
-silent pass). Runs outside the agent's sandbox, in the package folder of the files (nearest ``pubspec.yaml`` /
-``package.json`` / ``go.mod``), with a timeout; the server judges the results (``code_style.check.tool_findings``)."""
+"""Each language's official formatter and linter, run on the device outside the agent's sandbox; the server
+judges the results."""
 
 from __future__ import annotations
 
@@ -44,10 +38,8 @@ def _language(path: str) -> str | None:
 APP_MARKER = ".octryx/environment.json"  # the run's app folder: where the agent and the pipeline work
 
 
+# Run from the repository root, ruff would count the app's own package as third-party (I001).
 def _package(root: Path, path: str, language: str) -> Path:
-    """Where the language's tools run for ``path``: the nearest folder with a package marker of the language or the
-    app's environment file, else the repository: run from the repository root, ruff would count the app's own
-    package as third-party and give another verdict (I001) than the agent's run in the app folder."""
     markers = (*PACKAGE_MARKERS.get(language, ()), APP_MARKER)
     folder = (root / path).parent
     while folder != root and root in folder.parents:
@@ -142,7 +134,6 @@ def _added_lines(root: Path, base: str, names: list[str]) -> dict[str, set[int]]
 
 def _old_formatting(kind: str, language: str, tool: dict[str, Any], folder: Path, root: Path, name: str,
                     before: str) -> bool:
-    """Whether the formatter rejects the file's content at the base too (checked on a copy next to it)."""
     copy = (root / name).with_name(BASE_PREFIX + (root / name).name)
     try:
         copy.write_text(before)
@@ -155,10 +146,6 @@ def _old_formatting(kind: str, language: str, tool: dict[str, Any], folder: Path
 
 def _old_debt(result: dict[str, Any], kind: str, language: str, tool: dict[str, Any], folder: Path, root: Path,
               names: list[str], base: str) -> bool:
-    """Whether a red tool result is only the files' state before the change (findings on lines the change did not
-    touch must not hold the change red). A linter: every finding it locates is on
-    a line the change did not add, in a file that existed. A formatter: each file it rejects alone was rejected at
-    the base too. Unlocatable output stays the change's."""
     befores = {name: _git_text(root, "cat-file", "-p", f"{base}:{name}") for name in names}
     if kind == "linter":
         added = _added_lines(root, base, names)
@@ -177,13 +164,6 @@ def _old_debt(result: dict[str, Any], kind: str, language: str, tool: dict[str, 
 
 def _split_linter(result: dict[str, Any], folder: Path, root: Path, names: list[str],
                   base: str) -> list[dict[str, Any]]:
-    """A red linter result split by finding: each output line that names a
-    place goes to the change (a line it added, or a new file) or to the old debt (a line the file already had).
-
-    Before, one finding on an added line made the whole output the change's, and the agent got 40 old long lines of
-    system_test/run_system_test.py with its own one and fixed them all. Now the change's result carries only its own
-    lines; the older ones come as a second result marked ``old_debt`` (the server warns). Output without any place
-    stays the change's."""
     befores = {name: _git_text(root, "cat-file", "-p", f"{base}:{name}") for name in names}
     added = _added_lines(root, base, names)
 
@@ -216,9 +196,6 @@ def _split_linter(result: dict[str, Any], folder: Path, root: Path, names: list[
 
 def run_tools(root: Path, style: dict[str, Any], files: list[str], *,
               budget: float = BUDGET_SECONDS, base: str = "") -> list[dict[str, Any]]:
-    """The formatter and linter results for the changed ``files`` (repository-relative), per language and package;
-    a tool whose turn comes after ``budget`` seconds is ``skipped``. With ``base`` a red result that is only the
-    files' state before the change is marked ``old_debt`` (the server warns instead of blocking)."""
     started = time.monotonic()
     groups: dict[tuple[str, Path], list[str]] = {}
     for name in files:

@@ -1,17 +1,4 @@
-"""A pull request as its host reports it, mapped onto the recorded ``WorkPullRequest`` vocabulary.
-
-Status (closed, explicit per host; an unmapped host state is :class:`HostStateError` ``unknown_host_state``, never
-a guess):
-
-- Bitbucket Server/Data Center: ``OPEN`` → ``open``, ``MERGED`` → ``merged``, ``DECLINED`` → ``declined``;
-- Bitbucket Cloud: the same, plus ``SUPERSEDED`` → ``closed``;
-- GitHub: ``open`` → ``open``; ``closed`` with ``merged``/``merged_at`` → ``merged``, else ``closed``.
-
-Reviewers are ``{"username", "name", "approval", ["account_id"]}`` with ``approval`` one of ``approved``,
-``needs_work`` (Bitbucket) / ``changes_requested`` (GitHub), ``commented``, ``pending``. ``approvals`` lists the
-approving reviewers. Build status is aggregated over the head commit's statuses: ``failed`` (any failed),
-``in_progress``, ``stopped``, ``successful`` (all succeeded); none reported is ``None``.
-"""
+"""A pull request as its host reports it, mapped onto the recorded ``WorkPullRequest`` vocabulary."""
 
 from __future__ import annotations
 
@@ -20,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from ..jira_values import parse_datetime
+from .stored_types import BuildStatus, HostAuthor, HostReviewer, NoHostAuthor, PullRequestStatus
 
 STATUS_OPEN, STATUS_MERGED, STATUS_DECLINED, STATUS_CLOSED = "open", "merged", "declined", "closed"
 BITBUCKET_SERVER_STATES = {"OPEN": STATUS_OPEN, "MERGED": STATUS_MERGED, "DECLINED": STATUS_DECLINED}
@@ -38,8 +26,6 @@ _BUILD_STATES = {"FAILED": BUILD_FAILED, "ERROR": BUILD_FAILED, "FAILURE": BUILD
 
 
 class HostStateError(Exception):
-    """The host answered with something the mapping does not know; ``code`` names it."""
-
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
@@ -48,24 +34,24 @@ class HostStateError(Exception):
 
 @dataclass(slots=True)
 class HostPullRequest:
-    status: str
+    status: PullRequestStatus
     title: str | None = None
     source_branch: str | None = None
     target_branch: str | None = None
     url: str | None = None
     head_commit: str | None = None
-    author: dict[str, Any] = field(default_factory=dict)
-    reviewers: list[dict[str, Any]] = field(default_factory=list)
+    author: HostAuthor | NoHostAuthor = field(default_factory=dict)
+    reviewers: list[HostReviewer] = field(default_factory=list)
     source_created_at: datetime | None = None
     source_updated_at: datetime | None = None
     host_state: str = ""
 
     @property
-    def approvals(self) -> list[dict[str, Any]]:
+    def approvals(self) -> list[HostReviewer]:
         return [dict(item) for item in self.reviewers if item.get("approval") == APPROVED]
 
 
-def _mapped(states: dict[str, str], raw: Any, host: str) -> str:
+def _mapped(states: dict[str, PullRequestStatus], raw: Any, host: str) -> PullRequestStatus:
     key = str(raw or "").strip().upper()
     if key not in states:
         raise HostStateError("unknown_host_state", f"{host} reported the pull request state {key or '(none)'!r}.")
@@ -79,7 +65,7 @@ def _epoch_ms(value: Any) -> datetime | None:
 
 
 def bitbucket_server_state(pr: dict[str, Any]) -> HostPullRequest:
-    reviewers = []
+    reviewers: list[HostReviewer] = []
     for item in pr.get("reviewers") or []:
         user = item.get("user") or {}
         status = str(item.get("status") or ("APPROVED" if item.get("approved") else "UNAPPROVED")).upper()
@@ -99,7 +85,7 @@ def bitbucket_server_state(pr: dict[str, Any]) -> HostPullRequest:
 
 
 def bitbucket_cloud_state(pr: dict[str, Any]) -> HostPullRequest:
-    reviewers = []
+    reviewers: list[HostReviewer] = []
     for item in pr.get("participants") or []:
         if item.get("role") != "REVIEWER":
             continue
@@ -151,8 +137,7 @@ def github_state(pr: dict[str, Any], reviews: list[dict[str, Any]]) -> HostPullR
     )
 
 
-def aggregate_build_status(states: list[Any]) -> str | None:
-    """One build status over the commit's reported statuses (``None`` when none reported)."""
+def aggregate_build_status(states: list[Any]) -> BuildStatus | None:
     mapped = [_BUILD_STATES.get(str(item or "").strip().upper()) for item in states]
     if not mapped:
         return None

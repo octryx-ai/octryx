@@ -1,17 +1,4 @@
-"""One level of a Confluence space's page tree, for the admin page picker.
-
-Read-only and bounded: the top-level pages of a space (``/rest/api/space/{key}/content/page?depth=root``) or
-the child pages of one page (``/rest/api/content/{id}/child/page``), one page of at most :data:`MAX_LIMIT`
-results per request, paged by ``start`` (both Confluence Server/Data Center and Cloud answer these v1
-endpoints). Only id and title are returned; the UI asks for the next level when a node is opened.
-
-The request runs with the connection that serves the space (``tree_connection.py``), through the
-Confluence egress transport and the connector's auth mode, like the Confluence tools. A child page that
-Confluence reports in another space is left out, so a picked page always belongs to the space it is shown in.
-Failures are explicit codes, never the system's answer: ``confluence_unauthorized`` (401/403),
-``confluence_page_not_found`` (404), ``confluence_unavailable`` (other status or transport), or the
-identity provider's code for a client-credentials token failure.
-"""
+"""One level of a Confluence space's page tree, for the admin page picker."""
 
 from __future__ import annotations
 
@@ -21,10 +8,10 @@ from typing import Any
 import httpx
 from fastapi import HTTPException
 
-from app.services.atlassian_auth_modes import CONFLUENCE
+from app.services.connector_auth.atlassian_modes import CONFLUENCE
 
-from ..atlassian_auth import auth_headers, request_auth
-from ..oidc_client_credentials import OidcTokenError
+from ..connector_auth.atlassian import auth_headers, request_auth
+from ..connector_auth.oidc_client_credentials import OidcTokenError
 from ..outbound_egress import CONNECTION_CONFLUENCE, egress_transport
 from .rules import PAGE_ID, SPACE_KEY
 
@@ -47,7 +34,6 @@ def refuse(status: int, code: str, message: str) -> HTTPException:
 
 
 def tree_request(space_key: object, parent_id: object, start: object, limit: object) -> tuple[str, str, int, int]:
-    """The validated request: a space key, an optional parent page id, a bounded start and limit."""
     space = str(space_key or "").strip()
     parent = str(parent_id or "").strip()
     if not SPACE_KEY.fullmatch(space) or (parent and not PAGE_ID.fullmatch(parent)):
@@ -88,7 +74,6 @@ async def read_level(
     limit: int,
     transport: httpx.AsyncBaseTransport | None = None,
 ) -> dict[str, Any]:
-    """One level of the tree: ``{space_key, parent_id, pages: [{id, title}], start, next_start}``."""
     base = str(config.get("confluence_url") or "").strip().rstrip("/")
     if not base:
         raise refuse(409, CODE_UNAVAILABLE, "The connection that serves this space has no Confluence URL.")

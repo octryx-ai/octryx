@@ -1,20 +1,5 @@
-"""The ``hands_on.run`` step: after the CI pipeline and before the review, the device starts the built app and runs
-the platform's scenarios in a real browser (every pipeline and review can pass an
-app that loses its data on reload).
-
-1. Entering the step: skipped when the Workspace switched it off (``config.hands_on.enabled: false``) or the node
-   (``config.enabled: false``), on a server run (no browser there) and without a repository environment file (it
-   declares how the app is served, ``serve``). Otherwise the step waits (``generating``).
-2. The review worker writes the scenarios once per run (``generate``, kept in ``context.hands_on_scenarios`` for
-   every later pass of the loop) and offers the device a turn (``pending``).
-3. The launcher (``octryx-claude`` ``hands_on``) starts the app with the file's ``serve``, runs every scenario in
-   Chrome (``channel="chrome"``, never a download), uploads a screenshot per scenario and reports
-   ``POST /sessions/hands_on``.
-4. Green: every scenario passed, the run goes on to the review. Red (a scenario failed, the app did not start, no
-   ``serve`` for an app with a UI, no browser) routes ``failed`` back to the building phase like a red pipeline; its
-   contract gets the failed steps (``failure_for_agent``). An app the file declares without a UI (no ``serve``,
-   ``system_test`` or ``browser``) is skipped by the device.
-"""
+"""The ``hands_on.run`` step: after the CI pipeline and before the review, the device starts the built app and runs the
+platform's scenarios in a real browser (every pipeline and review can pass an app that loses its data on reload)."""
 
 from __future__ import annotations
 
@@ -50,11 +35,10 @@ async def _project_setting(db: AsyncSession, run: WorkflowRun) -> dict[str, Any]
     return dict(dict((project.config if project is not None else None) or {}).get("hands_on") or {})
 
 
-REPRODUCE_KEY = "hands_on_reproduce"  # the bug flow's reproduce check keeps its own state
+REPRODUCE_KEY = "hands_on_reproduce"
 
 
 def state(run: WorkflowRun) -> dict[str, Any]:
-    """The state of the step the run is at (the reproduce check's while it is there, else the hands-on test's)."""
     context = dict(run.context or {})
     reproduce = dict(context.get(REPRODUCE_KEY) or {})
     if reproduce and reproduce.get("node_id") == run.current_node_id:
@@ -74,8 +58,6 @@ async def _switched_off(db: AsyncSession, run: WorkflowRun, node: PhasedNode) ->
 
 
 def _skip(db: AsyncSession, run: WorkflowRun, node: PhasedNode, reason: str) -> tuple[ToolOutcome, str]:
-    """Skipped: the hands-on test goes on (``succeeded``); the reproduce check goes to the person's confirmation
-    (``skipped``)."""
     reproduce = node.config.get("mode") == MODE_REPRODUCE
     _set(run, {"state": SKIPPED, "node_id": node.id, "reason": reason, "at": utc_now().isoformat(),
                **({"mode": MODE_REPRODUCE} if reproduce else {})})
@@ -84,8 +66,6 @@ def _skip(db: AsyncSession, run: WorkflowRun, node: PhasedNode, reason: str) -> 
 
 
 async def skipped(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> None:
-    """A reproduce check a size class skips still confirms the phase's submitted reproduction, as its success would
-    (the next gate judges those tests); a hands-on test owes nothing."""
     if node.config.get("mode") == MODE_REPRODUCE:
         from .reproduce import confirm_automatically
 
@@ -93,7 +73,6 @@ async def skipped(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> None:
 
 
 async def start(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> tuple[ToolOutcome, str]:
-    """The node's ``(outcome, route)``; ``WAIT`` while the scenarios are written and the device runs them."""
     from ..pipeline import environment_file_for
     from ..platform_actions import WAIT
     from ..workspace.preparation import RUNTIME_SERVER, runtime_of
@@ -107,8 +86,6 @@ async def start(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> tuple[T
         return _skip(db, run, node, "the repository has no environment file to declare how the app is served")
     from ..workspace.contract_pin import pin
 
-    # Without this, a Python CLI's hands-on step wrote six UI scenarios (~1.5 min of a seat) before the device
-    # found that its environment file declares no UI. The pinned file says so before any scenario is written.
     declared = dict(dict(pin(run) or {}).get("environment") or {})
     if declared and not any(declared.get(key) for key in ("serve", "system_test", "browser")):
         return _skip(db, run, node, "the environment file declares no UI (no serve, system_test or browser)")
@@ -119,7 +96,6 @@ async def start(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> tuple[T
     budget = (await _project_setting(db, run)).get("budget_seconds")
     from ..red_on_base import before_fix
 
-    # The submitted reproduction's tests once more on the base commit, before any fix builds on them (node data).
     proof = before_fix(run, node, str(pointer.get("app_folder") or ".")) if reproduce else None
     _set(run, {"state": PENDING if scenarios or reproduce else GENERATING, "node_id": node.id,
                **({"red_on_base": proof} if proof else {}),
@@ -135,8 +111,7 @@ async def start(db: AsyncSession, run: WorkflowRun, node: PhasedNode) -> tuple[T
 
 
 async def _unchanged_since_red(db: AsyncSession, run: WorkflowRun) -> bool:
-    """Pause instead of running again when the last pass was red on exactly this tree: the
-    device's base recheck already judged its scenarios, so the same code can only be red again."""
+    # The device's base recheck already judged this tree; the same code can only be red again.
     from ..limits import pause_run
     from ..pipeline import state as pipeline_state
     from ..run_texts import run_text
@@ -155,7 +130,6 @@ async def _unchanged_since_red(db: AsyncSession, run: WorkflowRun) -> bool:
 
 
 async def generate_due(db: AsyncSession, *, model_factory: Any = None) -> int:
-    """Write the scenarios of every run whose step waits for them (the review worker calls this)."""
     from ..states import STATUS_RUNNING
     from .scenario_job import generate
 
@@ -176,7 +150,6 @@ CODE_SCENARIOS_FAILED = "hands_on_scenarios_failed"
 
 
 def _pinned(run: WorkflowRun) -> dict[str, Any]:
-    """The run's pinned environment file (``workspace.contract_pin``): the device serves from it, not the tree's."""
     from ..workspace.contract_pin import view
 
     found = view(run)
@@ -184,8 +157,6 @@ def _pinned(run: WorkflowRun) -> dict[str, Any]:
 
 
 def contract_view(run: WorkflowRun) -> dict[str, Any] | None:
-    """The ``hands_on`` part of the run contract while the device has to run it (the launcher's, not the agent's:
-    no phase runs while the step waits)."""
     current = state(run)
     if current.get("state") != PENDING:
         return None
@@ -220,12 +191,10 @@ def run_view(run: WorkflowRun) -> dict[str, Any] | None:
 
 
 def failure_for_agent(run: WorkflowRun) -> dict[str, Any] | None:
-    """The last red hands-on test for the building agent: the failed scenarios' failed steps and screenshots (never
-    the passing scenarios' steps)."""
     current = state(run)
     reproduce = dict(dict(run.context or {}).get(REPRODUCE_KEY) or {})
     if current.get("state") != RED and reproduce.get("state") == "repro_setup_failed":
-        current = {**reproduce, "problem": reproduce.get("reason")}  # back in reproduce: why the check could not run
+        current = {**reproduce, "problem": reproduce.get("reason")}
     elif current.get("state") != RED:
         return None
     failed = [item for item in current.get("results") or [] if not item.get("passed")]
@@ -235,7 +204,6 @@ def failure_for_agent(run: WorkflowRun) -> dict[str, Any] | None:
 
 
 async def record_report(db: AsyncSession, run: WorkflowRun, report: dict[str, Any], *, session_id: str) -> str:
-    """The device's report for the pending pass; the state it established, or ``ignored``."""
     from .report import _record_reproduce, _route, _stale, record_interference, record_ran
 
     current = state(run)
@@ -263,10 +231,6 @@ async def record_report(db: AsyncSession, run: WorkflowRun, report: dict[str, An
 
 
 def regenerate(db: AsyncSession, run: WorkflowRun, *, user_id: str, reason: str) -> int:
-    """An admin drops the run's generated scenarios (and their waivers): the next hands-on pass writes them again.
-    Scenarios written from the wrong catalog (e.g. German for an English app) and kept for the whole run keep
-    every pass red on page 1 and send the agent after texts it must not change.
-    Returns how many scenarios were dropped."""
     from .waiver import WAIVED_KEY
 
     context = dict(run.context or {})

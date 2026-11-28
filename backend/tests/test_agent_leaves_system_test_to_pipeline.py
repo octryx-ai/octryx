@@ -1,7 +1,5 @@
-"""An agent must not run the system test right before the pipeline that always runs it, nor spend many calls
-looking for a red Flutter test's message in the short output. A class with "agent_system_test": "pipeline"
-leaves the system test to the pipeline; every runner's hint says how to see one red test's message
-(stacks.json failure_hint)."""
+"""An agent must not run the system test right before the pipeline that always runs it, nor spend many calls looking
+for a red Flutter test's message in the short output."""
 
 from __future__ import annotations
 
@@ -18,7 +16,7 @@ def _run(settings: dict) -> SimpleNamespace:
 
 
 def test_the_class_decides_whether_the_agent_runs_the_system_test_itself():
-    assert agent_runs_system_test(_run({}))  # default:
+    assert agent_runs_system_test(_run({}))
     assert not agent_runs_system_test(_run({"pipeline_scope": {"agent_system_test": "pipeline"}}))
     graph = SimpleNamespace(nodes={}, edges=[])
     bad = {"default": "M", "rules": [], "classes": {"M": {"pipeline_scope": {"agent_system_test": "never"}}}}

@@ -1,9 +1,4 @@
-"""The audience proof's shared vocabulary: roles, semantics, limits, refusal codes and the proof error.
-
-Server-owned publication, principal and assertion bindings live in ``audience_publication``,
-``audience_principals`` and ``audience_query_set``. Queries come only from the newest confirmed publication card.
-Accounts, Workspace/source ACLs and Knowledge provenance are rechecked; no access object or credential is fabricated.
-"""
+"""The audience proof's shared vocabulary: roles, semantics, limits, refusal codes and the proof error."""
 
 from __future__ import annotations
 
@@ -60,8 +55,6 @@ CODE_CONCURRENT = "concurrent_update"
 
 
 class AudienceProofError(Exception):
-    """A refused challenge, record or consume: a fixed ``code``, its run ``failure_class`` and HTTP ``status``."""
-
     def __init__(self, code: str, detail: str, *, failure_class: str = CLASS_AUDIENCE_UNPROVEN,
                  status: int = 409) -> None:
         super().__init__(detail)
@@ -72,7 +65,6 @@ class AudienceProofError(Exception):
 
 
 def role_pass_key(run: WorkflowRun, role: str) -> str:
-    """The receipt's pass: the run's current ``<node>#<entry>``, qualified by the principal role."""
     from ..external_step import pass_key
 
     return f"{pass_key(run)}@{role}"

@@ -20,7 +20,7 @@
 }
 
 .governed-issues code {
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .governed-notice {
@@ -63,7 +63,7 @@
 .governed-choice__key {
   color: var(--text);
   font-size: var(--ds-text-sm);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .governed-choice__text {

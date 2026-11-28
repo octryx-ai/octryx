@@ -1,10 +1,4 @@
-"""From slide drafts to plan entries: open points, speaker notes, entries.
-
-Shared by the AWS and the generic deck planners. Every marker of the deck is
-repeated on the closing "Open points" slides; every bullet keeps its source in
-the notes; a subtitle the template cannot carry becomes a marker, never a
-silent loss.
-"""
+"""From slide drafts to plan entries: open points, speaker notes, entries."""
 
 from __future__ import annotations
 
@@ -19,7 +13,6 @@ OPEN_POINTS_TITLE = "Open points"
 
 
 def _open_point_drafts(drafts: list[SlideDraft]) -> list[SlideDraft]:
-    """Repeat every marker of the deck on closing slides, in slide order."""
     seen: set[str] = set()
     points: list[Bullet] = []
     for position, draft in enumerate(drafts, start=1):
@@ -75,12 +68,6 @@ def _notes(draft: SlideDraft) -> str:
 
 
 def _resolve_subtitles(drafts: list[SlideDraft], template_snapshot: dict[str, Any]) -> None:
-    """Drop subtitles the template cannot carry — but never silently.
-
-    This runs *before* the open-points slide is built, so the resulting marker
-    still reaches it; a marker that only lands in the notes would be exactly the
-    kind of half-hidden gap the deck is supposed to expose.
-    """
     for draft in drafts:
         if not draft.subtitle:
             continue

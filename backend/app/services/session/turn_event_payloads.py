@@ -1,9 +1,4 @@
-"""Stream and webhook payloads a chat turn emits when it ends.
-
-The camelCase stream payloads are the contract of the chat UI's session stream; the
-``session.completed`` webhook payload is the outbound webhook contract. Both stay
-byte-identical for every entry path that finishes a turn.
-"""
+"""Stream and webhook payloads a chat turn emits when it ends."""
 
 from __future__ import annotations
 

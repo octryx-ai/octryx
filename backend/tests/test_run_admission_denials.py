@@ -20,8 +20,9 @@ from app.tools.context import ToolContext
 from app.tools.workflow_tools import SelectWorkflowTool
 from tests.knowledge_evidence_seed_support import fetch_user, seed_member, seed_workspace
 from tests.phased_workflow_fixtures import admin_user, phased_definition, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 
 
 async def _project(db) -> Project:

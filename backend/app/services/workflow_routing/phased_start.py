@@ -1,22 +1,4 @@
-"""Start a phased workflow from the chat with one confirmation: the Work item and its workflow run.
-
-Without this, choosing spec-writing in the composer, or allowing the router's spec-writing proposal, only answers
-"runs as a workflow run for a Work item ... start it from the Work item" and nothing in the chat can start it.
-The chat does everything the client does, with ONE confirmation per task.
-
-A phased workflow selected in the chat holds the turn like every proposal that waits for the user (one governed
-approval record, ``proposal_approval``). This module adds what that card shows and what its answer does:
-
-- :func:`build_start_draft`: the start card — the Work item (an existing one the message names, such as ````,
-  from the Workspace's work items or its Jira, or the item the chat follows; otherwise a new one with type, title
-  and description derived from the request), the run location (the same choices and default as the Work item
-  *Start a workflow run* dialog, ``target_choices``) and the workflow's steps;
-- :func:`answer_phased_start`: Allow creates the Work item (the platform item path, ``create_platform_work_item``)
-  and starts the run exactly like the Work item dialog (``POST /api/v1/workflow-runs``: a new chat session of its
-  own, ``start_run``), then posts the run link into this chat; Deny starts nothing and sends nothing again;
-- :func:`choose_other_workflow`: "Other workflow…" replaces the pending proposal's workflow with one of the person's
-  catalog (any other key is refused), so the same card shows for that workflow.
-"""
+"""Start a phased workflow from the chat with one confirmation: the Work item and its workflow run."""
 
 from __future__ import annotations
 
@@ -61,7 +43,6 @@ def item_type_for(workflow_key: str) -> str:
 
 
 def derived_title(message: str) -> str:
-    """The item's title: the first quoted name in the request ('Hello Kitchen'), else its first sentence."""
     instruction, _quoted = split_instruction(message)
     match = _QUOTED.search(instruction) or _QUOTED.search(message)
     if match:
@@ -76,7 +57,6 @@ def named_jira_project(message: str) -> str | None:
 
 
 async def _stored_item(db: AsyncSession, session: AgentSession, keys: list[str]) -> WorkItem | None:
-    """The first item the request names by key (````) that the chat's Workspace holds exactly once."""
     from ..work_item_analysis.seat_session import items_by_key
 
     for key in keys if session.project_id else ():
@@ -87,7 +67,6 @@ async def _stored_item(db: AsyncSession, session: AgentSession, keys: list[str])
 
 
 async def _followed_item(db: AsyncSession, session: AgentSession) -> WorkItem | None:
-    """The item the chat follows: the pinned one, else the item of the chat's active run."""
     from ..work_item_analysis.seat_session import pinned_item_id
     from ..workflow_runs.records import active_run_for_session
 
@@ -99,7 +78,6 @@ async def _followed_item(db: AsyncSession, session: AgentSession) -> WorkItem | 
 
 
 def _jira_item_view(issue: dict[str, Any], workflow_key: str) -> dict[str, Any]:
-    """An existing Jira issue the Workspace's items do not hold yet: bound by its key, linked when the run starts."""
     kind = _text(issue["issue_type"]).lower() or item_type_for(workflow_key)
     return {"mode": "existing", "type": kind, "type_label": _TYPE_LABELS.get(kind, kind.title()),
             "title": issue["title"][:_TITLE_MAX], "description": issue["description"], "key": issue["key"],
@@ -107,12 +85,6 @@ def _jira_item_view(issue: dict[str, Any], workflow_key: str) -> dict[str, Any]:
 
 
 async def _bound_item(db: AsyncSession, session: AgentSession, workflow_key: str, message: str) -> dict[str, Any]:
-    """The card's Work item: the one the request names by key, else the one the chat follows, else a new one.
-
-    A named key is looked up in the Workspace's work items, then in its Jira. An epic that exists only in Jira
-    would otherwise get a card with ``mode: "new"`` titled after the prompt, and Start would create a
-    duplicate Epic. Only a request that names no readable item drafts a new one.
-    """
     from .phased_start_jira import read_jira_issue
 
     instruction, _quoted = split_instruction(message)
@@ -145,7 +117,6 @@ def start_summary(workflow_title: str, item: dict[str, Any]) -> str:
 
 
 def approval_text(start: dict[str, Any]) -> str:
-    """The approval record's reason: the whole card, readable on the generic approval card and every surface."""
     run_on = start["run_on"]
     label = next((option["label"] for option in run_on["options"] if option["key"] == run_on["default"]),
                  run_on["default"])
@@ -159,7 +130,6 @@ def approval_text(start: dict[str, Any]) -> str:
 
 
 def held_turn_message(session: AgentSession) -> str | None:
-    """The held turn's assistant message for a phased start, or ``None`` for any other proposal."""
     record = _proposal(session) or {}
     start = record.get("start") if record.get("phased") else None
     if not isinstance(start, dict):
@@ -182,7 +152,6 @@ def repository_line(start: dict[str, Any]) -> str:
 
 async def build_start_draft(db: AsyncSession, *, session: AgentSession, workflow_key: str, message: str
                             ) -> dict[str, Any]:
-    """The start card of ``workflow_key`` for the chat's request (see the module docstring)."""
     from ..run_admission.phased_catalog import _phases
     from ..workflow_runs.engine import published_phased_flow
     from ..workflow_runs.runtime_target.target import target_choices
@@ -216,10 +185,6 @@ async def build_start_draft(db: AsyncSession, *, session: AgentSession, workflow
 
 
 async def held_request_text(db: AsyncSession, session: AgentSession) -> str:
-    """The request the pending proposal holds: the user message of the turn bound to its approval.
-
-    After the held turn ended its in-flight marker is gone (``end_chat_turn``); the paused-turn binding is kept, so
-    "Other workflow…" drafts the card from the same request (not with an empty title)."""
     from ..session.turn_approval_state import PAUSED_TURNS_METADATA_KEY
     from .proposal_decision import _pending_message_text
 
@@ -238,7 +203,6 @@ def _proposal(session: AgentSession) -> dict[str, Any] | None:
 
 
 def update_proposal(session: AgentSession, **fields: Any) -> dict[str, Any]:
-    """Write ``fields`` into the session's pending proposal record (session metadata) and return it."""
     metadata = dict(session.metadata_ or {})
     resolution = dict(metadata.get(ROUTING_RESOLUTION_KEY) or {})
     record = {**dict(resolution.get(WORKFLOW_PROPOSAL_KEY) or {}), **fields}
@@ -250,7 +214,6 @@ def update_proposal(session: AgentSession, **fields: Any) -> dict[str, Any]:
 
 
 async def attach_start_draft(db: AsyncSession, *, session: AgentSession, message: str) -> dict[str, Any] | None:
-    """Give the pending phased proposal its start card (once); ``None`` for any other proposal."""
     record = _proposal(session) or {}
     if not record.get("phased"):
         return None
@@ -264,14 +227,11 @@ async def attach_start_draft(db: AsyncSession, *, session: AgentSession, message
 
 
 class OtherWorkflowRefusedError(ValueError):
-    """The chosen key is not in the person's catalog (422)."""
+    pass
 
 
 async def choose_other_workflow(db: AsyncSession, *, session: AgentSession, workflow_key: str,
                                 message: str) -> dict[str, Any]:
-    """Replace the pending proposal's workflow with ``workflow_key`` from the person's catalog; the same card shows.
-
-    The proposal keeps its id and its one approval record, whose reason now names the new workflow."""
     from sqlalchemy import select
 
     from .explicit_selection import list_published_workflow_definitions
@@ -298,7 +258,6 @@ async def choose_other_workflow(db: AsyncSession, *, session: AgentSession, work
 
 
 def choose_repository(session: AgentSession, value: str) -> bool:
-    """Record the repository the person picked on the card (an option's id or reference); ``False`` when unknown."""
     from .phased_start_repository import choose
 
     start = dict((_proposal(session) or {}).get("start") or {})
@@ -310,13 +269,11 @@ def choose_repository(session: AgentSession, value: str) -> bool:
 
 
 def workspace_missing(session: AgentSession) -> bool:
-    """Whether the pending phased start's card has no Workspace (its run would be refused ``workspace_required``)."""
     record = _proposal(session) or {}
     return bool(record.get("phased")) and not _text(dict(record.get("start") or {}).get("project_id"))
 
 
 def repository_missing(session: AgentSession) -> str | None:
-    """Why the pending phased start cannot run yet (no repository), or ``None``."""
     from .phased_start_repository import missing_text
 
     record = _proposal(session) or {}
@@ -324,8 +281,6 @@ def repository_missing(session: AgentSession) -> str | None:
 
 
 def choose_run_location(session: AgentSession, run_on: str, *, model: str = "") -> None:
-    """Record the run location the person picked on the card (one of its options) and, for a device location, the
-    model, before the answer starts it."""
     start = dict((_proposal(session) or {}).get("start") or {})
     options = {option["key"] for option in dict(start.get("run_on") or {}).get("options") or []}
     if start and run_on in options:
@@ -334,14 +289,12 @@ def choose_run_location(session: AgentSession, run_on: str, *, model: str = "") 
 
 
 def choose_budget(session: AgentSession, budget: dict) -> None:
-    """Record the run budget the person set on the card (validated by the caller) before the answer starts it."""
     start = dict((_proposal(session) or {}).get("start") or {})
     if start:
         update_proposal(session, start={**start, "budget": dict(budget)})
 
 
 def chosen_start(session: AgentSession) -> dict:
-    """The pending phased start's draft (``{}`` when none)."""
     return dict((_proposal(session) or {}).get("start") or {})
 
 

@@ -8,7 +8,6 @@ SECTION_SEPARATOR = " > "
 
 
 def evidence_locator(item: CitedEvidence) -> dict[str, object]:
-    """``kind``, ``pages``, ``lines`` and ``section`` of a span; null for text-native spans."""
     pages = None
     if item.page_start is not None:
         pages = [item.page_start, item.page_end if item.page_end is not None else item.page_start]
@@ -23,7 +22,6 @@ def evidence_locator(item: CitedEvidence) -> dict[str, object]:
 
 
 def line_range(citation: object) -> tuple[int, int] | None:
-    """``(line_start, line_end)`` of a code span (``line_end`` defaults to ``line_start``), else ``None``."""
     start, end = getattr(citation, "line_start", None), getattr(citation, "line_end", None)
     if type(start) is not int:
         return None
@@ -33,10 +31,6 @@ def line_range(citation: object) -> tuple[int, int] | None:
 def markdown_citation(
     title: str, url: str | None, section_path: tuple[str, ...], lines: tuple[int, int] | None = None
 ) -> str:
-    """The citation as the reader should see it: ``[Title § Section](url)``, or plain without a link.
-
-    A code span names its lines: ``[<repository>:<path> L<from>-<to>](url)`` (``L<n>`` for one).
-    """
     label = f"{title} § {section_path[-1]}" if section_path else title
     if lines is not None:
         label = f"{label} L{lines[0]}" if lines[0] == lines[1] else f"{label} L{lines[0]}-{lines[1]}"
@@ -45,7 +39,6 @@ def markdown_citation(
 
 
 def citation_link(citation) -> str:
-    """``markdown_citation`` of anything that carries ``source_title``, ``source_url`` and ``section_path``."""
     return markdown_citation(citation.source_title, citation.source_url, citation.section_path, line_range(citation))
 
 
@@ -55,7 +48,6 @@ TOOL_RESULT_BUDGET_BYTES = 7500
 
 
 def within_budget(items: list[dict], *, reserve: int = 1500, budget: int = TOOL_RESULT_BUDGET_BYTES) -> list[dict]:
-    """The longest prefix of ``items`` whose JSON fits the budget after ``reserve`` bytes of envelope."""
     import json
 
     kept: list[dict] = []
@@ -69,12 +61,7 @@ def within_budget(items: list[dict], *, reserve: int = 1500, budget: int = TOOL_
 
 
 class SourceRefs:
-    """Numbers each cited source once (``S1``, ``S2``, …) so a long result names it by reference.
-
-    A tool result reaches the model inside a small token budget; repeating a title, section and URL
-    on every fact would crowd the facts out of it.
-    """
-
+    # A tool result has a small token budget; repeating title and URL on every fact would crowd the facts out.
     def __init__(self) -> None:
         self._ids: dict[str, str] = {}
 

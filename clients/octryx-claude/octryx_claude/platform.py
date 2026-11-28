@@ -1,10 +1,4 @@
-"""Calls from the hooks and the launcher to the Octryx client control plane.
-
-A call never raises: it returns a ``PlatformResult`` whose ``outcome`` is one of
-``ok`` (HTTP 200 with a JSON object), ``refused`` (non-200, with the gateway's fixed
-state/reason codes when present) or ``unreachable`` (transport failure or no token).
-Response bodies of failed calls are never read into messages.
-"""
+"""Calls from the hooks and the launcher to the Octryx client control plane; a call never raises."""
 
 from __future__ import annotations
 
@@ -44,7 +38,6 @@ _HEADER_VALUE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/-]{0,119}$")
 
 
 def safe_code(value: object) -> str:
-    """A fixed platform code (``denied``, ``workspace_not_authorized``) or ``""``."""
     text = str(value or "")
     return text if _CODE.match(text) else ""
 
@@ -106,8 +99,7 @@ _PROXY_STATUSES = frozenset({502, 503, 504})
 
 
 def _transient(result: PlatformResult) -> bool:
-    """The call never reached the platform: the connection failed, or a proxy answered 502/503/504 without the
-    gateway's own state header. Only such a call is sent again (the platform has not acted on it)."""
+    # Only a call that never reached the platform is safe to repeat: the platform has not acted on it.
     if result.outcome == "unreachable":
         return result.reason == "platform_connect_failed"
     return result.outcome == "refused" and result.status_code in _PROXY_STATUSES and not result.state
@@ -124,11 +116,7 @@ def call_control_plane(
     body: dict[str, Any] | None = None,
     retry: bool = False,
 ) -> PlatformResult:
-    """One control-plane call; with ``retry`` a call that never reached the platform is sent once more after
-    :data:`RETRY_DELAY_SECONDS`, and that answer is final (a hook still fails closed on it).
-
-    A platform deploy makes the platform briefly unreachable; without the retry the PreToolUse hook would deny
-    ("could not confirm") and the run would pause for a person."""
+    # A platform deploy is briefly unreachable; without the retry the PreToolUse hook would deny and pause the run.
     result = _call_once(state, context, method, path, http=http, timeout=timeout, body=body)
     if retry and _transient(result):
         time.sleep(RETRY_DELAY_SECONDS)

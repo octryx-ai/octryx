@@ -1,33 +1,11 @@
-"""One egress rule per connection type: which addresses an outbound client may reach.
-
-Every outbound client names its connection type, and the type alone decides the rule, so the
-chat tools, the connection tests, Source Sync, design-delivery sync and the SCM services apply
-the same rule to the same connection. The table is closed: each connection type is classified
-here, and an unknown type refuses at client construction (``UnknownEgressConnectionError``);
-there is no default rule and no catch-all type.
-
-* **SaaS** (a vendor-hosted endpoint on the public internet): the ``public_only`` scope. Where the
-  product also ships an on-prem edition (Jira/Confluence Data Center, Bitbucket and GitHub
-  Enterprise Server, GitLab self-managed, ServiceNow, Azure DevOps Server, SonarQube Server),
-  an instance on a private address is reachable only through the admin-governed private-host
-  allowlist of its type (``private_hosts.py``); pod-local and metadata addresses never are.
-* **Private-network systems** (Kubernetes, Vault, Argo CD, Grafana, Splunk, Elasticsearch, a
-  self-hosted container registry): the ``no_pod_local`` scope. They normally live in the private
-  network; the pod and metadata stay refused.
-* **A custom REST API** (``custom_rest``, an admin-defined API of the custom REST connector): ``public_only``; an
-  on-prem API is reachable only through the admin-governed private-host allowlist, like a SaaS with an on-prem edition.
-* **The uncredentialed public web fetch** (``public_web.py``): ``public_only``, no allowlist.
-* **A public Git repository** (Source Sync ``git_repository``): ``public_only``, no allowlist; only
-  the public, credential-free path exists.
-* **An outbound webhook receiver** (``outbound_webhook``, the signed event delivery): ``public_only``;
-  an on-prem receiver is reachable only through the admin-governed private-host allowlist.
-"""
+"""One egress rule per connection type: which addresses an outbound client may reach."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 from ..outbound_url_policy import EGRESS_SCOPE_NO_POD_LOCAL, EGRESS_SCOPE_PUBLIC_ONLY
+from ..outbound_url_types import EgressScope
 
 # SaaS with an on-prem edition (public_only + private-host allowlist).
 CONNECTION_JIRA = "jira"
@@ -74,7 +52,7 @@ KIND_PUBLIC_WEB = "public_web"
 @dataclass(frozen=True)
 class EgressConnectionRule:
     connection: str
-    scope: str
+    scope: EgressScope
     private_allowlist: bool
     kind: str
 

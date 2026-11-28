@@ -1,9 +1,3 @@
-"""Installer scripts: install.sh end to end against a fake platform, install.ps1 statically
-and with PowerShell (pwsh) against a fake ``wsl.exe``. Everything runs in temporary HOMEs.
-
-The install.sh suite installs real venvs (pip fetches httpx), so it takes a minute or two.
-"""
-
 from __future__ import annotations
 
 import os
@@ -16,8 +10,6 @@ import pytest
 
 from tests.installer_scripts_support import BASE_URL, INSTALLER, KIT, _rendered_ps1
 
-# --- install.ps1: static ------------------------------------------------------------------------
-
 # Syntax PowerShell 7 added; Windows PowerShell 5.1 cannot parse it.
 _PS7_ONLY = {
     "null-coalescing": re.compile(r"\?\?"),
@@ -29,7 +21,6 @@ _PS7_ONLY = {
 
 
 def _code_lines(script: str) -> list[str]:
-    """Lines without comments and without quoted strings (the bash commands passed to WSL)."""
     lines = []
     for line in script.splitlines():
         if line.lstrip().startswith("#"):

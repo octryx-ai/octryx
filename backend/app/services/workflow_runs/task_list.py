@@ -1,25 +1,5 @@
-"""The work item's task list: small, checkable pieces of work with their proof (a task list made from the spec
-saves time and failed runs).
-
-A weak model leaves out parts of a work item with several pieces (the search UI, the sample
-corpus, the dish cards) and says it is done. The readiness phase ends its answer with a task list::
-
-    Task list:
-    T1. GET /api/recipes searches dish, recipe and ingredient names | proof:
-    tests/benchmark/test_search.py::test_text_search
-    T2. Dish cards in a grid with image area, name, time, calories and chips | proof:
-    tests/system/test_search_system.py::test_cards
-
-The product owner sees it on the readiness card and confirms or changes it. The building phase gets it in its
-contract and works through it; at Stop every proof test must be in the pass's change (a ``def <name>(`` in the named
-file), else a failed blocking check lists the items without proof; the reviewer checks every item like a product owner
-answer. A run without a task list is unchanged.
-
-Team delivery: the coordinate phase (``sets_task_list: true``) writes the list, and each item may
-name the role that builds it, ``T3. [frontend] Dish cards ... | proof: ...``. A building phase with ``tasks: "<role>"``
-gets only its role's items and the untagged ones (an untagged item belongs to every role); a phase without ``tasks``
-gets the whole list.
-"""
+"""The work item's task list: small, checkable pieces of work with their proof (a task list made from the spec saves
+time and failed runs)."""
 
 from __future__ import annotations
 
@@ -63,7 +43,6 @@ REVIEW_RULE = (
 
 
 def parse(text: str) -> list[dict[str, Any]]:
-    """The task list items of an answer, in order; ``[]`` without any."""
     items: list[dict[str, Any]] = []
     seen: set[int] = set()
     for number, line in _LINE.findall(str(text or "")):
@@ -84,8 +63,6 @@ def parse(text: str) -> list[dict[str, Any]]:
 
 
 def _role_tag(text: str) -> tuple[str, list[str]]:
-    """``(text, roles)`` of an item: a leading ``[frontend]`` (or ``[backend, test]``) names the roles that build it;
-    without a tag the item belongs to every role."""
     match = _ROLE_TAG.match(text)
     if not match:
         return text, []
@@ -94,22 +71,18 @@ def _role_tag(text: str) -> tuple[str, list[str]]:
 
 
 def phase_roles(config: Any) -> list[str]:
-    """The roles a phase builds for (``config.tasks``: one role or a list); ``[]`` for the whole list."""
     value = dict(config or {}).get(TASKS_KEY)
     values = [value] if isinstance(value, str) else value if isinstance(value, list) else []
     return [str(role).strip().lower() for role in values if str(role).strip()]
 
 
 def for_roles(items: list[dict[str, Any]], roles: list[str]) -> list[dict[str, Any]]:
-    """The items a phase for ``roles`` builds: its own and the untagged ones; every item when ``roles`` is empty."""
     if not roles:
         return items
     return [item for item in items if not item.get("roles") or set(item["roles"]) & set(roles)]
 
 
 def sets_task_list(config: Any) -> bool:
-    """Whether a phase writes the run's task list (the coordinate phase): its Stop stores the list from its answer
-    like the readiness check's, and it is not given the list as its own work."""
     return dict(config or {}).get(SETS_TASK_LIST_KEY) is True
 
 
@@ -119,9 +92,6 @@ def proofs_of(item: dict[str, Any]) -> list[str]:
 
 
 def run_task_list(run: Any, prefer: tuple[str, ...] = ()) -> list[dict[str, Any]]:
-    """The run's task list: the stored list (set at Stop by a read-only phase or a ``sets_task_list`` phase), else
-    the answer of a phase in ``prefer`` (the run's ``sets_task_list`` phases), of the readiness check, then of any
-    phase that carries one."""
     context = dict(run.context or {})
     stored = context.get(CONTEXT_KEY)
     if isinstance(stored, list) and stored:
@@ -135,7 +105,6 @@ def run_task_list(run: Any, prefer: tuple[str, ...] = ()) -> list[dict[str, Any]
 
 
 def task_list_nodes(graph: Any) -> tuple[str, ...]:
-    """The ids of the graph's phases that write the task list (``sets_task_list``), in definition order."""
     return tuple(node_id for node_id, node in dict(getattr(graph, "nodes", None) or {}).items()
                  if sets_task_list(getattr(node, "config", None)))
 
@@ -152,9 +121,6 @@ _HUNK_TEST = re.compile(r"^@@ [^@]* @@\s*(?:async\s+)?def (test_\w+)\(")
 
 
 def _added_tests(patch: str) -> dict[str, set[str]]:
-    """The test functions the change adds, or extends: a hunk inside an existing test names it in its header (git's
-    function context) and counts when it adds a line (otherwise a story that extended a named proof test
-    from an earlier story kept its task open, since only new ``def`` lines counted)."""
     found: dict[str, set[str]] = {}
     current = ""
     hunk_test = ""
@@ -184,7 +150,6 @@ def _added_tests(patch: str) -> dict[str, set[str]]:
 
 
 def passed_tests(run: Any) -> frozenset[str]:
-    """The tests whose newest recorded result on the run is ``passed`` (``file::function``, parameters dropped)."""
     seen: dict[str, str] = {}
     for entry in reversed(list(dict(dict(run.context or {}).get("tests") or {}).get("runs") or [])):
         for test_id, result in dict(dict(entry).get("results") or {}).items():
@@ -196,9 +161,6 @@ def passed_tests(run: Any) -> frozenset[str]:
 
 def missing_proofs(items: list[dict[str, Any]], change: Any,
                    passed: frozenset[str] = frozenset()) -> list[str] | None:
-    """The items whose proof test is neither in the change nor an existing test that passed in the run's newest
-    results; ``None`` when the change cannot be judged. Otherwise a task whose proof was an earlier story's
-    test, unchanged and green, could never finish, since only new or extended tests counted."""
     if not isinstance(change, dict) or change.get("base_unavailable") or change.get("truncated"):
         return None
     patch = change.get("patch")
@@ -222,9 +184,6 @@ def missing_proofs(items: list[dict[str, Any]], change: Any,
 
 
 def proof_outcome(proof: str, results: dict[str, Any]) -> str:
-    """The outcome of one proof test in a run's per-test results: ``passed`` only when every result of it passed
-    (each parameter, each class the function sits in); ``not run`` when no result names it. A proof
-    ``tests/x.py::test_y`` matches ``tests/x.py::TestY::test_y`` too: the task list names file and function."""
     from ..workflow_checks.test_ids import normalize
 
     path, _sep, rest = normalize(proof).partition("::")
@@ -243,10 +202,6 @@ def proof_outcome(proof: str, results: dict[str, Any]) -> str:
 
 
 def unproven(items: list[dict[str, Any]], results: dict[str, Any]) -> list[str]:
-    """The tasks whose proof test did not pass in ``results`` (one pipeline's tests), each with why:
-    ``T3 (tests/x.py::test_y: not run)``. When proofs were looked for in the diff
-    text and the agent's own runs; existing or extended tests were missed and the Stop refused 34 times. The
-    pipeline runs every test itself: a task is proven when its test passed there, whatever the diff looks like."""
     missing = []
     for item in items:
         proofs = proofs_of(item)
@@ -261,7 +216,6 @@ def unproven(items: list[dict[str, Any]], results: dict[str, Any]) -> list[str]:
 
 def task_list_result(items: list[dict[str, Any]], change: Any,
                      passed: frozenset[str] = frozenset()) -> CheckResult | None:
-    """A failed blocking check while an item has no proof test in the change; ``None`` otherwise."""
     if not items:
         return None
     missing = missing_proofs(items, change, passed)

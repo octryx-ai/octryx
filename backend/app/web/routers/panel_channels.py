@@ -127,8 +127,7 @@ async def panel_get_channel(channel_id: int, request: Request, db: AsyncSession 
 
 
 async def _refuse_private_channel(db: AsyncSession, project_id: object) -> JSONResponse | None:
-    """A channel never runs turns in a private Workspace (its sender mappings could act as the
-    owner); channels belong to shared Workspaces."""
+    # A channel never runs turns in a private Workspace: its sender mappings could act as the owner.
     from ...services.project.private_workspace import private_project  # noqa: PLC0415
 
     if isinstance(project_id, str) and project_id and await private_project(db, project_id) is not None:
@@ -144,7 +143,7 @@ async def panel_create_channel(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    await require_existing_workspace(db, admin.id, payload.project_id)
     if (refused := await _refuse_private_channel(db, payload.model_dump().get("project_id"))) is not None:
         return refused
     from ...plugins import plugin_manager
@@ -168,7 +167,7 @@ async def panel_update_channel(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    await require_existing_workspace(db, admin.id, payload.project_id)
     if (refused := await _refuse_private_channel(db, payload.model_dump().get("project_id"))) is not None:
         return refused
     from ...plugins import plugin_manager

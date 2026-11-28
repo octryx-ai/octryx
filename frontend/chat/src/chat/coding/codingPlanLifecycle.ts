@@ -1,15 +1,8 @@
 import type { WorkChangePlan } from "../work/workChangePlanTypes";
 import { PLAN_STATUS } from "../work/planStatus";
 
-// Plan status versus delivery lifecycle. A Work Plan's status describes the plan, not the
-// Work Item's execution: it never makes a session "review ready", "blocked", "cancelled" or
-// "completed". Those come only from the source item, its committed state events and recorded
-// execution evidence (runs, PRs). A plan that is not approved keeps the session in planning, and
-// the next action names the actual step on that exact plan in Work.
+// A plan's status describes the plan, never the item's execution: it never makes a session review ready, blocked or completed.
 
-// The next step for a plan that is not approved yet, or null when the plan status is unknown and
-// the generic planning guidance applies. Answering requires recorded questions: without them a
-// clarification request is resolved with a new plan version (as the Work plan view offers).
 export function planNextAction(plan: WorkChangePlan | null): string | null {
   if (!plan) return null;
   const version = plan.version;

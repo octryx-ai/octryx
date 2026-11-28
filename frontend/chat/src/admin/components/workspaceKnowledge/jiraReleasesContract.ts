@@ -1,9 +1,6 @@
-// The Jira connector's `releases` block as the server stores and validates it
-// (backend services/knowledge/sources/sync/jira_release_config.py). Types and fixed codes only.
-
 export type ReleaseSectionBlock = { title: string; issue_types: string[]; labels: string[] };
 
-// Jira project key -> product key; a project without an entry has no release sync.
+// A Jira project without an entry has no release sync.
 export type ReleasesBlock = {
   products: Record<string, string>;
   version_name_prefixes: string[];
@@ -11,15 +8,12 @@ export type ReleasesBlock = {
   blocker_priorities: string[];
 };
 
-// What the listing reports per Jira connector: off (no block), active, or needs_configuration (no product).
 export type ReleaseSyncState = {
   state: "off" | "active" | "needs_configuration";
   reason?: string;
   products?: Record<string, string>;
 };
 
-// Plain-English text of every code a refused block can carry: the server's (release_*) and the few shape checks
-// this editor runs before sending (client_*).
 export const RELEASE_CODE_TEXT: Record<string, string> = {
   release_block_invalid: "the releases block has an unknown key or shape",
   release_project_key_invalid: "not a Jira project key (uppercase letters, digits, underscore)",

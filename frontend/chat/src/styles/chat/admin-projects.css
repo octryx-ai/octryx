@@ -22,7 +22,7 @@
   color: var(--text);
   font: inherit;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   white-space: nowrap;
   cursor: pointer;
 }

@@ -49,7 +49,6 @@ DOCKERFILE="${PROJECT_DIR}/Dockerfile"
 # Images: (name, dockerfile, context, target)
 declare -a IMAGES=(
   "api|${DOCKERFILE}|${PROJECT_DIR}|api"
-  "agent-worker|${DOCKERFILE}|${PROJECT_DIR}|agent-worker"
   "code-intel-worker|${DOCKERFILE}|${PROJECT_DIR}|code-intel-worker"
 )
 
@@ -145,14 +144,6 @@ for entry in "${IMAGES[@]}"; do
     --dockerfile "${dockerfile}"
     --tag "${full_tag}"
   )
-
-  # Build-args for worker images
-  if [[ "${name}" == *"worker"* ]]; then
-    build_cmd+=(
-      --build-arg "ENABLE_MANAGED_CLI_TOOLS=${ENABLE_MANAGED_CLI_TOOLS:-1}"
-      --build-arg "INSTALL_CLAUDE_CODE=${INSTALL_CLAUDE_CODE:-0}"
-    )
-  fi
 
   if "${build_cmd[@]}"; then
     echo "    ✓ done"

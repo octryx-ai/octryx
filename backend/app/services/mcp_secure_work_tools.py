@@ -1,27 +1,5 @@
-"""Secure-work tool handlers for the MCP protocol server.
-
-Exposes the governed delivery lifecycle to external MCP clients (Claude
-Code and peers) under the ``work:manage`` OAuth scope: find work items,
-plan change units, generate and decide change plans (the acceptance-coverage
-gate applies unchanged), redeclare after a declined PR, start the coding
-agent, transition the lifecycle (Jira write-back applies), and read the
-coding observability summary. Every handler is a thin adapter over the same
-services the REST routes use - no separate code path, same gates, same audit.
-
-Work access boundary (``mcp_work_access``). The ``work:manage`` scope is
-user-consented, so it is not a role, and the dispatcher hands every handler the call's
-``WorkGrantScope`` (OAuth grant binding x workspace scope):
-
-- item, key and plan references resolve only inside the scope (non-disclosing 404, explicit
-  409 for an ambiguous key) before any business service runs;
-- change-plan generate/decide/redeclare, change units planning, coding agent start and lifecycle
-  transition first require the platform work-operator role, like the REST routes;
-- list and create stay membership-only (no admin bypass), narrowed by the grant binding;
-- session linking validates the secondary session: the caller's own, in the item's workspace;
-- secondary configuration (supplied, stored or default workflow; repository profiles and their
-  code repository) must belong to the item's workspace or be explicitly global, checked before
-  the service (``mcp_work_access``).
-"""
+"""Secure-work tool handlers for the MCP protocol server. The governed delivery lifecycle under the ``work:manage``
+OAuth scope."""
 
 from __future__ import annotations
 

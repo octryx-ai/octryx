@@ -1,34 +1,4 @@
-"""A workflow run started by an Automation Action (incident / alert analysis).
-
-An Action names the phased workflow it runs in its configuration::
-
-    "workflow_run": {"workflow_key": "<published phased workflow>", "repository": "<provider>:<path>",
-                     "jira_project_key": "<key>", "runtime_target": {"kind": "server"}}
-
-``runtime_target`` (optional, default the Server) is where the run executes; a device target names one of the
-owner's devices and folders and is validated like any start (``runtime_target.target``).
-
-When the Action runs (on a schedule or from an inbound webhook alert, including a signed test alert), its session
-is bound to a new run of that workflow **before** its agent turn, so the turn is the run's first phase. The run's
-requester is the Action's owner — the person who confirms its decisions (e.g. "open a bug and start Bug fix") —
-while the turn itself runs as the Action's identity (the webhook's automation identity for an alert). The alert is
-data on the run, never an instruction: ``context.alert`` (bounded, with its window, target and dedup decision) and
-``context.alert_target`` (``alert_context.alert_run_context``). A named workflow that is not published fails the
-Action run explicitly; it never runs without its workflow.
-
-**One run per dispatch**: a retry of the Action run, or the re-driven turn after its
-requester continued the run, never starts a second run for the same alert event or attempt chain. It binds its new
-session to the run the first attempt started (``action_run_reused``), and lifts only a pause this module set for a
-failed turn; a run that already ended refuses the attempt (``action_workflow_run_ended``, terminal).
-
-**A failed turn pauses the run**: the turn ended in a content-policy refusal (``content_blocked``) or another runtime
-failure (``runtime_failed``) and the run would otherwise stay ``running`` with nobody driving it. The requester sees
-the typed reason with what to do; a pending scheduler retry continues the same run.
-
-**Continue re-drives the turn**: a server run whose main session belongs to the Action (its automation identity,
-which the requester cannot post into) gets its next phase turn by the Action itself once the requester continued
-it: the Action is queued again as the same identity with the same alert, bound to this run.
-"""
+"""A workflow run started by an Automation Action (incident / alert analysis)."""
 
 from __future__ import annotations
 
@@ -60,12 +30,9 @@ EVENT_STARTED_BY_ACTION = "started_by_action"
 EVENT_ACTION_RUN_REUSED = "action_run_reused"
 EVENT_ACTION_TURN_REDRIVEN = "action_turn_redriven"
 _ATTEMPT_EVENTS = (EVENT_STARTED_BY_ACTION, EVENT_ACTION_RUN_REUSED)
-#: The trigger of the Action run that re-drives a continued run; its ``trigger_id`` is the run's id.
 TRIGGER_WORKFLOW_CONTINUE = "workflow_continue"
-#: ``task_run.input_`` key naming the run a re-driven turn continues (set only by :func:`redrive_action_turn`).
 RUN_INPUT_WORKFLOW_RUN_KEY = "workflow_run_id"
 REDRIVE_STATE_KEY = "action_redrive"
-#: The closed refusal of an attempt whose run already ended (``WorkflowPhasePreparationError``: terminal, no retry).
 REFUSAL_RUN_ENDED = "action_workflow_run_ended"
 
 
@@ -75,7 +42,6 @@ def action_run_config(task: Any) -> dict[str, Any] | None:
 
 
 async def _prior_attempt_ids(db: AsyncSession, task_run: Any) -> list[str]:
-    """The attempt this one repeats: a retry's previous attempt (the failed-run row still names it)."""
     if task_run is None or getattr(task_run, "trigger_type", None) != "retry" or not task_run.trigger_id:
         return []
     failed = await db.get(FailedTaskRun, task_run.trigger_id)
@@ -83,7 +49,6 @@ async def _prior_attempt_ids(db: AsyncSession, task_run: Any) -> list[str]:
 
 
 def _redrive_run_id(task_run: Any) -> str | None:
-    """The run a re-driven turn continues: only the platform's own ``workflow_continue`` trigger names one."""
     if task_run is None or getattr(task_run, "trigger_type", None) != TRIGGER_WORKFLOW_CONTINUE:
         return None
     payload = task_run.input_ if isinstance(task_run.input_, dict) else {}
@@ -92,7 +57,6 @@ def _redrive_run_id(task_run: Any) -> str | None:
 
 async def prior_action_run(db: AsyncSession, *, task: Any, task_run: Any,
                            alert: dict[str, Any] | None) -> WorkflowRun | None:
-    """The run an earlier attempt of the same dispatch started (same alert event, retry chain or re-drive), if any."""
     detail = WorkflowRunEvent.detail
     same: list[Any] = []
     redrive = _redrive_run_id(task_run)
@@ -124,7 +88,6 @@ def _attempt_detail(task: Any, task_run: Any, alert: dict[str, Any] | None) -> d
 
 async def _reuse_run(db: AsyncSession, run: WorkflowRun, *, task: Any, task_run: Any, session: Session,
                      alert: dict[str, Any] | None) -> WorkflowRun:
-    """Continue ``run`` in this attempt's session instead of starting another; a run that ended refuses it."""
     from ...scheduler.execution.workflow_phase_turn import WorkflowPhasePreparationError
 
     run = await lock_run(db, run)
@@ -151,10 +114,6 @@ async def _reuse_run(db: AsyncSession, run: WorkflowRun, *, task: Any, task_run:
 
 async def start_action_run(db: AsyncSession, *, task: Any, task_run: Any, session: Session,
                            alert: dict[str, Any] | None) -> WorkflowRun | None:
-    """Bind the Action's session to the run it names; ``None`` when it names none.
-
-    The first attempt of a dispatch starts a new run; a retry or re-drive of it continues that run.
-    """
     from .engine import published_phased_flow
     from .records import start_run
 
@@ -208,12 +167,6 @@ _RETRY_PENDING = " A scheduler retry is pending and continues this run by itself
 
 async def pause_failed_action_run(db: AsyncSession, run_id: str | None, *, content_blocked: bool, code: str | None,
                                   task_run: Any, retry_scheduled: bool) -> WorkflowRun | None:
-    """Pause the run whose Action turn failed instead of leaving it ``running`` silently.
-
-    Only a run still ``running`` is paused: one that waits, paused for another reason or ended already tells its
-    requester what it needs. Continue restarts the phase (a new pass, no loop consumed); for a server run whose main
-    session is the Action's, the requester's continue re-drives the turn (:func:`redrive_action_turn`).
-    """
     from .limits import pause_run
 
     run = await lock_run_id(db, run_id)
@@ -233,7 +186,6 @@ async def pause_failed_action_run(db: AsyncSession, run_id: str | None, *, conte
 
 
 async def _action_of(db: AsyncSession, run: WorkflowRun) -> tuple[Any, TaskRun | None] | None:
-    """The Action that started the run and that attempt's task run."""
     from ...models import Task
 
     row = (await db.execute(
@@ -251,7 +203,6 @@ async def _action_of(db: AsyncSession, run: WorkflowRun) -> tuple[Any, TaskRun |
 
 
 def mark_redrive(run: WorkflowRun) -> None:
-    """The requester continued the run: its next phase turn is the Action's to run (after the commit)."""
     run.context = {**dict(run.context or {}), REDRIVE_STATE_KEY: {"state": "pending", "at": utc_now().isoformat()}}
 
 
@@ -262,15 +213,7 @@ def _settle_redrive(run: WorkflowRun, state: str, **extra: Any) -> None:
 
 
 async def redrive_action_turn(db: AsyncSession, run: WorkflowRun, *, scheduler: Any | None = None) -> str | None:
-    """Queue the Action's next turn for a continued, Action-started server run; the task run id or ``None``.
-
-    Called after the continue was committed. Only a ``running`` phased run at a phase whose main session belongs to
-    the Action's identity (not the requester, who continues in their own chat otherwise) and runs on the Server is
-    re-driven; a device thread continues by itself (``octryx.continuation``). The queued run is the same Action, as
-    the same identity, with the same alert, bound to this run (``workflow_continue``). The marker is claimed and
-    committed before the queue call, so a second caller never queues the turn twice, and no run claim is held
-    while the scheduler queues.
-    """
+    # The marker is committed before the queue call, so a second caller never queues the turn twice.
     from ...models import Session as AgentSession
     from .graph import NODE_PHASE, graph_for_run
     from .octryx.continuation_marker import _device_target
@@ -297,7 +240,7 @@ async def redrive_action_turn(db: AsyncSession, run: WorkflowRun, *, scheduler: 
     run_input: dict[str, Any] = {RUN_INPUT_WORKFLOW_RUN_KEY: run_id}
     payload = started.input_ if started is not None and isinstance(started.input_, dict) else {}
     if isinstance(payload.get("inbound_alert"), dict):
-        run_input["inbound_alert"] = payload["inbound_alert"]  # the same alert, read again as data
+        run_input["inbound_alert"] = payload["inbound_alert"]
     if scheduler is None:
         from ...runtime_lifecycle import get_task_scheduler
 

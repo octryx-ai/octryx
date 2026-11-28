@@ -1,5 +1,3 @@
-"""A new run cleans what an earlier run left on the device but keeps a person's work and others' leftovers."""
-
 from __future__ import annotations
 
 import json
@@ -11,13 +9,8 @@ from tests.gitrepo import git, requires_git
 from tests.test_device_session_parity import BASE, RUN  # noqa: F401
 from tests.workspace_prep_support import BRANCH, _contract, _origin
 
-# --- an earlier run's leftovers on the device ----------------------------
-
 
 def _earlier_teamwork_run(folder: Path) -> str:
-    """The folder on the run's branch after a teamwork run that was aborted: the platform's work-plan and merge
-    commits on the branch, an item worktree still open, an item branch and an uncommitted file. The head the
-    platform knows the branch at (pushed, or the base)."""
     from octryx_claude import work_git
 
     assert workspace_prep.prepare(_contract(), folder, runtime="device")["branch"]["state"] == "checked_out"
@@ -40,8 +33,6 @@ def _new_run(head: str, *, run_commits: bool) -> dict:
 
 @requires_git
 def test_a_new_runs_first_preparation_cleans_what_an_earlier_run_left_on_the_device(tmp_path, monkeypatch):
-    """D3: the rerun of an aborted story inherited its worktrees, item branches and two "Work plan before item
-    core-domain" commits, which went into the change and the PR."""
     folder = _origin(tmp_path, monkeypatch)
     head = _earlier_teamwork_run(folder)
     tip = git(folder, "rev-parse", "HEAD")
@@ -81,7 +72,6 @@ def test_a_persons_own_commit_on_the_run_branch_is_never_reset(tmp_path, monkeyp
 
 @requires_git
 def test_a_leftovers_stash_is_dropped_once_its_work_is_on_the_branch(tmp_path, monkeypatch):
-    """D7: every story switch stashed the previous branch's leftovers and nothing dropped them."""
     folder = _origin(tmp_path, monkeypatch)
     git(folder, "checkout", "-q", "-b", "docs/OCX-19-spec")
     edited = "def slugify(text):\n    return text.lower()  # the spec run's edit\n"
@@ -105,8 +95,6 @@ def test_a_leftovers_stash_is_dropped_once_its_work_is_on_the_branch(tmp_path, m
 
 @requires_git
 def test_test_reports_and_runtime_files_are_excluded_even_without_a_declared_environment(tmp_path, monkeypatch):
-    """M1: the excludes came only from the declared test command's ``--junitxml``; the pipeline sets JUnit through
-    ``PYTEST_ADDOPTS`` and Playwright writes screenshots, so ``test-reports/`` was never excluded."""
     folder = _origin(tmp_path, monkeypatch)
     workspace_prep.prepare_environment(folder, None)
     (folder / "test-reports" / "screenshots").mkdir(parents=True)
@@ -116,8 +104,6 @@ def test_test_reports_and_runtime_files_are_excluded_even_without_a_declared_env
 
 
 def test_the_repository_s_environment_file_prepares_its_app_folder_and_the_agent_s_path(tmp_path):
-    """The record points at a file; its setup runs in the app folder, the agent's
-    ``PATH`` gets the file's ``path`` relative to that folder, and a missing file never blocks the run."""
     pointer = {"source": "environment_file", "environment_file": "web/claude/.octryx/environment.json",
                "app_folder": "web/claude", "setup": [], "path": [], "probes": []}
     assert workspace_prep.prepare_environment(tmp_path, pointer)["environment_file"]["state"] == "missing"
@@ -139,9 +125,6 @@ def test_the_repository_s_environment_file_prepares_its_app_folder_and_the_agent
 @requires_git
 def test_a_run_taking_its_folder_back_from_another_run_works_on_its_own_branch_and_keeps_the_others_leftovers(
         tmp_path, monkeypatch):
-    """(a run watching its PR frees its folder): run B worked in the folder meanwhile. Before
-    A's next turn the folder is prepared on A's branch: B's commit is not in A's tree, B's uncommitted edit and new
-    file are in a named stash (never discarded), and A never works on B's state."""
     folder = _origin(tmp_path, monkeypatch)
     git(folder, "checkout", "-q", "-b", "bugfix/OCX-112-booklist-page-1")
     (folder / "b_done.py").write_text("# B's committed work\n")

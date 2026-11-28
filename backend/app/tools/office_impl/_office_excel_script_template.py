@@ -193,7 +193,6 @@ def render_excel_script_template(
     template_data_literal: str,
     sheets_literal: str,
 ) -> str:
-    """The generated script text, assembled from its blocks in script order."""
     return (
         _excel_script_header(
             import_root=import_root,

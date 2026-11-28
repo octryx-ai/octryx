@@ -1,17 +1,4 @@
-"""The repository's declared test commands must pass after the pass's last change.
-
-Gemma ran only its two new test files after the last edit; they passed and the phase finished, while the declared
-unit test command failed on an "import file mismatch" with two tests of the same name. A changing phase of a
-repository with a declared test command finishes only when that command, run as a **full run** after the last file
-change (an edit, ``rm`` or ``git restore`` of named files), is green.
-
-An advisory check before a pipeline step let implement pass on single test files while only the pipeline ran the whole
-suite, red, again and again. So it blocks in every phase that changes code (``stop``; a teamwork item, which builds one
-part of a story, stays advisory), and a full run is any form with the declared selection
-(``shell_rules.full_suite_run``: ``-q``, ``-x``, ``timeout``, ``| tail``), judged by its exit code or, piped, by
-pytest's summary (``run_green``). Before a pipeline step the system test command counts too (``commands``); without one,
-``system_tests`` judges it.
-"""
+"""The repository's declared test commands must pass after the pass's last change."""
 
 from __future__ import annotations
 
@@ -56,7 +43,6 @@ def _path(row: ToolCall) -> str:
 
 
 def _docs_only(changes: Sequence[ToolCall]) -> bool:
-    """Every change of the pass is an edit of a documentation file (a spec draft): no test run is due."""
     from .system_tests import DOC_SUFFIXES
 
     return bool(changes) and all(row.tool_name in FILE_MUTATION_TOOLS and _path(row).lower().endswith(DOC_SUFFIXES)
@@ -71,8 +57,6 @@ def _text(row: ToolCall) -> str:
 def declared_suite_result(contract: dict[str, Any], rows: Sequence[ToolCall],
                           since: datetime | None, *, change: Any = None,
                           keys: tuple[str, ...] = ("test",)) -> CheckResult | None:
-    """A failed blocking check unless each declared command (``keys`` of the environment) had a green full run after
-    the pass's last change; a change of documentation only (``facts.change`` or the pass's edits) needs no test run."""
     from .system_tests import docs_only
 
     if docs_only(change):
@@ -81,9 +65,7 @@ def declared_suite_result(contract: dict[str, Any], rows: Sequence[ToolCall],
     from .system_tests import tests_only
 
     if tests_only(list(dict(phase.get("path_rules") or {}).get("write") or [])):
-        # A phase that writes only tests shows a failure on purpose (a bug's reproduce): its suite is red by design
-        # (otherwise reproduce pauses on "the full test suite must be green" with its confirmed
-        # tests failing on the bug, once the environment file's `flutter test` is a declared command).
+        # A phase that writes only tests (a bug's reproduce) is red by design.
         return None
     environment = dict(dict(contract.get("preparation") or {}).get("environment") or {})
     commands = [str(environment.get(key) or "").strip() for key in keys if str(environment.get(key) or "").strip()]
@@ -93,11 +75,11 @@ def declared_suite_result(contract: dict[str, Any], rows: Sequence[ToolCall],
                if since is None or (row.created_at is not None and row.created_at >= since)]
     last_change = max((index for index, row in enumerate(ordered) if _changes(row)), default=None)
     if last_change is None:
-        return None  # nothing changed in this pass
+        return None
     if _docs_only([row for row in ordered if _changes(row)]):
         return None
     missing, unsure = [], []
-    folder = str(environment.get("app_folder") or "")  # the declared commands' working directory
+    folder = str(environment.get("app_folder") or "")
     for command in commands:
         runs = [row for row in ordered[last_change + 1:]
                 if row.tool_name == "Bash" and full_suite_run(_command(row), command, folder)]

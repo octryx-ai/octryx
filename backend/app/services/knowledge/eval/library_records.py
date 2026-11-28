@@ -21,7 +21,6 @@ def _text(value: Any, limit: int) -> str | None:
 
 
 def _states(value: Any) -> tuple[dict[str, Any] | None, bool]:
-    """String states or one nested level of them; anything else is malformed metadata."""
     if not isinstance(value, dict):
         return None, False
     clean: dict[str, Any] = {}
@@ -40,7 +39,7 @@ def _states(value: Any) -> tuple[dict[str, Any] | None, bool]:
 
 
 def _error_code(body: Any) -> str | None:
-    """Only a short, safe, typed code; never free error text."""
+    # Never free error text.
     detail = body.get("detail") if isinstance(body, dict) else None
     if isinstance(detail, dict):
         for key in ("code", "state"):
@@ -79,7 +78,6 @@ def _hit(rank: int, raw: Any) -> dict[str, Any] | None:
 
 
 def capture_record(case, project_id: str, *, status: int | None, body: Any, latency_ms: float, failure: str = ""):
-    """One sanitized capture entry from what the server returned (or a transport failure)."""
     record: dict[str, Any] = {
         "case_id": case.id,
         "request": {
@@ -125,7 +123,6 @@ def capture_record(case, project_id: str, *, status: int | None, body: Any, late
 
 
 def validate_capture(capture: Any, manifest: Manifest, problems: list[str]) -> dict[str, dict[str, Any]]:
-    """Structural and frozen-case checks of a capture document; problems are appended, records returned by id."""
     if not isinstance(capture, dict) or capture.get("schema") != CAPTURE_SCHEMA:
         problems.append(f"capture: schema must be {CAPTURE_SCHEMA}")
         return {}

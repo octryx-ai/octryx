@@ -1,12 +1,4 @@
-"""What a layout of the corporate identity catalog is, decided by its structure.
-
-The corporate identity guide does not know layouts by their names. It asks the same structure-first classifier the deck composer uses
-(``office_identity.layout_shapes.classify_layout``): placeholder roles, counts
-and geometry, the editor-written ``sldLayout@type``, and the icon frames drawn
-above topic columns. The layout name is only a tie-breaking hint there. From the
-resulting ``content_shape`` follow the guide's category and the one-line hint
-that tells a model what the layout is for.
-"""
+"""What a layout of the corporate identity catalog is, decided by its structure."""
 
 from __future__ import annotations
 
@@ -37,7 +29,6 @@ def layout_content_shape(
     layout_type: str = "",
     slide_dimensions: dict[str, Any] | None = None,
 ) -> str:
-    """The layout's ``content_shape``, exactly as the deck composer would classify it."""
     dims = slide_dimensions or {}
     size = {"width_emu": int(dims.get("width_emu") or 0), "height_emu": int(dims.get("height_emu") or 0)}
     holders = sum(1 for zone in icon_zones if zone.get("note") == "icon frame")
@@ -55,7 +46,6 @@ def _body_count(layout: dict[str, Any]) -> int:
 
 
 def layout_hint(layout: dict[str, Any]) -> str:
-    """One line on what the layout is for, from its structure — never from its name."""
     shape = str(layout.get("content_shape") or "")
     count = shape.rsplit("_", 1)[-1] if shape[-1:].isdigit() else ""
     fixed = {

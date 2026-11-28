@@ -20,12 +20,6 @@ async def build_work_item_context(
     max_sessions: int = 5,
     digest_tail_chars: int = 3000,
 ) -> dict[str, Any]:
-    """The handover bundle: everything a fresh worker needs to continue.
-
-    Aggregates the item, its epic children, recent state history, the latest
-    change plan, progress notes, and the linked sessions with their
-    conversation digests — worker 2 starts with worker 1's full context.
-    """
     context: dict[str, Any] = {
         "work_item": {
             "id": item.id,
@@ -58,6 +52,9 @@ async def build_work_item_context(
         digest_tail_chars=digest_tail_chars,
     )
     context["linked_sessions"] = sessions
+    from ..workflow_runs.pr_links import item_pull_requests
+
+    context["pull_requests"] = await item_pull_requests(db, item.id)
     context["unknowns"] = (
         ["No sessions linked yet - link the working session via work_item_link_session."]
         if not sessions

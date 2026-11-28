@@ -1,13 +1,15 @@
-import type { ThreadCodeIntelligenceStats, ThreadUsageStats } from "../chatUsageTypes";
+import type { SessionPullRequest, ThreadCodeIntelligenceStats, ThreadUsageStats } from "../chatUsageTypes";
 import { formatCost, formatTokenCount } from "./statsFormat";
-import { codeIntelligenceSection, workflowRoiSection } from "./statsPopoverSections";
+import { codeIntelligenceSection, pullRequestsSection, workflowRoiSection } from "./statsPopoverSections";
 
 export function StatsPopover({
   stats,
   codeIntelligence,
+  pullRequests = [],
 }: {
   stats: ThreadUsageStats | null;
   codeIntelligence: ThreadCodeIntelligenceStats | null;
+  pullRequests?: SessionPullRequest[];
 }) {
   if (!stats) {
     return (
@@ -15,6 +17,7 @@ export function StatsPopover({
         <div className="stats-panel__empty">
           No usage data for this chat yet.
         </div>
+        {pullRequestsSection(pullRequests)}
       </div>
     );
   }
@@ -31,6 +34,7 @@ export function StatsPopover({
       {modelCostSection(stats)}
       {workflowRoi ? workflowRoiSection(workflowRoi) : null}
       {codeIntelligence?.hasData ? codeIntelligenceSection(codeIntelligence) : null}
+      {pullRequestsSection(pullRequests)}
     </div>
   );
 }

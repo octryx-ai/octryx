@@ -1,4 +1,3 @@
-// LiteLLM gateway payload building: config section, config_json merge and create/update payloads.
 import { approvedCategoriesEntry } from "./litellmGatewayApprovedCategories";
 import {
   LITELLM_GATEWAY_CONFIG_KEY,
@@ -28,7 +27,6 @@ function buildAliasCost(cost: GatewayAliasCostDraft): GatewayAliasCost {
   };
 }
 
-// The alias and cost keys this form renders; every other stored key is preserved.
 export const GATEWAY_FORM_OWNED_ALIAS_KEYS = [
   "model_group",
   "context_limit",
@@ -56,8 +54,7 @@ export function unownedKeys(
 function buildAliasEntry(alias: GatewayAliasDraft): GatewayAliasEntry {
   const preserved = alias.preserved;
   const cost = buildAliasCost(alias.cost);
-  // Cache prices belong to the pricing contract they were declared with: a changed
-  // cost source drops them instead of carrying them into a contract they do not fit.
+  // Cache prices belong to the pricing contract they were declared with, so a changed cost source drops them.
   const preservedCost =
     preserved && preserved.costSource === alias.cost.source ? preserved.cost : {};
   return {
@@ -98,12 +95,7 @@ export function buildGatewayConfigSection(
   return section;
 }
 
-// The keys of the gateway section this form owns. Anything else inside the
-// section is backend-governed configuration the form does not render — the
-// transport trust store (`tls`), the optional governed proxy (`proxy`) and the
-// content-logging posture (`content_logging`) — and it must
-// survive an edit. See backend services/model_gateway/litellm/{transport_policy,
-// content_logging}.py.
+// Other section keys (tls, proxy, content_logging) are backend-governed and must survive an edit.
 export const GATEWAY_FORM_OWNED_SECTION_KEYS = [
   "host_allowlist",
   "probe_contract",
@@ -111,13 +103,7 @@ export const GATEWAY_FORM_OWNED_SECTION_KEYS = [
   "request_timeout_seconds",
 ] as const;
 
-/**
- * Merge the governed section into the provider's existing config_json.
- * `PUT /providers/{id}` replaces config_json wholesale, so unrelated top-level
- * keys — and the governed section keys this form does not render — have to be
- * carried over instead of dropped. Dropping `tls` or `content_logging` would make
- * the provider unready, so an edit here must never silently do it.
- */
+// PUT replaces config_json wholesale, so keys this form does not render are carried over.
 export function mergeGatewayConfigJson(
   existingConfigJson: unknown,
   section: GatewayConfigSection,

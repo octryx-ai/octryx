@@ -1,14 +1,4 @@
-"""Per-test reports a CI pipeline published ("Canonical test ids").
-
-Read only, bounded, raw: the workflow run keys every result by the canonical test id itself
-(``services/workflow_runs/platform/ci_tests``), so these helpers return what the provider stored.
-
-- **GitHub Actions** has no test API: the run's artifacts whose name says they carry test reports (``junit``,
-  ``test-report(s)``, ``test-result(s)``, or the one named) are downloaded and every JUnit XML file in them is
-  returned (``junit_reports``);
-- **GitLab** returns the pipeline's ``test_report`` (``cases``: classname, name, file, status, message);
-- **Bitbucket Cloud** Pipelines' test reports are read per step (``_bitbucket_cloud_ops.pipeline_test_cases``).
-"""
+"""Per-test reports a CI pipeline published ("Canonical test ids")."""
 
 from __future__ import annotations
 
@@ -52,7 +42,6 @@ def _xml_files(archive: bytes, artifact: str) -> list[dict[str, str]]:
 
 async def github_junit_reports(context: ToolContext, owner: str, repo: str, run_id: str,
                                artifact: str = "") -> list[dict[str, str]]:
-    """The JUnit XML files in the run's test-report artifacts (``{"artifact", "path", "junit_xml"}``)."""
     base = f"{_github_base_url(context)}/repos/{owner}/{repo}/actions"
     headers = await _github_headers(context)
     listed = await _http_json("GET", f"{base}/runs/{quote(run_id, safe='')}/artifacts", connection=CONNECTION_GITHUB,
@@ -71,8 +60,6 @@ async def github_junit_reports(context: ToolContext, owner: str, repo: str, run_
 
 
 async def gitlab_test_cases(context: ToolContext, project: str, pipeline_id: str) -> list[dict[str, str]]:
-    """The pipeline's test cases from GitLab's ``test_report`` (``{"classname", "name", "file", "status",
-    "message"}``)."""
     report = await _http_json(
         "GET", f"{_gitlab_base_url(context)}/projects/{quote(project, safe='')}/pipelines/"
                f"{quote(pipeline_id, safe='')}/test_report", connection=CONNECTION_GITLAB,

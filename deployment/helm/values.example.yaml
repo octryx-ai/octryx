@@ -9,7 +9,7 @@
 images:
   api:
     repository: registry.example.com/octryx-api
-    tag: "0.0.1-alpha"
+    tag: "0.0.2-alpha"
 
 # Public hostname (without https://). The ingress serves it with TLS.
 host: octryx.example.com
@@ -19,7 +19,8 @@ ingress:
   tlsSecretName: ""         # empty: the controller's default certificate
 
 # The Secret the platform reads, created before the install (https://octryx.ai/docs/install/kubernetes shows the command).
-# It never goes into a values file.
+# It never goes into a values file. Since 0.0.2 it also holds LITELLM_MASTER_KEY (starting with "sk-") and
+# LITELLM_SALT_KEY for the bundled LiteLLM (with database.internal=false also LITELLM_DATABASE_URL).
 existingSecret: octryx
 
 # Database: internal PostgreSQL with pgvector (StatefulSet), or your own one.

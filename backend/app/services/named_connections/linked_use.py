@@ -1,20 +1,5 @@
 """A use that names its connection by id: an intake (``work_item_sync_configs.connection_id``) or a Knowledge source
-(``knowledge_source_connectors.connection_id``).
-
-:func:`resolve_linked` answers which route the use reads through and what its grant allows, or refuses with a fixed
-code (``needs_configuration``), never another connection:
-
-- the default connection's id (``unbound_default.py``) or ``default`` is the Workspace's default connection;
-- a connection of the routes is that connection; a connection that exists but is not available in the Workspace is
-  ``connection_not_available``; an id that is no connection, or one that serves nothing here, is ``None`` (the
-  caller's "gone" path, unchanged);
-- a disabled connection is refused (``connection_gate.use_refusal``);
-- the Workspace's deviation of the use (``knowledge`` / ``tickets``) applies (:func:`deviation_refusal`): ``enabled``
-  false is ``connection_use_disabled``; a ``scope`` is the upper bound of the keys the use may read, a key outside it
-  is ``scope_not_allowed`` (the use's own scope must be narrowed; nothing is dropped silently). Where keys nest (a
-  hierarchical binding: GitHub ``owner/repo``, GitLab ``group/project``), an entry covers itself and every key under
-  it (``octryx-ai`` covers ``octryx-ai/bench``; ``octryx-ai/bench`` covers only itself), in the binding's case.
-"""
+(``knowledge_source_connectors.connection_id``)."""
 
 from __future__ import annotations
 
@@ -37,8 +22,6 @@ USE_TICKETS = "tickets"
 
 
 class LinkedConnectionRefusedError(Exception):
-    """The use may not read through its connection; ``code`` is fixed, ``scopes`` the keys outside its scope."""
-
     def __init__(self, code: str, scopes: list[str] | None = None) -> None:
         super().__init__(code)
         self.code = code
@@ -51,9 +34,6 @@ class LinkedConnectionRefusedError(Exception):
 
 @dataclass(frozen=True, slots=True)
 class LinkedConnection:
-    """``ref``: the routing ref (a named connection's id, or ``default``); ``connection_id``: the connection row
-    (``None`` for the default entry); ``grant``: its grant in the Workspace."""
-
     ref: str
     target: ResolvedNamedConnection | None = field(repr=False)
     connection_id: str | None = None
@@ -79,7 +59,6 @@ def deviation_refusal(grant: Grant | None, use: str, tool: str,
 async def resolve_linked(
     db: AsyncSession, project_id: str, tool: str, connection_id: object, routes: NamedConnectionRoutes,
 ) -> LinkedConnection | None:
-    """The route of a use naming ``connection_id`` (see the module doc); ``None`` when no such connection exists."""
     wanted = connection_id.strip() if isinstance(connection_id, str) else ""
     wanted = wanted or DEFAULT_CONNECTION_NAME
     default = routes.default_of(tool)

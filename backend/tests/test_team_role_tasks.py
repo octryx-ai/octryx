@@ -1,6 +1,5 @@
-"""Team delivery: the coordinate phase writes the task list with a role per item, each role phase
-builds only its items, the pipeline after the last role judges the earlier ones too, and the decision revises only on
-a high finding."""
+"""Team delivery: the coordinate phase assigns a role per task, each role phase builds only its items,
+the last pipeline judges all of them, and the decision revises only on a high finding."""
 
 from __future__ import annotations
 
@@ -40,7 +39,7 @@ def test_the_role_tag_is_parsed_and_an_untagged_item_belongs_to_every_role():
 def test_the_coordinate_answer_is_preferred_over_the_readiness_answer():
     readiness = "Task list:\nT1. Old item | proof: tests/test_old.py::test_old\n"
     run = SimpleNamespace(context={"answers": {"readiness": readiness, "coordinate": ANSWER}})
-    assert run_task_list(run)[0]["text"] == "Old item"  # unchanged without a preference: ticket delivery
+    assert run_task_list(run)[0]["text"] == "Old item"
     assert len(run_task_list(run, ("coordinate",))) == 4
 
 
@@ -58,9 +57,9 @@ def test_a_role_phase_gets_its_tasks_and_a_phase_without_tasks_gets_all():
     role = phase_definition(_run(), _phase(tasks="backend"))["workflow_contract"][RUN_PHASE_CONTRACT_KEY]
     assert [item["id"] for item in role["task_list"]] == ["T1", "T4"]
     whole = phase_definition(_run(), _phase())["workflow_contract"][RUN_PHASE_CONTRACT_KEY]
-    assert [item["id"] for item in whole["task_list"]] == ["T1", "T2", "T3", "T4"]  # ticket delivery as today
+    assert [item["id"] for item in whole["task_list"]] == ["T1", "T2", "T3", "T4"]
     writer = phase_definition(_run(), _phase(sets_task_list=True))["workflow_contract"][RUN_PHASE_CONTRACT_KEY]
-    assert "task_list" not in writer  # it writes the list; the builders' proofs are not its work
+    assert "task_list" not in writer
 
 
 @pytest.mark.asyncio
@@ -69,7 +68,7 @@ async def test_a_change_phase_with_sets_task_list_stores_the_list_from_its_answe
 
     run = SimpleNamespace(id="r1", work_item_id=None, context={})
     await _keep_task_list(None, run, _phase(), ANSWER)
-    assert "task_list" not in run.context  # a plain building phase never sets the list
+    assert "task_list" not in run.context
     await _keep_task_list(None, run, _phase(sets_task_list=True), ANSWER)
     assert [item["id"] for item in run.context["task_list"]] == ["T1", "T2", "T3", "T4"]
     assert {item["status"] for item in run.context["task_list"]} == {"open"}
@@ -84,8 +83,6 @@ async def test_a_role_phase_moves_only_its_own_tasks():
     change = {"patch": "diff --git a/tests/test_corpus.py b/tests/test_corpus.py\n+def test_corpus():\n"}
     await _keep_task_list(None, run, _phase(tasks="frontend"), "done", change=change)
     statuses = {item["id"]: item["status"] for item in run.context["task_list"]}
-    # The frontend's T2/T3 have no proof in the change (open), its untagged T4 has (in progress until a passed pass);
-    # T1 is the backend's and keeps its status.
     assert statuses == {"T1": "done", "T2": "open", "T3": "open", "T4": "in_progress"}
 
 
@@ -130,7 +127,7 @@ def _decided(findings, statuses=("verified", "verified"), **context):
 
 def test_revise_on_high_accepts_at_once_without_a_high_finding():
     medium = [{"severity": "medium", "fix": "spacing"}, {"severity": "low", "fix": "naming"}]
-    assert accept_reason(_decided(medium)) == ""  # the default still revises on a medium
+    assert accept_reason(_decided(medium)) == ""
     assert accept_reason(_decided(medium), revise_on="high") == (
         "no high finding (revise only on high); 2 medium or low findings are notes for the product owner, "
         "all 2 tasks verified")
@@ -144,4 +141,4 @@ def test_a_skipped_pipeline_needs_no_verified_tasks():
     assert accept_reason(_decided([], ("open", "done"), **skipped)) == (
         "review passed; 2 tasks not verified: the pipeline was skipped on the server")
     high = [{"severity": "high", "fix": "x"}]
-    assert accept_reason(_decided(high, ("open",), **skipped), revise_on="high") == ""  # a high finding still asks
+    assert accept_reason(_decided(high, ("open",), **skipped), revise_on="high") == ""

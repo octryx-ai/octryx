@@ -34,6 +34,7 @@ from app.services.control_plane.config import (
 from app.services.control_plane.constants import (
     settings,
 )
+from app.services.control_plane.provider_auth import get_provider_auth_mode
 from app.services.control_plane.provider_auth import (
     resolve_provider_api_key as _resolve_provider_api_key_impl,
 )
@@ -43,11 +44,10 @@ from app.services.control_plane.resolution import (
 from app.services.control_plane.resolution import (
     resolve_control_plane_runtimes as _resolve_control_plane_runtimes_impl,
 )
+from app.services.control_plane.runtime_limits import runtime_max_tokens_per_request
 from app.services.control_plane.service_helpers import (
     _is_seed_runtime_target,
-    _runtime_max_tokens_per_request,
     _runtime_request_timeout_seconds,
-    get_provider_auth_mode,
 )
 from app.services.control_plane.targets import (
     delete_runtime_target as _delete_runtime_target_impl,
@@ -64,10 +64,7 @@ from app.services.control_plane.targets import (
 
 from ..agent.providers import infer_provider_runtime
 from ..models import ControlPlaneConfig, ControlPlaneRuntimeTarget, LLMProvider
-from .copilot_oauth import build_copilot_access_token
-from .google_provider_oauth import build_google_access_token
-from .local_runtime_orchestrator import ensure_provider_local_runtime_ready
-from .secret import get_secret_value, set_secret_value
+from .secret import get_secret_value
 from .system_config import get_agent_default_model
 
 
@@ -164,14 +161,7 @@ async def build_provider_client_kwargs_async(db: AsyncSession, provider: LLMProv
         db,
         provider,
         build_provider_client_kwargs_func=build_provider_client_kwargs,
-        infer_provider_runtime_func=infer_provider_runtime,
-        ensure_provider_local_runtime_ready_func=ensure_provider_local_runtime_ready,
-        build_copilot_access_token_func=build_copilot_access_token,
-        build_google_access_token_func=build_google_access_token,
-        resolve_provider_api_key_func=resolve_provider_api_key,
         get_secret_value_func=get_secret_value,
-        set_secret_value_func=set_secret_value,
-        settings=settings,
     )
 
 
@@ -255,7 +245,7 @@ async def resolve_control_plane_runtimes(
         get_runtime_targets_func=get_runtime_targets,
         build_provider_client_kwargs_async_func=build_provider_client_kwargs_async,
         build_provider_client_kwargs_func=build_provider_client_kwargs,
-        runtime_max_tokens_per_request_func=_runtime_max_tokens_per_request,
+        runtime_max_tokens_per_request_func=runtime_max_tokens_per_request,
         runtime_request_timeout_seconds_func=_runtime_request_timeout_seconds,
     )
 

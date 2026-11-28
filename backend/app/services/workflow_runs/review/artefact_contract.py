@@ -48,7 +48,7 @@ def answer_contract(kind: str) -> str:
 
 
 class ArtefactUnavailableError(Exception):
-    """A fixed, non-sensitive hold reason; never a substitute verdict."""
+    pass
 
 
 def is_artefact(node: Any) -> bool:
@@ -108,7 +108,7 @@ class Verdict:
 
 
 def verdict_rejection(raw: Any) -> str:
-    """Why an answer is no verdict, as a fixed code (never the model's text); ``""`` when it is one."""
+    # A fixed code, never the model's text.
     if raw is None:
         return "no_json_object"
     if not isinstance(raw, dict) or set(raw) != {"verdict", "summary", "findings"}:

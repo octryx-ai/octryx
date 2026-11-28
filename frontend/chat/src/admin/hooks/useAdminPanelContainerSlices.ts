@@ -6,9 +6,7 @@ import { useAdminCorpIdentity } from "./useAdminCorpIdentity";
 import { useAdminCreateUserState } from "./useAdminCreateUserState";
 import { useAdminEngineeringKnowledgePacks } from "./useAdminEngineeringKnowledgePacks";
 import { useAdminKnowledgeState } from "./useAdminKnowledgeState";
-import { useAdminLocalBootstrapState } from "./useAdminLocalBootstrapState";
 import { useAdminMcpState } from "./useAdminMcpState";
-import { useAdminModeScenarioState } from "./useAdminModeScenarioState";
 import { useAdminOfficeTemplates } from "./useAdminOfficeTemplates";
 import { useAdminProjectState } from "./useAdminProjectState";
 import { useAdminProviderState } from "./useAdminProviderState";
@@ -23,7 +21,6 @@ import type { ReadJsonFn } from "./useAdminTabLoader.types";
 // `isAdmin`: only an admin loads the admin-only lists; a member's page never asks for what it may not read (no 403).
 export function useAdminPanelContainerSlices(readJson: ReadJsonFn, isAdmin = true) {
   const projectState = useAdminProjectState();
-  const localBootstrapState = useAdminLocalBootstrapState();
   const agentState = useAdminAgentState();
   const webhookState = useAdminWebhookState();
   const usageBrandingState = useAdminUsageBrandingState();
@@ -38,7 +35,6 @@ export function useAdminPanelContainerSlices(readJson: ReadJsonFn, isAdmin = tru
   const mcpState = useAdminMcpState();
   const runtimeState = useAdminRuntimeState();
   const connectorCoreState = useAdminConnectorCoreState();
-  const modeScenarioState = useAdminModeScenarioState();
   const connectorFormState = useAdminConnectorFormState();
   const workflowState = useAdminWorkflowState();
   const providerState = useAdminProviderState();
@@ -50,7 +46,6 @@ export function useAdminPanelContainerSlices(readJson: ReadJsonFn, isAdmin = tru
 
   return {
     projectState,
-    localBootstrapState,
     agentState,
     webhookState,
     usageBrandingState,
@@ -60,7 +55,6 @@ export function useAdminPanelContainerSlices(readJson: ReadJsonFn, isAdmin = tru
     mcpState,
     runtimeState,
     connectorCoreState,
-    modeScenarioState,
     connectorFormState,
     workflowState,
     providerState,

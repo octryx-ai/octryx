@@ -1,9 +1,5 @@
-"""Teamwork, the coordinator's work plan: what a plan may say, and how a revision changes the split.
-
-Concurrent items (neither depends on the other) may not own overlapping paths (refused); dependent items may. A
-refusal lists every problem at once. A revision keeps merged work, reopens what the coordinator changed, never touches
-a running item, and retries stuck items.
-"""
+"""Teamwork, the coordinator's work plan: concurrent items may not own overlapping paths, and a revision
+keeps merged work, never touches a running item and retries stuck ones."""
 
 from __future__ import annotations
 
@@ -99,9 +95,6 @@ def test_no_artificial_limit_on_the_number_of_items():
     assert _problems(*items) == []
 
 
-# --- revision ----------------------------------------------------------------------------------------------------
-
-
 def _split(**statuses: str) -> dict[str, dict]:
     return {key: {**_item(key), "status": status, "iteration": 1, "session_id": f"s-{key}"}
             for key, status in statuses.items()}
@@ -119,8 +112,6 @@ def test_a_merged_unchanged_item_keeps_its_status_and_a_reopened_one_runs_again(
 
 
 def test_a_reworded_merged_item_stays_merged_and_only_reopen_or_new_work_runs_it_again():
-    """A re-plan may write "Merged and fine; keep unchanged" into merged items; a changed text alone must not reopen
-    an item, or the next round re-runs every item."""
     reworded = revise(_split(a="merged"), _record({**_item("a"), "instructions": "Merged and fine; keep unchanged.",
                                                    "depends_on": [], "title": "Search API"}))
     assert (reworded["a"]["status"], reworded["a"]["iteration"]) == ("merged", 1)
@@ -149,11 +140,7 @@ def test_items_not_started_can_be_added_or_removed_and_stuck_ones_are_retried():
     assert split["b"]["reason"] == "retry after blocked"
 
 
-# --- Proofs, folders, crossing globs, shared files ---------------------------------------------------------
-
-
 def test_a_proof_outside_the_items_own_paths_is_refused_with_a_hint():
-    """Frontend items get no tests/system/... proofs while tests/system/** is the test item's."""
     shell = _item("frontend-shell", role="frontend", paths=["web/**"],
                   proofs=["tests/system/test_shell.py::test_nav"])
     problems = _problems(shell, _item("system", role="frontend", paths=["tests/system/**"],
@@ -169,8 +156,6 @@ def test_a_proof_outside_the_items_own_paths_is_refused_with_a_hint():
     (["Makefile", "src/app.py", "web/*.js"], ["Makefile", "Makefile/**", "src/app.py", "web/*.js"]),
 ])
 def test_a_folder_path_names_the_files_inside_it(given, stored):
-    """A folder path like ``src/kitchen-helper/api/`` must match the files inside, or every write of the item is
-    refused."""
     from app.services.workflow_runs.protected_paths import path_matches
 
     raw = {"id": "api", "title": "API", "role": "backend", "paths": given, "instructions": "Build it.", "proofs": []}
@@ -200,8 +185,6 @@ def test_concurrent_items_with_crossing_globs_are_refused():
 
 
 def test_a_dependent_item_appends_to_a_shared_file_of_the_item_it_depends_on():
-    """When app.js and i18n.js belong to frontend-shell, frontend-profile can register neither its route
-    nor its texts on its own. A dependent item names the owner's shared files in appends_to and writes them too."""
     shell = _item("shell", role="frontend", paths=["web/app.js", "web/i18n.js", "web/shell/**"])
     profile = _item("profile", role="frontend", paths=["web/profile/**"], depends_on=["shell"],
                     appends_to=["web/app.js", "web/i18n.js"])
@@ -223,7 +206,6 @@ def test_appends_to_needs_the_owner_as_a_dependency_and_appenders_of_one_file_ta
 
 
 def test_a_resubmitted_plan_that_changes_nothing_is_recognised():
-    """The split after it would be the split before it (nothing reopened, added, dropped, changed, retried)."""
     record, _ = validate_plan({"items": [_item("a"), _item("b")]}, roles=ROLES)
     merged = {item["id"]: {**item, "status": "merged", "iteration": 1} for item in record["items"]}
     assert changes_nothing(merged, record)

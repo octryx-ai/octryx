@@ -1,9 +1,4 @@
-"""Atomic offers, acceptance and owner lifecycle; connector/runtime I/O is outside this service.
-
-The caller commits acceptance before starting the child. The allocator is a DB-only factory,
-not records.start_run (which advances). All actions lock parent -> existing child -> offer ->
-authority. Child completion returns facts for a later parent transaction, never resumes it here.
-"""
+"""Atomic offers, acceptance and owner lifecycle; connector/runtime I/O is outside this service."""
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
@@ -38,7 +33,6 @@ Allocator = Callable[..., Awaitable[dict]]
 
 async def offer_handoff(db: AsyncSession, parent: WorkflowRun, *, node_id: str, contract: dict,
                         child_descriptor: dict) -> WorkflowHandoff:
-    """Caller holds the parent claim; only an offer row is allocated, never a Run/Session."""
     contract = validate_contract(contract)
     scope = contract["scope"]
     if (scope["workspace_id"] != parent.project_id or scope["work_item_id"] != parent.work_item_id
@@ -83,7 +77,6 @@ async def offer_handoff(db: AsyncSession, parent: WorkflowRun, *, node_id: str, 
 
 
 async def lock_handoff(db: AsyncSession, handoff_id: str) -> tuple[WorkflowRun, WorkflowHandoff]:
-    """Acquire ordered locks from immutable relationship IDs; reread afterward."""
     identity = (await db.execute(select(WorkflowHandoff.parent_run_id, WorkflowHandoff.child_run_id)
                                 .where(WorkflowHandoff.id == handoff_id))).first()
     if identity is None:
@@ -91,6 +84,7 @@ async def lock_handoff(db: AsyncSession, handoff_id: str) -> tuple[WorkflowRun, 
     from ..records import WorkflowRunError
     from .lifecycle import lock_parent_chain
 
+    # Ancestors, parent, child, then the offer row: the receiver and offer paths share this order to avoid a deadlock.
     try:
         await lock_parent_chain(db, identity.parent_run_id)
     except WorkflowRunError as error:
@@ -125,7 +119,6 @@ async def preview_handoff(db: AsyncSession, handoff_id: str, actor: User, *,
 
 async def _execution_link(db: AsyncSession, child: WorkflowRun, session: Session, runtime: dict,
                            actor_id: str, *, reason: str, status: int) -> None:
-    """Require the real main-session link and normalized persisted runtime, not allocator assertions."""
     from ..octryx.continuation_marker import _device_target
 
     session = (await db.execute(select(Session).where(Session.id == session.id).with_for_update()
@@ -189,7 +182,7 @@ async def accept_handoff(db: AsyncSession, handoff_id: str, actor: User, action:
 
 
 def accepted_binding(row: WorkflowHandoff) -> dict:
-    """Post-commit continuation must claim this epoch idempotently before any engine I/O."""
+    # Post-commit continuation must claim this epoch idempotently before any engine I/O.
     return {"handoff_id": row.id, "child_run_id": row.child_run_id, "receiver_session_id": row.receiver_session_id,
         "actor_id": row.accepted_by, "owner_epoch": row.owner_epoch, "payload_hash": row.payload_hash,
         "runtime_target": row.runtime_snapshot}
@@ -216,7 +209,6 @@ async def decline_handoff(db: AsyncSession, handoff_id: str, actor: User, action
 
 async def require_owner_binding(db: AsyncSession, handoff_id: str, binding: dict, *,
                                  rights_evaluator: RightsEvaluator | None) -> WorkflowHandoff:
-    """Every execution AND result writer rechecks this; requested_by alone is insufficient."""
     parent, row = await lock_handoff(db, handoff_id)
     _hash_valid(row)
     if row.state != "accepted" or binding != accepted_binding(row):

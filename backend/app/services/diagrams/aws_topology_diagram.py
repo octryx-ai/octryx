@@ -106,20 +106,6 @@ def build_aws_topology_detail_diagram_tool_calls(
     return tool_calls
 
 
-def _successful_diagram_artifact_count(turn_tool_history: list[dict[str, Any]]) -> int:
-    count = 0
-    for item in turn_tool_history:
-        if not isinstance(item, dict):
-            continue
-        if str(item.get("tool_name") or "").strip() not in {"create_diagram", "append_diagram", "edit_diagram"}:
-            continue
-        result = item.get("result")
-        if isinstance(result, dict) and result.get("error"):
-            continue
-        count += 1
-    return count
-
-
 def _diagram_title(workflow_contract: dict[str, Any]) -> str:
     topic = str(workflow_contract.get("topic") or "").strip()
     normalized_topic = topic.lower()

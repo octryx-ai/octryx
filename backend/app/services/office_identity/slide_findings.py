@@ -1,10 +1,4 @@
-"""The finding record, and how a composed slide is read back.
-
-Split out of ``slide_gate`` so the checks there stay readable: this module owns
-what a finding *is* and how the raw python-pptx shapes become the two things
-every check works on — text per placeholder idx, and pictures per placeholder
-idx. Nothing here judges anything.
-"""
+"""The finding record, and how a composed slide is read back."""
 
 from __future__ import annotations
 
@@ -49,12 +43,6 @@ def is_picture(shape: Any) -> bool:
 
 
 def is_template_icon(shape: Any) -> bool:
-    """A template icon the composer placed on a static holder, not content.
-
-    Icons are brand furniture on the template's own geometry, so the picture
-    checks (coverage, distortion) do not apply to them. They are marked by the
-    shape name the composer writes (``icon_embedding.ICON_SHAPE_NAME_PREFIX``).
-    """
     try:
         return str(shape.name or "").startswith(ICON_SHAPE_NAME_PREFIX)
     except (AttributeError, TypeError):
@@ -79,7 +67,6 @@ def paragraph_texts(shape: Any) -> list[str]:
 
 
 def shape_rect(shape: Any) -> dict[str, int] | None:
-    """The geometry a shape actually carries, in EMU."""
     values = (shape.left, shape.top, shape.width, shape.height)
     if any(not isinstance(value, int) for value in values):
         return None
@@ -87,7 +74,6 @@ def shape_rect(shape: Any) -> dict[str, int] | None:
 
 
 def slide_content(slide: Any) -> tuple[dict[int, list[str]], dict[int | None, Any]]:
-    """``idx -> paragraph texts`` and ``idx -> picture shape`` for one slide."""
     texts: dict[int, list[str]] = {}
     pictures: dict[int | None, Any] = {}
     for shape in slide.shapes:
@@ -104,7 +90,6 @@ def slide_content(slide: Any) -> tuple[dict[int, list[str]], dict[int | None, An
 
 
 def picture_items(pictures: dict[int | None, Any]) -> list[tuple[int | None, Any]]:
-    """Pictures in a deterministic order; unplaced ones (no idx) last."""
     return sorted(pictures.items(), key=lambda item: (item[0] is None, item[0]))
 
 

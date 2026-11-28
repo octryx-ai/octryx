@@ -1,11 +1,7 @@
 import { createElement } from "react";
 
-// The one state label of the UI (design system, product inventory). Plain .ts with createElement so every
-// component and its unit-test loader can require it; styles in styles/chat/design-system.css.
-//
-// Colour has a fixed meaning and only exceptions are coloured: a normal state (open, running, synced, merged) is
-// neutral; attention means a person must act; problem means something failed; success is used sparingly for a
-// result worth noticing (a check that passed); info marks something in progress worth seeing.
+// Plain .ts with createElement so unit-test loaders can require it.
+// Only exceptions are coloured: a normal state is neutral.
 
 export type StatusTone = "neutral" | "attention" | "problem" | "success" | "info";
 
@@ -16,7 +12,6 @@ const TONES: ReadonlyArray<[RegExp, StatusTone]> = [
   [/^(running|syncing|working|in[ _-]?progress|queued|starting|refining)$/, "info"],
 ];
 
-/** The tone of a state word ("Failed", "needs_you", "running"); everything not listed is neutral. */
 export function statusTone(state: string | null | undefined): StatusTone {
   const key = String(state ?? "").trim().toLowerCase();
   if (!key) return "neutral";
@@ -25,11 +20,8 @@ export function statusTone(state: string | null | undefined): StatusTone {
 }
 
 export type StatusLabelProps = {
-  // The state in the user's words ("Needs you", "Synced"); shown as is.
   label: string;
-  // Defaults to statusTone(label).
   tone?: StatusTone;
-  // The reason in one sentence, as tooltip and accessible description.
   title?: string;
   testId?: string;
 };

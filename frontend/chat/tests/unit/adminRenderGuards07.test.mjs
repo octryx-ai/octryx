@@ -1,5 +1,4 @@
-// Render guards for admin form sections split into smaller functions: the Bedrock prompt caching row, the scheduler
-// form panel, the code repositories section, the research evidence archive, the Workspace skills picker and the
+// Render guards for admin form sections split into smaller functions: the scheduler form panel, the code repositories section, the research evidence archive, the Workspace skills picker and the
 // Confluence scope fields render the same structure.
 import assert from "node:assert/strict";
 import { test } from "node:test";
@@ -7,33 +6,6 @@ import { createElement } from "react";
 import { act, byTestId, text } from "./settingsRenderHarness.mjs";
 import { all, buttons, create, includesAll, noop, plain, testIds } from "./adminGuardRenderers.mjs";
 import { loadStubbed, stubs } from "./adminGuardStubLoader.mjs";
-
-test("the Bedrock prompt caching row edits the credentials and the cache and saves them", () => {
-  const { ProviderBedrockPromptCaching } = loadStubbed("admin/components/providerTab/ProviderBedrockPromptCaching.tsx", []);
-  const changes = [];
-  const saved = [];
-  const ctx = { handleProviderDraftChange: (...args) => changes.push(args), handleSaveBedrockProviderConfig: (p) => saved.push(p.id),
-    providerDrafts: { p1: { aws_access_key_id: "AK", bedrock_prompt_cache_enabled: "true", bedrock_prompt_cache_min_tokens: "1024" } },
-    savingProviderConfig: null };
-  const view = create(createElement(ProviderBedrockPromptCaching, { ctx, provider: { id: "p1", aws_static_credentials_configured: true } }));
-  includesAll(text(view.root), ["Bedrock", "Static credentials: Configured", "Bedrock cache enabled", "TTL: 5 minutes", "TTL: 1 hour", "Save Bedrock Config"]);
-  assert.deepEqual(all(view, "input").map((node) => [node.props.type ?? "text", node.props.placeholder ?? null, node.props.value ?? node.props.checked]), [
-    ["text", "AWS Access Key ID", "AK"], ["password", "AWS Secret Access Key", ""], ["password", "AWS Session Token (optional)", ""],
-    ["checkbox", null, true], ["number", "Min tokens", "1024"]]);
-  assert.equal(all(view, "select")[0].props.value, "5m");
-  const inputs = all(view, "input");
-  for (const [index, value] of [[0, "a"], [1, "b"], [2, "c"], [4, "9"]]) inputs[index].props.onChange({ target: { value } });
-  inputs[3].props.onChange({ target: { checked: false } });
-  all(view, "select")[0].props.onChange({ target: { value: "1h" } });
-  assert.deepEqual(changes, [["p1", "aws_access_key_id", "a"], ["p1", "aws_secret_access_key", "b"], ["p1", "aws_session_token", "c"],
-    ["p1", "bedrock_prompt_cache_min_tokens", "9"], ["p1", "bedrock_prompt_cache_enabled", "false"], ["p1", "bedrock_prompt_cache_ttl", "1h"]]);
-  all(view, "button")[0].props.onClick();
-  assert.deepEqual(saved, ["p1"]);
-  const saving = create(createElement(ProviderBedrockPromptCaching, { ctx: { ...ctx, providerDrafts: {}, savingProviderConfig: "p1" }, provider: { id: "p1" } }));
-  includesAll(text(saving.root), ["Static credentials: Not set", "Saving…"]);
-  assert.equal(all(saving, "button")[0].props.disabled, true);
-  assert.equal(all(saving, "input")[3].props.checked, false);
-});
 
 test("the scheduler form panel shows the fields, the action list and the right hint", () => {
   const { SchedulerFormPanel } = loadStubbed("admin/components/scheduler/SchedulerFormPanel.tsx",

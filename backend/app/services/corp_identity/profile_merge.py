@@ -23,7 +23,6 @@ async def _merge_template_into_profile(
     suffix: str,
     doc_type: str,
 ) -> dict[str, Any]:
-    """Add a new template of the given doc_type to an existing profile."""
     import uuid as uuid_mod
 
     from .. import corp_identity_service as svc

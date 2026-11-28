@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.services.workflow_runs import pipeline, pipeline_failure, pipeline_report
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_pipeline_support import (
     COMMANDS,
     FILE,
@@ -14,6 +15,8 @@ from tests.workflow_run_pipeline_support import (
     _file_report,
     _report,
 )
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def pipeline_format():
@@ -66,7 +69,6 @@ async def test_an_invalid_or_refused_environment_file_goes_back_to_the_agent(db,
 
 @pytest.mark.asyncio
 async def test_the_server_validates_the_reported_file_again(db, monkeypatch):
-    """A device that says "ok" for a file with a refused command is still red."""
     run, session = await _at_file_pipeline(db, monkeypatch)
     bad = {**FILE_ENV, "setup": ["npm install -g playwright"]}
     account = {"file": FILE, "app_folder": "coffee/web/claude", "state": "ok", "environment": bad,

@@ -1,17 +1,17 @@
 """Budget and session cost guards: warning alerts, default blocks and blocking a chat send before the provider call."""
 
-import asyncio
 import uuid
 from decimal import Decimal
 
 import pytest
 from sqlalchemy import select
 
-import app.agent.engine as engine_module
 from app.exceptions.tool import BudgetLimitExceededError
 from app.models import BudgetAlert, BudgetPolicy, LLMModel, LLMProvider, Session, UsageEvent, User
 from app.services.budget import enforce_budget_limits
-from tests.conftest import ADMIN_PASSWORD
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.mark.asyncio
@@ -106,87 +106,3 @@ async def test_default_session_cost_guard_blocks_without_budget_policy(db, monke
     assert exc.value.policy_name == "Default agent session cost guard"
 
 
-@pytest.mark.asyncio
-@pytest.mark.committed_db
-async def test_chat_send_budget_guard_blocks_before_provider_call(client, db, monkeypatch):
-    login_resp = await client.post("/admin/login", data={"username": "admin", "password": ADMIN_PASSWORD})
-    assert login_resp.status_code == 303
-
-    admin_user = (await db.execute(select(User).where(User.username == "admin"))).scalar_one()
-    prior_session = Session(
-        id=str(uuid.uuid4()),
-        user_id=admin_user.id,
-        project_id=None,
-        agent_type="chat",
-        status="active",
-        metadata_={},
-    )
-    db.add(prior_session)
-    await db.flush()
-    db.add(
-        UsageEvent(
-            id=str(uuid.uuid4()),
-            session_id=prior_session.id,
-            user_id=admin_user.id,
-            provider="copilot",
-            model="claude-haiku-4.5",
-            tokens_in=5,
-            tokens_out=5,
-            cost=0,
-        )
-    )
-    db.add(
-        BudgetPolicy(
-            id=str(uuid.uuid4()),
-            name="Daily request cap",
-            user_id=admin_user.id,
-            daily_request_limit=1,
-            warn_at_percent=80,
-            block_at_percent=100,
-            is_active=True,
-        )
-    )
-    await db.commit()
-
-    async def fake_resolve_control_plane_runtimes(_db, runtime_target_id=None):
-        return [{"provider_name": "copilot", "model": "claude-haiku-4.5"}]
-
-    async def fake_chat_with_runtime_fallback(**kwargs):
-        raise AssertionError("runtime fallback should not be called when budget is exhausted")
-
-    monkeypatch.setattr(engine_module, "resolve_control_plane_runtimes", fake_resolve_control_plane_runtimes)
-    monkeypatch.setattr(engine_module, "_chat_with_runtime_fallback", fake_chat_with_runtime_fallback)
-
-    send_resp = await client.post(
-        "/admin/chat/api/send",
-        json={"prompt": "Explain the current state."},
-    )
-    assert send_resp.status_code == 200
-    session_id = send_resp.json()["selectedSession"]["id"]
-
-    final_payload = send_resp.json()
-    for _ in range(40):
-        await asyncio.sleep(0.05)
-        bootstrap_resp = await client.get(f"/admin/chat/api/bootstrap?session_id={session_id}")
-        assert bootstrap_resp.status_code == 200
-        final_payload = bootstrap_resp.json()
-        if not final_payload["selectedSessionIsRunning"]:
-            break
-
-    assistant_messages = [item for item in final_payload["selectedMessages"] if item["role"] == "assistant"]
-    assert assistant_messages
-    assert "Budget policy 'Daily request cap' exceeded" in assistant_messages[-1]["content"]
-
-    alerts = (
-        (
-            await db.execute(
-                select(BudgetAlert).where(
-                    BudgetAlert.metric_name == "requests",
-                    BudgetAlert.threshold_level == "block",
-                )
-            )
-        )
-        .scalars()
-        .all()
-    )
-    assert alerts

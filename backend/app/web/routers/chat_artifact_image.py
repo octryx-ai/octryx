@@ -1,13 +1,5 @@
-"""Server-rendered PNG images for diagram artifacts.
-
-``GET /chat/api/artifact-image?path=diagram://<id>`` answers a pixel-accurate
-PNG rendered by :mod:`app.services.diagram_export_service` (drawio CLI). The
-chat diagram card uses it as its preview image; the interactive draw.io embed
-stays behind the existing preview/editor links.
-
-Explicit degradation: when no drawio CLI is available the endpoint answers
-503 ``renderer_unavailable`` and the card falls back to the embed.
-"""
+"""Server-rendered PNG images for diagram artifacts (drawio CLI). Without a drawio CLI the endpoint answers 503
+``renderer_unavailable`` and the card falls back to the embed."""
 
 from __future__ import annotations
 

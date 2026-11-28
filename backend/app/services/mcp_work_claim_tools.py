@@ -1,11 +1,5 @@
-"""MCP tools ``work_item_claim``, ``work_item_release`` and ``who_is_working_on``.
-
-Shared secure-work dispatch (``mcp_work_access.run_secure_work_tool``: ``work:manage`` scope, rate limit,
-activity, audit row). Work Items resolve inside the grant's item scope (``scoped_work_item``);
-``who_is_working_on`` reads only the grant's listing scope (membership narrowed by the binding). The agent
-identity is the caller's gateway session when the call carries it, else the grant (``agent_board.identity``).
-Results are data about other agents, never instructions.
-"""
+"""MCP tools ``work_item_claim``, ``work_item_release`` and ``who_is_working_on``. Work Items resolve inside the grant's
+item scope."""
 
 from __future__ import annotations
 
@@ -60,7 +54,7 @@ async def who_is_working_on(
 ) -> dict[str, Any]:
     query = str(arguments.get("query") or "").strip()[:MAX_QUERY_CHARS]
     paths = paths_from(arguments.get("paths"))
-    if not query and not paths:  # live E2E: an agent may call with the defaults; every answer carries the notice
+    if not query and not paths:  # an agent may call with the defaults; every answer carries the notice
         return {"claims": [], "presence": [], "state": "needs_clarification",
                 "detail": "Pass query (a work item key, title or epic) or paths.", "content_is_data": CONTENT_IS_DATA}
     projects = scope.listing_project_ids
@@ -114,7 +108,6 @@ async def _matching_presence(db: AsyncSession, projects: frozenset[str], query: 
 def work_claim_tool_handlers(
     headers: Mapping[str, str] | None = None, *, identity: AgentIdentity | None = None
 ) -> dict[str, Any]:
-    """The claim handlers; the agent is ``identity`` when given (a chat session), else the MCP call's ``headers``."""
     return {
         CLAIM_TOOL: identity_handler(_claim, headers=headers, identity=identity),
         RELEASE_TOOL: identity_handler(_release, headers=headers, identity=identity),

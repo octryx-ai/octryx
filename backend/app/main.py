@@ -7,7 +7,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 
-from .api.routes.runtime_endpoints import router as runtime_endpoints_router
+from .api.routes.platform.runtime_endpoints import router as runtime_endpoints_router
 from .config import get_settings
 from .db import async_session_factory
 from .http_setup import configure_http
@@ -46,10 +46,6 @@ async def lifespan(app: FastAPI):
 
 
 async def _start_internal_metrics(stack: AsyncExitStack) -> None:
-    """The unauthenticated internal ``/metrics`` listener (``metrics_listener``), when its port is set.
-
-    With several API processes each would bind the same port; the listener then stays off and Prometheus scrapes the
-    authenticated ``/metrics`` instead."""
     if metrics_port() is None:
         return
     if api_worker_count() != 1:
@@ -79,13 +75,6 @@ async def root_redirect():
 
 
 def uvicorn_process_options() -> dict[str, object]:
-    """``reload`` / ``workers`` for ``uvicorn.run`` from DEBUG and ``OCTRYX_API_WORKERS``.
-
-    Several API processes are allowed only while the background workers are disabled here: each process
-    would otherwise run its own scheduler, queue dispatcher and intake pollers. They run once, in the
-    platform worker process (``python -m app.worker_main``). ``reload`` is a single-process development
-    mode and is never combined with several workers.
-    """
     workers = api_worker_count()
     if workers == 1:
         return {"reload": settings.debug}

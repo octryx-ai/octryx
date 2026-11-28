@@ -38,7 +38,6 @@ COUNT_QUERY = (
 
 
 async def visible_episodes(db, authorized):
-    """Bound the candidate window after SQL source ACL and current-revision checks."""
     rows = (await db.execute(
         select(KnowledgeGraphEpisode)
         .join(KnowledgeSourceRevision, KnowledgeSourceRevision.id == KnowledgeGraphEpisode.revision_id)

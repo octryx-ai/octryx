@@ -12,7 +12,7 @@
 .admin-panel__tab-group-label {
   color: var(--muted);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   letter-spacing: 0.15em;
   text-transform: uppercase;
   padding: 0.75rem 1rem 0.12rem;
@@ -32,7 +32,7 @@
   background: transparent;
   color: var(--muted-strong);
   font-size: var(--ds-text-xs);
-  font-weight: 500;
+  font-weight: var(--ds-weight-medium);
   cursor: pointer;
   text-align: left;
   transition:
@@ -65,7 +65,7 @@
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
   border-left-color: var(--accent);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   box-shadow: none;
 }
 
@@ -91,7 +91,7 @@
   color: var(--muted-strong);
   cursor: pointer;
   font-size: var(--ds-text-xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   text-align: left;
 }
 

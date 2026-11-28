@@ -1,25 +1,4 @@
-"""Verification contract for coding agent executions.
-
-Each run gets its own contract, resolved from EXPLICIT, approved sources.
-The stack intelligence comes from the planning LLM (it proposes stack-
-appropriate validation commands in the work plan — terraform plan for IaC,
-mvn test for Java, pytest for Python); the human approves them with the plan;
-execution is then BOUND to the approved contract. No hardcoded per-stack
-rules, no unreviewed runtime guessing.
-
-Resolution: the highest-trust source that defines commands WINS — sources are
-alternatives, not additive (every command carries its source for the audit
-trail). Merged trust levels could combine environment-honest unit commands with
-an approved plan's ``terraform plan``/``helm lint``, a contract that never goes
-green on a host without those binaries. A contract the agent cannot satisfy is a broken gate,
-not a stricter one.
-
-1. Change-unit ``validation_commands`` — human-scoped, highest trust.
-2. Repository-profile test/lint commands — per-repo defaults.
-3. Work-plan ``validation_plan`` — LLM-proposed at plan time, approved with
-   the plan.
-4. Empty contract → the step uses ``run_test_suite`` auto-detection.
-"""
+"""Verification contract for coding agent executions, resolved from explicit, approved sources."""
 
 from __future__ import annotations
 
@@ -32,8 +11,6 @@ GOVERNED_CODING_WORKFLOW_ID = "coding_change_tdd"
 
 
 def is_governed_coding_contract(workflow_contract: Any) -> bool:
-    """Explicit governed signal: the workflow contract carries the approved
-    verification contract for governed coding runs."""
     return bool(
         isinstance(workflow_contract, dict)
         and workflow_contract.get("workflow_id") == GOVERNED_CODING_WORKFLOW_ID
@@ -51,7 +28,6 @@ def resolve_verification_contract(
     units: list[Any],
     profile_commands: dict[str, list[str]] | None = None,
 ) -> dict[str, Any]:
-    """Build the verification contract for one execution run."""
     commands: list[dict[str, str]] = []
     seen: set[str] = set()
 
@@ -66,6 +42,7 @@ def resolve_verification_contract(
         for command in list(getattr(unit, "validation_commands_json", None) or []):
             _add(command, SOURCE_CHANGE_UNIT)
 
+    # Sources are alternatives, not additive: a merged contract can demand tools the host lacks and never pass
     if not commands:
         for key in ("test_commands", "lint_commands"):
             for command in (profile_commands or {}).get(key) or []:
@@ -113,10 +90,6 @@ def apply_verification_contract_to_workflow_contract(
     workflow_contract: dict[str, Any] | None,
     session_metadata: dict[str, Any] | None,
 ) -> dict[str, Any] | None:
-    """Attach the run's verification contract (stored on the session by the
-    secure-work execution start) to the workflow contract, so the step machine
-    can build its success criterion from it. Follows the same applier pattern
-    as the research policy."""
     if not isinstance(workflow_contract, dict) or not workflow_contract:
         return workflow_contract
     execution = (session_metadata or {}).get("secure_work_execution")

@@ -1,10 +1,4 @@
-"""Bounded HTTP client for the governed LiteLLM gateway.
-
-The client is constructed only from an already-validated
-:class:`~.config.LiteLLMGatewayConfig`, so an endpoint or catalog denial never
-reaches the transport. Every failure is raised outside its ``except`` block so
-no transport exception survives as ``__context__`` or ``__cause__``.
-"""
+"""Bounded HTTP client for the governed LiteLLM gateway, built only from a validated config."""
 
 from __future__ import annotations
 
@@ -16,7 +10,7 @@ from typing import Any
 import httpx
 
 from ...content_security.model_call_outbound import JSON_HEADERS, final_body
-from .alias_catalog import AliasEntry
+from .alias_catalog import CAPABILITY_REASONING, AliasEntry
 from .capability_evidence import PROBE_EVIDENCE_CACHE, ProbeEvidence, ProbeEvidenceCache, parse_probe_evidence
 from .chat_contract import chat_payload, required_capabilities, served_message
 from .config import LiteLLMGatewayConfig
@@ -100,7 +94,6 @@ class LiteLLMGatewayHttpClient:
         await self._client.aclose()
 
     async def _request(self, method: str, path: str, *, content: bytes | None = None) -> httpx.Response:
-        """``content``: a request body exactly as the final-bytes check passed it (``model_call_outbound``)."""
         failure: httpx.TransportError | None = None
         response: httpx.Response | None = None
         try:
@@ -133,8 +126,6 @@ class LiteLLMGatewayHttpClient:
 
     @staticmethod
     def _error_state_for_response(response: httpx.Response) -> str:
-        """Pick a stable state; the body is compared, never captured."""
-
         state = gateway_state_for_status(response.status_code)
         if response.status_code >= 500:
             return state
@@ -223,6 +214,10 @@ class LiteLLMGatewayHttpClient:
         max_tokens: int = 4096,
         reasoning_effort: str | None = None,
     ) -> GatewayChatResult:
+        if CAPABILITY_REASONING not in entry.requested_capabilities:
+            # Thinking is an option the turn asks for, not something it needs: an alias that does not declare it answers
+            # without (tools stay strict, a turn without them would act differently).
+            reasoning_effort = None
         proven = await self._proven_capabilities(entry, required=required_capabilities(tools, reasoning_effort))
         payload = chat_payload(entry, messages, tools=tools, temperature=temperature, max_tokens=max_tokens,
                                reasoning_effort=reasoning_effort)

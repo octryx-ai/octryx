@@ -1,9 +1,4 @@
-"""Proposed checks from fixtures (``settings.check_proposals_stub``) until the real store exists.
-
-The shapes are the API contract's. Each Workspace gets its own copy of the fixtures
-in this process, so decisions in the UI behave like the real thing until a restart. Nothing is written to the
-database; the real store replaces this module behind the same routes.
-"""
+"""Proposed checks from fixtures (``settings.check_proposals_stub``) until the real store exists."""
 
 from __future__ import annotations
 
@@ -33,8 +28,6 @@ _STORE: dict[str, dict[str, dict[str, Any]]] = {}
 
 
 def enabled() -> bool:
-    """On only when set: since the proposal store exists every stack shows its real proposals, and the
-    fixtures are a demo a person switches on; never on a production-like stack."""
     settings = get_settings()
     if is_production_like_runtime_profile(settings.runtime_profile):
         return False
@@ -141,7 +134,6 @@ def workspace_settings() -> dict[str, Any]:
 
 
 def reset() -> None:
-    """Tests only: every Workspace starts from the fixtures again."""
     _STORE.clear()
 
 

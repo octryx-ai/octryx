@@ -1,30 +1,4 @@
-"""Server-owned project context for governed model-alias admission.
-
-The project ``model_policy`` decides which Octryx aliases a project may
-dispatch. That decision is only trustworthy if the *project* it is made against
-is server-owned, so it travels as this typed object rather than as a plain dict
-that a model argument, a tool payload, or a request body could shape.
-
-Every dispatch path reaches the gateway through exactly one door — the
-``litellm_gateway`` provider driver — and the driver refuses to exist without an
-admission object. The two possible states are therefore:
-
-- a **verified** admission, built by a caller that read the project row itself
-  (:func:`build_project_model_admission`);
-- the **unverified** singleton, attached by the provider client-kwargs builder
-  so that catalog/readiness work still functions while every chat dispatch is
-  denied.
-
-A path that cannot supply verified project context can consequently never
-dispatch through the gateway. That is deliberate: the alternative is trusting an
-unscoped caller's word about which project it is acting for.
-
-The admission also carries the turn's server-owned data classification, so
-the driver can compare it with the alias' declared ``data_policy_class`` at the
-same boundary. The classification is resolved from the project row by
-``services/model_gateway/data_policy.source``, never from the merged turn
-project-config mapping this module receives — see that module for why.
-"""
+"""Server-owned project context for governed model-alias admission."""
 
 from __future__ import annotations
 
@@ -76,11 +50,8 @@ class ProjectModelAdmission:
     principal: Any = field(repr=False, compare=False, default=None)
 
     def decide(self, alias: str | None) -> ModelAliasAccessDecision:
-        """Return the auditable admission decision for one alias: the project grant, then the level's list.
-
-        The Cedar policy engine evaluates the same question: in shadow mode its answer never changes this
-        decision; in enforce mode a Cedar denial of an admitted alias is ``cedar_policy_denied``.
-        """
+        """The auditable decision for one alias: the project grant, then the level's list. In enforce mode a Cedar
+        denial of an admitted alias is ``cedar_policy_denied``."""
 
         decision = self.builtin_decision(alias)
         from ...policy_engine.points import POINT_MODEL_ADMISSION, model_query
@@ -143,28 +114,17 @@ def build_project_model_admission(
     data_classification: WorkspaceDataClassification,
     level_model_aliases: Mapping[str, frozenset[str]] | None = None,
 ) -> ProjectModelAdmission:
-    """Build a verified admission, or the unverified singleton.
-
-    ``project_id`` must be a non-empty server-resolved identifier and ``source``
-    must name the boundary that resolved it; anything else yields the unverified
-    singleton, which denies every dispatch.
-
-    ``data_classification`` is required rather than defaulted so every boundary
-    has to state which classification it resolved. It must come from
-    ``resolve_workspace_data_classification``; a classification taken out of
-    ``project_config`` would be caller-shapeable.
-
-    ``level_model_aliases`` is the matrix's per-level alias lists
-    (``data_classification.policy_matrix.model_allowlists``); the async boundaries always pass it, and
-    ``None`` is the default matrix, which narrows no level.
-    """
+    """A verified admission, or the unverified singleton when ``project_id`` or ``source`` is missing.
+    ``data_classification`` must come from ``resolve_workspace_data_classification``."""
 
     normalized_project_id = str(project_id or "").strip()
     normalized_source = str(source or "").strip()
     if not normalized_project_id or not normalized_source:
         return UNVERIFIED_PROJECT_ADMISSION
     config = project_config if isinstance(project_config, Mapping) else {}
-    policy = config.get("model_policy")
+    from .policy import effective_model_policy
+
+    policy = effective_model_policy(config)
     classification = (
         data_classification
         if isinstance(data_classification, WorkspaceDataClassification)
@@ -176,7 +136,7 @@ def build_project_model_admission(
         project_id=normalized_project_id,
         source=normalized_source,
         verified=True,
-        policy=dict(policy) if isinstance(policy, Mapping) else {},
+        policy=policy,
         principal=current_principal(),
         data_classification=classification,
         level_model_aliases=dict(level_model_aliases or {}),
@@ -184,8 +144,6 @@ def build_project_model_admission(
 
 
 def resolved_project_admission(value: Any) -> ProjectModelAdmission | None:
-    """Return the admission only when it is the typed, server-owned object."""
-
     return value if isinstance(value, ProjectModelAdmission) else None
 
 

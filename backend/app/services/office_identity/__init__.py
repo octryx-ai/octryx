@@ -1,16 +1,4 @@
-"""Deterministic Office template evidence and composition (PowerPoint first).
-
-``template_snapshot`` turns an uploaded ``.potx``/``.pptx`` into a machine
-readable brief (theme resolved through the master, layout catalog with
-capacities, icon catalog). ``presentation_composer`` builds decks *only* from
-the layouts of that template — it never invents shapes or coordinates.
-``slide_gate`` measures the composed deck and reports every violation it finds;
-it never corrects one silently. ``template_normalization`` closes the layout
-gaps an upload leaves — as a derivative beside the original, never by editing
-the customer's file. ``aws_deck_plan`` derives a deck plan from an AWS topology
-snapshot: every bullet carries its evidence field in the notes, and every gap
-becomes a visible marker instead of invented prose.
-"""
+"""Deterministic Office template evidence and composition (PowerPoint first)."""
 
 from __future__ import annotations
 

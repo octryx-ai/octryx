@@ -1,8 +1,5 @@
-"""Server-side chat search: title or first user message.
-
-One clause for the list, the counts and the bulk scopes, so "Select all 3 matching" covers exactly the
-chats the search shows. LIKE wildcards in the query are literal.
-"""
+"""Server-side chat search: title or first user message. One clause for the list, the counts and the bulk scopes, so
+"Select all" covers exactly the chats shown; LIKE wildcards are literal."""
 
 from __future__ import annotations
 
@@ -19,7 +16,7 @@ def _escape_like(value: str) -> str:
 
 
 def thread_search_clause(query: str) -> Any | None:
-    """Title or first user message contains ``query`` (case-insensitive, LIKE wildcards escaped)."""
+    # LIKE wildcards are escaped.
     normalized = str(query or "").strip()
     if not normalized:
         return None

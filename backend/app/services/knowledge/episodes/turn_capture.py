@@ -1,26 +1,5 @@
-"""Automatic episode capture at the end of a platform chat turn (open point K1a).
-
-Off by default. It runs only when the Workspace row sets both
-``knowledge_episode_policy.accept_session_episodes`` and ``capture_platform_turns`` to an explicit
-``true`` (``policy.py``), only after a user-facing turn has completed and been persisted, and never
-for a sub-agent turn. It uses the same post-turn hook as the Memory capture
-(``services/session/turn_follow_up.run_completion_follow_up``): after the turn is committed, as a
-background task, bounded by ``EPISODE_CAPTURE_TIMEOUT_SECONDS``, never raising, logging only fixed
-reason tokens.
-
-**What the model sees.** Only user-visible text: the turn's user message, its final assistant
-answer, the sources that answer cites (its markdown links), and the session's current episode
-summary so the new one updates it instead of starting over. No tool call, tool result, system
-prompt or trace is ever read. Every input is redacted by the episode redaction before the call.
-
-**What is written.** The governed model call (dispatch owner ``knowledge_episode_summary``) answers
-one updated session summary, which goes through the same governed writer as the REST endpoint and
-the chat tool (``writer.record_episode_summary``): role, switch, public origin, bounds, redaction,
-and deduplication by digest (an unchanged summary is ``duplicate`` and writes nothing).
-
-**Once per answer.** When the session's episode already has a revision recorded after this turn's
-answer, the turn was captured already and no model call is made.
-"""
+"""Automatic episode capture at the end of a platform chat turn, off by default. The model sees only user-visible text,
+redacted; never a tool call or system prompt."""
 
 from __future__ import annotations
 
@@ -82,7 +61,6 @@ ModelFactory = Callable[..., Awaitable[Any]]
 
 
 def cited_sources(answer: str) -> list[tuple[str, str]]:
-    """The (title, url) pairs the answer cites as markdown links, in order, deduplicated, bounded."""
     seen: set[str] = set()
     cited: list[tuple[str, str]] = []
     for title, url in _CITATION.findall(answer):
@@ -111,7 +89,6 @@ def _turn_prompt(previous: str, question: str, answer: str, sources: list[tuple[
 
 
 async def _authorized_capture(db: AsyncSession, session: AgentSession) -> AuthorizedWorkspace | EpisodeCaptureOutcome:
-    """The session's Workspace authorization when this turn may be captured, else the reason it may not."""
     if session.parent_session_id or int(session.sub_agent_depth or 0) > 0:
         return EpisodeCaptureOutcome("sub_agent_turn")
     if not session.project_id:
@@ -138,7 +115,6 @@ async def _summarize_turn(
     turn: tuple[Message, Message],
     model_factory: ModelFactory,
 ) -> Any:
-    """The model's reply for the redacted turn, or the outcome when no model could be used."""
     question, answer = turn
     answer_text = _redacted(answer.content, MAX_ANSWER_CHARS)
     summary_text = await _summary_text(db, latest)
@@ -161,7 +137,6 @@ async def _summarize_turn(
 async def capture_turn_episode(
     db: AsyncSession, *, session_id: str, model_factory: ModelFactory = governed_summary_model
 ) -> EpisodeCaptureOutcome:
-    """Write or update this session's episode from its finished turn, or say why not. Flushes only."""
     session = await db.get(AgentSession, session_id)
     if session is None:
         return EpisodeCaptureOutcome("no_session")
@@ -205,7 +180,6 @@ async def capture_turn_episode(
 async def run_turn_episode_capture(
     *, session_factory: Callable[[], Any], session_id: str, model_factory: ModelFactory = governed_summary_model
 ) -> EpisodeCaptureOutcome:
-    """The background entry point: bounded, never raising, logging only fixed reason tokens."""
     try:
         async with session_factory() as db:
             try:

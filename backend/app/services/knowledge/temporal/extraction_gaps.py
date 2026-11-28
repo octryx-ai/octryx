@@ -1,11 +1,4 @@
-"""Which spans of a revision still owe a graph episode.
-
-The episode ledger (``knowledge_graph_episodes``) is the record of what the graph holds. A span
-owes extraction when it has no episode of the revision's current profile: never extracted, purged
-by a profile migration (``profile_migration``), or extracted under the other profile. Reading this
-instead of trusting an outbox cursor means an obligation that was recovered from dead letter, or
-whose earlier spans a purge removed, still ends with every span extracted.
-"""
+"""Which spans of a revision still owe a graph episode."""
 
 from __future__ import annotations
 
@@ -30,7 +23,6 @@ def _has_episode(profile: str):
 async def unextracted_spans(
     db: AsyncSession, project_id: str, revision_id: str, profile: str, *, limit: int
 ) -> tuple[KnowledgeEvidenceSpan, ...]:
-    """The revision's first ``limit`` spans, in document order, without an episode of ``profile``."""
     rows = await db.execute(
         select(KnowledgeEvidenceSpan)
         .where(

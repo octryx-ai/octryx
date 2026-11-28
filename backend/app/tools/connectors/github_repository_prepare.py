@@ -35,7 +35,6 @@ def _github_managed_repo_path(context: ToolContext, owner: str, repo: str) -> Pa
 async def _clone_or_set_origin(
     repo_path: Path, *, clone_url: str, git_env: dict, base_branch: str
 ) -> tuple[bool, dict[str, Any] | None]:
-    """Clone the repository when the cache clone is missing, else point its origin at the clean clone URL."""
     if not (repo_path / ".git").exists():
         code, _, git_err = await _run_subprocess(
             ["git", "clone", "--branch", base_branch, clone_url, str(repo_path)],
@@ -57,7 +56,6 @@ async def _clone_or_set_origin(
 async def _checkout_work_branch(
     repo_path: Path, *, git_env: dict, base_branch: str, branch_name: str
 ) -> tuple[str, dict[str, Any] | None]:
-    """Sync the base branch and check out the work branch; returns the head commit."""
     for command, error in (
         (["git", "fetch", "--prune", "origin"], "git fetch failed"),
         *base_sync(base_branch),

@@ -7,6 +7,9 @@ import pytest
 
 from app.services.workflow_runs.pause_causes import _data, cause_of, causes, metric_reason
 from app.services.workflow_runs.states import PAUSE_REASONS
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 def test_every_pause_reason_has_a_cause_and_every_cause_is_known():
@@ -66,7 +69,7 @@ async def test_a_pause_records_its_cause_in_the_event_the_view_and_the_metric(db
     assert (_pause(run)["cause"], _pause(run)["cause_rule"]) == ("platform", "runtime_failed_codes.device_turn_error")
     workflow_metrics.run_event(None, event)()
     rendered = "\n".join(workflow_metrics.PAUSES_BY_CAUSE.render())
-    # #runtime_failed split: the pause is its class, turn_failed; the code still decides the cause.
+    # The pause is its class, turn_failed; the code still decides the cause.
     assert 'cause="platform",reason="turn_failed"' in rendered
     assert (run.pause_reason, event.detail["code"]) == ("turn_failed", "device_turn_error")
     assert "alias" not in event.detail
@@ -80,7 +83,6 @@ async def test_a_pause_records_its_cause_in_the_event_the_view_and_the_metric(db
     ("something_new", "runtime_failed"), ("", "runtime_failed"),
 ])
 def test_runtime_failed_splits_into_its_class_by_the_code(code, reason):
-    """runtime_failed must not carry ten meanings told apart only by detail.code."""
     from app.services.workflow_runs.pause_causes import split_reason
 
     assert split_reason("runtime_failed", {"code": code}) == reason
@@ -88,8 +90,6 @@ def test_runtime_failed_splits_into_its_class_by_the_code(code, reason):
 
 
 def test_a_phase_not_finished_after_an_unsure_stop_check_is_the_platforms_pause():
-    """With the fix in and `node --test test/` green, a check_uncertain on stop:declared_tests is the platform's
-    doubt, not the agent's work, and must not make the Stop say not done."""
     base = {"code": "phase_not_finished"}
     assert cause_of("phase_not_finished", {**base, "uncertain_checks": ["stop:declared_tests"]}) == (
         "platform", "uncertain_check.stop:declared_tests")

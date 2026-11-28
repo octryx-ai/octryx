@@ -1,19 +1,4 @@
-"""The role of every test in a test contract: ``new`` or ``regression``. Pure.
-
-- **new** specifies new behaviour: it must exist after the tests-first phase, fail on an assertion in the red gate
-  and pass in the green gate; its content is protected once it was seen red.
-- **regression** is an existing test that must keep passing: it passes in the red gate *and* in the green gate, and
-  it is protected (its content may not change after its confirmation, it may not be deleted or skipped).
-
-Workflow B: ``submit_test_contract`` names each test's role (``{"id", "role"}``; a plain test id leaves it to the
-server). Workflow C: the confirmed reproduction tests are ``new``; the rest of the suite is regression (the
-``reproduces`` check with ``regression: "suite"``).
-
-The server derives and validates roles from the run's recorded test runs (what ran on the branch before the change,
-newest run first, never the agent's word): a test seen passing cannot be ``new`` (it already holds — it is a
-regression test), a test seen failing cannot be ``regression``; without evidence a missing role is ``new``. One test
-has one role across all criteria.
-"""
+"""The role of every test in a test contract: ``new`` or ``regression``."""
 
 from __future__ import annotations
 
@@ -31,7 +16,6 @@ SEEN_PASSING, SEEN_FAILING = "passing", "failing"
 
 
 def parse_tests(raw: Any, *, limit: int = 30, chars: int = 300) -> tuple[list[str], dict[str, str], list[str]]:
-    """``(ids, declared roles, problems)`` of a criterion's ``tests``: test ids or ``{"id", "role"}`` objects."""
     ids: list[str] = []
     roles: dict[str, str] = {}
     problems: list[str] = []
@@ -49,7 +33,6 @@ def parse_tests(raw: Any, *, limit: int = 30, chars: int = 300) -> tuple[list[st
 
 
 def observed(runs: Iterable[Mapping[str, Any]], test_id: str) -> str | None:
-    """How the newest recorded run that reports ``test_id`` saw it: passing, failing, or ``None`` (not seen)."""
     for run in reversed(list(runs)):
         outcomes = confirmed_outcomes(run, [test_id])[test_id]
         if not outcomes:
@@ -61,7 +44,6 @@ def observed(runs: Iterable[Mapping[str, Any]], test_id: str) -> str | None:
 
 
 def conflict(test_id: str, role: str, seen: str | None) -> str | None:
-    """Why ``role`` contradicts what the branch showed, or ``None``."""
     if role == ROLE_NEW and seen == SEEN_PASSING:
         return (f"{test_id} is marked new but already passes on the branch: a new test must fail before the change "
                 "(an existing test that must keep passing is a regression test)")
@@ -71,7 +53,6 @@ def conflict(test_id: str, role: str, seen: str | None) -> str | None:
 
 
 def resolve_contract(record: dict[str, Any], runs: list[Mapping[str, Any]]) -> tuple[dict[str, Any], list[str]]:
-    """The submitted contract with every test's role derived or validated against the recorded runs."""
     problems: list[str] = []
     chosen: dict[str, str] = {}
     criteria = []
@@ -97,7 +78,6 @@ def resolve_contract(record: dict[str, Any], runs: list[Mapping[str, Any]]) -> t
 
 
 def contract_roles(criteria: Iterable[Any], test_ids: Iterable[str]) -> dict[str, str]:
-    """The role of each confirmed test id from a plan's criteria (``test_roles``); a test without one is new."""
     roles: dict[str, str] = {}
     for criterion in criteria:
         if isinstance(criterion, Mapping):
@@ -107,7 +87,6 @@ def contract_roles(criteria: Iterable[Any], test_ids: Iterable[str]) -> dict[str
 
 
 def role_conflicts(roles: Mapping[str, str], runs: list[Mapping[str, Any]]) -> list[str]:
-    """What keeps confirmed roles from being confirmable: each test whose role the recorded runs contradict."""
     return [why for test_id, role in roles.items() if (why := conflict(test_id, role, observed(runs, test_id)))]
 
 

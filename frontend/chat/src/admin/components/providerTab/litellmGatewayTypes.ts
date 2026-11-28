@@ -1,11 +1,5 @@
-// LiteLLM gateway contract constants, closed enums, draft/payload types and form codes.
-
-// Two hard rules live here:
-//   1. No credential field. The gateway virtual key is reachable only through
-//      LLMProvider.api_key_secret_ref, and no canonical Admin API accepts an
-//      existing secret reference, so the UI submits neither a key nor a ref.
-//   2. Every closed enum is the backend's closed enum. A value outside it is a
-//      form error, never a request.
+// No credential field: no Admin API accepts an existing secret reference, so the UI submits neither a key nor a ref.
+// Closed enums are the backend's; a value outside one is a form error, never a request.
 
 export const LITELLM_GATEWAY_DRIVER = "litellm_gateway";
 export const LITELLM_GATEWAY_CONFIG_KEY = "litellm_gateway";
@@ -58,17 +52,10 @@ export type GatewayAliasDraft = {
   dataPolicyClass: GatewayDataPolicyClass;
   capabilities: Record<GatewayCapability, boolean>;
   cost: GatewayAliasCostDraft;
-  /** "Approved for sensitive data": content category ids. */
   approvedDataCategories: string[];
-  /**
-   * The stored alias keys this form does not render (display name, served model ids,
-   * cache prices, …). They ride along with the row, so a save (or a rename) keeps them.
-   */
+  /** Stored alias keys this form does not render; they ride along so a save keeps them. */
   preserved?: GatewayAliasPreserved;
-  /**
-   * True for an alias read from the stored catalog. Its governed fields (data class, capabilities, approved for,
-   * cost) are edited in Runtime → Model catalog; only a new alias declares them here.
-   */
+  /** Governed fields of a stored alias are edited in Runtime → Model catalog; only a new alias declares them here. */
   stored?: boolean;
 };
 
@@ -130,10 +117,7 @@ export type GatewayUpdatePayload = {
   config_json: Record<string, unknown>;
 };
 
-// Form codes. The alias/endpoint/probe codes are the backend's own admission
-// denial codes so an operator reads one vocabulary on both sides. The two
-// `form_` codes have no backend twin: the catalog is a mapping server-side, so a
-// duplicate alias would silently collapse, and a blank row would vanish.
+// The `form_` codes have no backend twin: the catalog is a mapping server-side, so duplicates collapse and blank rows vanish.
 export const GATEWAY_FORM_CODE_ALIAS_DECLARED_TWICE =
   "form_alias_declared_twice";
 export const GATEWAY_FORM_CODE_TIMEOUT_OUT_OF_RANGE =

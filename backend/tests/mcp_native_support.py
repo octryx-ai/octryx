@@ -1,9 +1,4 @@
-"""Calls over the native MCP OAuth path (real token verifier) with connection headers.
-
-``test_mcp_knowledge.py`` drives the protocol app with a bearer token only. External agents also send
-the ``X-Octryx-Workspace`` and ``X-Octryx-Session`` connection headers, so these
-helpers carry them on every request. Each call runs one JSON-RPC exchange against a fresh protocol app.
-"""
+"""Calls over the native MCP OAuth path (real token verifier) with connection headers."""
 
 from __future__ import annotations
 
@@ -24,7 +19,6 @@ def session_factory(db: AsyncSession):
 
 
 async def native_token(db: AsyncSession, *, user_id: str, scopes: list[str], project_ids=None) -> str:
-    """A real access token backed by a real grant row."""
     grant = OAuthGrant(user_id=user_id, client_id="oec_parity_test", scopes=scopes, project_ids=project_ids)
     db.add(grant)
     await db.commit()
@@ -74,7 +68,6 @@ async def mcp_request(token: str, method: str, params: dict | None = None, heade
 
 
 async def mcp_call(token: str, tool: str, arguments: dict, headers: dict | None = None) -> dict:
-    """The tool's structured result, or ``{"isError": True, "content": ...}``."""
     response = await mcp_request(token, "tools/call", {"name": tool, "arguments": arguments}, headers)
     result = response["result"]
     if result.get("isError"):

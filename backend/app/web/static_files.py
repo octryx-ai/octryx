@@ -1,17 +1,5 @@
-"""The SPA's static mounts: content-hashed bundles cached for a year, text files served gzip-compressed.
-
-The chat/admin frontend build (``frontend/chat/vite.config.ts``) writes every chunk to ``chat/assets/`` under a
-name that carries its content hash (``vendor-D9lvy8W_.js``). Such a file never changes under its name, so it is
-served with ``Cache-Control: public, max-age=31536000, immutable``; a deploy ships new names, and the page shell
-that names them (``/chat``, ``index.html``) is answered ``no-store`` by its own route, so a deploy takes effect on
-the next load. Every other file in the mount (favicon, logos, the fixed-name scripts) is revalidated through
-``ETag`` / ``Last-Modified``.
-
-A compressible file (JS, CSS, JSON, SVG, HTML, WASM) of at least 1 KiB is compressed once per process and kept in
-memory (bounded, keyed by path, size and mtime), and
-answered with ``Content-Encoding: gzip`` when the client accepts it. A ``Range`` request, a ``HEAD`` request and a
-client without gzip get the file itself; conditional requests answer ``304``.
-"""
+"""The SPA's static mounts: content-hashed bundles cached for a year, text files served gzip-compressed. A hashed name
+never changes content and the page shell is ``no-store``, so a deploy takes effect on the next load."""
 
 from __future__ import annotations
 
@@ -51,7 +39,6 @@ _compressed_cache_bytes = 0
 
 
 def is_hashed_asset(full_path: str | os.PathLike[str]) -> bool:
-    """True for a build chunk under ``chat/assets/`` whose name carries its content hash."""
     path = Path(full_path)
     if tuple(part.lower() for part in path.parent.parts[-2:]) != HASHED_ASSET_DIR:
         return False
@@ -84,7 +71,6 @@ def _read_and_compress(path: str) -> bytes:
 
 
 async def compressed_file_bytes(path: str, stat_result: os.stat_result) -> bytes:
-    """The file's gzip bytes, compressed in a worker thread on first use and then served from memory."""
     key = (path, int(stat_result.st_size), int(stat_result.st_mtime_ns))
     cached = _compressed_cache.get(key)
     if cached is not None:
@@ -96,8 +82,6 @@ async def compressed_file_bytes(path: str, stat_result: os.stat_result) -> bytes
 
 
 class SpaStaticFiles(StaticFiles):
-    """``StaticFiles`` with long-lived caching for hashed chunks and in-memory gzip for text files."""
-
     def file_response(
         self,
         full_path: str | os.PathLike[str],

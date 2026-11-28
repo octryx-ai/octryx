@@ -1,12 +1,4 @@
-"""``run`` problems: workflow runs that stopped or wait too long, and actions (tasks) whose runs fail.
-
-- ``workflow_runs``: ``paused`` (a limit stopped it, ``pause_reason``) is a problem; ``failed`` is a problem when
-  it failed inside the window; ``waiting`` with no change for more than 24 hours needs attention (a run waiting on
-  its own sub-workflow is left out: the child reports itself). ``since`` is ``updated_at``, ``count`` 1.
-- ``task_runs``: per action, the ``failed``/``error`` runs after its last ``completed`` run inside the window are
-  one problem (``count`` failed runs, ``since`` the first of them). The scheduler records a good run as
-  ``success``; ``completed`` is accepted too.
-"""
+"""``run`` problems: workflow runs that stopped or wait too long, and actions (tasks) whose runs fail."""
 
 from __future__ import annotations
 

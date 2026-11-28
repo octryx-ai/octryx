@@ -1,7 +1,4 @@
-// A new chat opened for one agent (Agents → "Test in chat" / judge
-// J-E-005): the URL names the agent and the server confirms it as the selected,
-// selectable (active, owned) agent. Only then is the agent an explicit choice
-// that reaches the send request; a workspace default agent never is.
+// A workspace default agent is never an explicit choice that reaches the send request.
 export function isExplicitAgentLaunch(
   search: string,
   isNewThread: boolean,

@@ -1,13 +1,4 @@
-"""Seat-profile hook steps ("if the subscription fails, I must see it right away").
-
-- ``stop-failure`` (Claude Code's ``StopFailure``, seat sessions only): records why the turn ended with an API error
-  (``seat_status.classify_failure``). Claude Code ignores this hook's output, so it only writes state;
-- ``UserPromptSubmit``: the next prompt of the session shows the recorded failure once, with the fix, as a
-  ``systemMessage`` (``seat_notice``);
-- ``Stop``: a completed seat turn proves the subscription works again and clears the failure (``seat_turn_done``).
-
-Every step is best effort: it never blocks or fails the hook it runs in.
-"""
+"""Seat-profile hook steps ("if the subscription fails, I must see it right away")."""
 
 from __future__ import annotations
 
@@ -46,7 +37,6 @@ def run_stop_failure(state: LocalState) -> int:
 
 
 def seat_notice(state: LocalState) -> str:
-    """The recorded failure of this seat session, once; ``""`` otherwise."""
     try:
         context = _seat_context()
         failure = seat_status.take_unshown_failure(state, context.session_key) if context else None

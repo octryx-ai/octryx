@@ -39,7 +39,6 @@ def summary(contract: dict[str, Any]) -> str:
 
 
 def banner(contract: dict[str, Any]) -> list[str]:
-    """The run banner the launcher prints at start: workflow, phase or what the run waits for, loop i/n."""
     run = contract.get("run") or {}
     head = f"workflow run {_clean(run.get('workflow_key'), 120)} v{_clean(run.get('workflow_version'), 10)}"
     ticket = _clean(run.get("ticket_key"), 40)
@@ -61,7 +60,6 @@ def banner(contract: dict[str, Any]) -> list[str]:
 
 
 def decide_hint(contract: dict[str, Any]) -> str:
-    """Where the pending decision is taken: here (the decision tool, the user's permission prompt) or the platform."""
     decision = contract.get("decision") if isinstance(contract.get("decision"), dict) else {}
     pending = contract.get("waiting") or contract.get("paused") or {}
     link = _clean(contract.get("link") or (pending.get("decide_in") if isinstance(pending, dict) else ""))
@@ -76,7 +74,6 @@ def decide_hint(contract: dict[str, Any]) -> str:
 
 
 def proposal_notice(proposal: dict[str, Any]) -> tuple[str, str]:
-    """``(model context, user line)`` for the first prompt's workflow proposal; empty strings when there is none."""
     state = proposal.get("state")
     key = _clean(proposal.get("workflow_key"), 120)
     title = _clean(proposal.get("workflow_title"), 120) or key
@@ -97,7 +94,6 @@ def proposal_notice(proposal: dict[str, Any]) -> tuple[str, str]:
 
 
 def changed_notice(state: LocalState, session_key: str, contract: dict[str, Any] | None) -> str:
-    """One line when the contract changed since it was last shown; ``""`` otherwise."""
     if not contract:
         return ""
     path = state.session_dir(session_key) / SHOWN_FILE
@@ -115,10 +111,7 @@ LIFTED_NOTICE = ("Octryx: this session is no longer read-only. Earlier instructi
 
 
 def remember_platform_agent(state: LocalState, session_key: str, body: dict[str, Any] | None) -> None:
-    """Keep the registration answer's outside-run agent (the read-only Assistant of a strict Workspace).
-
-    Without one (sessions follow the permission mode), a kept one is removed and the model is told
-    once that the session is no longer read-only, so a resumed conversation does not keep refusing changes."""
+    # The model is told once that the session is no longer read-only, so a resumed conversation stops refusing changes.
     agent = (body or {}).get("platform_agent")
     path = state.session_dir(session_key) / PLATFORM_AGENT_FILE
     if isinstance(agent, dict) and agent.get("digest"):
@@ -130,7 +123,6 @@ def remember_platform_agent(state: LocalState, session_key: str, body: dict[str,
 
 
 def agent_notice(state: LocalState, session_key: str, contract: dict[str, Any] | None) -> str:
-    """The agent's instructions for the model when they changed since last shown; ``""`` otherwise."""
     phase = contract.get("phase") if isinstance(contract, dict) else None
     agent = phase.get("agent") if isinstance(phase, dict) else None
     outside_run = contract is None

@@ -54,7 +54,6 @@ _RESOURCE_TOOL = re.compile(r"^Tool (?P<name>\S+)$")
 
 
 def decision_rule_text(rule: str) -> str:
-    """A decision record's rule in words; a rule that is not a known code is returned as stored."""
     code = str(rule or "").strip()
     gate, _, status = code.partition(": ")
     if gate in _TURN_GATES and (not status or status in _TURN_STATUSES):
@@ -68,7 +67,6 @@ def decision_rule_text(rule: str) -> str:
 
 
 def decision_what(resource: str) -> str:
-    """A decision record's subject in words: "Approve tool execution for x" and "Tool x" read as the tool's title."""
     text = str(resource or "").strip()
     named = _APPROVAL_ACTION.match(text) or _RESOURCE_TOOL.match(text)
     return tool_title(named.group("name")) if named else text

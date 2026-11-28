@@ -1,16 +1,4 @@
-"""Governed enablement of Workspace Knowledge.
-
-A Workspace author asks to enable Knowledge; this checks that the Evidence index is available
-(the application's PostgreSQL, whose index tables are shared and keyed by Workspace, so there is
-nothing to create per Workspace) and one audit row records who asked and the closed outcome.
-
-A ready enablement also classifies a still unclassified Workspace with the Instance's opt-in default
-data classification, once (``workspace_classification_default``), so its remote Knowledge models (the
-reranker) are admitted by the data-policy gate.
-
-Outcomes are closed states, never server text: ``ready`` (``postgres_index``) or
-``needs_configuration`` (``postgres_index_unavailable``: the application database is not PostgreSQL).
-"""
+"""Governed enablement of Workspace Knowledge. Outcomes are closed states, never server text."""
 
 from __future__ import annotations
 
@@ -34,8 +22,6 @@ STATE_NEEDS_CONFIGURATION = "needs_configuration"
 
 @dataclass(frozen=True, slots=True)
 class WorkspaceKnowledgeEnablement:
-    """The closed result of one enable request."""
-
     state: str
     outcome: str
 
@@ -52,7 +38,6 @@ def _index_state() -> WorkspaceKnowledgeEnablement:
 async def enable_workspace_knowledge(
     db: AsyncSession, *, authorized: AuthorizedWorkspace, actor_id: str
 ) -> WorkspaceKnowledgeEnablement:
-    """Check that the Evidence index is available for the Workspace and audit the attempt."""
     result = _index_state()
     if result.state == STATE_READY:
         await apply_instance_default_classification(db, project_id=authorized.project_id, actor_id=actor_id)

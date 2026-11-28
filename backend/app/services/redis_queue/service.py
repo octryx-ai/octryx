@@ -53,9 +53,7 @@ async def is_redis_queue_available(redis_url: str | None = None) -> bool:
 
 
 async def task_queue_depth(redis_url: str | None = None, *, timeout: float = 1.0) -> int | None:
-    """Entries waiting in the Redis task queue (``ZCARD``), or ``None`` without Redis or without an answer in time.
-
-    Read by ``/metrics`` (``octryx_queue_depth``): the queue itself, never the database."""
+    """Entries waiting in the Redis task queue (``ZCARD``), or ``None`` without Redis or without an answer in time."""
     import asyncio
 
     client = await get_redis_client(redis_url)

@@ -1,25 +1,5 @@
-"""Local state of the octryx-claude launcher.
-
-Everything lives under one private directory (default
-``~/.octryx/claude``, override with ``OCTRYX_CLAUDE_HOME``):
-
-- ``config.json``       base URL, Workspace, model aliases, optional work item
-- ``credentials.json``  OAuth client id, refresh token, cached access tokens (0600)
-- ``credentials.lock``  serializes refreshes: refresh tokens rotate on every use and a
-                        replayed token revokes the whole grant, so two helpers must
-                        never refresh at the same time
-- ``device-credentials.json`` the device grant of ``device enable`` (D1), same format; used
-                        when ``OCTRYX_CREDENTIAL_SET=device`` (the device service and its jobs)
-- ``device.json`` / ``device-key.pem``  the device registration and its Ed25519 key (0600)
-- ``claude-config/``    ``CLAUDE_CONFIG_DIR`` for octryx sessions only (governed profile)
-- ``claude-config-seat/`` ``CLAUDE_CONFIG_DIR`` of the ``seat`` profile: the user's own
-                        subscription login lives here only (Claude Code keys its credential store by
-                        config dir), never in plain ``claude``'s login. ``OCTRYX_CLAUDE_SEAT_CONFIG_DIR``
-                        names another instance's seat dir instead (local dev loop, see ``seat_config_dir``)
-- ``sessions/<key>/``   generated settings, MCP config and hook state per launch
-
-Nothing is ever written to ``~/.claude``; plain ``claude`` stays untouched.
-"""
+"""Local state of the octryx-claude launcher, under one private directory (``~/.octryx/claude`` or
+``OCTRYX_CLAUDE_HOME``); nothing is ever written to ``~/.claude``."""
 
 from __future__ import annotations
 
@@ -40,6 +20,15 @@ CREDENTIAL_SET_ENV = "OCTRYX_CREDENTIAL_SET"
 CREDENTIAL_SET_DEVICE = "device"
 _DIR_MODE = 0o700
 _FILE_MODE = 0o600
+# On a server runner the launcher and the agent's account (Codex, its tools and hooks) share the state through a
+# group: folders and files are open to it, the credentials and the device key never are.
+SHARED_STATE_ENV = "OCTRYX_SHARED_STATE"
+_SHARED_DIR_MODE = 0o2770
+_SHARED_FILE_MODE = 0o660
+
+
+def shared_state() -> bool:
+    return os.environ.get(SHARED_STATE_ENV) == "1"
 
 
 def default_root() -> Path:
@@ -49,15 +38,9 @@ def default_root() -> Path:
     return Path.home() / ".octryx" / "claude"
 
 
+# Claude Code keys its macOS keychain login by the exact ``CLAUDE_CONFIG_DIR`` string, so a symlinked
+# or second dir sees no login.
 def seat_config_dir(root: Path) -> Path:
-    """The seat profile's ``CLAUDE_CONFIG_DIR``: ``<root>/claude-config-seat``, or ``OCTRYX_CLAUDE_SEAT_CONFIG_DIR``.
-
-    Claude Code keys its macOS keychain login by the exact ``CLAUDE_CONFIG_DIR`` string, so a second instance with
-    its own state dir (or a symlink to the first one's seat dir) sees no login. In a local dev loop the
-    first instance's ``claude-config-seat`` reports ``loggedIn: true``, the same dir reached through a symlink
-    ``loggedIn: false``. Naming the first instance's dir verbatim lets a local device service run seat jobs on the
-    person's existing subscription login, with no second browser login. The dir is used as it is, never created.
-    """
     shared = os.environ.get(SEAT_CONFIG_ENV, "").strip()
     if shared:
         return Path(shared).expanduser()
@@ -69,17 +52,18 @@ def seat_config_dir(root: Path) -> Path:
 
 
 def _ensure_private_dir(path: Path) -> Path:
-    path.mkdir(parents=True, exist_ok=True, mode=_DIR_MODE)
-    os.chmod(path, _DIR_MODE)
+    mode = _SHARED_DIR_MODE if shared_state() else _DIR_MODE
+    path.mkdir(parents=True, exist_ok=True, mode=mode)
+    if path.stat().st_uid == os.getuid():
+        os.chmod(path, mode)
     return path
 
 
-def write_private_json(path: Path, payload: dict[str, Any]) -> None:
-    """Atomically replace ``path`` with ``payload``; the file is 0600 from birth."""
+def write_private_json(path: Path, payload: dict[str, Any], *, secret: bool = False) -> None:
     _ensure_private_dir(path.parent)
     fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.", dir=str(path.parent))
     try:
-        os.fchmod(fd, _FILE_MODE)
+        os.fchmod(fd, _SHARED_FILE_MODE if shared_state() and not secret else _FILE_MODE)
         with os.fdopen(fd, "w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=1, sort_keys=True)
             handle.flush()
@@ -125,13 +109,11 @@ class LocalState:
         return _ensure_private_dir(self.root / "claude-config")
 
     def claude_config_dir_for(self, profile: str) -> Path:
-        """The profile's own ``CLAUDE_CONFIG_DIR``; ``seat`` keeps its subscription login apart."""
         if profile == "seat":
             return seat_config_dir(self.root)
         return self.claude_config_dir
 
     def first_use(self, marker: str) -> bool:
-        """True exactly once per ``marker`` (a fixed name); the marker file holds nothing."""
         path = self.root / f".{marker}"
         if path.exists():
             return False
@@ -153,8 +135,9 @@ class LocalState:
         return read_json(self.credentials_path)
 
     def write_credentials(self, payload: dict[str, Any]) -> None:
-        write_private_json(self.credentials_path, payload)
+        write_private_json(self.credentials_path, payload, secret=True)
 
+    # Refresh tokens rotate on every use and a replayed one revokes the grant: one refresh at a time.
     @contextlib.contextmanager
     def credentials_lock(self) -> Iterator[None]:
         self.ensure()

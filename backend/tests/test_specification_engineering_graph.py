@@ -25,6 +25,7 @@ from app.services.workflow_runs.seeding import definition_digest
 from app.services.workflow_runs.specification.integration import authorized_phase_definition
 from app.services.workflow_runs.specification.lineage import SpecificationUnavailable
 from tests.phased_workflow_fixtures import admin_user, publish_phased, run_workspace
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.specification_definition_support import specification_definition
 from tests.specification_engineering_graph_support import (
     BASE_DIGEST,
@@ -43,6 +44,8 @@ from tests.specification_engineering_integration_support import (  # noqa: F401
 )
 from tests.specification_engineering_support import SPEC_CRITERIA, engineering_child_case, enter_node
 from tests.team_handoff_support import action
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 # --- The new authored graph and the parent template ---------------------------------------------------------
 

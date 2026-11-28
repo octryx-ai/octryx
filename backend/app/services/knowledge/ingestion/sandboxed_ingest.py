@@ -1,16 +1,5 @@
-"""Workspace-authorized ingestion of one PDF or Office revision.
-
-The same refusal order as text-native ingestion: everything that can refuse runs before a byte
-is written. The key, title, origin and scope are validated; the declared type and the leading bytes
-must agree on a sandboxed type; and the Instance must have its sandboxed parser. Without one, the
-upload is refused with ``needs_configuration`` and leaves nothing behind.
-
-The API process never parses these bytes. The original goes to object storage under the
-publication boundary, and the revision is registered without spans, owing ``parse_revision``.
-The projection worker hands the bytes to the no-network Docling sandbox and writes the located
-spans (``projection/parse_step.py``). The parser identity is recorded now and verified then,
-so a revision is never parsed by a different parser than the one it names.
-"""
+"""Workspace-authorized ingestion of one PDF or Office revision. Everything that can refuse runs first; the API process
+never parses these bytes."""
 
 from __future__ import annotations
 
@@ -49,7 +38,6 @@ async def ingest_sandboxed_source(
     products: object = None,
     version: object = None,
 ) -> IngestedSource:
-    """Store one sandboxed document and register its revision; its spans follow asynchronously."""
     check_ingest_payload(runtime, authorized, data, MAX_UPLOAD_BYTES)
 
     key = normalize_source_key(source_key)

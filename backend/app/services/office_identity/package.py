@@ -1,11 +1,4 @@
-"""OPC package access for PowerPoint templates.
-
-Reads a ``.potx``/``.pptx`` straight from the zip container: no temporary
-extraction, no binary payloads leaving this module. Relationship targets are
-resolved against the owning part, which is what makes theme resolution
-(``presentation.xml`` -> ``sldMasterId`` -> master rels -> theme) correct,
-never a hard-coded ``ppt/theme/theme1.xml`` guess.
-"""
+"""OPC package access for PowerPoint templates."""
 
 from __future__ import annotations
 
@@ -29,12 +22,6 @@ _SLIDE_PATTERN = re.compile(r"^ppt/slides/slide(\d+)\.xml$")
 
 
 def potx_bytes_to_pptx_bytes(data: bytes) -> bytes:
-    """Rewrite the template content type so python-pptx accepts the package.
-
-    python-pptx (1.0.2) rejects ``.potx`` outright; only the declared content
-    type of the presentation part differs. Every other entry is copied
-    verbatim, preserving order and compression.
-    """
     out_buf = io.BytesIO()
     with (
         zipfile.ZipFile(io.BytesIO(data), "r") as zin,
@@ -51,7 +38,6 @@ def potx_bytes_to_pptx_bytes(data: bytes) -> bytes:
 
 
 def write_pptx_copy(source: Path, destination: Path) -> None:
-    """Copy ``source`` to ``destination`` as a presentation package."""
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_bytes(potx_bytes_to_pptx_bytes(Path(source).read_bytes()))
 
@@ -69,8 +55,6 @@ def _resolve_target(part_name: str, target: str) -> str:
 
 
 class PresentationPackage:
-    """Read-only view of a PowerPoint OPC package."""
-
     def __init__(self, path: Path) -> None:
         self.path = Path(path)
         try:
@@ -105,7 +89,6 @@ class PresentationPackage:
         return element
 
     def rels(self, part_name: str) -> dict[str, str]:
-        """Relationship id -> absolute part name, resolved against the owner."""
         if part_name in self._rels_cache:
             return self._rels_cache[part_name]
         resolved: dict[str, str] = {}
@@ -127,11 +110,6 @@ class PresentationPackage:
         return self.xml(PRESENTATION_PART)
 
     def master_parts(self) -> list[str]:
-        """Master part names in ``sldMasterIdLst`` order (presentation order).
-
-        Falls back to numeric part order only when the list is unreadable; the
-        fallback is reported as a warning by the snapshot builder.
-        """
         presentation = self.presentation()
         ordered: list[str] = []
         if presentation is not None:
@@ -152,7 +130,6 @@ class PresentationPackage:
         return None
 
     def layout_parts_for_master(self, master_part: str) -> list[str]:
-        """Layout parts of a master, in the master's declared order."""
         rels = self.rels(master_part)
         master = self.xml(master_part)
         ordered: list[str] = []

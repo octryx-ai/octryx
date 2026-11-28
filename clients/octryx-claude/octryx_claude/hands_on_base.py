@@ -1,10 +1,5 @@
-"""Red regression scenarios run once more on the run's base commit.
-
-When the pass's regression scenarios fail, the launcher checks out the
-base commit in a temporary git worktree, runs the app folder's setup and serve there and repeats only those
-scenarios. One that fails on the base too is reported ``pre_existing`` (the platform reports it, never blocks on it);
-one that passes there stays red: this work broke it. Feature scenarios never run on the base (the feature is new).
-"""
+"""Red regression scenarios run once more on the run's base commit in a temporary worktree.
+One red on the base too is ``pre_existing``; one green there stays red, because this work broke it."""
 
 from __future__ import annotations
 
@@ -26,23 +21,18 @@ def _git(root: Path, *args: str) -> bool:
 
 
 def failed_regressions(scenarios: list[dict[str, Any]], results: list[dict[str, Any]]) -> list[str]:
-    """The ids of the regression scenarios (the platform's ``part: regression`` and the repository's ``repo:``) that
-    failed in this pass."""
     regression = {str(item.get("id")) for item in scenarios if item.get("part") == "regression"}
     return [str(item.get("id")) for item in results if not item.get("passed") and (
         str(item.get("id")) in regression or str(item.get("id")).startswith("repo:"))]
 
 
 def failed_features(scenarios: list[dict[str, Any]], results: list[dict[str, Any]]) -> list[str]:
-    """The ids of the platform's feature scenarios that failed in this pass before the step they check."""
     by_id = {str(item.get("id")): item for item in scenarios if item.get("part") == "feature"}
     return [str(item.get("id")) for item in results if not item.get("passed") and str(item.get("id")) in by_id
             and before_target(by_id[str(item.get("id"))], item.get("failed_step"))]
 
 
 def target_step(scenario: dict[str, Any]) -> int:
-    """The index (seed and steps, as a result counts them) of the step a feature scenario checks: its symptom step,
-    else its last expect step."""
     steps = [*list(scenario.get("seed") or []), *list(scenario.get("steps") or [])]
     marked = [index for index, step in enumerate(steps) if step.get("symptom")]
     expects = [index for index, step in enumerate(steps) if str(step.get("do", "")).startswith("expect")]
@@ -54,8 +44,6 @@ def before_target(scenario: dict[str, Any], failed_step: Any) -> bool:
 
 
 def invalid_reason(scenario: dict[str, Any], failed_step: int) -> str:
-    """Why a feature scenario that fails on the base before its checked step tests nothing: the data its seed
-    created is gone after the restart (the app keeps no data across one), or its setup fails there too."""
     seed = list(scenario.get("seed") or [])
     steps = [*seed, *list(scenario.get("steps") or [])]
     step = steps[failed_step] if 0 <= failed_step < len(steps) else {}
@@ -68,11 +56,6 @@ def invalid_reason(scenario: dict[str, Any], failed_step: int) -> str:
 
 def recheck_on_base(root: Path, folder: Path, base_sha: str, scenarios: list[dict[str, Any]], failed: list[str],
                     run: Any) -> dict[str, dict[str, Any]]:
-    """The base results of ``failed`` that fail on ``base_sha`` too, by id; empty when the base cannot be checked
-    out or started.
-
-    ``run(base_folder, scenarios)`` sets up, serves and runs the scenarios in the base checkout and returns their
-    results (``hands_on.execute``'s own steps), or ``None`` when the app did not start there."""
     from . import hands_on_repo  # noqa: PLC0415
 
     if not base_sha or not failed:
@@ -97,8 +80,6 @@ def recheck_on_base(root: Path, folder: Path, base_sha: str, scenarios: list[dic
 
 def run_in(base_folder: Path, scenarios: list[dict[str, Any]], environment: dict[str, Any], channel: str | None,
            budget: float) -> list[dict[str, Any]] | None:
-    """Set up, serve and run ``scenarios`` in the base checkout; ``None`` when the app did not start there. Its
-    screenshots are not evidence of this work and are dropped."""
     from . import environment_file  # noqa: PLC0415
     from .hands_on import run_scenarios
     from .hands_on_app import (
@@ -130,9 +111,6 @@ def run_in(base_folder: Path, scenarios: list[dict[str, Any]], environment: dict
 def recheck(view: dict[str, Any], root: Path, folder: Path, scenarios: list[dict[str, Any]],
             results: list[dict[str, Any]], environment: dict[str, Any], channel: str | None,
             budget: float) -> list[dict[str, Any]]:
-    """``results`` with every failed regression scenario that fails on the view's ``base_sha`` too marked, and every
-    feature scenario that fails there at the same step before the step it checks marked ``invalid`` (
-    : a seed's data gone after the restart; the scenario tests nothing and must not send the fix back)."""
     base_sha = str(view.get("base_sha") or "")
     regressions = failed_regressions(scenarios, results)
     features = failed_features(scenarios, results)
@@ -145,8 +123,6 @@ def recheck(view: dict[str, Any], root: Path, folder: Path, scenarios: list[dict
 
 def mark(results: list[dict[str, Any]], on_base: dict[str, dict[str, Any]], base_sha: str,
          scenarios: list[dict[str, Any]] | None = None, features: set[str] | None = None) -> list[dict[str, Any]]:
-    """The pass's results with each regression scenario red on the base marked ``pre_existing``, and each feature
-    scenario that failed on the base at the same step, before its checked step, marked ``invalid`` with why."""
     by_id = {str(item.get("id")): item for item in scenarios or []}
     marked = []
     for item in results:

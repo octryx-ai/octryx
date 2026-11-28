@@ -218,6 +218,5 @@ _OFFICE_EDITING_DEFINITIONS: dict[str, dict] = {
 
 
 def get_office_definitions() -> dict[str, dict]:
-    """Return OpenAI-compatible tool definitions for office tools."""
     # A fresh copy per call: callers may change the returned definitions without touching the shared table.
     return copy.deepcopy({**OFFICE_BUILDER_DEFINITIONS, **_OFFICE_EDITING_DEFINITIONS})

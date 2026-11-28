@@ -3,27 +3,20 @@ import type { WorkStateEvent, WorkTransitionPreview, WorkWorkflowDefinition } fr
 import { workStateKey } from "./workBoardColumns";
 import { SYNC_MODE_EXECUTE, syncModeOf } from "./syncNames";
 
-// Applying a workflow transition from the Work Item detail. Pure: no requests, no React.
-//
-// The author picks the workflow (when several apply) and the target state, previews it (the server's dry run),
-// and applies only that previewed transition in a second explicit step. The preview lists exactly what the apply
-// writes to Jira (`jira_sync_preview.effects`, `will_mutate_jira`) and binds the apply to them (`effects_hash`).
+// The apply is bound to the previewed effects (effects_hash), so it writes exactly what the preview listed.
 
-/** The workflows that can move this item: active, and global or of the item's Workspace. */
 export function workflowsForItem(item: WorkItem, workflows: WorkWorkflowDefinition[]): WorkWorkflowDefinition[] {
   return workflows.filter(
     (workflow) => workflow.is_active && (!workflow.project_id || workflow.project_id === item.project_id),
   );
 }
 
-/** The one preselected: the Workspace's default, else its first, else the global default, else the first. */
 export function preselectedWorkflow(item: WorkItem, candidates: WorkWorkflowDefinition[]): WorkWorkflowDefinition | null {
   const own = candidates.filter((workflow) => workflow.project_id && workflow.project_id === item.project_id);
   const global = candidates.filter((workflow) => !workflow.project_id);
   return own.find((workflow) => workflow.is_default) ?? own[0] ?? global.find((workflow) => workflow.is_default) ?? global[0] ?? null;
 }
 
-/** Target states: the workflow's states except the item's current one. */
 export function targetStates(item: WorkItem, workflow: WorkWorkflowDefinition | null): { key: string; label: string }[] {
   if (!workflow) return [];
   const current = workStateKey(item.work_state);
@@ -46,20 +39,11 @@ function effectText(kind: string, value: unknown): string {
 }
 
 export type TransitionPlan = {
-  /** The apply writes to Jira. */
   writesToJira: boolean;
   effects: JiraEffect[];
-  /** Why nothing is written, when it is not. */
   localReason: string | null;
-  /** Jira changed after the last sync: the apply would be refused. */
   conflict: string | null;
-  /**
-   * r8: the server's preview says the apply would be refused before anything is written (`blocked_reason`, or Jira
-   * not offering the mapped transition: `transition_available: false`). Then nothing is claimed about writing, and
-   * the apply is not offered.
-   */
   blocked: string | null;
-  /** What Jira offers from the issue's current status ("Done → Done"), when the server read it. */
   offers: string[];
 };
 
@@ -100,7 +84,6 @@ const BLOCKED_TEXT: Record<string, string> = {
     "This item's Jira project is outside the Workspace's allowed Jira projects, so applying would be refused and nothing would be written.",
 };
 
-/** Why the apply would be refused, from the server's preview (C-9 `blocked_reason`, L-a `transition_available`). */
 export function blockedText(sync: WorkTransitionPreview["jira_sync_preview"] | null | undefined): string | null {
   const reason = typeof sync?.blocked_reason === "string" ? sync.blocked_reason.trim() : "";
   if (reason) return BLOCKED_TEXT[reason] ?? `Applying would be refused (${reason}), so nothing would be written.`;
@@ -111,7 +94,6 @@ export function blockedText(sync: WorkTransitionPreview["jira_sync_preview"] | n
   return null;
 }
 
-/** The server's `offered_transitions` (`[{name, to}]`) as "Name → Status" lines. */
 export function offeredTransitions(sync: WorkTransitionPreview["jira_sync_preview"] | null | undefined): string[] {
   const entries = Array.isArray(sync?.offered_transitions) ? sync.offered_transitions : [];
   return entries.flatMap((entry) => {
@@ -130,7 +112,6 @@ const SCOPE_TEXT =
 const STALE_TEXT =
   "The workflow or what it writes to Jira changed after the preview, so nothing was applied. Preview again to see what would be written now.";
 
-/** A Python list of string literals as the server prints it (`['a', "Won't do"]`, with \\ escapes); null otherwise. */
 export function parseStringList(raw: string): string[] | null {
   const text = raw.trim();
   if (!text.startsWith("[") || !text.endsWith("]")) return null;
@@ -169,12 +150,9 @@ export function parseStringList(raw: string): string[] | null {
 
 export type TransitionRefusal = { text: string; offers: string[] | null; stale: boolean };
 
-/** A refused preview or apply: the server's text, Jira's offered transitions when the message carries them, and
- *  whether the preview went stale (409 `preview_stale` C-7), which always needs a new preview. */
 export function transitionRefusal(error: unknown): TransitionRefusal {
   const record = error && typeof error === "object" ? (error as { message?: unknown; code?: unknown }) : null;
   if (record?.code === "preview_stale") return { text: STALE_TEXT, offers: null, stale: true };
-  // Refusals with dedicated backend error codes.
   if (record?.code === "workflow_inactive") return { text: INACTIVE_TEXT, offers: null, stale: true };
   if (record?.code === "scope_not_allowed") return { text: SCOPE_TEXT, offers: null, stale: true };
   const text = typeof record?.message === "string" && record.message ? record.message : "The transition was not applied.";
@@ -183,11 +161,10 @@ export function transitionRefusal(error: unknown): TransitionRefusal {
   const list = match[1].trim();
   // An unreadable list is not guessed at: the server's text still says what Jira offers.
   const offers = list === "none" ? [] : parseStringList(list);
-  // L-f: once read, the offers are shown once, as the list below the sentence, not again inside it.
+  // The offers are shown once, as the list below the sentence.
   return { text: offers ? text.slice(0, match.index).trim() : text, offers, stale: false };
 }
 
-/** The status line of what an apply writes: the target status when known, a transition never posing as a status. */
 export function statusEffectText(
   effect: { value?: unknown; target_status?: unknown; transition?: unknown } | null | undefined,
   sync: WorkTransitionPreview["jira_sync_preview"],
@@ -203,8 +180,6 @@ export function statusEffectText(
   return `Status → ${value ?? ""}`;
 }
 
-/** What binds an apply to its preview (`jira_sync_preview.effects_hash`, `workflow_updated_at`), sent back with the
- * apply. */
 export function previewBinding(preview: WorkTransitionPreview | null): { effects_hash?: string; workflow_updated_at?: string } {
   if (!preview) return {};
   const sync = preview.jira_sync_preview || {};
@@ -217,7 +192,6 @@ export function previewBinding(preview: WorkTransitionPreview | null): { effects
   return { ...(hash ? { effects_hash: hash } : {}), ...(updated ? { workflow_updated_at: updated } : {}) };
 }
 
-/** What an applied transition did, in one line. */
 export function transitionResultText(
   toLabel: string,
   preview: WorkTransitionPreview | null | undefined,
@@ -232,12 +206,11 @@ export function transitionResultText(
   }
   const labels = Array.isArray(execution.labels_applied) ? execution.labels_applied.map(String) : [];
   if (labels.length) parts.push(`labels applied: ${labels.join(", ")}`);
-  // Labels are added after the transition; a label failure does not undo it.
+  // A label failure does not undo the transition.
   if (execution.labels_failed === true) parts.push("the labels could not be added");
   return `Moved to ${toLabel}. Jira: ${parts.join("; ") || "updated"}.`;
 }
 
-/** What a recorded state event wrote to Jira, for the audit timeline. */
 export function jiraEffectText(event: WorkStateEvent): string {
   const execution = (event.jira_sync_preview?.execution || null) as Record<string, unknown> | null;
   if (event.dry_run) return "Jira: nothing written (preview).";
@@ -249,7 +222,6 @@ export function jiraEffectText(event: WorkStateEvent): string {
   return `Jira: transition “${String(execution.transition_name || "")}”${status}${execution.comment_posted ? ", comment posted" : ""}${labels.length ? `, labels applied: ${labels.join(", ")}` : ""}${labelsFailed}.`;
 }
 
-/** Where workflows are published (Agents › Workflows), in the item's Workspace. */
 export function workflowsHref(workspaceId: string | null | undefined): string {
   const query = new URLSearchParams({ area: "workflows", tab: "workflowList" });
   if (workspaceId) query.set("workspace_id", workspaceId);

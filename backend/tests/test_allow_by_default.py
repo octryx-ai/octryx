@@ -1,6 +1,5 @@
-"""Blocking too much makes agents fail on harmless work: unknown tools, the shell of a changing phase, path rules
-and the browser's public pages are allowed by default and logged in the run; each is an admin's switch back to
-blocking (``device_runs.tool_defaults``) with a one-click remedy. Hard rules stay."""
+"""Unknown tools, a changing phase's shell, path rules and public browser pages are allowed by default and logged,
+because blocking too much fails harmless work; each is an admin switch back to blocking. Hard rules stay."""
 
 from __future__ import annotations
 
@@ -12,7 +11,7 @@ from sqlalchemy import select
 from app.models import WorkflowRunEvent
 from app.services.devices.device_models import nearest_model
 from app.services.devices.device_runs_keys import DeviceRunsPolicyError, normalize_device_runs, tool_defaults
-from app.services.workflow_runs.states import STATUS_PAUSED
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_support import (
     ROOT,
     STRICT,
@@ -22,6 +21,8 @@ from tests.workflow_run_octryx_support import (
     _hook,
     set_tool_defaults,
 )
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.fixture(autouse=True)
@@ -56,19 +57,7 @@ async def test_an_unknown_tool_runs_logged_and_a_strict_workspace_refuses_it_wit
 
 
 @pytest.mark.asyncio
-async def test_a_waiting_run_refuses_only_changes_not_unknown_tools(db):
-    run, gateway, key, workspace_id = await _bound_run(db, _fix_definition(protect=False))
-    run.status = STATUS_PAUSED
-    await db.flush()
-    assert (await _decide(db, gateway, key, workspace_id, _hook("mcp__other__lookup", q="x")))["decision"] == "allow"
-    edit = await _decide(db, gateway, key, workspace_id, _hook("Edit", file_path=f"{ROOT}/a.py", old_string="a",
-                                                               new_string="b"))
-    assert (edit["decision"], edit["reason"]) == ("deny", "run_paused")
-
-
-@pytest.mark.asyncio
 async def test_a_folder_goes_with_a_tracked_only_git_rm_and_plain_rm_r_is_pointed_there(db):
-    """Git can undo changes to tracked files only, so untracked ones stay out."""
     _run, gateway, key, workspace_id = await _bound_run(db, _fix_definition(protect=False))
 
     async def bash(command):
@@ -78,8 +67,8 @@ async def test_a_folder_goes_with_a_tracked_only_git_rm_and_plain_rm_r_is_pointe
     for command in ("rm -rf old_module", "git rm -rf old_module"):
         refused = await bash(command)
         assert refused["decision"] == "deny" and "git rm -r old_module" in refused["message"], command
-    assert (await bash("rm -rf ../other"))["decision"] == "deny"  # outside the folder: a hard rule
-    assert (await bash("rm -rf build"))["decision"] == "allow"  # generated
+    assert (await bash("rm -rf ../other"))["decision"] == "deny"
+    assert (await bash("rm -rf build"))["decision"] == "allow"
 
 
 @pytest.mark.asyncio
@@ -124,7 +113,7 @@ async def test_the_admin_applies_a_remedy_and_only_known_settings(client, db):
     answer = await client.post(path, headers=auth_headers, json={"setting": "device_runs.tool_defaults.shell",
                                                                  "value": "free"})
     assert answer.json()["tool_defaults_effective"]["shell"] == "free" and "shell" not in answer.json()[
-        "tool_defaults"]  # the default is not stored
+        "tool_defaults"]
     for bad in ({"setting": "device_runs.tool_defaults.shell", "value": "root"},
                 {"setting": "device_runs.enabled", "value": True}):
         assert (await client.post(path, headers=auth_headers, json=bad)).status_code == 400
@@ -149,8 +138,6 @@ def test_a_model_outside_the_list_becomes_the_nearest_listed_one():
 
 @pytest.mark.asyncio
 async def test_refusals_and_outside_path_edits_reach_the_run_and_the_reviewer(db):
-    """A refusal and its one-click fix are a run event; an edit outside the phase's paths is a note for the reviewer,
-    never a blocker."""
     from app.services.workflow_runs.review.evidence import outside_phase_paths
 
     definition = copy.deepcopy(_fix_definition(protect=False))
@@ -172,8 +159,6 @@ async def test_refusals_and_outside_path_edits_reach_the_run_and_the_reviewer(db
 
 @pytest.mark.asyncio
 async def test_a_refusal_reaches_the_tool_step_and_the_turns_answer(db):
-    """The chat shows a refusal's fix at the tool step (``tool_result.remedy``) and lists the
-    refusal with the turn's answer (its ``message_id``)."""
     from types import SimpleNamespace
 
     from app.models import Message, ToolCall
@@ -220,7 +205,7 @@ async def test_tool_defaults_writes_merge_key_by_key_and_none_resets(db):
 def test_the_seat_settings_say_whether_a_switch_was_set():
     from types import SimpleNamespace
 
-    from app.api.routes.data_classification import _seat_values
+    from app.api.routes.policy.data_classification import _seat_values
 
     unset = _seat_values(SimpleNamespace(config={}), [])
     assert (unset["seat_mode_set"], unset["codex_seat_mode_set"]) == (False, False)

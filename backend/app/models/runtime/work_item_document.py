@@ -1,8 +1,5 @@
-"""A documentation page a workflow run published for a Work item (Workflow B's documentation phase).
-
-One row per Work item and page: created on the first publish, updated (version, title, URL, run) on every later
-one, so the Work item always links its current page and a later run updates that page instead of creating another.
-"""
+"""A documentation page a workflow run published for a Work item. One row per Work item and page, so a later run updates
+that page instead of creating another."""
 
 from __future__ import annotations
 
@@ -11,10 +8,12 @@ import uuid
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
-class WorkItemDocument(Base):
+class WorkItemDocument(WorkspaceBound, Base):
+    __workspace_owners__ = {"work_item_id": "work_items"}
     __tablename__ = "work_item_documents"
     # The same page id on another connection or Confluence instance is another page.
     __table_args__ = (UniqueConstraint("work_item_id", "provider", "connection_id", "instance_url", "page_id",

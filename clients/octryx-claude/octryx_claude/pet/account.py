@@ -1,13 +1,4 @@
-"""Where the pet gets the platform URL, a gateway token and its settings directory.
-
-- :class:`LocalAccount` (macOS, Linux): the launcher's own login in the state dir (``get_access_token`` refreshes
-  under the credentials lock), settings next to it.
-- :class:`WslAccount` (native Windows): octryx-claude itself runs in WSL2 and holds the login there. The pet borrows
-  the gateway token through ``wsl.exe -d <distro> -e <home>/.local/bin/octryx-claude api-key-helper`` (the
-  token on stdout) and keeps it in memory only, for ``TOKEN_TTL_SECONDS`` or until the platform answers 401: no
-  second login, no secret on the Windows side. ``account.json`` (written by install.ps1) holds the platform URL, the
-  distribution and the WSL home, nothing secret. The call runs without a console window.
-"""
+"""Where the pet gets the platform URL, a gateway token and its settings directory."""
 
 from __future__ import annotations
 
@@ -116,7 +107,6 @@ class WslAccount:
 
 
 def default_account() -> Account:
-    """The account of this process: the WSL bridge on native Windows, the launcher's login elsewhere."""
     if os.name == "nt":
         return WslAccount(windows_root())
     return LocalAccount(LocalState().ensure())

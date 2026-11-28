@@ -1,18 +1,4 @@
-"""How a repository source is named in citations and source lists.
-
-A ``git_repository`` source may carry an admin- or launcher-given display ``name`` and ``version`` label in
-its scope (``display_name``, ``version_label``). Without a name, the repository's own name (the last segment of
-its remote path) names it.
-
-- A file is titled ``<repository>:<path>`` (:func:`file_title`), so its citations read
-  ``<repository>:<path> L<from>-<to>`` (``retrieval/locator.markdown_citation``). A title that would exceed the
-  ledger's title bound falls back to the path alone.
-- A source list shows ``<name> (<version>, <short commit>)`` (:func:`display_label`), e.g.
-  ``server-config (config, 7b338db)``; the parts that are not set are left out.
-
-Names and labels are validated, never cleaned up: a closed character set (letters, digits, space and
-``. _ - + @ /``), bounded length.
-"""
+"""How a repository source is named in citations and source lists."""
 
 from __future__ import annotations
 
@@ -33,8 +19,6 @@ _LABEL = re.compile(r"^[\w.+@/ -]+$")
 
 
 class RepositoryLabelError(ValueError):
-    """A name or version label outside the closed character set or its bound."""
-
     reason = REASON_LABEL_INVALID
 
 
@@ -51,12 +35,10 @@ def _label(raw: object, limit: int) -> str | None:
 
 
 def validate_labels(name: object, version: object) -> tuple[str | None, str | None]:
-    """``(name, version)``, each ``None`` when absent; raises :class:`RepositoryLabelError` when invalid."""
     return _label(name, MAX_NAME_CHARS), _label(version, MAX_VERSION_CHARS)
 
 
 def with_labels(scope: Mapping[str, Any], name: str | None, version: str | None) -> dict[str, Any]:
-    """``scope`` with the given name and version set (``None`` keeps the stored value)."""
     updated = dict(scope)
     if name is not None:
         updated[SCOPE_DISPLAY_NAME] = name
@@ -66,7 +48,6 @@ def with_labels(scope: Mapping[str, Any], name: str | None, version: str | None)
 
 
 def repository_label(scope: Mapping[str, Any]) -> str:
-    """The source's display name, else its repository's name (the last segment of the remote path)."""
     name = scope.get(SCOPE_DISPLAY_NAME)
     if isinstance(name, str) and name.strip():
         return name.strip()
@@ -75,13 +56,11 @@ def repository_label(scope: Mapping[str, Any]) -> str:
 
 
 def file_title(label: str, path: str) -> str:
-    """``<repository>:<path>``, or the path alone when the prefixed title would exceed the title bound."""
     titled = f"{label}:{path}"
     return titled if len(titled) <= MAX_DISPLAY_TITLE_CHARS else path
 
 
 def display_label(scope: Mapping[str, Any]) -> str:
-    """``<name> (<version>, <short commit>)`` with only the parts that are set."""
     version = scope.get(SCOPE_VERSION_LABEL)
     commit = scope.get("head_commit")
     parts = [part for part in (

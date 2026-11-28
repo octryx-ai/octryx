@@ -1,10 +1,4 @@
-"""The default agent session and request cost limits, and where each value comes from.
-
-Precedence: the Workspace override (``runtime_cost_limits``), else the
-admin ``system_config`` value, else the environment, else the code default. ``0`` turns a limit off. The
-source is ``workspace``, ``global`` (system config or environment) or ``default``; an unreadable instance
-value falls back to the code default and reports ``default``.
-"""
+"""The default agent session and request cost limits, and where each value comes from."""
 
 from __future__ import annotations
 
@@ -60,7 +54,6 @@ async def _instance_limit(db: AsyncSession, *, key: str, env_name: str, default:
 
 
 async def agent_session_cost_limit(db: AsyncSession, *, project_id: str | None) -> CostLimit:
-    """The per-session cost ceiling in USD and its source."""
     override = (await get_project_cost_limit_overrides(db, project_id=project_id)).session_cost_limit_usd
     if override is not None:
         return CostLimit(override, SOURCE_WORKSPACE)
@@ -70,7 +63,6 @@ async def agent_session_cost_limit(db: AsyncSession, *, project_id: str | None) 
 
 
 async def agent_request_cost_limit(db: AsyncSession, *, project_id: str | None) -> CostLimit:
-    """The per-request cost ceiling in USD and its source."""
     override = (await get_project_cost_limit_overrides(db, project_id=project_id)).request_cost_limit_usd
     if override is not None:
         return CostLimit(override, SOURCE_WORKSPACE)
@@ -80,7 +72,6 @@ async def agent_request_cost_limit(db: AsyncSession, *, project_id: str | None) 
 
 
 async def platform_cost_limits(db: AsyncSession) -> tuple[CostLimit, CostLimit]:
-    """The platform session and request caps a Workspace inherits (no Workspace override applied)."""
     session = await _instance_limit(
         db, key=AGENT_SESSION_COST_LIMIT_USD_KEY, env_name=SESSION_COST_LIMIT_ENV, default=_DEFAULT_SESSION
     )

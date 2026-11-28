@@ -1,9 +1,4 @@
-"""Dated list prices of common models (``list_prices.json``), for the first start of an install.
-
-The environment's model (``AGENT_DEFAULT_MODEL``) gets its list price once, when the first-start bootstrap creates
-its catalog row, so cost caps count it from the first turn. A model that is not in the table stays unpriced and
-shows as such (Setup guide, Problems); Runtime › Model catalog owns every price afterwards.
-"""
+"""Dated list prices of common models (``list_prices.json``), for the first start of an install."""
 
 from __future__ import annotations
 
@@ -51,7 +46,6 @@ def list_price(model_id: str) -> ListPrice | None:
 
 
 def call_list_price(model_id: str, *, prompt_tokens: int) -> ListPrice | None:
-    """The list price of one call: the long-context tier when the prompt is above its threshold, else the base."""
     price = list_price(model_id)
     if price is not None and price.long_context is not None and prompt_tokens > (price.above_prompt_tokens or 0):
         return price.long_context
@@ -59,7 +53,6 @@ def call_list_price(model_id: str, *, prompt_tokens: int) -> ListPrice | None:
 
 
 async def apply_list_price(db: AsyncSession, *, provider_id: str, model_id: str) -> bool:
-    """Price the catalog row from the table when it has no price yet. Flushes; True when a price was set."""
     price = list_price(model_id)
     if price is None:
         return False

@@ -6,7 +6,7 @@ import { test } from "node:test";
 
 import { connectorWriteStatus, connectorWriteView } from "../../src/chat/approval/connectorWriteView.ts";
 
-// The payload shape of backend/app/services/tool_approval_gate.py `_chat_write_preview` (test_chat_connector_writes).
+// The payload shape of backend/app/services/tool_approval/previews.py `_chat_write_preview` (test_chat_connector_writes).
 const PREVIEW = {
   kind: "tool_execution",
   title: "Execute tool create_jira_ticket",

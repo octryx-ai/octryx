@@ -1,21 +1,5 @@
 """Workflow run and device job counters for Prometheus (``octryx_workflow_*``, ``octryx_review_*``,
-``octryx_pipeline_*``, ``octryx_device_*``).
-
-Counted from the rows the ORM hook of :mod:`agent_metrics` sees, once they are committed:
-
-- every ``workflow_run_events`` row counts by workflow, phase (``node_id``) and kind; some kinds carry more:
-  ``paused`` (reason), ``phase_turn`` (state), ``review_verdict`` (engine, model, route, verdict, findings by
-  severity), ``pipeline_reported`` (state), ``run_turn_model_refused`` (model, profile), ``wip_pushed`` /
-  ``wip_failed`` and ``workspace_preparation_reported`` (state), ``spec_studio_*`` (the change's op or how the spec
-  was approved);
-- a ``node_entered`` event ends the phase the run was in: its duration is observed when the same process saw the
-  phase begin (the timing lives in this process; a restart or another process skips that one observation);
-- ``device_jobs`` updates count finished device turns by engine, profile, model and outcome, their duration (from
-  ``accepted`` to the end, timed in this process) and disconnects.
-
-The workflow of an event is the run's ``workflow_key``: taken from the run in the same session, else from the runs
-this process has seen (bounded). No label carries a run, session, job or user id.
-"""
+``octryx_pipeline_*``, ``octryx_device_*``)."""
 
 from __future__ import annotations
 
@@ -92,8 +76,6 @@ METRICS: tuple[_Metric, ...] = (RUN_EVENTS, PHASE_DURATION, PHASE_TURNS, RUN_PAU
 
 
 class _Remembered(OrderedDict[str, Any]):
-    """A bounded map: the oldest entry goes when it is full."""
-
     def put(self, key: str, value: Any) -> None:
         self[key] = value
         self.move_to_end(key)
@@ -107,12 +89,10 @@ _TURN_ACCEPTED = _Remembered()  # job id -> monotonic seconds
 
 
 def memory_learned(kind: str) -> None:
-    """A run memory entry learned (counted at the moment it is kept; ``workflow_runs/run_memory``)."""
     RUN_MEMORY_LEARNED.inc(kind=kind)
 
 
 def reset() -> None:
-    """Tests: start every metric and every remembered timing empty."""
     for metric in METRICS:
         metric.series.clear()
     for remembered in (_WORKFLOW_OF_RUN, _PHASE_ENTERED, _TURN_ACCEPTED):
@@ -120,7 +100,6 @@ def reset() -> None:
 
 
 def _loaded(row: Any, attribute: str) -> Any:
-    """An attribute the row has loaded; never a database load from inside the flush hook."""
     return inspect(row).dict.get(attribute)
 
 
@@ -129,7 +108,6 @@ def _detail(row: Any) -> dict[str, Any]:
 
 
 def _in_session(session: Any, run_id: str) -> Any:
-    """The run if the session already holds it (its identity map), else ``None``: never a database load."""
     from ...models import WorkflowRun
 
     return session.identity_map.get(session.identity_key(WorkflowRun, run_id)) if session is not None else None
@@ -145,7 +123,6 @@ def _workflow(session: Any, run_id: str) -> str:
 
 
 def remember_run(run: Any) -> None:
-    """A run the hook saw: its workflow key labels its later events."""
     run_id, workflow = _loaded(run, "id"), _loaded(run, "workflow_key")
     if run_id and workflow:
         _WORKFLOW_OF_RUN.put(str(run_id), str(workflow))
@@ -160,7 +137,6 @@ def _phase_left(run_id: str, workflow: str, outcome: str, now: float) -> Callabl
 
 
 def run_event(session: Any, row: Any) -> Callable[[], None]:
-    """What to count for one ``workflow_run_events`` row."""
     workflow, phase, kind, detail = _workflow(session, row.run_id), row.node_id or "none", row.kind, _detail(row)
     run_id, now = str(row.run_id), time.monotonic()
     counts: list[Callable[[], None]] = [lambda: RUN_EVENTS.inc(workflow=workflow, phase=phase, event=kind)]
@@ -239,7 +215,6 @@ def _review(workflow: str, phase: str, detail: dict[str, Any]) -> Callable[[], N
 
 
 def run_finished(run: Any, status: str) -> Callable[[], None] | None:
-    """A run reached a final status: the phase it was in ends with that status."""
     run_id = str(_loaded(run, "id") or "")
     workflow = str(_loaded(run, "workflow_key") or _WORKFLOW_OF_RUN.get(run_id) or "unknown")
     return _phase_left(run_id, workflow, status, time.monotonic())
@@ -257,7 +232,6 @@ def _changed(row: Any, attribute: str) -> tuple[bool, Any]:
 
 
 def device_job_written(row: Any, *, new: bool) -> Callable[[], None] | None:
-    """What to count for an inserted or updated ``device_jobs`` row."""
     job_id, now = str(row.id), time.monotonic()
     engine, profile = row.engine or "claude_code", row.profile
     from . import run_quality_metrics

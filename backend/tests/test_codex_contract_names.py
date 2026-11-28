@@ -20,8 +20,6 @@ def test_the_contract_names_codex_tools_for_a_codex_session():
 
 
 def test_a_gateway_session_registered_as_codex_runs_codex_without_a_device_job():
-    """The device job sits on the platform session, the model talks through its gateway session;
-    the gateway session's registered engine decides."""
     import asyncio
     from types import SimpleNamespace
 

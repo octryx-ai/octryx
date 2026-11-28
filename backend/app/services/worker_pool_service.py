@@ -11,9 +11,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.worker_pool.dispatch import ROUTING_CONDITION_TYPES
 from app.services.worker_pool.scaling import (
-    build_project_worker_manifests as _build_project_worker_manifests,
-)
-from app.services.worker_pool.scaling import (
     evaluate_pool_scaling as _evaluate_pool_scaling,
 )
 from app.services.worker_pool.serialization import (
@@ -203,15 +200,6 @@ async def evaluate_pool_scaling(db: AsyncSession, *, project_id: str) -> dict[st
     return await _evaluate_pool_scaling(db, project_id=project_id)
 
 
-async def build_project_worker_manifests(db: AsyncSession, *, project_id: str, current_user) -> dict[str, Any]:
-    return await _build_project_worker_manifests(
-        db,
-        project_id=project_id,
-        current_user=current_user,
-        require_admin=_require_admin,
-    )
-
-
 __all__ = [
     "get_pool_config",
     "update_pool_config",
@@ -223,5 +211,4 @@ __all__ = [
     "list_task_routing_rules",
     "create_task_routing_rule",
     "evaluate_pool_scaling",
-    "build_project_worker_manifests",
 ]

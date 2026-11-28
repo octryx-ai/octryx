@@ -1,16 +1,4 @@
-"""Teamwork items on the run's device.
-
-The scheduler is replaced by a recorder here: these tests pin what the device executor does with the platform's
-real device jobs, sessions and bindings.
-
-- each item runs on its own thread in ``<main>/.octryx-items/<key>`` with its own model, after the main thread's launcher
-  branched it (the ``work_git`` contract); a busy device keeps the item pending;
-- the item's gateway session registers by its job id and binds as ``octryx:<key>`` next to the main ``octryx`` one,
-  with the item marker; its contract is its item's phase, its Stop reports to the item, its facts are ignored;
-- the launcher's work-git report merges or conflicts items and sets the run's ``device_change``;
-- a failed item turn reaches the scheduler; the main thread's ``work_git_done`` ends its job without a failure;
-- the sequential fallback: one job slot, ``parallel: false``, a failed branch.
-"""
+"""Teamwork items on the run's device."""
 
 from __future__ import annotations
 
@@ -43,7 +31,6 @@ from tests.teamwork_device_support import (  # noqa: F401
 
 
 async def _branched(db, run, keys=("api",)):
-    """The main thread's launcher reports the item worktrees (as octryx-claude ``work_git.branch``)."""
     state = run.context[device_work_state.GIT_KEY]
     report = {"seq": state["sent"]["seq"], "node_id": "work", "entry": 2, "results": [
         {"op": "branch", "key": key, "branch": f"{BRANCH}--{key}", "state": "branched",
@@ -58,7 +45,7 @@ async def test_each_item_runs_on_its_own_thread_folder_and_model_after_the_main_
 
     admin, device, thread, run = await _run(db)
     executor = await device_items.executor_for(db, run)
-    assert executor.name == "device" and executor.capacity(run) == 4  # the main thread takes no slot
+    assert executor.name == "device" and executor.capacity(run) == 4
 
     first = await executor.start(db, run, ITEMS["api"])
     assert first == {"status": "pending", "reason": "branching"}
@@ -66,7 +53,7 @@ async def test_each_item_runs_on_its_own_thread_folder_and_model_after_the_main_
     view = (await run_contract(db, run))["work_git"]
     assert view["ops"] == [{"op": "branch", "key": "api", "branch": f"{BRANCH}--api"}] and view["seq"] == 1
     assert git_job.id == run.context[device_work_state.GIT_KEY]["sent"]["job_id"]
-    await executor.start(db, run, ITEMS["ui"])  # queued: the main thread's job is still busy with the first batch
+    await executor.start(db, run, ITEMS["ui"])
     assert run.context[device_work_state.GIT_KEY]["ops"] == [{"op": "branch", "key": "ui", "branch": f"{BRANCH}--ui"}]
 
     await _branched(db, run)
@@ -92,7 +79,7 @@ async def test_a_model_the_workspace_refuses_falls_back_to_the_device_default(db
 
     admin, device, thread, run = await _run(db)
     started, job = await _item_running(db, run)
-    assert started["status"] == "running" and job.turn_model is None  # the device's default model
+    assert started["status"] == "running" and job.turn_model is None
     events = (await db.execute(select(WorkflowRunEvent).where(WorkflowRunEvent.run_id == run.id,
                                                               WorkflowRunEvent.kind == "run_turn_model_refused"))
               ).scalars().all()
@@ -104,13 +91,12 @@ async def test_a_busy_device_keeps_the_item_pending(db, scheduler):  # noqa: F81
     admin, device, thread, run = await _run(db, slots=2)
     run.context = {**run.context, device_work_state.GIT_KEY: {"seq": 1, "branched": {
         "api": {"folder": f"{FOLDER}/.octryx-items/api", "branch": f"{BRANCH}--api", "head": "b" * 40}}}}
-    for _ in range(2):  # both slots taken by other turns
+    for _ in range(2):
         other = await new_chat_session(db, admin, thread.project_id)
         await start_turn(db, owner_user_id=admin.id, device=await db.get(UserDevice, device.id),
                          session_id=other.id, workspace_id=thread.project_id, folder=FOLDER, profile="governed",
                          prompt="someone else's turn")
     started = await DeviceExecutor(slots=2).start(db, run, ITEMS["api"])
-    # It keeps its thread: the next start reuses it (not a new thread per tick).
     assert (started["status"], started["reason"]) == ("pending", "device_busy") and started["session_id"]
     assert await DeviceExecutor(slots=2).start(db, run, ITEMS["api"]) == started
 
@@ -135,7 +121,6 @@ async def test_the_work_git_report_merges_or_conflicts_and_sets_the_runs_change(
     change = run.context["device_change"]
     assert change["patch"].startswith("diff --git a/server/search.py") and not change["base_unavailable"]
     state = run.context[device_work_state.GIT_KEY]
-    # A conflicted item is branched again before its retry, with the story's work merged in.
     assert state["sent"] is None and not {"api", "ui"} & set(state["branched"]) and state["resync"] == ["ui"]
 
 
@@ -147,9 +132,8 @@ async def test_a_failed_item_turn_reaches_the_scheduler_and_work_git_done_is_no_
     await apply_event(db, job, "turn_finished", {"turn_id": job.turn_id, "status": "error",
                                                  "result_text": "API Error: 503 no available server"}, limits={})
     finished = [call for call in scheduler.calls if call[0] == "item_finished"]
-    assert finished and finished[0][1:4] == ("api", "failed", True)  # transient: the scheduler resumes it once
+    assert finished and finished[0][1:4] == ("api", "failed", True)
 
-    # The main thread's git work ends its job as done, never as a rejected or failed turn.
     run.context = {**run.context, device_work_state.GIT_KEY: {"seq": 1, "ops": [{"op": "branch", "key": "ui",
                                                                                "branch": f"{BRANCH}--ui"}]}}
     job_id = await work_git.flush(db, run)
@@ -171,13 +155,33 @@ async def test_the_sequential_fallback_matrix(db, scheduler, admitted, setup, re
     executor = await device_items.executor_for(db, run)
     assert (executor.name, executor.sequential, executor.capacity(run)) == ("sequential", reason, 1)
     started = await executor.start(db, run, ITEMS["api"])
-    # In the main folder on the main thread, a fresh session with the item's own model; no worktree, no git work.
     assert started["status"] == "running" and started["session_id"] == thread.id and started["path"] == FOLDER
     job = await db.get(DeviceJob, started["job_id"])
     assert (job.folder, job.turn_model, job.session_id) == (FOLDER, "claude-haiku-5-5", thread.id)
     assert device_work_state.GIT_KEY not in run.context or not run.context[device_work_state.GIT_KEY].get("ops")
     await executor.merge(db, run, {**ITEMS["api"], "status": "done"})
-    assert ("merge_reported", "api", True, None, None) in scheduler.calls  # built in place: nothing to merge
+    assert ("merge_reported", "api", True, None, None) in scheduler.calls
+
+
+@pytest.mark.asyncio
+async def test_a_server_runner_with_one_slot_branches_each_item(db, scheduler, admitted):  # noqa: F811
+    _admin, device, _thread, run = await _run(db, slots=1)
+    device.service_kind = "runner"
+    executor = await device_items.executor_for(db, run)
+    assert (executor.name, executor.capacity(run)) == ("device", 1)
+    started = await executor.start(db, run, ITEMS["api"])
+    assert started == {"status": "pending", "reason": "branching"}
+    assert [op["op"] for op in run.context[device_work_state.GIT_KEY]["sent"]["ops"]] == ["branch"]
+
+
+@pytest.mark.asyncio
+async def test_a_run_whose_thread_is_on_no_device_fails_its_items_visibly(db, scheduler):  # noqa: F811
+    _admin, _device, thread, run = await _run(db)
+    thread.metadata_ = {key: value for key, value in thread.metadata_.items() if key != "execution_target"}
+    executor = await device_items.executor_for(db, run)
+    assert (executor.sequential, executor.capacity(run)) == (device_work_state.FALLBACK_NO_DEVICE, 1)
+    started = await executor.start(db, run, ITEMS["api"])
+    assert started["status"] == "failed" and "no longer runs on a device" in started["reason"]
 
 
 @pytest.mark.asyncio
@@ -198,8 +202,6 @@ async def test_a_failed_branch_falls_back_to_sequential(db, scheduler):  # noqa:
 
 @pytest.mark.asyncio
 async def test_a_new_device_folder_is_set_up_from_the_platforms_remote(tmp_path):
-    """The preparation names the platform's remote without its credentials (a device folder for a repository the
-    device cannot clone is initialised with it)."""
     import subprocess
 
     from app.services.workflow_runs.workspace.preparation import _server_remote

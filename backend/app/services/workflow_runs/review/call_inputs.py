@@ -10,7 +10,6 @@ from ....models import WorkflowRun
 
 
 async def _working_copy(db: AsyncSession, run: WorkflowRun) -> Any:
-    """The reviewed working copy (what decides whether a finding's file exists outside the change)."""
     from pathlib import Path
 
     from ..test_runs import working_copy_root
@@ -25,8 +24,6 @@ async def _working_copy(db: AsyncSession, run: WorkflowRun) -> Any:
 
 
 async def _review_model(factory: Any, db: AsyncSession, run: WorkflowRun, setup: Any, choice: Any) -> Any:
-    """The review model for ``choice`` (``review.choice``: engine, model, route); a factory that takes no choice (a
-    test's scripted reviewer) gets what it takes."""
     import inspect
 
     parameters = inspect.signature(factory).parameters
@@ -36,14 +33,11 @@ async def _review_model(factory: Any, db: AsyncSession, run: WorkflowRun, setup:
 
 
 def _screens(run: WorkflowRun, config: dict[str, Any], review: Any = None, root: Any = None) -> list[Any]:
-    """The reviewed pass's screenshots when the review node asks for them (``config.screens``): only the review's
-    screens node of this pass (``collect``), and only those of this change (``of_change``)."""
     if config.get("screens") is not True:
         return []
     from .screens import collect, of_change
 
     try:
-        # The pipeline's screenshots when the definition names its node (``screens_node``), else the phase's.
         shots = collect(run, str(config.get("screens_node") or config.get("phase") or ""))
         if review is None:
             return shots

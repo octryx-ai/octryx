@@ -1,7 +1,4 @@
-"""Project resource assignment helpers for repositories and knowledge-base mounts.
-
-There are no knowledge shares; governed cross-Workspace reads are Workspace bindings.
-"""
+"""Project resource assignment helpers for repositories and knowledge-base mounts."""
 
 from __future__ import annotations
 
@@ -243,6 +240,7 @@ def _record_resource_audit(
             action=action,
             resource_type=resource_type,
             resource_id=resource_id,
+            project_id=project_id,
             details={"project_id": project_id, **details},
         )
     )

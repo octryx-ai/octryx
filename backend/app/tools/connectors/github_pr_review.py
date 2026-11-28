@@ -1,20 +1,4 @@
-"""GitHub tools of the PR review bot: read the open pull requests' heads, post a review.
-
-- ``list_github_pull_request_heads``: every open pull request of a repository with its head commit, branches, draft
-  flag and the head's repository (a fork's differs), page by page until GitHub has no more (the hourly sync must see
-  each one, not the first page);
-- ``post_github_pull_request_review``: on the pull request's head commit, in this order:
-
-  1. the summary comment, found again by its marker and edited in place, so a pull request carries one summary;
-  2. the inline comments as one review (``event: COMMENT``; the bot never approves and never requests changes, so
-     it never blocks a merge by itself). GitHub refuses the whole review when one comment is off the diff (422): the
-     review is then posted without the inline comments and the step says so (``inline_refused``), never a silent
-     loss — the summary already carries every finding's count;
-  3. the commit status ``octryx/review`` (``pending`` while the review runs, then ``success`` or ``failure``).
-
-The connection's token may be a personal access token: a commit status needs only ``repo:status``, a check run would
-need a GitHub App (once one is registered, the status becomes a check run).
-"""
+"""GitHub tools of the PR review bot: read the open pull requests' heads, post a review."""
 
 from __future__ import annotations
 

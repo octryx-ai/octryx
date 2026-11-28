@@ -1,10 +1,4 @@
-"""The review bot's hourly pull request sync as a background worker (like ``review.runner.ReviewWorker``).
-
-One pass at start (a restart never waits an hour for the first sync), then every :data:`SYNC_INTERVAL_SECONDS`;
-the ``@octryx`` comment poll in between, and every few seconds the pull requests Octryx itself opened or pushed onto
-(``instant``). A repository is only read when its bot is switched on (``settings``), so an installation without
-the bot does nothing but one repository query per hour and one indexed run-event query per tick.
-"""
+"""The review bot's hourly pull request sync as a background worker (like ``review.runner.ReviewWorker``)."""
 
 from __future__ import annotations
 

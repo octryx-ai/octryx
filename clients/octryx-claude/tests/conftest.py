@@ -1,5 +1,3 @@
-"""Shared fixtures: an isolated state dir with a logged-in credential file."""
-
 from __future__ import annotations
 
 import shutil
@@ -52,7 +50,6 @@ sys.exit(int(os.environ.get("FAKE_CLAUDE_EXIT", "0")))
 
 @pytest.fixture
 def fake_claude(tmp_path, monkeypatch) -> tuple[Path, Path]:
-    """An executable stand-in for claude that records its argv and env; returns (script, record)."""
     script = tmp_path / "fake-claude"
     script.write_text(f"#!{sys.executable}\n{FAKE_CLAUDE}")
     script.chmod(0o755)
@@ -63,7 +60,6 @@ def fake_claude(tmp_path, monkeypatch) -> tuple[Path, Path]:
 
 @pytest.fixture
 def launch_env(short_state, fake_claude, monkeypatch) -> dict:
-    """``cli.main`` against a fake control plane and the fake claude; records every step in order."""
     from octryx_claude import cli_account, cli_launch, cli_session, launch, skills, usage, workspaces
     from octryx_claude.platform import PlatformResult
 
@@ -107,7 +103,7 @@ def launch_env(short_state, fake_claude, monkeypatch) -> dict:
 
 @pytest.fixture
 def short_state(monkeypatch):
-    """A state root short enough for the session's Unix socket path (104 bytes on macOS)."""
+    # macOS limits a Unix socket path to 104 bytes.
     base = tempfile.gettempdir()
     root = Path(tempfile.mkdtemp(prefix="ocx", dir=base if len(base) <= 40 else "/tmp"))
     try:

@@ -1,32 +1,29 @@
-"""A phase node may let its device turn start Claude Code's own sub-agents (``config.subagents: true``, default off).
-
-- the job offer of a run at a flagged phase carries ``subagents: true``; at an unflagged phase, or without a run, the
-  offer has no such key (the launcher then keeps the six lean tools);
-- the PreToolUse decision allows the ``Agent`` call (or its alias ``Task``) in a flagged phase, exactly as
-  it already did in any phase (it starts nothing outside the phase), and a sub-agent's own tool calls are judged by
-  the same phase rules as the main session's: a confirmed test stays protected whoever edits it.
-"""
+"""A phase node may let its device turn start Claude Code's own sub-agents (``config.subagents: true``, default off)."""
 
 from __future__ import annotations
 
 import copy
 
 import pytest
+from sqlalchemy import select
 
+from app.models import DeviceJob
 from app.services.devices.jobs import start_turn
 from app.services.devices.jobs_channel import DeviceJobHandlers
 from app.services.workflow_runs.records import new_chat_session, start_run
 from tests.devices.device_support import RecordingConnection, device_with_grant
 from tests.knowledge_evidence_seed_support import seed_workspace
 from tests.phased_workflow_fixtures import admin_user, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_octryx_support import CONFIRMED, ROOT, _bound_run, _decide, _fix_definition, _hook
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 FOLDER = "/home/sample/src"
 
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The fix phase runs tests: the server build lock is lifted as in ``test_workflow_run_octryx``."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)
@@ -39,14 +36,17 @@ def _flagged(definition: dict) -> dict:
 
 
 async def _offer_at_phase(db, definition: dict) -> dict:
-    """The job offer a device gets for a turn on the chat thread of a run that stands at its ``fix`` phase."""
     workspace_id = await seed_workspace(db)
     admin = await admin_user(db)
     thread = await new_chat_session(db, admin, workspace_id)
-    run = await start_run(db, user=admin, workflow_key=await publish_phased(db, definition),
-                          project_id=workspace_id, session=thread)
-    assert run.current_node_id == "fix"
     device, _ = await device_with_grant(db, admin, folders=[FOLDER])
+    run = await start_run(db, user=admin, workflow_key=await publish_phased(db, definition),
+                          project_id=workspace_id, session=thread,
+                          runtime_target={"kind": "device", "device_id": device.id, "folder": FOLDER,
+                                          "profile": "governed"})
+    assert run.current_node_id == "fix"
+    for job in (await db.execute(select(DeviceJob).where(DeviceJob.session_id == thread.id))).scalars():
+        job.status = "idle"  # the run's own offer: this test offers the phase turn itself
     await start_turn(db, owner_user_id=admin.id, device=device, session_id=thread.id, workspace_id=workspace_id,
                      folder=FOLDER, profile="governed", prompt="Work the phase")
     connection = RecordingConnection(device.id)
@@ -77,7 +77,6 @@ async def test_an_agent_call_passes_a_flagged_phase_and_its_sub_agents_tools_fol
     for name in ("Agent", "Task"):
         assert (await decided(name, description="Find callers", prompt="Find the callers of totals",
                               subagent_type="Explore"))["decision"] == "allow", name
-    # Inside the sub-agent: the same phase decides, the confirmed test stays protected, the shell rules hold.
     edit_test = await decided("Edit", agent_id="a1", file_path=f"{ROOT}/{CONFIRMED}", old_string="3", new_string="2")
     assert (edit_test["decision"], edit_test["reason"]) == ("deny", "confirmed_test_protected")
     assert (await decided("Edit", agent_id="a1", file_path=f"{ROOT}/pay/totals.py", old_string="a",
@@ -87,8 +86,6 @@ async def test_an_agent_call_passes_a_flagged_phase_and_its_sub_agents_tools_fol
 
 @pytest.mark.asyncio
 async def test_an_unflagged_phase_judges_an_agent_call_like_any_tool_call(db):
-    # The launcher offers no Agent tool there, and a call that still arrives (an interactive session bound to the
-    # run) is judged like any tool call of the phase.
     _run, gateway, key, workspace_id = await _bound_run(db, _fix_definition())
     hook = _hook("Agent", description="Find callers", prompt="Find the callers", subagent_type="Explore")
     assert (await _decide(db, gateway, key, workspace_id, hook))["decision"] == "allow"
@@ -96,9 +93,6 @@ async def test_an_unflagged_phase_judges_an_agent_call_like_any_tool_call(db):
 
 @pytest.mark.asyncio
 async def test_a_flagged_phase_records_a_sub_agents_missed_checks_without_blocking_it(db):
-    """Claude Code 2.1.318: an Explore sub-agent that only reads misses the implement phase's test checks; in an
-    unflagged phase its SubagentStop is blocked (S6, unchanged), in a flagged one it is recorded and ends: the main
-    session hands it a part, and the main Stop judges the phase."""
     from datetime import timedelta
 
     from app.services.workflow_runs.octryx.stop import run_stop
@@ -116,4 +110,4 @@ async def test_a_flagged_phase_records_a_sub_agents_missed_checks_without_blocki
         assert "The test suite ran" in run.context["octryx_children"]["agent-7"]["missed_checks"]
     main = await run_stop(db, session=gateway, hook_input={"hook_event_name": "Stop"}, tool_calls=rows,
                           test_prefixes=(("pytest",),))
-    assert main["state"] == "blocked" and "The test suite ran" in main["detail"]  # the phase is still judged
+    assert main["state"] == "blocked" and "The test suite ran" in main["detail"]

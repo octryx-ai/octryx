@@ -1,11 +1,5 @@
-"""Platform MCP tool implementations beyond the knowledge family.
-
-Read-oriented first wave: tasks (list/runs), approvals (list, under the
-visibility rule of ``services/approval/access``), effective policies (read).
-Every tool declares its required OAuth scope; dispatch rejects tokens without
-it. Write operations (task_trigger, approval_request) are handled separately
-by the external-session bridge.
-"""
+"""Platform MCP tool implementations beyond the knowledge family. Every tool declares its OAuth scope; dispatch rejects
+tokens without it."""
 
 from __future__ import annotations
 
@@ -192,16 +186,3 @@ MCP_PLATFORM_TOOL_HANDLERS = {
     "policy_effective": mcp_policy_effective,
 }
 
-
-async def load_mcp_platform_tool(
-    db: AsyncSession,
-    *,
-    user: User,
-    bound_project_ids: list[str] | None,
-    scopes: tuple[str, ...] | list[str],
-    tool_name: str,
-    arguments: dict[str, Any],
-) -> dict[str, Any]:
-    require_platform_tool_scope(tool_name, scopes)
-    handler = MCP_PLATFORM_TOOL_HANDLERS[tool_name]
-    return await handler(db, user=user, bound_project_ids=bound_project_ids, arguments=arguments)

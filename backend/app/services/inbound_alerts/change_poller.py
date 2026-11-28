@@ -1,14 +1,4 @@
-"""Jira and ServiceNow changes as an inbound source (automation V7; replaces the inert watcher rules).
-
-A webhook with source ``jira_change`` or ``servicenow_change`` has no URL. Every 5 minutes the
-poller reads the items its query selects that changed since the last look, through the Workspace's
-own connection (same egress, sign-in and scope as Work intake), and hands each one to the same
-:func:`receive_alert` path as a posted alert: filter, repeat grouping (key + updated time), hourly
-limit, Action in the Workspace, outcome log. A failed read is recorded as one failed event with the
-reason; nothing is skipped silently. A read takes at most ``POLL_MAX_ITEMS`` items, oldest first; after
-a full batch the cursor moves to the last item's update time, so the rest is read next time. The window
-is relative (minutes back), so the connection's time zone never shifts it.
-"""
+"""Jira and ServiceNow changes as an inbound source (automation V7; replaces the inert watcher rules)."""
 
 from __future__ import annotations
 
@@ -39,12 +29,10 @@ ChangeFetcher = Callable[[AsyncSession, Webhook, datetime, int], Awaitable[list[
 
 
 def _window_minutes(since: datetime) -> int:
-    """Minutes back from now that cover ``since`` (+1 overlap), so no remote time zone is involved."""
     return max(1, math.ceil((utc_now() - since).total_seconds() / 60) + 1)
 
 
 def _utc_iso(value: Any) -> str | None:
-    """A remote timestamp (ISO with offset, or ServiceNow's UTC ``YYYY-MM-DD HH:MM:SS``) as naive-UTC ISO."""
     text = str(value or "").strip()
     if not text:
         return None
@@ -127,8 +115,6 @@ CHANGE_FETCHERS: dict[str, ChangeFetcher] = {
 
 
 def _next_cursor(changes: list[dict[str, Any]], *, since: datetime, current: datetime) -> datetime:
-    """``current`` after a partial batch; after a full one the last item's update time, so the rest is read
-    next (never silently dropped). A full batch that cannot advance falls back to ``current`` (logged)."""
     if len(changes) < POLL_MAX_ITEMS:
         return current
     last = changes[-1].get("_updated_utc")
@@ -151,7 +137,6 @@ async def poll_change_sources(
     fetchers: dict[str, ChangeFetcher] | None = None,
     force: bool = False,
 ) -> list[dict[str, Any]]:
-    """Read every due polled source once; returns one result per item handed to the alert path."""
     current = now or utc_now()
     readers = fetchers or CHANGE_FETCHERS
     webhooks = (
@@ -196,8 +181,6 @@ async def poll_change_sources(
 
 
 class ChangeSourcePollWorker:
-    """Wakes every minute; each polled source is read when due (every 5 minutes)."""
-
     def __init__(self, session_factory: async_sessionmaker[AsyncSession], *, tick_seconds: int = 60) -> None:
         self._session_factory = session_factory
         self._tick = max(5, int(tick_seconds))

@@ -1,11 +1,4 @@
-"""The fixed tool surface of a governed agent run and its one governed dispatch closure.
-
-The caller decides the surface up front (:class:`AgentToolSurface`: the offered tool definitions and names,
-plus the MCP servers and skills the bridge tools may name). Nothing else is offered: no chat context plan, no
-dynamic tools, no lazy discovery. A call outside the surface is answered with a refusal payload and never
-dispatched; every other call goes through :func:`.governed_tool.governed_tool_payload`, where a governed
-refusal ends the run and an ordinary tool error is returned to the agent.
-"""
+"""The fixed tool surface of a governed agent run and its one governed dispatch closure."""
 
 from __future__ import annotations
 
@@ -37,8 +30,6 @@ def _refusal(code: str) -> str:
 
 
 class AgentToolCall:
-    """The ``ToolCall`` closure of the harness toolset for one governed run."""
-
     def __init__(self, surface: AgentToolSurface, tool_context: ToolContext) -> None:
         self._surface = surface
         self._tool_context = tool_context

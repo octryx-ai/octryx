@@ -23,10 +23,6 @@
 
   /* Scoped past the unconditional `.message-stack__item` gutter that is
      imported after this module. */
-  .workspace__feed--virtualized .message-stack__item {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
-  }
 
   .composer-shell {
     padding: 0 0.75rem 0.5rem;
@@ -63,7 +59,7 @@
     flex: 0 0 auto;
     min-height: 2rem;
     border-color: var(--border);
-    border-radius: 999px;
+    border-radius: var(--ds-radius-pill);
     padding: 0.25rem 0.75rem;
   }
 

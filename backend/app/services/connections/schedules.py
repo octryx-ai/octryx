@@ -1,11 +1,5 @@
-"""One schedule list for both uses: ``manual`` | ``every_15_min`` | ``hourly`` | ``every_4_hours`` |
-``daily_0600`` | ``custom`` (+ ``schedule_cron``), as the intake presets (``secure_work/intake/schedule.py``).
-
-- ``off`` is accepted as ``manual``; ``schedule_cron`` is read only with ``custom``.
-- A custom cron is a five-field expression that fires at most every 15 minutes (``422 schedule_cron_invalid``).
-- Knowledge sources run on an interval (``schedule_interval_minutes``): a preset maps to its interval; a custom cron
-  is accepted for Knowledge only when it is a fixed interval (``*/n`` minutes, ``0 */h`` hours).
-"""
+"""One schedule list for both uses: ``manual`` | ``every_15_min`` | ``hourly`` | ``every_4_hours`` | ``daily_0600`` |
+``custom`` (+ ``schedule_cron``), as the intake presets (``secure_work/intake/schedule.py``)."""
 
 from __future__ import annotations
 
@@ -29,7 +23,6 @@ def _cron_text(raw: Any) -> str:
 
 
 def validate_cron(raw: Any, field: str) -> str:
-    """A five-field cron that fires at most every 15 minutes; 422 ``schedule_cron_invalid`` otherwise."""
     cron = _cron_text(raw)
     message = f"{field} must be a five-field cron that runs at most every 15 minutes."
     if len(cron.split(" ")) != 5:
@@ -50,7 +43,6 @@ def validate_cron(raw: Any, field: str) -> str:
 
 
 def normalize(use: str, payload: dict[str, Any]) -> dict[str, Any]:
-    """``{schedule, schedule_cron}`` from a use payload; ``schedule_cron`` only with ``custom``."""
     preset = str(payload.get("schedule") or "").strip()
     preset = MANUAL if preset == "off" else preset
     if preset not in PRESETS:
@@ -63,7 +55,6 @@ def normalize(use: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def intake_schedule(schedule: dict[str, Any]) -> dict[str, Any]:
-    """The intake's ``{preset, cron}`` value."""
     return {"preset": schedule["schedule"], "cron": schedule["schedule_cron"]}
 
 
@@ -72,7 +63,6 @@ def from_intake(stored: dict[str, Any]) -> dict[str, Any]:
 
 
 def from_knowledge(enabled: bool, minutes: int | None) -> dict[str, Any]:
-    """A Knowledge source's interval as the shared list: its preset, else ``custom`` with the equivalent cron."""
     if not enabled:
         return {"schedule": MANUAL, "schedule_cron": None}
     minutes = int(minutes or 0)
@@ -87,7 +77,6 @@ def from_knowledge(enabled: bool, minutes: int | None) -> dict[str, Any]:
 
 
 def knowledge_interval(schedule: dict[str, Any]) -> tuple[bool, int | None]:
-    """``(schedule_enabled, interval minutes)`` for a Knowledge source; a non-interval cron is refused."""
     preset = schedule["schedule"]
     if preset == MANUAL:
         return False, None

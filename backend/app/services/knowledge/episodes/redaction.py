@@ -1,14 +1,4 @@
-"""Secret redaction of an episode summary before it becomes a source.
-
-The shared redaction core (``services/redaction_policy.redact_secret_text``) replaces credential URLs,
-auth headers and tokens, ``password=``-style assignments and private-key blocks. On top of it, the
-policy's vendor token prefixes are matched as whole tokens of a realistic length, and AWS access key
-ids are matched, because a summary may quote them bare. The substring heuristic
-``looks_like_secret_value`` is not used: "risk-based" and "task-list" contain ``sk-``.
-
-A summary is redacted rather than refused: it is a long text written by an agent, and one quoted token
-should not discard what the session learned. The number of redactions is reported to the caller.
-"""
+"""Secret redaction of an episode summary before it becomes a source. A summary is redacted rather than refused."""
 
 from __future__ import annotations
 

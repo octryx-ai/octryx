@@ -90,19 +90,7 @@ async def compute_usage_event_cost_attribution(
     cache_read_tokens: int = 0,
     cache_creation_tokens: int = 0,
 ) -> UsageCostAttribution:
-    """Attribute one turn's cost.
-
-    ``driver`` is the provider driver key that served the turn. It is the only
-    thing that makes a ``cost_source`` in ``usage`` believable: ``provider`` is
-    an operator-chosen label any provider could set to the gateway's name, so it
-    can never carry that authority.
-
-    ``cache_read_tokens`` / ``cache_creation_tokens`` are the ``UsageEvent`` cache
-    columns, additional to ``tokens_in``. A Bedrock Converse ``usage`` payload
-    carries its own split. Cache tokens are charged at the model row's cache
-    rates when it has them; without them the previous charge stands and the
-    status says so (``prompt_cache_charge``).
-    """
+    """Attribute one turn's cost."""
 
     usage_payload = usage or {}
     normalized_provider = str(provider or "").strip()
@@ -150,7 +138,6 @@ async def _catalog_attribution(
     cache_read_tokens: int,
     cache_creation_tokens: int,
 ) -> UsageCostAttribution:
-    """The cost from the model row's catalog pricing, with the prompt cache split charged at its rates."""
     if not hasattr(db, "execute"):
         return attribution(cost=_ZERO, status="cost_unavailable_without_database", cost_source=cost_source)
     pricing = await resolve_model_pricing(db, provider_name=provider, model_id=model)

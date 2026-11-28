@@ -1,10 +1,5 @@
-"""``octryx-claude profiles``: the Claude Code profiles outside octryx on this machine (P6b).
-
-- ``profiles`` lists what was found and what is connected;
-- ``profiles connect <path> [--name NAME]`` lets the device service read that profile's sessions, so they show in
-  your private Workspace and you can take them over from the phone (nothing is read before you connect it);
-- ``profiles disconnect <name>`` stops that; the next report removes its sessions from the platform.
-"""
+"""``octryx-claude profiles``: list, connect and disconnect the Claude Code profiles outside octryx.
+Nothing of a profile is read before it is connected."""
 
 from __future__ import annotations
 

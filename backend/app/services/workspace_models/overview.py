@@ -1,10 +1,5 @@
-"""Global › Models: one read over every provider,
-every model a workspace can choose, and what the workspaces made of it. The global level defines; a workspace only
-narrows (``store.save_models``), so this view says per model in how many workspaces it is allowed, where it was
-switched off and where it is the default.
-
-Read only; the edits stay where they are (Providers, Catalog, each workspace's Models).
-"""
+"""Global › Models: one read over every provider, every model a workspace can choose, and what the workspaces made of
+it."""
 
 from __future__ import annotations
 
@@ -16,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...models import LLMModel, LLMProvider, Project
 from ...models.runtime.control_plane import ControlPlaneRuntimeTarget
+from ..data_access.read_filter import hidden_from_viewer
 from ..system_config.values import get_agent_default_model
 from .contract import model_catalog
 from .store import read_models
@@ -28,7 +24,6 @@ def _host(url: str | None) -> str | None:
 
 
 def provider_state(provider: LLMProvider) -> str:
-    """``off`` (switched off), ``failing`` (last health check failed), else ``connected``."""
     if not provider.is_active:
         return "off"
     if str(provider.health_status or "").lower() in {"error", "failing", "unhealthy", "down"}:
@@ -44,8 +39,9 @@ async def models_overview(db: AsyncSession) -> dict[str, Any]:
     providers = list((await db.execute(select(LLMProvider).order_by(LLMProvider.created_at))).scalars())
     llm_rows = list((await db.execute(select(LLMModel))).scalars())
     targets = {row.id: row for row in (await db.execute(select(ControlPlaneRuntimeTarget))).scalars()}
-    workspaces = list((await db.execute(
-        select(Project).where(Project.is_active.is_(True)).order_by(Project.name))).scalars())
+    hidden = await hidden_from_viewer(db)
+    workspaces = list((await db.execute(select(Project).where(
+        Project.is_active.is_(True), Project.id.not_in(hidden)).order_by(Project.name))).scalars())
 
     providers_by_id = {provider.id: provider for provider in providers}
     provider_rows = []

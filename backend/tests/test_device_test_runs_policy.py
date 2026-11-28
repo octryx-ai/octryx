@@ -1,6 +1,5 @@
-"""A run phase that runs tests may run them in any form, start the app on loopback and look at it.
-Without this, `timeout 300 python -m pytest -v tests/x.py 2>&1 | tail -60` is refused, the app cannot be started
-for a check, Chromium cannot start in the sandbox, and many approvals are needed. The hard-deny list stays."""
+"""A run phase that runs tests may run them in any form, start the app on loopback and look at it; the hard-deny list
+stays."""
 
 from __future__ import annotations
 
@@ -11,6 +10,9 @@ from app.services.workflow_runs.octryx.declared_commands import full_suite_run
 from app.services.workflow_runs.octryx.hard_deny import hard_denied
 from app.services.workflow_runs.octryx.shell_rules import strict_shell_allows
 from app.services.workflow_runs.workspace.spec import runtime_environment, validate_environment
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 PREFIXES = (("pytest",), ("python", "-m", "pytest"))
 
@@ -68,7 +70,7 @@ def test_a_repository_may_ask_for_the_bundled_browser_and_the_device_gets_it():
     assert runtime_environment({**environment, "source": "declared"})["browser"] == "chromium"
     _environment, errors = validate_environment({"test": "pytest", "browser": "firefox"})
     assert errors == ["browser is one of: chrome, chromium"]
-    assert "browser" not in validate_environment({"test": "pytest"})[0]  # the default: the device's Chrome
+    assert "browser" not in validate_environment({"test": "pytest"})[0]
 
 
 @pytest.mark.asyncio

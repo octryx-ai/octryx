@@ -1,10 +1,4 @@
-"""``knowledge_changes``: what changed in a product between two versions, as cited graph facts.
-
-Read-only and bounded (``services/knowledge/temporal/changes.py``). The Workspace is the session's.
-Every fact carries the citation, section and openable ``source_url`` of the span it was extracted
-from; ``state`` says when the range has no sources or was never extracted, so an empty answer is
-never mistaken for "nothing changed".
-"""
+"""``knowledge_changes``: what changed in a product between two versions, as cited graph facts."""
 
 from __future__ import annotations
 

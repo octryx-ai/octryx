@@ -1,7 +1,3 @@
-// The designer's side panel for one box: one form per kind of box, in plain words.
-// Pure: the node, the workflow's other nodes, the catalog and the problems come in; a patch with the complete new
-// config goes out (the canvas core keeps it undoable). Problems show at their field; the rest at the top.
-// A condition also sets where each of its results leads (``onRoute``, agreed with octryx-work).
 import type { DefEdge, DefNode, DesignerCatalog, FieldIssue, NodePatch } from "../types";
 import { Problems, TextField } from "./fields";
 import { record, text, type Config } from "./inspectorValues";
@@ -18,11 +14,7 @@ type Props = {
   editable: boolean;
   issues: FieldIssue[];
   onChange(patch: NodePatch): void;
-  /** A condition's result ``when`` now leads to ``target`` (null: no arrow). The canvas core creates, moves or
-   * deletes that next arrow. Without it the form shows where each result leads, read only. */
   onRoute?(when: string, target: string | null): void;
-  /** The workflow's key: some settings name its default (a confirmation's ``on_open_high``). */
-  workflowKey?: string;
 };
 
 function withStepIds(config: Config): Config {
@@ -34,7 +26,6 @@ function withStepIds(config: Config): Config {
   return next;
 }
 
-/** The field paths a form shows itself; problems elsewhere go to the top of the panel. */
 const SHOWN: Record<string, string[]> = {
   phase: ["config.agent", "config.workflow_contract", "config.tool_policy", "config.result_values"],
   gate: ["config.checks", "config.phase"],
@@ -49,11 +40,10 @@ const SHOWN: Record<string, string[]> = {
   parallel_work: ["config.plan", "config.roles", "config.parallel"],
 };
 
-
-export function NodeInspector({ node, nodes, edges, catalog, editable, issues, onChange, onRoute, workflowKey }: Props) {
+export function NodeInspector({ node, nodes, edges, catalog, editable, issues, onChange, onRoute }: Props) {
   const shown = ["label", ...(SHOWN[node.type] ?? [])];
   const elsewhere = issues.filter((issue) => !shown.some((path) => issue.path === path || issue.path.startsWith(`${path}.`)));
-  // An agent step without its technical name (made before the designer set it) gets it with its next change.
+  // Steps made before the designer set step ids get them with their next change.
   const base = node.type === "phase" ? withStepIds(node.config ?? {}) : node.config ?? {};
   const setAll = (changes: [string, unknown][]) =>
     onChange({ config: changes.reduce((config, [path, value]) => setIn(config, path, value), base) });
@@ -63,9 +53,9 @@ export function NodeInspector({ node, nodes, edges, catalog, editable, issues, o
       <Problems issues={elsewhere} />
       <TextField label="Name" value={node.label} disabled={!editable} issues={issuesAt(issues, "label")}
         onChange={(label) => onChange({ label })} />
-      {/* key: a different box starts with its own open/closed lists */}
+      {/* Keyed by node so a different box starts with fresh open/closed state. */}
       <Form key={node.id} node={node} nodes={nodes} edges={edges} catalog={catalog} editable={editable} issues={issues}
-        set={set} setAll={setAll} replace={(config) => onChange({ config })} onRoute={onRoute} workflowKey={workflowKey} />
+        set={set} setAll={setAll} replace={(config) => onChange({ config })} onRoute={onRoute} />
     </div>
   );
 }

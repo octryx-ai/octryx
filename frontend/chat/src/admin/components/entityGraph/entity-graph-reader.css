@@ -12,7 +12,7 @@
   box-sizing: border-box;
 }
 .entity-graph__entities-head {
-  margin: 4px 4px 0.5rem; font-size: var(--ds-text-2xs); font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+  margin: 4px 4px 0.5rem; font-size: var(--ds-text-2xs); font-weight: var(--ds-weight-strong); letter-spacing: .14em; text-transform: uppercase;
   color: var(--muted);
 }
 .entity-graph__entity-list { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 2px; }
@@ -28,7 +28,7 @@
 .entity-graph__entity[data-state="dimmed"] { opacity: .55; }
 .entity-graph__entity[data-matched] .entity-graph__entity-name { color: var(--accent); }
 /* Full names: wrap, never truncate. */
-.entity-graph__entity-name { font-size: var(--ds-text-md); font-weight: 600; overflow-wrap: anywhere; }
+.entity-graph__entity-name { font-size: var(--ds-text-md); font-weight: var(--ds-weight-strong); overflow-wrap: anywhere; }
 .entity-graph__entity-basis { font-size: var(--ds-text-xs); color: var(--text); overflow-wrap: anywhere; }
 .entity-graph__entity-meta { font-size: var(--ds-text-xs); color: var(--muted-strong); }
 

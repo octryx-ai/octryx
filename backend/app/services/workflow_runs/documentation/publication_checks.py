@@ -38,7 +38,6 @@ def _location(intent: Any, page_id: str, url: str) -> dict[str, Any]:
 
 
 async def _approved_body(db: AsyncSession, run: WorkflowRun, intent: Any) -> tuple[str, str]:
-    """``(body as sent, '')`` from the approving (b) decision, or ``('', why it does not bind)``."""
     from .write_intent import PUBLICATION_SUBJECT, confirmed_binding_problem
 
     decision = await db.get(WorkflowRunDecision, intent.decision_id) if intent.decision_id else None
@@ -61,7 +60,6 @@ async def _approved_body(db: AsyncSession, run: WorkflowRun, intent: Any) -> tup
 
 async def _dispatch_check(db: AsyncSession, run: WorkflowRun, intent: Any, key: str
                           ) -> tuple[dict[str, Any], str, list[str], Any]:
-    """``(record, stop reason, drift, served connection)``: stop and drift at dispatch."""
     from ..states import STATUS_RUNNING
     from .target import ConnectionUnavailableError, served_confluence
     from .write_intent import latest_publication_decision
@@ -108,7 +106,6 @@ async def _dispatch_check(db: AsyncSession, run: WorkflowRun, intent: Any, key: 
 
 
 async def _presend_problems(client: Any, intent: Any) -> list[tuple[str, str]]:
-    """Read-only checks of the pinned space, parent and base version right before the send."""
     from .confluence_v2 import STATUS_CURRENT
     from .failure_routes import PAGE_CHANGED, TARGET_DRIFT
 
@@ -131,7 +128,6 @@ async def _presend_problems(client: Any, intent: Any) -> list[tuple[str, str]]:
 
 
 def _content_match(storage: str | None, body: str, *extra: str | None) -> str:
-    """``exact`` / ``canonical`` when the stored body is the approved body, else ``''``."""
     from .confluence_v2_storage import canonical_digest, storage_digest
 
     if storage is None:
@@ -142,7 +138,6 @@ def _content_match(storage: str | None, body: str, *extra: str | None) -> str:
 
 
 def _head_problem(intent: Any, page: Any, body: str, *extra: str | None) -> tuple[str, str]:
-    """``(class, why)`` when the current page does not prove the approved write at the expected version."""
     from .confluence_v2 import STATUS_CURRENT
     from .failure_routes import PAGE_CHANGED, PUBLISH_UNVERIFIED, TARGET_DRIFT
 

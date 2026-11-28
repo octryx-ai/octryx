@@ -1,15 +1,4 @@
-"""epic-delivery: plain Claude Code in one session per epic, tool decisions on the device.
-
-What is pinned here:
-
-- the seed: one session for the epic (``session: "epic"``), local tool decisions, the a2 brief with a required browser
-  look, and the default for an epic's stories;
-- the launcher's copy of the hard-deny list (``octryx_claude.run_shell``) decides exactly like the server's
-  (``shell_rules.hard_denied``, ``tool_policy._bash_run_rules``, ``browser_tools``, ``command_match``) on one corpus,
-  so the two can never drift apart unnoticed;
-- the offer's ``local_decisions`` data, and the batched audit (``sessions/tool-audit``) recording what the server
-  recorded per call before.
-"""
+"""epic-delivery: plain Claude Code in one session per epic, tool decisions on the device."""
 
 from __future__ import annotations
 
@@ -35,13 +24,15 @@ from app.services.workflow_runs.octryx.hard_deny import hard_denied
 from app.services.workflow_runs.octryx.local_decisions import node_decides_locally, offer_data
 from app.services.workflow_runs.octryx.scm_rules import DEFAULT_SCM_HOSTS, _bash_run_rules
 from tests.phased_seed_definitions import seed_definitions
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_runtime_evidence_support import _one_phase, _rows, _run_with_session
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 CLIENT = Path(__file__).resolve().parents[2] / "clients" / "octryx-claude"
 
 
 def _launcher(name: str):
-    """A launcher module by file (the backend's venv does not install the client package)."""
     if str(CLIENT) not in sys.path:
         sys.path.insert(0, str(CLIENT))
     spec = importlib.util.find_spec(f"octryx_claude.{name}")
@@ -78,9 +69,8 @@ def test_epic_delivery_is_one_session_per_epic_deciding_on_the_device_and_the_de
     assert STORY_WORKFLOW == "epic-delivery" and STORY_WORKFLOW in STORY_WORKFLOWS
     stories = next(node for node in _seed("spec-writing")["definition"]["nodes"] if node["id"] == "stories")
     assert stories["config"]["params"]["story_workflow"] == "epic-delivery"
-    # The platform's steps around the session: pipeline, review, high findings back, PR.
     decisions = next(node for node in definition["nodes"] if node["id"] == "decisions")
-    assert decisions["config"]["on_open_high"] == "continue_with_findings"  # open highs go into the PR
+    assert decisions["config"]["on_open_high"] == "continue_with_findings"
 
 
 # One corpus, both implementations. Live forms from the story runs plus every hard-deny case of the
@@ -119,8 +109,6 @@ def test_the_launchers_hard_deny_list_decides_like_the_servers():
 
 
 def test_a_write_to_the_app_on_loopback_and_claudes_own_scratch_folder_are_no_hard_denials():
-    """``curl -X PUT http://127.0.0.1:$P/api/profile`` (the session checking its own API) must not be refused as an
-    upload, nor a Write to ``/tmp/claude/`` as outside the repository."""
     from app.services.workflow_runs.octryx.tool_policy import claude_scratch
 
     assert hard_denied('curl -s -o /dev/null -w "%{http_code}" -X PUT http://127.0.0.1:$P/api/profile') is None
@@ -140,7 +128,7 @@ def test_the_offer_names_what_only_the_server_decides():
                                "work_role_command_allow": ["*make*"]}, frozenset({"jira.example.com"}))
     assert data["scm_hosts"] == ["jira.example.com"] and data["deny_patterns"] == [r"\bmkfs\b"]
     assert ["kubectl"] in data["server_commands"] and ["git", "push", "origin", "main"] in data["server_commands"]
-    assert ["npm"] in data["server_commands"] and ["*"] in data["server_commands"]  # a role glob that starts wide
+    assert ["npm"] in data["server_commands"] and ["*"] in data["server_commands"]
     assert "**/.env" in data["server_path_globs"] and "~/.aws/**" in data["server_path_globs"]
     job = SimpleNamespace(id="j", turn_id="t", turn_prompt="p", folder="/w", profile="seat", turn_model="",
                           workspace_id="ws", session_id="s", claude_session_id=None, resume_claude_session_id=None,
@@ -159,8 +147,8 @@ async def test_the_batched_audit_records_execution_evidence_and_local_denials(db
         {"event": "pre", "decision": "deny", "reason": "push_by_platform", "message": "never here",
          "hook_input": {"hook_event_name": "PreToolUse", "tool_name": "Bash", "tool_use_id": "toolu_push1",
                         "tool_input": {"command": "git push"}}},
-        {"event": "pre", "decision": "allow", "hook_input": {"tool_name": "Read"}},  # allows were never stored
-        {"event": "post", "hook_input": {"hook_event_name": "PostToolUse", "tool_name": "Read"}},  # no tool_use_id
+        {"event": "pre", "decision": "allow", "hook_input": {"tool_name": "Read"}},
+        {"event": "post", "hook_input": {"hook_event_name": "PostToolUse", "tool_name": "Read"}},
     ]
     counts = await record_tool_audit(db, session=gateway, events=events)
     assert counts == {"recorded": 1, "denials": 1, "skipped": 2}
@@ -182,8 +170,6 @@ async def test_the_batched_audit_records_execution_evidence_and_local_denials(db
 
 
 def test_a_plain_brief_drops_the_platforms_own_way_of_working_from_the_contract():
-    """Run 1: the Engineer's "tests first ... slices" and the system test rule's "full-page screenshot
-    ... Read every screenshot" reached the plain session; it worked serially and Read nine PNGs of up to 430K chars."""
     from app.services.workflow_runs.octryx.contract import plain_agent, plain_brief
     from app.services.workflow_runs.octryx.system_tests import phase_system_tests, plain_rule_text, rule_text
     from app.services.workflow_runs.run_texts import run_text
@@ -196,13 +182,11 @@ def test_a_plain_brief_drops_the_platforms_own_way_of_working_from_the_contract(
     PLAIN_RULE, RULE = plain_rule_text(), rule_text(environment["system_test"])  # noqa: N806
     assert phase_system_tests("change", environment, write=[], plain=True)["rule"] == PLAIN_RULE
     assert phase_system_tests("change", environment, write=[])["rule"] == RULE
-    assert "screenshot" not in PLAIN_RULE and "verbatim" in PLAIN_RULE  # no screenshot per AC and state (a2 level)
+    assert "screenshot" not in PLAIN_RULE and "verbatim" in PLAIN_RULE
 
 
 @pytest.mark.asyncio
 async def test_a_plain_story_session_starts_with_the_story_not_with_the_contract(monkeypatch):
-    """Runs 1-2: every story began with "call workflow_run_status first" (a 12K contract); plain Claude Code
-    (a2) began with the story file. The first prompt now carries the story, the declared tests and the brief."""
     from app.services.workflow_runs.graph import parse_phased_definition
     from app.services.workflow_runs.octryx import continuation_prompts, contract
 

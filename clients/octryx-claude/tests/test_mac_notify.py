@@ -1,7 +1,3 @@
-"""macOS notifications under octryx's own name: an applet built once with osacompile shows them as "Octryx" (not
-"Script Editor"); the text goes through a private queue file, never into a script; without the applet the old
-osascript call still shows them."""
-
 from __future__ import annotations
 
 import stat

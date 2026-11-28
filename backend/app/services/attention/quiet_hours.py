@@ -37,7 +37,6 @@ def _at(day: datetime, hhmm: str) -> datetime:
 
 
 def quiet_state(value: Any, *, now: datetime) -> dict[str, Any]:
-    """``{active, until}``: whether ``now`` (aware) lies in the quiet window, and when it ends (ISO)."""
     try:
         hours = normalize(value) if value else None
     except QuietHoursError:

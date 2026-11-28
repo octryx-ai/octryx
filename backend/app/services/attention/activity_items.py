@@ -1,17 +1,4 @@
-"""Activity problems in the person's attention queue: their run loops or stands still, their device job stalls.
-
-A run can loop for minutes without anyone being told. The
-Problems list knows it, but nobody looks at a list while a run is working. The attention queue is what
-reaches a person: the companion, the inbox and, through ``MobilePushSweeper``, a push on the paired phone (group
-"problem", on by default). So every activity problem becomes an entry here for the people it concerns:
-
-- run problems (``looping``, ``jobs_rejected``, ``silent``): the run's requester and its responsible person;
-- ``job_stalled``: the job's owner (the only one who can stop it).
-
-``key`` is ``activity:{problem key}:{since}`` for a run that went silent or a job that stalled (``since`` is the last
-sign of life, so it stays while the silence lasts and a new silence notifies again). A loop's ``since`` slides with its
-5-minute window, so ``looping``/``jobs_rejected`` are keyed without it: one notification per run and code.
-"""
+"""Activity problems in the person's attention queue: their run loops or stands still, their device job stalls."""
 
 from __future__ import annotations
 

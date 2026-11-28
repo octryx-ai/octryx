@@ -13,7 +13,6 @@ from .registry import load_registry
 
 
 async def _activate_profile(db: AsyncSession, svc: Any, profile_id: str) -> dict[str, Any]:
-    """Make the profile the default when none is set, read its detail, then clean up unused profile roots."""
     await _ensure_default_profile(db, profile_id)
     detail = await svc.get_corp_identity_profile_detail(db, profile_id)
     await _run_corp_identity_cleanup(

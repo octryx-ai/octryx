@@ -3,10 +3,7 @@ import { EntityGraphCitation } from "./EntityGraphCitation";
 import { humanizeRelation } from "./entityGraphDetailModel";
 import { isSelfEdge } from "./entityGraphReading";
 
-// Every relationship in this view with its statement and source, collapsed by default: the entity
-// list and the detail pane are the reading path, this is the complete inventory. A relationship whose
-// two ends are the same stored entity is stated as such: the extraction merged both names into one
-// entity.
+// A relationship with the same entity on both ends is stated as such: the extraction merged both names.
 export function EntityGraphRelationships({ payload, onSelect }: { payload: EntityGraphPayload; onSelect: (id: string) => void }) {
   if (!payload.edges.length) return null;
   const names = new Map(payload.nodes.map((node) => [node.id, node.display_name]));

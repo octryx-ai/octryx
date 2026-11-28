@@ -26,7 +26,6 @@ _NEEDS_YOU = frozenset({WAITING_REPLY, WAITING_CONFIRMATION, WAITING_APPROVAL, W
 
 
 def run_state(run: WorkflowRun) -> str:
-    """``working`` | ``needs_you`` | ``done`` | ``problem``."""
     if run.status == "paused":
         return "problem"
     if run.status == "completed":

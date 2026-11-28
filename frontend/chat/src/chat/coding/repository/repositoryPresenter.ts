@@ -1,13 +1,6 @@
 import { reasonText } from "../../../admin/components/workspaceKnowledge/connectorReasons";
 import type { RepositorySource } from "../../../admin/components/projectsTab/repositories/workspaceRepositoriesApi";
 
-// Pure presentation rules for Work › Repositories. Kept out of the .tsx views so that the wording stays truthful and
-// unit-testable.
-
-/**
- * A repository's name as people say it: project/repository. A source path names the host's path
- * ("bitbucket/scm/SHOP/acme-orders-server", "scm/shop/acme-orders.git"); only its last two parts are shown.
- */
 export function repositoryDisplayName(path: string): string {
   const parts = path.trim().replace(/\.git$/i, "").split("/").filter(Boolean);
   return parts.slice(-2).join("/") || path;
@@ -16,22 +9,15 @@ export function repositoryDisplayName(path: string): string {
 export type RepositoryStateTone = "neutral" | "info" | "problem";
 
 export type RepositoryOverviewRow = {
-  // "source": a Knowledge git source (with or without a record); "record": a Workspace repository record
-  // (Admin › Workspace › Repositories) that no listed source names.
   kind: "source" | "record"; key: string; id: string; name: string; path: string;
   origin: string; originTitle: string;
-  // What agents may do on it through its connection: "Read only", "Read and write" or "–".
   access: string; accessTitle: string;
-  // The source's sync state in one or two words; the sentence behind it is the tooltip.
   status: string; statusTitle: string; tone: RepositoryStateTone;
-  // Only a synced source without a record can be set up as a repository for runs.
   canSetUp: boolean;
-  // From the Workspace's repository record (workspaceRepositoryRows): its default branch and coding setup summary.
   branch?: string | null;
-  // The branch is read from the Knowledge source, not stored on the record.
+  // Read from the Knowledge source, not stored on the record.
   branchFromSource?: boolean;
   setup?: { text: string; missing: boolean } | null;
-  // The repository record whose workflow runs the row's "Runs" panel lists; null for a source without a record.
   recordId?: string | null;
 };
 
@@ -46,7 +32,6 @@ export function connectionTypeLabel(type: string): string {
   return words ? words.charAt(0).toUpperCase() + words.slice(1) : "Connection";
 }
 
-/** Where a source comes from, in the words of Admin › Connections and Knowledge › Sources. */
 export function sourceOrigin(source: RepositorySource | undefined): { label: string; title: string } {
   if (!source || !source.fetch_mode) return { label: "Knowledge source", title: "A Knowledge repository source." };
   if (source.fetch_mode === "local_snapshot") {
@@ -63,7 +48,6 @@ export function sourceOrigin(source: RepositorySource | undefined): { label: str
 
 const ACCESS_LABELS: Record<string, string> = { read_only: "Read only", read_write: "Read and write" };
 
-/** What agents may do on the repository through its connection (services/knowledge/sources/repository_access.py). */
 export function sourceAccess(source: RepositorySource | undefined): { label: string; title: string } {
   const label = source?.access_mode ? ACCESS_LABELS[source.access_mode] : undefined;
   if (label) {
@@ -76,13 +60,10 @@ export function sourceAccess(source: RepositorySource | undefined): { label: str
   return { label: "–", title: "Access mode unknown." };
 }
 
-// A failed sync on Git access is said as such (such a source read "Waiting for sync").
 const NO_GIT_ACCESS = new Set(["source_unauthorized", "git_token_invalid", "git_token_wrong_repository"]);
 const SYNC_FAILED = new Set(["failed", "needs_configuration"]);
-// A completed sync of a repository without any commit (an empty repository is no problem).
 export const EMPTY_REPOSITORY_LABEL = "Empty repository — ready for a first commit";
 
-/** A source's state from its synced commit and how its last sync ended. */
 export function sourceStatus(source: RepositorySource): { label: string; title: string; tone: RepositoryStateTone } {
   const sync = source.last_sync;
   if (sync && SYNC_FAILED.has(sync.state)) {
@@ -116,7 +97,6 @@ export function sourceStatus(source: RepositorySource): { label: string; title: 
     : "The Knowledge source has not synced a commit yet; the repository can be set up for runs after the first sync." };
 }
 
-/** One row per Knowledge git source: where it comes from, what agents may do on it and its sync state. */
 export function sourceRows(sources: RepositorySource[]): RepositoryOverviewRow[] {
   return sources.map((source): RepositoryOverviewRow => {
     const origin = sourceOrigin(source);

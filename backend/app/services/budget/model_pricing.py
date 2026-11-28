@@ -1,16 +1,4 @@
-"""Persisted catalog pricing of one model row, and the per-token-class charge it implies.
-
-The rates are the ones model-catalog sync (or an operator) stored on ``llm_models``
-in USD per million tokens. The prompt-cache pair is optional; a governed
-``catalog_pricing`` sync (``services/model_gateway/cost_contract``) writes it, or an
-admin while no cost source owns the price (``services/admin/provider/model_price_edit``).
-
-Cache token convention: ``cache_read_tokens`` / ``cache_creation_tokens`` passed
-here are *additional* to the prompt tokens — the Anthropic convention the gateway
-inbound route and ``session_ingest`` store on a ``UsageEvent`` (``tokens_in`` is the
-uncached input). Bedrock Converse payloads fold cache tokens into the prompt count;
-``prompt_cache_charge`` splits them before they reach ``charge``.
-"""
+"""Persisted catalog pricing of one model row, and the per-token-class charge it implies."""
 
 from __future__ import annotations
 
@@ -55,8 +43,6 @@ class ModelPricing:
         cache_read_tokens: int = 0,
         cache_creation_tokens: int = 0,
     ) -> Decimal:
-        """Unrounded USD charge. Cache tokens count only when the row has its own cache rates."""
-
         total = Decimal(prompt_tokens) * (self.input or _ZERO) + Decimal(completion_tokens) * (self.output or _ZERO)
         if self.has_cache_rates:
             total += Decimal(max(0, cache_read_tokens)) * self.cache_read
@@ -65,8 +51,6 @@ class ModelPricing:
 
 
 async def resolve_model_pricing(db: AsyncSession, *, provider_name: str, model_id: str) -> ModelPricing:
-    """The pricing of the best-matching model row; an empty ``ModelPricing`` when none exists."""
-
     provider_alias = aliased(LLMProvider)
     stmt = (
         select(

@@ -1,11 +1,4 @@
-"""A6: one check library decides when a workflow's turn is done, in platform chat and at octryx-claude's Stop.
-
-- the closed check types evaluate deterministically over a turn's tool history, artifacts and answer;
-- chat: a failed blocking check gets one reminder, then the answer is accepted as ``not_verified``;
-- octryx-claude: a failed blocking check of the selected workflow blocks Stop (``workflow_checks_failed``);
-- results are stored per turn and listed;
-- a phase's checks are validated on save; every shipped phased workflow's checks are valid.
-"""
+"""One check library decides when a workflow's turn is done, in platform chat and at octryx-claude's Stop."""
 
 from __future__ import annotations
 

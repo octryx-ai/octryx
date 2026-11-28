@@ -22,6 +22,7 @@ from ..jira_values import (
     watchers,
 )
 from .jira_item_details import bounded_raw, jira_detail_fields, status_category
+from .stored_types import MappingSource, StoredStatusMapping
 
 
 def item_preview(item: dict[str, Any]) -> dict[str, Any]:
@@ -30,7 +31,7 @@ def item_preview(item: dict[str, Any]) -> dict[str, Any]:
         "source_key": item["source_key"],
         "title": item["title"],
         "source_status": item.get("source_status"),
-        # L-e: where the issue lands, how that was decided, and who has it, per sample row.
+        # Where the issue lands, how that was decided, and who has it, per sample row.
         "work_state": item.get("work_state"),
         "mapping_source": (source.get("status_mapping") or {}).get("source"),
         "assignee_display": ((source.get("people") or {}).get("assignee") or {}).get("display"),
@@ -52,13 +53,14 @@ def jira_issue_to_work_item_payload(issue: dict[str, Any], config: WorkItemSyncC
     category = status_category(status)
     work_state, mapping_source = classify_jira_status(source_status, config, category=category)
     browse_url = blank_to_none(issue.get("browse_url") or issue.get("url"))
+    status_mapping: StoredStatusMapping = {"source": mapping_source, "category": category}
     source_fields = {
         "raw": bounded_raw(issue),
         "field_mapping": dict(config.field_mapping_json or {}),
         "automation_policy": automation_policy_for_sync_config(dict(config.sync_options_json or {})),
         # Display names, the last comments (read-only) and how the state was chosen.
         **jira_detail_fields(issue, fields, browse_url),
-        "status_mapping": {"source": mapping_source, "category": category},
+        "status_mapping": status_mapping,
     }
     return {
         "project_id": config.project_id,
@@ -137,15 +139,7 @@ _CATEGORY_STATES: dict[str, str] = {"new": "intake", "indeterminate": "developme
 
 def classify_jira_status(
     source_status: str | None, config: WorkItemSyncConfig, *, category: str | None = None
-) -> tuple[str, str]:
-    """Map a Jira status to an work_state and say HOW it was mapped.
-
-    Returns ``(work_state, mapping_source)`` with mapping_source one of
-    ``configured`` (per-config status_state_mapping), ``builtin`` (the explicit
-    vocabulary above), ``status_category`` (Jira's statusCategory of a status
-    neither names), or ``unmapped`` (defaulted to intake). Callers surface the
-    last two in the sync summary so the admin can extend the mapping.
-    """
+) -> tuple[str, MappingSource]:
     normalized = _status_key(source_status)
     configured = _configured_status_mapping(config)
     if normalized in configured:
@@ -158,7 +152,6 @@ def classify_jira_status(
 
 
 def suggested_state(source_status: str | None, category: str | None) -> str | None:
-    """The state a discovered Jira status maps to without a configured mapping (built-in, else its category)."""
     normalized = _status_key(source_status)
     return _BUILTIN_STATUS_STATES.get(normalized) or _CATEGORY_STATES.get(str(category or ""))
 
@@ -181,9 +174,8 @@ def _status_key(value: Any) -> str:
 
 
 def _epic_parent(issue: dict[str, Any], fields: dict[str, Any]) -> str | None:
-    """The parent's key when the parent is an epic (Jira Cloud): Cloud has no Epic Link field any more, a story names
-    its epic only as ``parent``. Without this a synced Cloud story has no
-    ``epic_key`` and the epic chain (``next_story``) never finds it. A sub-task's parent (a story) is no epic."""
+    # Jira Cloud has no Epic Link field any more: a story names its epic only as ``parent``. A sub-task's parent (a
+    # story) is no epic.
     parent = issue.get("parent") or fields.get("parent")
     if not isinstance(parent, dict):
         return None

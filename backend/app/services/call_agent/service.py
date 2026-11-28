@@ -1,10 +1,4 @@
-"""CallAgent — voice-optimized agent for Teams Calling.
-
-Standalone agent service, separate from the run_agent() chat agent.
-Loads only the selected tools dynamically (enabled_tools from CallAgentConfig).
-Tool discovery, the text heuristics and the config rows live in sibling modules;
-the model calls stay here, where the dispatch-owner inventory expects them.
-"""
+"""CallAgent — voice-optimized agent for Teams Calling."""
 
 from __future__ import annotations
 
@@ -81,14 +75,6 @@ class CallAgentService:
         return self._tool_context
 
     async def _get_llm_provider(self, model: str | None = None) -> tuple[Any, str]:
-        """Get the LLM provider for the CallAgent's project — same resolution as chat.
-
-        The boundary lives in :mod:`.provider_admission`: the Workspace is the
-        CallAgent configuration row's own ``project_id``, so neither the caller nor
-        the ``model`` argument can name a project, and a governed gateway target
-        that Workspace has not granted raises the typed
-        :class:`DispatchAdmissionDeniedError` before a client is constructed.
-        """
         return await resolve_admitted_provider(
             self.db,
             project_id=self.config.project_id,
@@ -97,11 +83,9 @@ class CallAgentService:
         )
 
     def _call_scope(self) -> ModelCallScope:
-        """The configuration row's Workspace (the one the provider was admitted for), or a row without one."""
         return call_scope(self.config.project_id, without_workspace=PLATFORM_RECORD_WITHOUT_WORKSPACE)
 
     async def _llm_chat(self, messages: list[dict], model: str | None = None) -> str:
-        """Make a direct LLM call (no tools, simple chat)."""
         provider, resolved_model = await self._get_llm_provider(model)
 
         with model_call_scope(self._call_scope()):
@@ -120,7 +104,6 @@ class CallAgentService:
         tool_definitions: list[dict],
         model: str | None = None,
     ) -> tuple[str, list[dict]]:
-        """Make an LLM call that can use tools."""
         provider, resolved_model = await self._get_llm_provider(model)
 
         with model_call_scope(self._call_scope()):
@@ -138,7 +121,6 @@ class CallAgentService:
         return content, tool_calls
 
     async def _execute_tool(self, tool_name: str, params: dict) -> dict:
-        """Execute a single tool (only if enabled)."""
         if tool_name not in self.enabled_tools:
             logger.warning("Tool %s not enabled for CallAgent %s", tool_name, self.config.id)
             return {"error": f"Tool not enabled: {tool_name}"}
@@ -151,23 +133,15 @@ class CallAgentService:
             return {"error": error_text("call_agent_tool_failed", exc)}
 
     def _format_tool_results(self, tool_results: list[dict]) -> str:
-        """Format tool results for LLM context."""
         return heuristics.format_tool_results(tool_results)
 
-    def _summarize_result(self, result: dict, max_len: int = 1500) -> str:
-        """Create a concise summary of tool result for LLM context."""
-        return heuristics.summarize_result(result, max_len)
-
     def _detect_follow_up(self, response: str) -> str | None:
-        """Detect if the response contains a follow-up question."""
         return heuristics.detect_follow_up(response)
 
     def _extract_tool_names(self, text: str) -> list[str]:
-        """Extract tool names from LLM planning response."""
         return heuristics.extract_tool_names(text)
 
     def _extract_params(self, tool_name: str, user_message: str) -> dict:
-        """Extract parameters for a tool from user message (basic heuristic)."""
         return heuristics.extract_params(tool_name, user_message)
 
     async def run(
@@ -175,21 +149,7 @@ class CallAgentService:
         user_message: str,
         transcript_context: str = "",
     ) -> CallAgentResponse:
-        """
-        Execute CallAgent for a user message.
-
-        Flow:
-        1. Planning: Determine which tools to call
-        2. Tool Execution: Call enabled tools
-        3. Final Response: Generate spoken response
-
-        Args:
-            user_message: The transcribed text from the user
-            transcript_context: Rolling transcript context (optional)
-
-        Returns:
-            CallAgentResponse with final_response (to be TTS'd) and follow_up_question
-        """
+        """Execute CallAgent for a user message."""
         # The worker profile's execution gate decides before any model call or tool.
         refusal = worker_turn_refusal("call_agent", prompt=user_message)
         if refusal is not None:
@@ -206,7 +166,6 @@ class CallAgentService:
             )
 
     async def _answer(self, user_message: str, transcript_context: str) -> CallAgentResponse:
-        """Plan and run the tools, then generate the spoken answer."""
         # Build context prompt
         context_parts = []
         if transcript_context:
@@ -240,7 +199,6 @@ class CallAgentService:
         )
 
     async def _run_planned_tools(self, context: str, user_message: str) -> list[dict]:
-        """Ask the model which tools it needs, then run the enabled ones in that order."""
         planning_messages = heuristics.planning_messages(
             self.config.system_prompt, context, self.enabled_tools
         )

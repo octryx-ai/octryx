@@ -54,7 +54,7 @@ def _remote(root: Path) -> Path:
     (seed / "tests").mkdir()
     (seed / "pay" / "__init__.py").write_text("")
     (seed / "pay" / "totals.py").write_text(BUGGY)
-    (seed / "pay" / "fees.py").write_text("def fee(amount: int) -> int:\n    return 0\n")  # Feature delivery (B)
+    (seed / "pay" / "fees.py").write_text("def fee(amount: int) -> int:\n    return 0\n")
     (seed / ".gitignore").write_text("__pycache__/\n*.pyc\n")  # like any repository: no bytecode in commits
     (seed / "tests" / "test_zero.py").write_text(
         "from pay.totals import round_total\n\n\ndef test_zero():\n    assert round_total(0) == 0\n")
@@ -85,7 +85,6 @@ def _transport(stub, base: str, ci_runs: list | None = None) -> httpx.MockTransp
 
 @pytest.fixture
 def systems(tmp_path, monkeypatch):
-    """The stubbed Jira and GitHub behind the connectors' egress, and the run's workspace under tmp."""
     import app.services.session.workspace as workspace
     import app.tools.connectors.common as connectors
     import app.tools.jira_impl._jira_query_ticket_actions as jira_comments
@@ -119,7 +118,6 @@ async def _workspace(db, systems) -> tuple[Project, WorkItem]:
     db.add(project)
     await db.flush()
     await join_workspace(db, admin, project.id)  # the requester of the runs, a member like a real one
-    # The Workspace's own Jira and GitHub connections (tool configs), pointing at the stubs.
     db.add(BuiltInToolConfig(tool_name="jira", project_id=project.id, is_active=True, config={
         "jira_url": JIRA_URL, "jira_auth_mode": "basic", "jira_username": jira_fixtures.STUB_USERNAME,
         "jira_password": jira_fixtures.STUB_TOKEN}))
@@ -152,7 +150,6 @@ def bare_suffix(systems) -> str:
 
 
 async def _settle(client, headers, run_id: str) -> dict:
-    """Allow every step that waits for a tool approval in the run card (the requester's consent)."""
     for _ in range(10):
         run = (await client.get(f"/api/v1/workflow-runs/{run_id}", headers=headers)).json()["run"]
         if run["waiting_kind"] != "awaiting_tool_approval":
@@ -164,14 +161,12 @@ async def _settle(client, headers, run_id: str) -> dict:
 
 
 def _pytest(working_copy: Path) -> dict:
-    """A real test run in the run's working copy, as run_test_suite reports it."""
     done = run_pytest_probe(working_copy, "tests")
     return {"tool_name": "run_test_suite", "status": "success",
             "result": {"stdout": done.stdout, "exit_code": done.returncode, "all_green": done.returncode == 0}}
 
 
 async def submitted(db, session_id: str, tool: str, arguments: dict) -> dict:
-    """The phase's output submitted as the chat tool records it: the run's record and the turn's tool call."""
     from app.services.workflow_runs.phase_outputs import submit_output
     from app.services.workflow_runs.records import active_run_for_session
 
@@ -192,7 +187,6 @@ async def _phase_turn(db, session_id: str, history: list[dict]) -> None:
 
 @pytest.fixture(autouse=True)
 def _server_pipeline(monkeypatch):
-    """The server pipeline's own mechanics: the server build lock is lifted here (``tests.server_build_lock``)."""
     from tests.server_build_lock import lift_server_build_lock
 
     lift_server_build_lock(monkeypatch)

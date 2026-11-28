@@ -1,26 +1,4 @@
-"""The configured ServiceNow scope, and the encoded queries that can only narrow it.
-
-A ServiceNow connector reads two kinds of targets:
-
-- **knowledge base articles** (``kb_knowledge``) of the configured knowledge bases (``sys_id``s of
-  ``kb_knowledge_base``), published and active only;
-- **records** of the configured tables (``incident``, ``problem``, ``change_request``).
-
-Each kind may carry an author-supplied **encoded query** (``sysparm_query``) that narrows it. The
-connector always places the scope first and the filter after it:
-``<scope>^<filter>^ORDERBYsys_created_on^ORDERBYsys_id``. The filter is validated so it cannot
-widen the scope. In the encoded-query grammar, ``^OR`` binds to the condition just before it and
-``^NQ`` starts a new ``OR``-ed query. So every segment must start with a field name (ServiceNow
-field names are lower case: ``u_``/``x_`` custom and dot-walked names included), or with ``OR``
-followed by a field name, and the first segment may not be an ``OR``. That excludes:
-
-- ``NQ``, which would widen the scope;
-- ``EQ``, ``ORDERBY``/``GROUPBY``, which the connector owns;
-- ``RLQUERY``/``SUBQUERY``, whose nested grammar is not verified here;
-- ``javascript:`` values, which the instance would evaluate.
-
-Values are refused, never cleaned up.
-"""
+"""The configured ServiceNow scope, and the encoded queries that can only narrow it."""
 
 from __future__ import annotations
 
@@ -40,7 +18,6 @@ _OR_CONDITION = re.compile(r"^OR[a-z][a-z0-9_.]*")
 
 
 def validate_encoded_query(raw: object) -> str | None:
-    """An encoded query that can only narrow what it is ANDed to, or ``None``; refuses otherwise."""
     if raw is None or (type(raw) is str and not raw.strip()):
         return None
     if type(raw) is not str or len(raw) > MAX_QUERY_CHARS or any(ord(ch) < 32 or ord(ch) == 127 for ch in raw):
@@ -96,7 +73,6 @@ def validate_servicenow_scope(
 
 
 def scope_tables(scope: dict) -> tuple[str, ...]:
-    """The ServiceNow tables a scope reads, checked against the tool's ``servicenow_allowed_tables``."""
     tables = [KNOWLEDGE_TABLE] if scope.get("knowledge_bases") else []
     return (*tables, *(str(table) for table in scope.get("tables") or ()))
 

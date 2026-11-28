@@ -15,9 +15,9 @@
   display: inline-flex;
   padding: 0.12rem 0.5rem;
   border: 1px solid var(--border-soft);
-  border-radius: 999px;
+  border-radius: var(--ds-radius-pill);
   font-size: var(--ds-text-2xs);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--muted-strong);
   white-space: nowrap;
 }

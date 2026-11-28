@@ -1,25 +1,4 @@
-"""Pinned inventory of every provider-dispatch owner in the backend.
-
-A provider client is a billable, policy-bearing resource, so "who may build one
-and on whose behalf" is a product fact rather than an implementation detail. This
-module states that fact once:
-
-- ``authority`` — the engine runtime chain. It *consumes* the admission contract
-  (``agent/core/runtime/runtime_admission_contract.py``) and must never resolve a
-  project itself; the caller that owns the turn does that.
-- ``admitted`` — an auxiliary owner that dispatches a chat. It must obtain its
-  admission from :mod:`.dispatch_admission` before it constructs a client.
-- ``catalog_only`` — a provider-scoped admin surface. It builds a client to read
-  the model catalog or readiness and never chats, so the deny-everything
-  unverified admission is the correct value for it.
-
-The inventory is enforced from two sides. At runtime
-:func:`dispatch_owner` refuses an unregistered key, so an owner cannot reach the
-admission boundary without declaring itself. In the suite
-``tests/model_gateway/test_dispatch_owner_inventory.py`` re-derives the dispatch
-sites from the source tree and fails when a module dispatches, or builds a
-gateway client, without appearing here.
-"""
+"""Pinned inventory of every provider-dispatch owner in the backend."""
 
 from __future__ import annotations
 
@@ -48,14 +27,8 @@ DISPATCH_OWNERS: Mapping[str, DispatchOwner] = {
         _owner(
             "engine_runtime_chain",
             "main chat turn",
-            "app/agent/engine/runtime/_engine_runtime_fallback.py",
+            "app/agent/runtime/runtime_fallback.py",
             DISPATCH_MODE_AUTHORITY,
-        ),
-        _owner(
-            "prepare_agent_run",
-            "main chat turn",
-            "app/agent/core/context/run_context.py",
-            DISPATCH_MODE_ADMITTED,
         ),
         _owner(
             "chat_turn_task_extraction",
@@ -122,6 +95,8 @@ DISPATCH_OWNERS: Mapping[str, DispatchOwner] = {
             "work item analysis",
             "app/services/work_item_analysis/governed_run.py",
             DISPATCH_MODE_ADMITTED,
+            # Admitted through the shared governed-run helper (``admitted_runtimes``).
+            boundary_module="app/services/governed_agent_run/model_call.py",
         ),
         _owner(
             "secure_work_plan_worker",
@@ -137,13 +112,6 @@ DISPATCH_OWNERS: Mapping[str, DispatchOwner] = {
             boundary_module="app/services/call_agent/provider_admission.py",
         ),
         _owner(
-            "session_summarizer",
-            "summarizer",
-            "app/agent/core/runtime/summarizer.py",
-            DISPATCH_MODE_ADMITTED,
-            boundary_module="app/agent/core/runtime/_summarizer_runtime.py",
-        ),
-        _owner(
             "security_analyzer_llm_risk",
             "risk analysis",
             "app/services/security_analyzer/llm_risk.py",
@@ -156,12 +124,6 @@ DISPATCH_OWNERS: Mapping[str, DispatchOwner] = {
             "external coding client model gateway",
             "app/services/model_gateway/inbound/admission.py",
             DISPATCH_MODE_ADMITTED,
-        ),
-        _owner(
-            "admin_control_plane_model_sync",
-            "admin test surface",
-            "app/services/admin/provider/admin_control_plane_service.py",
-            DISPATCH_MODE_CATALOG_ONLY,
         ),
         _owner(
             "admin_provider_model_sync",
@@ -189,13 +151,8 @@ DISPATCH_OWNER_MODULES = frozenset(
 )
 
 
+# Fails closed for an unregistered key: registering is how a new dispatch consumer becomes reviewable.
 def dispatch_owner(key: str) -> DispatchOwner:
-    """Return the registered owner, or fail closed for an unregistered key.
-
-    An owner that is not in the inventory cannot obtain an admission, which is
-    the point: registering is how a new dispatch consumer becomes reviewable.
-    """
-
     owner = DISPATCH_OWNERS.get(str(key or "").strip())
     if owner is None:
         raise ValueError(
@@ -207,7 +164,6 @@ def dispatch_owner(key: str) -> DispatchOwner:
 
 def owners_for_mode(mode: str) -> tuple[DispatchOwner, ...]:
     return tuple(owner for owner in DISPATCH_OWNERS.values() if owner.mode == mode)
-
 
 
 __all__ = [

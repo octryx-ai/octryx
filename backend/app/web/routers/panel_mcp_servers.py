@@ -61,7 +61,7 @@ async def panel_mcp_add_server(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.workspace_id)
+    await require_existing_workspace(db, admin.id, payload.workspace_id)
     from ...plugins.mcp.client import mcp_client_manager
     from ...services.mcp_server_registry_queries import serialize_mcp_server
     from ...services.mcp_server_registry_writes import create_remote_mcp_server
@@ -82,7 +82,7 @@ async def panel_mcp_install_catalog_server(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.workspace_id)
+    await require_existing_workspace(db, admin.id, payload.workspace_id)
     from ...plugins.mcp.client import mcp_client_manager
     from ...services.mcp_server_registry_queries import serialize_mcp_server
     from ...services.mcp_server_registry_writes import install_catalog_mcp_server
@@ -106,7 +106,7 @@ async def panel_mcp_update_server(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, workspace_id)
+    await require_existing_workspace(db, admin.id, workspace_id)
     from ...plugins.mcp.client import mcp_client_manager
     from ...services.mcp_server_registry_queries import serialize_mcp_server
     from ...services.mcp_server_registry_writes import update_mcp_server
@@ -150,7 +150,7 @@ async def panel_mcp_connect(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, workspace_id)
+    await require_existing_workspace(db, admin.id, workspace_id)
     from ...plugins.mcp.client import mcp_client_manager
     from ...services.mcp_server_registry_connections import connect_mcp_server
 
@@ -174,7 +174,7 @@ async def panel_mcp_disconnect(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, workspace_id)
+    await require_existing_workspace(db, admin.id, workspace_id)
     from ...plugins.mcp.client import mcp_client_manager
     from ...services.mcp_server_registry_connections import disconnect_mcp_server
 
@@ -197,7 +197,7 @@ async def panel_mcp_delete_server(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, workspace_id)
+    await require_existing_workspace(db, admin.id, workspace_id)
     from ...plugins.mcp.client import mcp_client_manager
     from ...services.mcp_server_registry_connections import delete_mcp_server
 

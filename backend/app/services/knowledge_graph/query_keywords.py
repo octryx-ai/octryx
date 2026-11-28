@@ -1,11 +1,4 @@
-"""LightRAG-style query keyword extraction (dual-level).
-
-The KEYWORDS role extracts *low-level* keywords (specific entities/names) and
-*high-level* keywords (themes/concepts) from the question. Low-level terms drive
-entity vector search; high-level terms drive relation vector search. When no
-governed runtime is available the extraction degrades deterministically to
-tokenization (logged) — retrieval keeps working, just without the semantic split.
-"""
+"""LightRAG-style query keyword extraction (dual-level)."""
 
 from __future__ import annotations
 

@@ -11,6 +11,7 @@ from app.services.mcp_parity_dispatch import run_parity_mcp_tool
 from app.services.mcp_run_work_item import run_work_item
 from app.services.workflow_runs.octryx.stop import run_stop
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_acceptance_support import systems  # noqa: F401 - the stubbed Jira and GitHub fixture
 from tests.workflow_run_runtime_evidence_support import (  # noqa: F401
     PREFIXES,
@@ -21,6 +22,8 @@ from tests.workflow_run_runtime_evidence_support import (  # noqa: F401
     _rows,
     _server_pipeline,
 )
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 # --- end to end: B's Clarify from a simulated device job session ----------------------------------------------------
 

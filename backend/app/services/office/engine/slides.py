@@ -1,13 +1,4 @@
-"""PowerPoint presentations (python-pptx): element paths, property edits, removal (descriptors: ``slides_describe``).
-
-Paths: ``/``, ``/slide[n]``, ``/slide[n]/notes``, and per-type shape indices on a slide, counted in z-order:
-``shape[k]`` (autoshapes, placeholders, text boxes), ``picture[k]``, ``table[k]``, ``chart[k]``,
-``connector[k]``, ``group[k]``, ``frame[k]`` (other graphic frames); ``…/table[k]/tr[r]/tc[c]`` and
-``…/shape[k]/p[i]`` below them.
-
-Generated presentation scripts import this module (``resolve``, ``set_props``, ``remove_slide``), so those names
-stay here.
-"""
+"""PowerPoint presentations (python-pptx): element paths, property edits, removal (descriptors: ``slides_describe``)."""
 
 from __future__ import annotations
 
@@ -62,7 +53,6 @@ def typed_shapes(slide: Any) -> dict[str, list[Any]]:
 
 
 def shape_paths(slide: Any, slide_path: str) -> list[tuple[str, Any]]:
-    """Every top-level shape with its typed path, in z-order."""
     counts: dict[str, int] = {}
     found: list[tuple[str, Any]] = []
     for shape in slide.shapes:
@@ -153,7 +143,6 @@ def set_props(node: Node, props: dict[str, Any]) -> None:
 
 
 def remove_slide(presentation: Any, slide: Any) -> None:
-    """Drop the slide from the deck; its part is no longer reachable and is not saved."""
     slide_ids = presentation.slides._sldIdLst
     for slide_id in list(slide_ids):
         if presentation.part.related_part(slide_id.rId) is slide.part:

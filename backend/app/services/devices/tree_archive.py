@@ -1,15 +1,5 @@
-"""Code a device job reads, sent as an archive the device fetches with its own token; results come back the same
-way (built once for the check proof of From Correction to Check and the review bot's scan).
-
-- :func:`build_archive` makes a reproducible tar.gz from ``(path, bytes)`` (the review bot's provider files, which
-  have no git) and :func:`build_from_git` from a tree or commit of a working copy; same content, same sha256 (entries
-  sorted, mtime, uid and gid 0, gzip mtime 0). A file over ``max_file``, a path that is absolute, has ``..`` or is
-  empty, a symlink, a submodule, or what would pass ``max_total`` is left out and named in ``skipped``;
-- :func:`offer` keeps an archive for one device for ``ttl_seconds``; the device fetches it from
-  ``/api/v1/devices/archives/{id}`` with its device token (routes ``api/routes/device_archives.py``); an upload goes
-  the other way with the same limit (:func:`accept_upload`, :func:`read_upload`). Files live in the data folder, never
-  the database, and are removed once expired.
-"""
+"""Code a device job reads, sent as an archive the device fetches with its own token; results come back the same way
+(built once for the check proof of From Correction to Check and the review bot's scan)."""
 
 from __future__ import annotations
 
@@ -43,7 +33,6 @@ class Archive:
 
 
 def _safe(path: str) -> str:
-    """The normalized relative path, or ``""`` for one that is absolute, empty or leaves the root."""
     text = str(path or "").replace("\\", "/")
     pure = PurePosixPath(text)
     if not text or pure.is_absolute() or ".." in pure.parts or text.startswith("~"):
@@ -53,7 +42,6 @@ def _safe(path: str) -> str:
 
 def build_archive(entries: Iterable[tuple[str, bytes]], *, name: str, max_file: int = MAX_FILE,
                   max_total: int = MAX_TOTAL) -> Archive:
-    """A reproducible tar.gz of the regular files ``entries`` name; what does not fit or is unsafe is ``skipped``."""
     kept: dict[str, bytes] = {}
     skipped: list[str] = []
     total = 0
@@ -85,8 +73,6 @@ def _git(repo: Path, *args: str) -> bytes:
 
 def build_from_git(repo: Path, ref: str, *, name: str, paths: list[str] | None = None, max_file: int = MAX_FILE,
                    max_total: int = MAX_TOTAL) -> Archive:
-    """The regular files of ``ref`` (a tree or commit of ``repo``), or only ``paths`` of it, as :func:`build_archive`
-    makes them; symlinks and submodules are skipped, a file over ``max_file`` is never read."""
     listing = _git(repo, "ls-tree", "-r", "-l", "-z", ref, "--", *(paths or [])).split(b"\0")
     entries: list[tuple[str, bytes]] = []
     skipped: list[str] = []
@@ -104,7 +90,6 @@ def build_from_git(repo: Path, ref: str, *, name: str, paths: list[str] | None =
 
 
 def store_dir() -> Path:
-    """The data folder's place for archives and uploads (``OCTRYX_DEVICE_ARCHIVE_DIR``)."""
     configured = os.environ.get("OCTRYX_DEVICE_ARCHIVE_DIR")
     folder = Path(configured) if configured else Path(tempfile.gettempdir()) / "octryx-device-archives"
     folder.mkdir(parents=True, exist_ok=True)
@@ -133,7 +118,6 @@ def _keep(data: bytes, meta: dict, ttl_seconds: int) -> str:
 
 
 def offer(archive: Archive, *, device_id: str, ttl_seconds: int = TTL_SECONDS) -> dict:
-    """``{name, url, sha256, bytes, skipped}`` of ``archive`` for ``device_id`` to fetch within ``ttl_seconds``."""
     ident = _keep(archive.data, {"device_id": device_id, "kind": "archive", "name": archive.name,
                                  "sha256": archive.sha256}, ttl_seconds)
     return {"name": archive.name, "url": f"/api/v1/devices/archives/{ident}", "sha256": archive.sha256,
@@ -154,13 +138,11 @@ def _read(ident: str, device_id: str, kind: str) -> bytes | None:
 
 
 def fetch(ident: str, device_id: str) -> bytes | None:
-    """The offered archive for this device, ``None`` when it is not its own, expired or unknown."""
     return _read(ident, device_id, "archive")
 
 
 def accept_upload(data: bytes, *, device_id: str, name: str, max_total: int = MAX_TOTAL,
                   ttl_seconds: int = 3600) -> dict | str:
-    """``{id, sha256, bytes}`` of a device's upload, or why it was refused (over the limit)."""
     if len(data) > max_total:
         return f"the upload is {len(data)} bytes, over the limit of {max_total}"
     digest = hashlib.sha256(data).hexdigest()

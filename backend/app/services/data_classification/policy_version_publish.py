@@ -7,8 +7,6 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.knowledge.projection.workspace_classification_values import instance_default_for
-
 from ...models import Approval, ClassificationPolicyVersion
 from ...models.runtime.governed_revision import (
     REVISION_STATE_DRAFT,
@@ -32,6 +30,7 @@ from .policy_version_content import (
     REFUSAL_SELF_APPROVAL,
     REFUSAL_TESTS_FAILED,
     ClassificationVersionError,
+    stored_default_level,
 )
 from .policy_version_drafts import run_draft_cases, save_draft
 from .policy_version_store import (
@@ -43,7 +42,6 @@ from .policy_version_store import (
 
 
 async def approve_and_publish(db: AsyncSession, version: int, *, actor_id: str) -> ClassificationPolicyVersion:
-    """Decide the review (if still pending) and publish. Four-eyes per the platform approval rule."""
     from ..approval.resolution_service import decide_pending_approval
 
     row = await get_version(db, version)
@@ -69,7 +67,7 @@ async def approve_and_publish(db: AsyncSession, version: int, *, actor_id: str) 
         if decided is None:
             raise ClassificationVersionError(REFUSAL_REVIEW_DECIDED)
     record_self_approval_audit(db, decision, resource_type="classification_policy_version", resource_id=row.id,
-                               approval_id=approval.id)
+                               approval_id=approval.id, project_id=None)
     await _apply_content(db, row.content, actor_id=actor_id)
     now = utc_now()
     previous = await published_version(db)
@@ -87,16 +85,13 @@ async def approve_and_publish(db: AsyncSession, version: int, *, actor_id: str) 
 
 
 async def _apply_content(db: AsyncSession, content: Mapping[str, Any], *, actor_id: str) -> None:
-    """Write a published content into the live stores (each write keeps its own audit row); the levels first, so the
-    matrix and the default level are checked against them."""
     if isinstance(content.get("level_catalog"), list):
         await publish_catalog(db, content_registry(content), actor_id=actor_id)
     await publish_effect_rules(db, rules_from_content(content), actor_id=actor_id)
     overrides = content.get("overrides") or {}
     await set_classification_policy(db, levels=[{"level": level, "rules": rules} for level, rules in overrides.items()],
                                     actor_id=actor_id)
-    current, _state, _source = await instance_default_for(db)
-    if content.get("default_level") != current:
+    if content.get("default_level") != await stored_default_level(db):
         await set_instance_default(db, classification=content.get("default_level"), actor_id=actor_id,
                                    apply_to_unclassified=False)
 

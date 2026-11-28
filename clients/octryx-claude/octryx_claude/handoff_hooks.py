@@ -1,12 +1,4 @@
-"""The handoff inside a running session (root freeze 3c).
-
-- **``/handoff [KEY] [--to USER] [--note TEXT] [--all]``:** the UserPromptSubmit hook runs the handoff routine
-  itself and blocks the prompt with the result line, so the prompt never reaches the model.
-- **``handoff_now``:** when a hook answer (PostToolUse, Stop) says the session reached the handoff trigger, the
-  launcher hands over every held item (``--all``) once per crossing id. The crossing is recorded before the
-  routine runs, so a failure or a hang never repeats it. The user gets one line: "Allowance at 99%: your work
-  was handed over (→ branch …)".
-"""
+"""The handoff inside a running session: the ``/handoff`` prompt command and the automatic handoff."""
 
 from __future__ import annotations
 
@@ -47,12 +39,10 @@ def is_handoff_prompt(prompt: object) -> bool:
 
 
 def parse_handoff_prompt(prompt: str) -> argparse.Namespace:
-    """The ``/handoff`` arguments; raises ``ValueError`` for anything malformed."""
     return _parser().parse_args(shlex.split(_COMMAND.sub("", prompt, count=1)))
 
 
 def prompt_output(report: HandoffReport) -> dict[str, Any]:
-    """Block the prompt (it never reaches the model) and show the result."""
     return {"decision": "block", "reason": "Octryx handoff: " + report.summary()}
 
 
@@ -82,7 +72,6 @@ def _item_line(report: HandoffReport) -> str:
 
 def auto_handoff(state: LocalState, context: SessionContext, http: httpx.Client, result: PlatformResult,
                  cwd: Path | str) -> str:
-    """Run the automatic handoff once per crossing; the user's notice line, or ``""``."""
     body = result.body if result.outcome == "ok" else {}
     crossing = body.get("handoff_crossing")
     if body.get("handoff_now") is not True or not isinstance(crossing, str) or not _CROSSING.match(crossing):
@@ -100,8 +89,8 @@ def auto_handoff(state: LocalState, context: SessionContext, http: httpx.Client,
     return f"{prefix}: your work was handed over ({_item_line(report)})"
 
 
+# Claimed before the routine runs, so a failure or a hang never repeats the handoff.
 def claim_crossing(session_dir: Path, crossing: str) -> bool:
-    """judge-s4c L6: one marker file per crossing, created atomically (``O_EXCL``); only its creator hands over."""
     marker = session_dir / f"handoff-crossing-{hashlib.sha256(crossing.encode()).hexdigest()[:24]}"
     try:
         os.close(os.open(marker, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))

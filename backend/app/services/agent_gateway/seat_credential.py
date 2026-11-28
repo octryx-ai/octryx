@@ -1,21 +1,4 @@
-"""The session-bound seat credential.
-
-In ``seat`` mode Claude Code's own subscription login owns ``Authorization``, so the Octryx
-identity cannot ride on the refreshing gateway token (``apiKeyHelper`` would replace the
-subscription). Instead the launcher registers the session with its normal Octryx login and
-receives one random credential for that session only:
-
-- at least 256 bits (``secrets.token_urlsafe(32)``), returned once, **stored only as its SHA-256**;
-- bound to the session key, user, Workspace and profile ``seat`` of its ``agent_presence`` row, and to
-  the OAuth grant that registered it (a revoked grant ends it at once);
-- accepted only on the seat model route (``inbound/seat.py``); no other API resolves it;
-- revoked on finalize; at most :func:`credential_lifetime` old (default 12 h, upper bound 24 h,
-  ``OCTRYX_SEAT_CREDENTIAL_HOURS``). After that every call answers ``seat_session_expired``.
-
-Residual risk (accepted by root): the agent's Bash can read the child env. The credential is useless
-without the caller's own Anthropic subscription login, spends no platform budget and is bound to one
-session.
-"""
+"""The session-bound seat credential: stored only as its SHA-256 and re-checked on every call."""
 
 from __future__ import annotations
 
@@ -33,6 +16,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from ...models import AgentPresence, User
 from ...models.security.oauth_provider import OAuthGrant
 from ...time_utils import utc_now
+from ..data_access import as_viewer, bind_request_viewer
+from ..data_access.machine_principal import integration_owner
 from ..project import get_user_project_ids
 from .contract import (
     HEADER_SESSION,
@@ -73,7 +58,7 @@ def credential_hash(credential: str) -> str:
 
 
 def mint_credential() -> tuple[str, str]:
-    """``(credential, its hash)``; only the hash is ever stored."""
+    # Only the hash is ever stored.
     credential = secrets.token_urlsafe(CREDENTIAL_BYTES)
     return credential, credential_hash(credential)
 
@@ -90,18 +75,12 @@ def _expired(row: AgentPresence, now: datetime) -> bool:
 
 
 async def _live_grant(db: AsyncSession, row: AgentPresence) -> OAuthGrant | None:
-    """The live grant behind the session: the one that registered it, or, when a device renewed its credential since
-    (``devices.renewal``: the old grant is revoked, a new one issued in the same second), the device's current grant.
-
-    Otherwise a device grant renewal during a running seat turn ends it with ``seat_grant_revoked`` ("sign in
-    again") although no login is needed. A renewal
-    proves the device key and keeps the device and its owner; a revoked device, an inactive owner or a revoked
-    current grant still ends the session."""
     grant = await db.get(OAuthGrant, row.seat_grant_id) if row.seat_grant_id else None
     if grant is None or grant.user_id != row.user_id:
         return None
     if grant.revoked_at is None:
         return grant
+    # A device renewal revokes the old grant and issues a new one: the session follows the device's current grant.
     if not grant.device_id:
         return None
     from ...models import UserDevice  # noqa: PLC0415
@@ -119,7 +98,6 @@ async def _live_grant(db: AsyncSession, row: AgentPresence) -> OAuthGrant | None
 
 
 async def resolve_seat_identity(db: AsyncSession, headers: Mapping[str, str]) -> GatewayIdentity | GatewayRefusal:
-    """The identity behind a seat credential, re-checked on every call, or a fixed refusal."""
     credential = str(headers.get(HEADER_SEAT_CREDENTIAL) or "").strip()
     if not credential or len(credential) > 200:
         return GatewayRefusal(STATE_UNAUTHORIZED, REASON_SEAT_CREDENTIAL_MISSING)
@@ -127,6 +105,17 @@ async def resolve_seat_identity(db: AsyncSession, headers: Mapping[str, str]) ->
     if not session_key:
         return GatewayRefusal(STATE_NEEDS_CONFIGURATION, REASON_SESSION_HEADER_INVALID)
     hashed = credential_hash(credential)
+    owner = await integration_owner(db, AgentPresence, hashed, owner_column="user_id",
+                                    key_column="seat_credential_hash")
+    with as_viewer(owner.user_id):
+        identity = await _seat_identity(db, headers, hashed, session_key)
+    if isinstance(identity, GatewayIdentity):
+        bind_request_viewer(owner.user_id)
+    return identity
+
+
+async def _seat_identity(db: AsyncSession, headers: Mapping[str, str], hashed: str,
+                         session_key: str) -> GatewayIdentity | GatewayRefusal:
     row = (
         await db.execute(select(AgentPresence).where(AgentPresence.seat_credential_hash == hashed))
     ).scalar_one_or_none()

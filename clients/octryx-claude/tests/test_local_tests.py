@@ -1,10 +1,3 @@
-"""Test runs leave Claude Code's sandbox and use the device's Chrome; red tests get one re-run.
-
-Chromium cannot start in the sandbox ("Permission denied (1100)") and the tests' calls to their app would ask for
-SandboxNetworkAccess each time, so every test run form leaves the sandbox, not only the declared command typed
-verbatim.
-"""
-
 from __future__ import annotations
 
 import io
@@ -84,7 +77,6 @@ def test_the_wrapper_checks_again_and_runs_only_test_runs(tmp_path):
 
 
 def test_a_timeout_prefix_runs_the_tests_where_the_device_has_no_timeout(tmp_path):
-    """macOS has no ``timeout``: the wrapper's shell supplies one, so the wrapped run still prints its output."""
     entry = Path(__file__).resolve().parents[1] / "octryx_claude_entry.py"
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir()
@@ -143,7 +135,6 @@ def test_the_platform_decides_first_and_the_agent_cannot_type_the_wrapper(state,
 
 
 def test_a_test_run_may_report_its_exit_status_after_a_pipe():
-    """``echo "exit=${PIPESTATUS[0]}"`` / ``echo $?`` after a pipe keep a test run a test run despite the ``$``."""
     assert local_tests.is_test_run('python -m pytest -v tests/system 2>&1 | tail -30; echo "exit=${PIPESTATUS[0]}"',
                                    "/repo")
     assert local_tests.is_test_run("python -m pytest -q | tail -5; echo $?", "/repo")
@@ -161,7 +152,6 @@ def test_a_test_run_may_report_its_exit_status_after_a_pipe():
     ("python -m pytest >> out.txt", "python -m pytest"),
 ])
 def test_a_test_run_into_a_file_is_answered_with_the_form_that_runs_outside(command, plain):
-    """A test run written to a file would stay in the sandbox: the session hears the form that runs outside."""
     assert local_tests_forms.plain_form(command, "/repo") == plain
     output = hook_outputs.test_run_output(_hook_input(command), PHASE, SHIM)
     specific = output["hookSpecificOutput"]

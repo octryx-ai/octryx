@@ -1,24 +1,4 @@
-"""``documentation.preflight``: everything the publication needs is configured, before card (a) and (b).
-
-``publish_preflight`` and ``needs_configuration``: no configured audience principal
-P, no audience semantics or no documentation settings fail **closed** before anything is shown for publication or
-written. The run pauses ``needs_configuration``; the requester fixes the configuration and retries the step. Nothing is
-created, granted or changed here (configuring them is a person's decision).
-
-The Workspace configures it under its documentation settings (project config ``feature_documentation``):
-
-- ``confluence_space_key`` (and optionally ``parent_page_id``): where the page is published (``page``);
-- ``audience_proof``: the named audience — ``semantics`` ``workspace_readers`` (the Workspace boundary only) or
-  ``source_restricted`` (needs ``knowledge_source_acl.enforce``), ``principal_user_id`` (P, an active human
-  non-admin account other than the requester), ``outsider_user_id`` (O, the outsider-negative probe, neither P nor
-  the requester) and ``source_key`` (the Knowledge source that must serve the page);
-- ``acceptance_environment`` (optional): ``{name, kind, url}`` of the named preview/test environment the
-  functional acceptance (a) is observed on. Without it, (a) cannot be *accepted* (only "not testable yet" or
-  rejected), never accepted on an invented environment.
-
-The run's page links the run under the platform's public origin (``platform_public_origin``), so a page published
-while (a) is pending can say "acceptance pending as of …" and link the run.
-"""
+"""``documentation.preflight``: everything the publication needs is configured, before card (a) and (b)."""
 
 from __future__ import annotations
 
@@ -91,7 +71,6 @@ def public_origin() -> str:
 
 
 def run_link(run: WorkflowRun) -> str:
-    """The run's address under the platform's public origin ('' when the origin is not configured)."""
     origin = public_origin()
     return f"{origin}/api/v1/workflow-runs/{run.id}" if origin else ""
 
@@ -115,7 +94,6 @@ async def _principal_problems(db: AsyncSession, run: WorkflowRun, user_id: str, 
 
 
 async def configuration_problems(db: AsyncSession, run: WorkflowRun) -> list[str]:
-    """What keeps the publication from being configured (empty: ready)."""
     config = await get_project_config(run.project_id, db)
     problems: list[str] = []
     if documentation_settings(config) is None:

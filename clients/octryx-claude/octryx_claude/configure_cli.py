@@ -1,13 +1,4 @@
-"""``octryx-claude configure --base-url URL [--workspace ID|NAME]``: remember the platform without signing in.
-
-The installer runs it (also with ``--no-login``) so that a later plain ``octryx-claude login`` and ``status`` know
-the platform. Nothing is sent anywhere and no secret is stored:
-
-- ``base_url`` is stored normalized (``http``/``https``, no user info, query or fragment). A different base URL
-  than the stored one drops the stored Workspace selection, which belongs to the other platform;
-- ``--workspace`` is stored as ``workspace_request``: a name can only be resolved with a login, so the next
-  ``octryx-claude login`` without ``--workspace`` resolves it and stores the selected id as ``workspace_id``.
-"""
+"""``octryx-claude configure --base-url URL [--workspace ID|NAME]``: remember the platform without signing in."""
 
 from __future__ import annotations
 
@@ -29,7 +20,6 @@ def _valid_workspace(value: str) -> bool:
 
 
 def normalized_base_url(value: str) -> str:
-    """``value`` without the trailing slash, or ``""`` when it is no plain http(s) origin/path."""
     url = (value or "").strip().rstrip("/")
     parsed = urlparse(url)
     if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.query or parsed.fragment:
@@ -40,7 +30,6 @@ def normalized_base_url(value: str) -> str:
 
 
 def pending_workspace(config: dict[str, Any]) -> str:
-    """The Workspace the next login selects when it gets no ``--workspace``."""
     value = str(config.get(REQUEST_KEY) or "").strip()
     return value if _valid_workspace(value) else ""
 

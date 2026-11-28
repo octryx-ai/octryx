@@ -6,6 +6,7 @@ from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, St
 from sqlalchemy.orm import relationship
 
 from ...db import Base
+from ...db.workspace_bound import WorkspaceBound
 from ...time_utils import utc_now
 
 
@@ -13,7 +14,7 @@ def uuid_pk() -> str:
     return str(uuid.uuid4())
 
 
-class NotificationTemplate(Base):
+class NotificationTemplate(WorkspaceBound, Base):
     __tablename__ = "notification_templates"
     __table_args__ = (
         Index("ix_notification_templates_event_channel", "event_type", "channel_type"),
@@ -36,7 +37,7 @@ class NotificationTemplate(Base):
     creator = relationship("User", foreign_keys=[created_by])
 
 
-class NotificationSubscription(Base):
+class NotificationSubscription(WorkspaceBound, Base):
     __tablename__ = "notification_subscriptions"
     __table_args__ = (
         Index("ix_notification_subscriptions_event", "event_type"),
@@ -64,7 +65,8 @@ class NotificationSubscription(Base):
     creator = relationship("User", foreign_keys=[created_by])
 
 
-class NotificationDeliveryLog(Base):
+class NotificationDeliveryLog(WorkspaceBound, Base):
+    __workspace_owners__ = {"subscription_id": "notification_subscriptions"}
     __tablename__ = "notification_log"
     __table_args__ = (
         Index("ix_notification_log_status_next_retry", "status", "next_retry_at"),

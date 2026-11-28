@@ -1,7 +1,5 @@
 """The account subcommands: login, status, the token helpers Claude Code calls, the context-manager switch.
-
-Messages carry fixed reason codes only; tokens, passwords and response bodies are never printed.
-"""
+Messages carry fixed reason codes only; tokens, passwords and response bodies are never printed."""
 
 from __future__ import annotations
 
@@ -35,7 +33,6 @@ POLICY_TIMEOUT = 15.0
 
 
 def seat_login_command(state: LocalState) -> int:
-    """``login --seat``: the subscription login of the seat profile only; the platform login is not needed."""
     try:
         claude = launch.resolve_claude()
     except launch.LaunchRefusedError as exc:
@@ -142,7 +139,6 @@ def mcp_headers(state: LocalState) -> int:
     return 0
 
 def context_manager_command(args: argparse.Namespace, state: LocalState) -> int:
-    """The context manager is on by default and can be switched off here."""
     from . import (
         context_manager,  # noqa: PLC0415
         session_lessons,  # noqa: PLC0415

@@ -1,20 +1,4 @@
-"""One bounded run of an ``extract_graph`` obligation: a batch of spans into the Workspace graph.
-
-Each run takes the revision's next spans, in document order, that have no episode of the revision's
-profile (``extraction_gaps``), and the governed model (``graphiti_llm``) extracts their entities and
-facts into the PostgreSQL graph (``postgres_extraction``) with the Instance's embedding space. The
-episode ledger, not the cursor, decides what is next, so re-running is idempotent. The profile is
-data (``extraction_profiles``): its edge types and its instructions.
-
-Group: the revision's first product (``spring-boot``), or ``workspace`` for a revision without one.
-Entity resolution happens within a group, so two products never merge each other's entities.
-
-Bounds: one batch of at most ``SPANS_PER_CALL`` spans per run. Before the batch the run renews its
-claim to :data:`EPISODE_LEASE_SECONDS`, and the batch's timeout is below the run budget, which is
-below that lease, so a slow extraction can fail the attempt but never outlive the claim. A revision
-that stopped being current while its extraction was pending finishes without further calls, because
-only current revisions are served.
-"""
+"""One bounded run of an ``extract_graph`` obligation: a batch of spans into the Workspace graph."""
 
 from __future__ import annotations
 
@@ -52,7 +36,6 @@ async def extract_graph_step(
     claim: ClaimedProjection,
     hold_lease: Callable[[], Awaitable[bool]],
 ) -> tuple[int, int, bool]:
-    """Extract the next batch. Returns ``(spans extracted, last ordinal, more spans pending)``."""
     if runtime.embedding is None:
         raise GraphNotConfiguredError()
     revision = await _revision_of(db, claim)
@@ -83,7 +66,6 @@ async def _extract_on_postgres(
     valid_at,
     hold_lease: Callable[[], Awaitable[bool]],
 ) -> tuple[int, int, bool]:
-    """One batch of spans into the PostgreSQL graph; the episode rows commit with the outbox transition."""
     cursor = claim.projected_through_ordinal
     spans = await unextracted_spans(
         db, claim.project_id, claim.revision_id, extraction.profile_id, limit=SPANS_PER_CALL + 1

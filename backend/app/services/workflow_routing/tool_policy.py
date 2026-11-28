@@ -81,18 +81,3 @@ def tool_name_is_allowed_by_policy(tool_name: str, tool_policy: dict[str, Any] |
     return True
 
 
-def expand_tool_policy_allowlist(
-    tool_policy: dict[str, Any] | None,
-    *,
-    available_tool_names: list[str],
-    meta_tool_names: list[str] | None = None,
-) -> list[str]:
-    """Return concrete allowed tools in available-tool order."""
-
-    ordered_names = [str(name or "").strip() for name in available_tool_names if str(name or "").strip()]
-    meta_names = [str(name or "").strip() for name in (meta_tool_names or []) if str(name or "").strip()]
-    if tool_policy_has_allow_rules(tool_policy):
-        for name in meta_names:
-            if name not in ordered_names:
-                ordered_names.append(name)
-    return [name for name in ordered_names if tool_name_is_allowed_by_policy(name, tool_policy)]

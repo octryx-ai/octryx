@@ -1,22 +1,4 @@
-"""Deterministic classification of a layout's placeholder set.
-
-The layout catalog is only useful for composition if every layout states what
-it can *hold*. Classification is structural first, in this order:
-
-1. the placeholder roles, their counts and their geometry (column pairs become
-   ``columns_N``; a full-size picture ``picture_full``; …);
-2. the editor-written layout type (``sldLayout@type``: ``secHead`` is a
-   section, ``title`` a title slide) — language independent, unlike names;
-3. the layout's static icon holders: ``columns_N`` with one holder per column
-   is ``icons_N``.
-
-Only where structure leaves a tie does the layout name act as a hint, from an
-explicit closed vocabulary, and only towards a shape the structure supports
-(a "table of content" name turns a bullets layout into ``agenda``; a name never turns
-a text layout into a picture layout). Nothing here scores or guesses: an
-unrecognised name, or a template whose names are "Layout 1…n", simply keeps
-the structural shape.
-"""
+"""Deterministic classification of a layout's placeholder set."""
 
 from __future__ import annotations
 
@@ -70,11 +52,6 @@ def _by_role(slots: list[dict[str, Any]], role: str) -> list[dict[str, Any]]:
 
 
 def _paired_column_count(content_slots: list[dict[str, Any]]) -> int:
-    """Count heading/body column pairs (the heading-over-body topic columns structure).
-
-    Requires every content slot to carry geometry and to fall into columns of
-    exactly two slots each; anything else returns 0.
-    """
     if len(content_slots) < 4 or len(content_slots) % 2:
         return 0
     columns: list[tuple[int, int]] = []  # (x_emu, count)
@@ -145,7 +122,6 @@ _TITLE_STRUCTURES = frozenset({"title_slide", "title_and_subtitle", "title_only"
 
 
 def _hinted_shape(structural: str, name: str, counts: dict[str, int], units: int) -> str:
-    """Apply the first name hint the structure supports; otherwise keep it."""
     lowered = name.lower()
     for token, vocabulary in _NAME_VOCABULARY:
         if token not in lowered:
@@ -165,7 +141,6 @@ def _hinted_shape(structural: str, name: str, counts: dict[str, int], units: int
 
 
 def _typed_shape(structural: str, layout_type: str) -> str:
-    """The shape the editor-written layout type states, or ``""``."""
     if layout_type == "secHead" and structural in _TITLE_STRUCTURES:
         return "section"
     if layout_type == "title" and structural in {"title_and_subtitle", "title_only"}:
@@ -174,14 +149,6 @@ def _typed_shape(structural: str, layout_type: str) -> str:
 
 
 def promote_section_caption(slots: list[dict[str, Any]], layout_type: str) -> None:
-    """A section layout's single text body is its subtitle line, not content.
-
-    Editors give section headers one ``body`` placeholder under the title for a
-    short description. Counted as content it would make the divider a bullets
-    layout whose body every divider leaves empty; as a subtitle it is the
-    optional second line it is drawn as. Only ``body`` (text) placeholders are
-    promoted — an ``obj`` slot can hold anything and stays content.
-    """
     if layout_type != "secHead":
         return
     bodies = [slot for slot in slots if slot.get("role") == "content"]
@@ -197,11 +164,6 @@ def classify_layout(
     layout_type: str = "",
     icon_holders: int = 0,
 ) -> tuple[str, dict[str, int]]:
-    """Return ``(content_shape, capacity)`` for a layout's slot set.
-
-    ``layout_type`` is ``sldLayout@type`` (empty when the template omits it) and
-    ``icon_holders`` the number of static icon holders the layout draws.
-    """
     promote_section_caption(slots, layout_type)
     counts = {
         role: len(_by_role(slots, role))
@@ -250,7 +212,6 @@ _CATEGORY_BY_SHAPE: tuple[tuple[str, str], ...] = (
 
 
 def category_for_shape(content_shape: str) -> str:
-    """The coarse layout category a ``content_shape`` belongs to."""
     for prefix, category in _CATEGORY_BY_SHAPE:
         if content_shape.startswith(prefix):
             return category

@@ -1,8 +1,4 @@
-"""The work-role audit log: who changed which function, role, assignment, switch or SSO mapping, before and after.
-
-Role edits are no Rules publish, so this log is their only record; every admin write goes
-through :func:`record` in the same transaction as the change.
-"""
+"""The work-role audit log: who changed which function, role, assignment, switch or SSO mapping, before and after."""
 from __future__ import annotations
 
 from datetime import datetime
@@ -30,7 +26,6 @@ def record(db: AsyncSession, *, actor_id: str, action: str, target_type: str, ta
 async def list_events(db: AsyncSession, *, workspace_id: str | None = None, target_id: str | None = None,
                       before: datetime | None = None, limit: int = DEFAULT_PAGE) -> tuple[list[dict[str, Any]],
                                                                                          str | None]:
-    """Newest first; ``next_before`` pages on (no cap on the history, only on one page)."""
     query = select(WorkRoleAuditEvent, User).outerjoin(User, User.id == WorkRoleAuditEvent.actor_user_id)
     if workspace_id:
         query = query.where(WorkRoleAuditEvent.project_id == workspace_id)

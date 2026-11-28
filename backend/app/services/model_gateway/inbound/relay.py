@@ -1,14 +1,4 @@
-"""Turn an admitted upstream response into the client response, then record it.
-
-Streaming responses are verified before the client receives a byte: the relay
-reads until ``message_start`` has been checked (see ``anthropic_stream``), so a
-served-model violation can still be an HTTP error. After that, events are
-forwarded as they arrive, with a keep-alive ``ping`` injected when the upstream
-is silent (Claude Code aborts a stream after 300 silent seconds, and a Bedrock
-upstream sends no pings of its own). Whatever happens afterwards — completion,
-upstream failure, or the client disconnecting — the observed usage and
-transcript are recorded in a fresh database session under a shielded scope.
-"""
+"""Turn an admitted upstream response into the client response, then record it."""
 
 from __future__ import annotations
 
@@ -40,22 +30,19 @@ from .refusals import ERROR_TYPE_OVERLOADED, ERROR_TYPE_RATE_LIMIT, InboundRefus
 from .transcript import GatewayCallRecord, record_gateway_call
 from .upstream import relayed_response_headers
 
+# Claude Code aborts a stream after 300 silent seconds, and a Bedrock upstream sends no pings of its own.
 KEEPALIVE_PING_SECONDS = 20.0
 MAX_RESPONSE_BODY_BYTES = 16 * 1024 * 1024
 REASON_UPSTREAM_READ_TIMEOUT = "upstream_read_timeout"
 REASON_UPSTREAM_READ_FAILED = "upstream_read_failed"
 REASON_RESPONSE_TOO_LARGE = "response_body_too_large"
 
-# Builds the call record once the observation is final.
 RecordFactory = Callable[[Observation, str, int, str], GatewayCallRecord]
-# Renders a refusal in the client's API shape; checks and rewrites a non-streamed answer.
 ErrorRenderer = Callable[[InboundRefusal], Response]
 JsonAnswer = Callable[[Any, Any, Observation], dict[str, Any]]
 
 
 class StreamRelay(Protocol):
-    """An incremental SSE relay (``anthropic_stream.SseRelay``, ``responses_stream.ResponsesSseRelay``)."""
-
     observation: Observation
 
     @property
@@ -86,8 +73,6 @@ def refusal_for_relay(exc: RelayRefused, headers: dict[str, str]) -> InboundRefu
 
 
 def _read_failure(exc: httpx.HTTPError, headers: dict[str, str]) -> InboundRefusal:
-    """The upstream failed while its answer was read, before the client got any of it."""
-
     if isinstance(exc, httpx.TimeoutException):
         return InboundRefusal(GATEWAY_STATE_TIMEOUT, REASON_UPSTREAM_READ_TIMEOUT, 504, headers=headers)
     return InboundRefusal(GATEWAY_STATE_UNREACHABLE, REASON_UPSTREAM_READ_FAILED, 502, headers=headers)
@@ -105,7 +90,6 @@ async def _record(make_record: RecordFactory, observation: Observation, request_
 async def _verified_head(
     relay: SseRelay | StreamRelay, iterator: AsyncIterator[bytes], missing_start_reason: str
 ) -> list[bytes]:
-    """Reads until the relay has checked the served model; what it may forward by then."""
     head: list[bytes] = []
     while not relay.verified:
         try:
@@ -131,7 +115,6 @@ async def _relayed_body(
     request_id: str,
     make_record: RecordFactory,
 ) -> AsyncIterator[bytes]:
-    """The verified head, then the rest as it arrives with keep-alives; recorded whatever ends the stream."""
     pending: asyncio.Future[Any] | None = None
     upstream_ended = False
     try:

@@ -1,22 +1,4 @@
-"""Is this alert one the platform already analyses? Dedup by key and occurrence.
-
-An *occurrence* is one firing of one alert: ``(alert fingerprint, startsAt)`` as Alertmanager and Grafana send
-it (``NormalizedAlert.occurrences``). The *dedup key* is ``sha256(service, group fingerprint)``: one open run per
-key. Decided per webhook, under the webhook's row lock, against the newest events of the webhook:
-
-* **same_occurrence**: one of the alert's occurrences is already on an event whose run is open (a queued run
-  whose workflow run does not exist yet counts as open) → grouped with that run. After the run ended the same
-  occurrence is still grouped, never re-analysed, unless the severity rose: then it reopens.
-* **recurrence**: a new occurrence of the same alert (same key, or a shared alert fingerprint) while the run is
-  open → grouped, the new occurrences recorded on that run.
-* **reopen**: a new occurrence after the run ended, within the target's ``reopen_window_minutes`` → a new run
-  that names the one it reopens.
-* **new**: anything else.
-
-``escalated`` is recorded when the alert's severity ranks above every delivery already linked to that run;
-it is not acted on yet. Sources without occurrences (Datadog, PagerDuty, Sentry, generic, polled changes) keep the
-time grouping in ``admission``.
-"""
+"""Is this alert one the platform already analyses?"""
 
 from __future__ import annotations
 
@@ -57,7 +39,6 @@ Pair = tuple[str, str]
 
 
 def dedup_key(service: str, fingerprint: str) -> str:
-    """64 hex: one open run per ``(service, fingerprint)``."""
     return hashlib.sha256(json.dumps([str(service or ""), str(fingerprint or "")]).encode()).hexdigest()
 
 
@@ -91,7 +72,6 @@ class DedupDecision:
 
 
 def occurrences_of(alert: NormalizedAlert) -> tuple[Pair, ...]:
-    """The alert's ``(fingerprint, startsAt)`` pairs; ``()`` for sources without occurrences."""
     if alert.source_type not in OCCURRENCE_SOURCE_TYPES:
         return ()
     pairs: list[Pair] = []
@@ -115,8 +95,6 @@ def rank(severity: str | None) -> int:
 
 @dataclass
 class _Thread:
-    """The deliveries tied to one run (or to one started event whose run is not queued yet)."""
-
     task_run_id: str | None
     newest: datetime
     pairs: set[Pair] = field(default_factory=set)
@@ -149,7 +127,6 @@ def _run_dedup(run: TaskRun | None) -> dict:
 
 async def _candidates(db: AsyncSession, webhook: Webhook, fingerprint: str, key: str
                       ) -> list[tuple[WebhookEvent, TaskRun | None]]:
-    """The newest events with the same fingerprint, the same key (from the run's input) and the newest overall."""
     base = (
         select(WebhookEvent, TaskRun)
         .outerjoin(TaskRun, TaskRun.id == WebhookEvent.task_run_id)

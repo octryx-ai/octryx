@@ -21,8 +21,6 @@ from ._office_generated_base import _GeneratedOfficeScriptToolBase
 
 @dataclass(frozen=True)
 class GeneratedOutput:
-    """Where a generated script writes and which template it starts from (none when no template resolves)."""
-
     resolved: Path
     template_resolved: Path | None
     template_entry: dict[str, Any] | None
@@ -36,7 +34,6 @@ async def prepare_generated_output(
     template_path: str,
     doc_type: str,
 ) -> tuple[dict[str, Any] | None, GeneratedOutput | None]:
-    """``(refusal, None)`` for a template path outside the allowed roots, else ``(None, output)``."""
     refusal = _template_path_refusal(context, template_path)
     if refusal:
         return refusal, None
@@ -66,7 +63,6 @@ async def run_generated_script(
     script_content: str,
     details: dict[str, Any],
 ) -> dict[str, Any]:
-    """Write and run the script, then describe the built document; ``details`` sit between paths and checks."""
     resolved = output.resolved
     template_resolved = output.template_resolved
     script_path = tool._write_script(resolved, script_content)

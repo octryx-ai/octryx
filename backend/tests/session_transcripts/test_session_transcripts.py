@@ -1,13 +1,4 @@
-"""Full session transcripts per Workspace switch.
-
-- off (the default): the launcher learns it from the client policy and a batch it sends anyway is answered ``off``
-  and stored nowhere;
-- on: an admin switches it (audited); batches of the main transcript and of a subagent are stored once, a batch
-  sent again is acknowledged without a second copy;
-- secrets never reach the store, file contents do;
-- only Workspace admins/owners and the session's owner list and read, every read page is audited;
-- the purge removes what is older than the Workspace's retention, objects included.
-"""
+"""Full session transcripts per Workspace switch."""
 
 # ruff: noqa: F811  (the shared ``artifact_dir`` fixture is imported, then requested by name)
 from __future__ import annotations

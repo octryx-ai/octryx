@@ -1,23 +1,4 @@
-"""ServiceNow incidents and changes into the Workspace's work items, modelled on the Jira intake.
-
-- **Config:** one ``WorkItemSyncConfig`` (``source_type`` ``servicenow``) per Workspace (``config.py``), saved by
-  a Workspace admin or owner and audited.
-- **Preview:** a dry run with counts and the first 10 records, recorded as a ``dry_run`` sync run.
-- **Sync:** creates or updates work items, deduplicated by ``sys_id`` (``source_id``; the number is the
-  ``source_key``): title, description, priority, assignment group, assignee, opened at, the ``nav_to`` link,
-  and the mapped work state. A state set by an applied platform transition is never regressed by a sync. The
-  item's own ``source_fields_json`` entries (e.g. ``platform_notes``) are kept; ServiceNow's live under
-  ``servicenow``.
-- **Closing:** a listed record in a closed state, a record closed since the last successful sync (Table API,
-  ``changed_since``), or (only when the listing is complete) an item whose record left the open set, moves to
-  ``done`` with a state event and the record's state as ``source_status``. A closed record without an item is
-  not imported. With a record limit (``source.effective_limit``: groups and/or services) only items inside it
-  can leave the open set: an item outside it (reassigned, or listed before the limit, or stored without the
-  limited field) is out of scope and stays as it is. Closed records of a Scripted REST listing are looked up
-  in one query per chunk, not one per record (the listing pages the whole endpoint).
-- **Schedule:** every 15 minutes by default (``manual`` turns it off); a deterministic
-  ``secure_work_servicenow_sync`` task runs the sync on the intake's schedule preset.
-"""
+"""ServiceNow incidents and changes into the Workspace's work items."""
 
 from __future__ import annotations
 
@@ -63,8 +44,6 @@ async def get_intake(db: AsyncSession, project_id: str) -> WorkItemSyncConfig | 
 async def put_intake(
     db: AsyncSession, *, project_id: str, payload: Mapping[str, Any], user: User, activate_new: bool = True
 ) -> WorkItemSyncConfig:
-    """Save the Workspace's intake; a new one is active unless ``activate_new`` is off (the setup drawer enables it
-    only after a preview, ``intake/setup.py``)."""
     intake = normalize_intake(payload)
     row = await get_intake(db, project_id)
     # One of the Workspace's ServiceNow connections; without one in the payload the stored one is kept.
@@ -89,6 +68,7 @@ async def put_intake(
     await db.flush()
     await _schedule(db, row, intake, user)
     db.add(AuditLog(user_id=user.id, action=CONFIG_AUDIT_ACTION, resource_type="work_item_sync_config",
+                    project_id=row.project_id,
                     resource_id=row.id, details={"project_id": project_id, "tables": intake["tables"],
                                                  "connection_id": row.connection_id,
                                                  "schedule": intake["schedule"]["preset"]}))
@@ -98,9 +78,6 @@ async def put_intake(
 
 async def limit_scope(db: AsyncSession, project_id: str, intake: Mapping[str, Any],
                       row: WorkItemSyncConfig | None = None) -> dict[str, Any]:
-    """For the intake card, per limited field (``assignment_group_scope``, ``service_scope``): the connector's
-    list, the intake's and the effective one (``None`` with ``code`` when an override is outside the connector's
-    limit), plus the connector's ``filter_mode``; empty lists mean no condition."""
     config = (await intake_connection_config(db, row, SOURCE_TYPE) if row is not None else None) \
         or await connector_config(db, project_id)
     connector = describe(record_limit(config))
@@ -139,14 +116,11 @@ async def _schedule(db: AsyncSession, row: WorkItemSyncConfig, intake: Mapping[s
 
 
 async def reschedule(db: AsyncSession, row: WorkItemSyncConfig, user: User) -> None:
-    """Apply the stored schedule (and the intake's active state) to its scheduler."""
     await _schedule(db, row, intake_of(row), user)
 
 
 async def run_intake(db: AsyncSession, *, row: WorkItemSyncConfig, user: User, dry_run: bool,
                      trigger: str = TRIGGER_MANUAL) -> dict[str, Any]:
-    """Preview (``dry_run``) or sync the intake on the shared pipeline (``intake/pipeline``); the recorded run.
-    Raises ``IntakeSourceError``."""
     return await pipeline.run_intake(db, source=RECORDS, row=row, user=user, dry_run=dry_run, trigger=trigger)
 
 

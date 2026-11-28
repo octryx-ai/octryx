@@ -1,9 +1,4 @@
-"""CI per-test reports read from each provider ("Canonical test ids").
-
-GitHub's JUnit artifacts run end to end in the device rehearsal (``test_workflow_live_rehearsal_b_device``); here the
-GitLab ``test_report`` and the Bitbucket Cloud Pipelines step reports are read in the provider's shapes, and the CI
-status read records them as a test run keyed canonically.
-"""
+"""CI per-test reports read from each provider ("Canonical test ids")."""
 
 from __future__ import annotations
 
@@ -81,7 +76,6 @@ def test_only_bounded_junit_files_of_an_artifact_are_read():
 
 @pytest.mark.asyncio
 async def test_a_bitbucket_step_without_a_test_report_contributes_none_and_other_refusals_raise(monkeypatch):
-    """Bitbucket Cloud answers 404 on ``test_cases`` of a step that reported no tests."""
     from app.tools.bitbucket_impl._bitbucket_cloud import CloudApiError
 
     failure = {"status": 404}
@@ -106,7 +100,7 @@ async def test_a_bitbucket_step_without_a_test_report_contributes_none_and_other
 async def test_an_unreadable_test_report_never_hides_the_bitbucket_build_state(db, monkeypatch):
     from app.tools.bitbucket_impl._bitbucket_cloud import CloudApiError
     from app.tools.bitbucket_impl._bitbucket_delivery import GetBitbucketBuildStatuses
-    from tests.test_bitbucket_cloud_tools import HEAD, _context
+    from tests.tools.bitbucket_impl.test_bitbucket_cloud_tools import HEAD, _context
 
     async def statuses(_context, workspace, slug, commit):
         return [{"state": "SUCCESSFUL", "url": "https://bitbucket.org/acme/payments/pipelines/results/6",

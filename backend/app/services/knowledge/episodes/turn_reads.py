@@ -18,7 +18,6 @@ MAX_PREVIOUS_SPANS = 200
 
 
 async def _finished_turn(db: AsyncSession, session_id: str) -> tuple[Message, Message] | None:
-    """The last user message and the final assistant answer after it, or ``None``."""
     question = (
         (
             await db.execute(

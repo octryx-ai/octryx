@@ -1,33 +1,5 @@
-"""Compare one Workspace's governed ledger references with its object inventory.
-
-Report-only by construction: this module writes PostgreSQL governance rows and never calls
-a deleting operation; no product path deletes a Knowledge object.
-
-Two ordering rules make the comparison conservative rather than eager:
-
-1. **Inventory first, ledger second.** A revision committed while the pages are being
-   listed is then included in the reference set, so a freshly referenced object is reported
-   as referenced. The reverse order would report it as unreferenced.
-2. **Age eligibility is decided here and persisted per finding.** An object younger than
-   the policy's ``min_object_age_hours`` is recorded as an observation but marked
-   ineligible. The instant it is measured against is timezone-aware —
-   :func:`~app.time_utils.utc_now_aware` by default, and an injected clock must be aware too,
-   because an offset-naive value would decide the age bound on an inferred zone. It is
-   normalised to the naive-UTC persistence convention exactly once.
-
-A new run supersedes every earlier ``observed`` finding of the same Workspace, in the same
-transaction that writes the new ones, and that transaction holds the Workspace's governance
-boundary (``governance_lock.py``), so only the newest run's findings describe the bucket.
-
-Bounds: the inventory is read in at most :data:`MAX_INVENTORY_PAGES` pages of at most
-``MAX_INVENTORY_PAGE_KEYS`` keys. Reaching the bound sets ``inventory_truncated``, so a
-partial view is visible as partial instead of being mistaken for "the whole Workspace".
-
-Nothing about the bucket, endpoint, credential or object key is returned: a report carries
-counts, finding ids, sizes and ages only.
-
-The write side of a run (run row, findings, supersession) lives in ``reconcile_record``.
-"""
+"""Compare one Workspace's governed ledger references with its object inventory. Report-only: inventory first, then the
+ledger. A legal hold skips the Workspace, a live retention hold its object."""
 
 from __future__ import annotations
 
@@ -60,8 +32,9 @@ from .errors import (
     RetentionUnavailableError,
 )
 from .failures import failure_token
+from .holds import held_object_keys
 from .policy import load_retention_policy, normalize_operator
-from .reconcile_record import ReconciliationReport, _record_failed_run, _record_run
+from .reconcile_record import ReconciliationReport, _record_failed_run, _record_legal_hold_run, _record_run
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +42,6 @@ MAX_INVENTORY_PAGES = 20
 
 
 def workspace_of(project_id: object) -> WorkspaceId:
-    """The Workspace identity of a project id, or an explicit invalid-request state."""
     try:
         return WorkspaceId.parse(project_id)
     except KnowledgeRetrievalError:
@@ -79,7 +51,6 @@ def workspace_of(project_id: object) -> WorkspaceId:
 
 
 async def require_workspace(db: AsyncSession, project_id: object) -> WorkspaceId:
-    """Parse and confirm the Workspace exists; unknown is ``not_found``."""
     workspace = workspace_of(project_id)
     row = (await db.execute(select(Project.id).where(Project.id == workspace.canonical))).scalar_one_or_none()
     if row is None:
@@ -95,7 +66,6 @@ async def reconcile_workspace(
     requested_by: str,
     now: datetime | None = None,
 ) -> ReconciliationReport:
-    """Record one report-only reconciliation run for exactly one Workspace."""
     if type(maintenance) is not KnowledgeObjectMaintenance:
         raise RetentionContractError()
     workspace = await require_workspace(db, project_id)
@@ -110,6 +80,10 @@ async def reconcile_workspace(
     observed_at = moment.astimezone(UTC).replace(tzinfo=None)
     policy = await load_retention_policy(db, workspace.canonical)
     started_at = utc_now()
+    if policy.legal_hold:
+        return await _record_legal_hold_run(
+            db, project_id=workspace.canonical, policy=policy, operator=operator, started_at=started_at
+        )
 
     failed: tuple[RetentionError, str] | None = None
     inventory: tuple[InventoryObject, ...] = ()
@@ -133,7 +107,10 @@ async def reconcile_workspace(
         # context: its traceback references the signed request that produced it.
         raise state
 
-    referenced = await _referenced_keys(db, workspace.canonical)
+    # A held key belongs to the pass that holds it: never a finding of this one.
+    referenced = await _referenced_keys(db, workspace.canonical) | await held_object_keys(
+        db, project_id=workspace.canonical, now=observed_at
+    )
     return await _record_run(
         db,
         workspace=workspace,
@@ -148,8 +125,19 @@ async def reconcile_workspace(
     )
 
 
+async def record_failed_run(db: AsyncSession, *, project_id: str, requested_by: str, failure: str) -> None:
+    workspace = await require_workspace(db, project_id)
+    await _record_failed_run(
+        db,
+        project_id=workspace.canonical,
+        policy=await load_retention_policy(db, workspace.canonical),
+        operator=normalize_operator(requested_by),
+        started_at=utc_now(),
+        failure=failure,
+    )
+
+
 def _mapped_failure(error: KnowledgeObjectError) -> RetentionError:
-    """Map an object-boundary failure onto this slice's states, retaining nothing."""
     if isinstance(error, KnowledgeObjectNotConfiguredError):
         return RetentionNotConfiguredError()
     if isinstance(error, KnowledgeObjectUnauthorizedError):
@@ -162,7 +150,6 @@ def _mapped_failure(error: KnowledgeObjectError) -> RetentionError:
 async def _inventory(
     maintenance: KnowledgeObjectMaintenance, workspace: WorkspaceId
 ) -> tuple[tuple[InventoryObject, ...], int, bool]:
-    """Read the Workspace's inventory in bounded pages: objects, unrecognized, truncated."""
     objects: list[InventoryObject] = []
     unrecognized = 0
     after_key: str | None = None
@@ -184,11 +171,7 @@ async def _inventory(
 
 
 async def _referenced_keys(db: AsyncSession, project_id: str) -> set[str]:
-    """Every object key this Workspace's committed revisions point at, whatever bucket they recorded.
-
-    The configured bucket is the only one read (``objects/store.py``), so each committed revision's key counts
-    as referenced regardless of the bucket the revision recorded.
-    """
+    # Only the configured bucket is read, so a committed revision's key counts whatever bucket it recorded.
     rows = await db.execute(
         select(KnowledgeSourceRevision.object_key).where(KnowledgeSourceRevision.project_id == project_id)
     )

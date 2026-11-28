@@ -1,12 +1,4 @@
-"""Service-inventory board: the complete "what runs on AWS" view.
-
-The architecture overview deliberately aggregates high-cardinality services
-(25 queues become one icon) to stay readable. This board is the complement:
-one card per resource type with the TRUE total from the full snapshot
-(``service_summary.node_counts_by_type``) and a bounded list of real resource
-names from the diagram brief ("orders, payments, ... +19 more"). Counts and
-names are evidence; nothing is invented.
-"""
+"""Service-inventory board: the complete "what runs on AWS" view."""
 
 from __future__ import annotations
 
@@ -81,7 +73,6 @@ def build_inventory_cards(
     topology_result: dict[str, Any],
     selected_nodes: list[dict[str, Any]],
 ) -> list[dict[str, Any]]:
-    """One card per resource type: true total + bounded example names."""
     summary = topology_result.get("service_summary") if isinstance(topology_result, dict) else {}
     summary = summary if isinstance(summary, dict) else {}
     counts = summary.get("node_counts_by_type")

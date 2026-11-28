@@ -1,9 +1,4 @@
-"""The launcher side of a workflow confirmation, for contract tests: hook key and signed proofs.
-
-It mirrors what octryx-claude's supervisor and PreToolUse hook do. The key exists only in the test
-(as it exists only in the supervisor's memory), and a proof is the HMAC of the closed confirmation
-message.
-"""
+"""The launcher side of a workflow confirmation, for contract tests: hook key and signed proofs."""
 
 from __future__ import annotations
 
@@ -49,7 +44,6 @@ def decide_hook_input(
     key: bytes, *, session_key: str, run_id: str, tool_input: dict, tool_use_id: str = "toolu_decide_1",
     nonce: str | None = None,
 ) -> dict:
-    """The PreToolUse input of a ``workflow_decide`` call with the launcher's ``decide`` proof over the run id."""
     from app.services.agent_gateway.decision_confirmation import WORKFLOW_DECIDE_HOOK_TOOL
 
     nonce = nonce or secrets.token_hex(16)

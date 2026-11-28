@@ -1,26 +1,4 @@
-"""Whether an alert starts the webhook's Action, and why not.
-
-Decided in this order, every outcome recorded on the event (never dropped silently):
-
-1. **Needs setup**: the webhook has no Action, or the Action is paused, belongs to another
-   Workspace, does not run an agent turn, declares no workflow (``capability_class``) or has no
-   instruction. Nothing guesses a workflow: the alert waits with the reason.
-1b. **Target**: an Action that opts in (``workflow_run.alert_target == "required"``) starts only
-   for an alert that maps to exactly one of the Workspace's alert targets (``targets``); unmapped, ambiguous
-   or an invalid target list is "needs setup" with the reason. Without the opt-in nothing is mapped and the
-   alert is decided.
-2. **Filter**: ``critical_warning`` (default) starts firing alerts of severity critical or warning
-   (an alert without a severity counts as warning); ``all_firing`` starts every firing alert; ``all``
-   starts resolved ones too. Otherwise ``skipped_resolved`` / ``skipped_filtered``.
-3. **Repeat grouping**: for Alertmanager and Grafana (occurrence sources) the dedup of ``occurrence``:
-   the same occurrence or a recurrence while the run is open → ``grouped`` with that run; a new occurrence
-   shortly after it ended reopens (``started``). Other sources, and alerts without occurrences: the same
-   fingerprint started a run within ``group_window_minutes`` → ``grouped`` with that run.
-4. **Limit**: ``rate_limit_per_hour`` (1–1000, never unlimited) runs already started in the last hour →
-   ``skipped_rate_limit``.
-
-Test alerts are filtered like real ones but never grouped or limited.
-"""
+"""Whether an alert starts the webhook's Action, and why not."""
 
 from __future__ import annotations
 
@@ -89,7 +67,6 @@ class AlertDecision:
 
 
 def action_setup_gap(webhook: Webhook, task: Any | None) -> str | None:
-    """Why the webhook cannot start its Action, or ``None`` when it can."""
     if task is None:
         return SETUP_NO_ACTION
     if str(task.project_id or "") != str(webhook.project_id or ""):
@@ -107,14 +84,12 @@ def action_setup_gap(webhook: Webhook, task: Any | None) -> str | None:
 
 
 def target_required(task: Any | None) -> bool:
-    """The Action opts in to mapped targets: ``config.workflow_run.alert_target == "required"``."""
     config = task.config if task is not None and isinstance(task.config, dict) else {}
     run = config.get("workflow_run") if isinstance(config.get("workflow_run"), dict) else {}
     return run.get("alert_target") == TARGET_REQUIRED
 
 
 def passes_filter(alert_filter: str, alert: NormalizedAlert) -> str | None:
-    """``None`` when the alert passes, else the skip outcome."""
     mode = alert_filter if alert_filter in ALERT_FILTERS else "critical_warning"
     if alert.status == "resolved" and mode != "all":
         return OUTCOME_SKIPPED_RESOLVED
@@ -126,7 +101,6 @@ def passes_filter(alert_filter: str, alert: NormalizedAlert) -> str | None:
 async def _previous_in_window(
     db: AsyncSession, webhook: Webhook, alert: NormalizedAlert, *, now: datetime
 ) -> WebhookEvent | None:
-    """The last started event of the same fingerprint inside the webhook's group window, if it has one."""
     window = int(webhook.group_window_minutes or 0)
     if window <= 0:
         return None

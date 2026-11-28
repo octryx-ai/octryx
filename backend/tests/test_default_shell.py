@@ -1,6 +1,4 @@
-"""The default shell runs normal developer work also where confirmed tests are protected; strictness is the team's
-choice. `cd e2e/node && npm test` must not be refused and pause the run, and a heredoc into a test file is not
-refused with the generic text."""
+"""The default shell runs normal developer work also where confirmed tests are protected."""
 
 from app.services.agent_gateway.tool_check import REASON_ALLOWED_BY_DEFAULT
 from app.services.workflow_runs.octryx.hooks import test_prefixes as prefixes_of

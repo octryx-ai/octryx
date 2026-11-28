@@ -1,11 +1,4 @@
-"""Seeds of the communication-preference lines built from a user's personality settings.
-
-The only code copy of these texts; the catalog serves the published version. Every line is English;
-the model answers in the person's language.
-
-The language line follows the person's latest message; the personality language is the fallback. Otherwise a
-question asked in German gets an English answer whenever the personality pins "Respond exclusively in English.".
-"""
+"""Seeds of the communication-preference lines built from a user's personality settings."""
 
 from __future__ import annotations
 
@@ -21,16 +14,6 @@ SPECS: tuple[PromptKeySpec, ...] = (
         seed=(
             "Respond in the language of the person's latest message; when that message shows no clear language, "
             "respond in German."
-        ),
-        description="First line of the Communication Preferences section for this personality language.",
-    ),
-    PromptKeySpec(
-        key="personality.language.en",
-        area=AREA,
-        title="Answer language: en",
-        seed=(
-            "Respond in the language of the person's latest message; when that message shows no clear language, "
-            "respond in English."
         ),
         description="First line of the Communication Preferences section for this personality language.",
     ),

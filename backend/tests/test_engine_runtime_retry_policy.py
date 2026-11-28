@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.agent.engine.runtime._engine_runtime_retry_policy import (
+from app.agent.runtime.retry_policy import (
     build_runtime_retry_policy,
     plan_exception_retry,
     plan_timeout_retry,
@@ -90,7 +90,6 @@ def test_plan_exception_retry_retries_same_runtime_first_for_transient_errors() 
     assert exhausted.retry_decision == "fallback_next_runtime"
     assert exhausted.should_retry is False
 
-    # Timeouts keep fallback-first behavior when alternatives exist.
     timeout_plan = plan_exception_retry(
         error_class="timeout",
         has_additional_runtimes=True,
@@ -149,11 +148,5 @@ def test_plan_exception_retry_retries_malformed_response_without_fallbacks() -> 
 
 
 def test_build_runtime_retry_policy_requires_the_resolved_runtime_chain() -> None:
-    """The per-driver fallback default cannot be resolved without the chain.
-
-    Making ``runtimes`` required keeps a direct caller from silently receiving
-    the permissive mode for a governed model-gateway chain.
-    """
-
     with pytest.raises(TypeError):
         build_runtime_retry_policy({})  # type: ignore[call-arg]

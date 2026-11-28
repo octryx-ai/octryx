@@ -126,7 +126,7 @@ def test_pet_quiet_and_notifications_subcommands(state, capsys):
 
 
 def test_bootstrap_waits_for_the_bootout_and_retries_once(tmp_path):
-    """launchctl bootout returns before the service is unloaded; bootstrap right after fails with EIO."""
+    # launchctl bootout returns before the service is unloaded; bootstrap right after fails with EIO.
     calls, prints, bootstraps, sleeps = [], iter([0, 0, 113]), iter([5, 0]), []
 
     def runner(argv):

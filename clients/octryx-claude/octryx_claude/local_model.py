@@ -1,31 +1,5 @@
-"""A small local model on the person's Mac, run by octryx with llama.cpp.
-
-It is used only to measure a routing suggestion (``router``). The catalog (:data:`MODELS`) names each model with
-its licence:
-
-- **qwen3-1.7b** (default, :data:`ROUTER_MODEL`): ``Qwen/Qwen3-1.7B-GGUF`` Q8_0, **Apache-2.0**. Asked as a chat
-  with a few-shot prompt and first-token log probabilities (``router``); 95.8 % of 48 clear cases, 28 ms;
-- **d1-2b**: Liquid AI's decision model (``LiquidAI/d1-2B-GGUF``, LFM3 family), 100 %, 68 ms, but under the **LFM Open
-  License v1.0**: commercial use only for companies below USD 10M annual revenue. Never loaded by default: only on
-  the person's explicit choice after the licence notice (``device router on --model d1-2b --accept-licence``) and
-  only while the platform allows restricted licences (``local_models_permissive_only`` off).
-
-Safety (review request):
-
-- **only on this machine:** ``llama-server`` listens on ``127.0.0.1`` on a free port chosen at start, never on another
-  interface;
-- **only octryx:** every start gets a fresh random API key that lives only in this process's memory and reaches the
-  server through its environment (``LLAMA_API_KEY``), never its command line (``ps`` shows that to every user).
-  Another local program or a web page (DNS rebinding) without the key gets 401;
-- **only the expected model:** the file is pinned to one revision of its repository and its SHA-256
-  (each catalog entry's ``sha256``); octryx downloads it itself (or reuses Hugging Face's cache of exactly that
-  revision) and starts llama.cpp only on a verified file (``-m``, never ``-hf``), review;
-- **only while needed:** started on the first question, stopped after :data:`IDLE_SECONDS` without one and when the
-  device service stops;
-- **off until switched on** on the Mac: ``octryx-claude device router on``.
-
-llama.cpp comes from Homebrew (``brew install llama.cpp``, build b11960 or newer).
-"""
+"""A small local llama.cpp model on the person's Mac, used only to measure a routing suggestion.
+Loopback only, a per-start API key in the environment (argv shows in ``ps``), SHA-256-pinned model files."""
 
 from __future__ import annotations
 
@@ -112,8 +86,7 @@ def free_port() -> int:
 
 
 def server_command(binary: str, *, port: int, model_path: Path, chat: bool = False) -> list[str]:
-    """The key is not here: it goes in the environment (:func:`server_env`). ``chat``: the model's own chat template
-    (``--jinja``), which a chat-protocol model needs to switch thinking off."""
+    # The API key goes in the environment, never argv; --jinja lets a chat model switch thinking off.
     return [binary, "-m", str(model_path), "-b", "8192", "-ub", "8192", *(["--jinja"] if chat else []),
             "--host", HOST, "--port", str(port)]
 
@@ -134,7 +107,6 @@ def _sha256(path: Path) -> str:
 
 
 def _verified(path: Path, spec: ModelSpec) -> bool:
-    """The file is the pinned one; the check is remembered by size and modification time."""
     try:
         info = path.stat()
     except OSError:
@@ -154,7 +126,6 @@ def _verified(path: Path, spec: ModelSpec) -> bool:
 
 
 def model_path(models_dir: Path, *, home: Path | None = None, spec: ModelSpec = ROUTER_MODEL) -> Path | None:
-    """A verified copy of the pinned model: octryx's own, or Hugging Face's cache of exactly that revision."""
     own = models_dir / spec.file
     if _verified(own, spec):
         return own
@@ -168,7 +139,6 @@ def model_path(models_dir: Path, *, home: Path | None = None, spec: ModelSpec = 
 
 def download_model(models_dir: Path, *, progress: Callable[[int, int], None] | None = None,
                    client: Any = None, spec: ModelSpec = ROUTER_MODEL) -> Path:
-    """Download the pinned model, checking its SHA-256 while it streams; nothing unverified is kept."""
     models_dir.mkdir(parents=True, exist_ok=True)
     target, partial = models_dir / spec.file, models_dir / f"{spec.file}.part"
     digest, received = hashlib.sha256(), 0
@@ -243,7 +213,6 @@ class LocalModel:
         raise RuntimeError("llama_server_start_timeout")
 
     async def ask(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
-        """POST ``body`` to the local server (started on demand)."""
         async with self._lock:
             if not self.running:
                 await self._start()
@@ -269,13 +238,10 @@ class LocalModel:
 
 
 def chosen_model(device: dict[str, Any]) -> ModelSpec:
-    """The router model the person chose on this Mac (``device router on --model``), else the permissive default."""
     return MODELS.get(str(device.get("router_model") or ""), ROUTER_MODEL)
 
 
 def usable(spec: ModelSpec, device: dict[str, Any], *, permissive_only: bool) -> bool:
-    """A permissive model always; a restricted one only after the person accepted its licence on this Mac and while
-    the platform allows restricted licences."""
     if spec.permissive:
         return True
     return not permissive_only and device.get("router_licence_accepted") == spec.license.get("id")

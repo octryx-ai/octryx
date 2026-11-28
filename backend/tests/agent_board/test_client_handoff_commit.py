@@ -13,9 +13,6 @@ GIT = {"last_commits": ["abc123 Fix redirect"], "changed_files": ["src/app.py", 
        "excluded_files": [".env"]}
 
 
-# --- prepare ---------------------------------------------------------------------------------------------------
-
-
 @pytest.mark.asyncio
 async def test_prepare_resolves_the_items_to_hand_over(client, db, board):  # noqa: F811
     from tests.agent_board.support import agent, seed_item
@@ -24,8 +21,8 @@ async def test_prepare_resolves_the_items_to_hand_over(client, db, board):  # no
     other = await seed_item(db, board.ws, "BRD-7")
     bens = await seed_item(db, board.ws, "BRD-8")
     await db.commit()
-    await _claim(db, await agent(db, board.anna), other)  # Anna's MCP agent, not this session
-    await _claim(db, await agent(db, board.ben, grant_id="grant-ben"), bens)  # Ben's: never Anna's to hand over
+    await _claim(db, await agent(db, board.anna), other)
+    await _claim(db, await agent(db, board.ben, grant_id="grant-ben"), bens)
     await db.commit()
     headers = await _headers(db, board)
 
@@ -37,8 +34,8 @@ async def test_prepare_resolves_the_items_to_hand_over(client, db, board):  # no
     by_key, body = await keys({"key": "BRD-7"})
     assert by_key == ["BRD-7"]
     assert body["policy"] == {"push": "branch", "mode": "confirm", "auto_trigger_pct": 99.0}
-    assert (await keys({"all": True}))[0] == ["BRD-6", "BRD-7"]  # every item of the user's agents
-    assert (await keys({}))[0] == ["BRD-6"]  # the session's own claim
+    assert (await keys({"all": True}))[0] == ["BRD-6", "BRD-7"]
+    assert (await keys({}))[0] == ["BRD-6"]
     missing = await client.post(f"{BASE}/prepare", json={"key": "NOPE-1"}, headers=headers)
     assert missing.status_code == 404
     ben_headers = await _headers(db, board, board.ben, board.ben_key)
@@ -47,9 +44,6 @@ async def test_prepare_resolves_the_items_to_hand_over(client, db, board):  # no
     work_item_headers = {**ben_headers, "x-octryx-work-item": "BRD-7"}
     assert [item["key"] for item in (await client.post(f"{BASE}/prepare", json={},
                                                        headers=work_item_headers)).json()["items"]] == ["BRD-7"]
-
-
-# --- commit -----------------------------------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
@@ -70,7 +64,7 @@ async def test_commit_writes_the_handoff_with_the_work_state_and_requests_a_take
                                  headers=await _headers(db, board, board.ben, board.ben_key))).json()
 
     assert answer.status_code == 200, answer.text
-    assert body["handoff"]["version"] == 2 and body["takeover"] is None  # confirm mode: request + nudge
+    assert body["handoff"]["version"] == 2 and body["takeover"] is None
     handoff = sections["handoff"]["sections"]
     assert handoff["repo"] == repo and handoff["state"] == "agent wrote this"
     assert handoff["changed_files"] == GIT["changed_files"] and handoff["excluded_files"] == [".env"]
@@ -117,7 +111,6 @@ async def test_commit_to_a_named_user_creates_a_pending_takeover(client, db, boa
 
 @pytest.mark.asyncio
 async def test_commit_in_auto_mode_offers_and_the_offered_agent_takes_over_by_asking(client, db, board):  # noqa: F811
-    """On the /handoff and trigger paths: a request plus an offer, never an assignment."""
     from app.models import WorkItemClaim
 
     project = await db.get(Project, board.ws)
@@ -135,7 +128,6 @@ async def test_commit_in_auto_mode_offers_and_the_offered_agent_takes_over_by_as
 
     asked = await Pair.call(board, db, board.ben, "work_item_takeover_request", session_key=board.ben_key,
                             work_item_id=board.item.id)
-    # Anna is not at her limit, but she handed over herself: condition 1 holds once Ben asks.
     assert asked["takeover"]["status"] == "confirmed" and asked["takeover"]["decided_by"] == {"kind": "system"}
 
 

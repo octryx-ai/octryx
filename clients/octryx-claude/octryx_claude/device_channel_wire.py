@@ -60,7 +60,6 @@ RevocationCheck = Callable[[], str]
 
 
 class _WebsocketsConnection:
-    """``websockets`` behind the small ``Connection`` interface; a close becomes ``ChannelClosedError``."""
 
     def __init__(self, socket: Any) -> None:
         self.socket = socket
@@ -87,8 +86,7 @@ class _WebsocketsConnection:
 
 
 async def _handshake_message(connection: Any) -> dict[str, Any]:
-    """One handshake message. A platform too slow to answer within ``HANDSHAKE_TIMEOUT``, or an unreadable message,
-    is a closed channel like any other, so the loop reconnects (it ended the service)."""
+    # A slow or unreadable handshake is a closed channel, so the loop reconnects instead of ending the service.
     try:
         return json.loads(await asyncio.wait_for(connection.recv(), HANDSHAKE_TIMEOUT))
     except TimeoutError as exc:

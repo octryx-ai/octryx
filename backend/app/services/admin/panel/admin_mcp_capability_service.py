@@ -21,12 +21,6 @@ async def mirror_mcp_server_capabilities_for_workspace(
     actor_user_id: str | None = None,
     auto_connect: bool = True,
 ) -> dict[str, Any]:
-    """Mirror one connected server's tools into the workspace capability catalog.
-
-    Only the discovered public tool list is read. Server connection configuration
-    is never touched, so no environment, header, or OAuth material can be
-    persisted or returned.
-    """
     normalized_server = str(server_name or "").strip()
     normalized_workspace_id = str(workspace_id or "").strip()
     if not normalized_server:

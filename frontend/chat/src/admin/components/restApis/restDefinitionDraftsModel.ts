@@ -1,9 +1,6 @@
-// REST API model: adding and editing a definition (import, manual entry, CSRF, manual operations).
 import type { AuthScheme, OdataTemplate, RestDefinition, RestParameter } from "./restApisApi";
 import { definitionAuthFields } from "./restAuthModel";
 import { CSRF_HEADER } from "./restOdataModel";
-
-// ---- add a definition --------------------------------------------------------------------------------------------
 
 export type ImportDraft = { key: string; name: string; source: "text" | "url"; specText: string; specUrl: string };
 
@@ -25,8 +22,6 @@ export type ManualDraft = {
   tokenUrl: string;
   scopes: string;
   timeout: string;
-  // Backend: fetch a CSRF token before each write (auth.csrf.fetch), with its header (empty: x-csrf-token) and,
-  // only when the base URL sits above the service, the path the token is fetched from (empty: the base URL).
   csrf: boolean;
   csrfHeader?: string;
   csrfFetchPath?: string;
@@ -56,16 +51,11 @@ export function manualBody(draft: ManualDraft): Record<string, unknown> {
   };
 }
 
-/** The CSRF option as the server stores it: the header (default x-csrf-token) and a fetch path only when one is set. */
 export function csrfBody(draft: Pick<ManualDraft, "csrfHeader" | "csrfFetchPath">): Record<string, unknown> {
   const fetchPath = (draft.csrfFetchPath ?? "").trim();
   return { fetch: true, header: (draft.csrfHeader ?? "").trim() || CSRF_HEADER, ...(fetchPath ? { fetch_path: fetchPath } : {}) };
 }
 
-/**
- * The Details tab's editable part of an existing API: everything of the manual form except the key, plus the OData
- * template its collection reads use by default (backend; undefined when the definition carries none, then never sent).
- */
 export type DefinitionEditDraft = Omit<ManualDraft, "key"> & { defaultPreset?: OdataTemplate | "" };
 
 export function definitionEditDraft(
@@ -87,10 +77,7 @@ export function definitionEditDraft(
   };
 }
 
-/**
- * The definition PUT: name, servers, auth with only the scheme's fields, and the timeout. An unchanged scheme keeps
- * the import's source_scheme (the server replaces the whole auth block).
- */
+// An unchanged scheme keeps source_scheme: the server replaces the whole auth block.
 export function definitionEditBody(definition: Pick<RestDefinition, "auth">, draft: DefinitionEditDraft): Record<string, unknown> {
   const { defaultPreset, ...fields } = draft;
   const body = manualBody({ ...fields, key: "" });
@@ -108,7 +95,6 @@ export const schemeChanged = (definition: Pick<RestDefinition, "auth">, draft: P
 
 export type ManualOperationDraft = { opKey: string; method: string; path: string; summary: string; query: string };
 
-/** An operation entered by hand: path parameters come from {name} in the path, query parameters from a list. */
 export function manualOperationBody(draft: ManualOperationDraft): Record<string, unknown> {
   const path = draft.path.trim();
   const pathParams = [...path.matchAll(/\{([^}]+)\}/g)].map((match) => match[1]);

@@ -1,10 +1,4 @@
-"""The server-rendered ``/admin`` plugin and MCP pages.
-
-Admin-only: reloading, enabling or disabling a plugin changes what the whole
-platform runs, so every route requires the global admin role (``page_admin_guard.py``); the
-MCP server routes answer 410 for an admin (MCP servers are managed in the Workspace-scoped
-admin registry).
-"""
+"""The server-rendered ``/admin`` plugin and MCP pages (global admin only)."""
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -34,9 +28,9 @@ async def plugins_page(request: Request, db: AsyncSession = Depends(get_db)):
         plugins = []
 
     return templates.TemplateResponse(
+        request,
         "plugins.html",
         {
-            "request": request,
             "user": user,
             "plugins": plugins,
             "error": None,

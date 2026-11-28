@@ -1,13 +1,4 @@
-"""A run whose device cannot take its turn now waits ``waiting_for_device`` and goes on when the device can.
-
-When a device run's turn cannot start because the device is offline, paused or at its parallel-job limit
-(``octryx.continuation``: the refusal of ``devices.chat_turn.start_device_turn``), the run does not fail and does
-not run anywhere else: it waits with a card that names the device, the folder and what to do (start the device, or
-switch the run's runtime). The pending continuation stays; once the device's channel ticks again and the device can
-take a job (connected, not paused), :func:`resume_for_device` sets the run running and starts that same turn — the
-launcher prepares the folder first when the run is at ``workspace.prepare``. Nothing retries a turn by itself while
-the device cannot take it.
-"""
+"""A run whose device cannot take its turn now waits ``waiting_for_device`` and goes on when the device can."""
 
 from __future__ import annotations
 
@@ -22,8 +13,7 @@ from ..records import record_event
 from ..states import EVENT_RESUMED, EVENT_WAITING, STATUS_RUNNING, STATUS_WAITING, WAITING_DEVICE
 from .target import stored_target, target_label
 
-# A phase turn that failed on a temporary model service error waits briefly, then runs once more by itself
-# (``octryx.continuation``; otherwise "API Error: 503 no available server" paused a run for a person).
+# A phase turn that failed on a temporary model service error waits briefly, then runs once more by itself.
 REASON_MODEL_RETRY = "model_service_retry"
 # A phase turn the launcher refused because it could not reach the platform is offered once more after the same wait.
 REASON_PLATFORM_RETRY = "platform_retry"
@@ -57,9 +47,6 @@ def waiting_question(target: dict[str, Any] | None, reason: str) -> str:
 
 def wait_for_device(db: AsyncSession, run: WorkflowRun, *, node_id: str, reason: str,
                     thread_target: dict[str, Any] | None = None, retry_after: str | None = None) -> None:
-    """Hold the running run at ``node_id`` until the device can take the turn (one event per reason).
-    ``thread_target``: the thread's device target, for a run started without a runtime target. ``retry_after``
-    (ISO time): the device's channel resumes the run no earlier than that."""
     target = stored_target(run) or {**dict(thread_target or {}), "kind": "device"}
     state = dict(run.node_state or {})
     previous = dict(state.get("waiting") or {})
@@ -91,7 +78,6 @@ _REFUSED_WHAT_TO_DO = {
 
 def wait_refused(db: AsyncSession, run: WorkflowRun, *, node_id: str, reason: str,
                  thread_target: dict[str, Any] | None = None) -> None:
-    """Hold the run visibly when its device turn is refused for a reason waiting cannot fix."""
     target = stored_target(run) or {**dict(thread_target or {}), "kind": "device"}
     state = dict(run.node_state or {})
     what = _REFUSED_WHAT_TO_DO.get(reason, "Choose another place under 'Change where the run executes'")
@@ -123,7 +109,6 @@ def _not_yet(retry_after: Any) -> bool:
 
 
 async def resume_for_device(db: AsyncSession, device_id: str) -> list[str]:
-    """The device can take jobs again: every run waiting for it continues its pending turn; the run ids resumed."""
     from ....models.security.device import DEFAULT_MAX_PARALLEL_JOBS, UserDevice
     from ...devices.hub import device_hub
     from ...devices.jobs import counted_job_count
@@ -143,12 +128,12 @@ async def resume_for_device(db: AsyncSession, device_id: str) -> list[str]:
         if waiting.get("device_id") != device_id or waiting.get("refused"):
             continue  # a refused turn is not fixed by the device coming online: the person changes the runtime
         if _not_yet(waiting.get("retry_after")):
-            continue  # a retry after a temporary model service error waits its short backoff first
+            continue
         run = await lock_run(db, run)
         if run.status != STATUS_WAITING or run.waiting_kind != WAITING_DEVICE:
             continue
         leave_waiting(db, run, cause="device_available")
-        await continue_on_device(db, run)  # refused again: it waits again
+        await continue_on_device(db, run)
         resumed.append(run.id)
     return resumed
 

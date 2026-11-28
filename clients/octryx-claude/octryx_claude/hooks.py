@@ -1,48 +1,4 @@
-"""Claude Code hook commands of an octryx session.
-
-- ``pre-tool-use``: the platform decides (``POST /sessions/tool-check``). ``deny`` or
-  any failure to get an answer denies the tool call (fail closed: model calls need the
-  platform anyway). ``allow`` prints nothing, so Claude Code's normal permission flow
-  still applies; printing ``permissionDecision: allow`` would skip the user's prompt. Only an ``allow`` with the
-  platform's ``updated_input`` (a pytest run given ``-v``) prints it, with ``updatedInput`` (Claude Code only).
-  ``ask`` (a governed ``workflow_confirm``, for example) returns
-  ``permissionDecision: ask``, so the user confirms in Claude Code's own prompt. For
-  ``workflow_confirm`` the hook first gets a confirmation proof from the supervisor's
-  signer (fail closed without it) and passes the platform's one-time
-  ``confirmation_ticket`` into the MCP call through ``updatedInput``. A run decision
-  (``workflow_decide``) goes the same way with a ``decide`` proof bound to the run id; its prompt
-  text is the platform's exact decision payload. In a run phase, a test run the platform allowed runs outside Claude
-  Code's sandbox (``updatedInput``: the launcher's ``test-run`` wrapper, ``local_tests``) so the app can be reached
-  and the device's Chrome can start; PostToolUse reports it unwrapped.
-- ``stop`` (Stop and SubagentStop): the "done means verified" gate
-  (``POST /sessions/verification``; Claude Code's own compaction helper is never posted,
-  ``is_internal_subagent``). ``blocked`` returns ``decision: block`` with the platform's instruction,
-  also when ``stop_hook_active`` is true, because the platform is the authority. To avoid an endless loop the hook
-  allows the stop after ``STOP_BLOCK_CAP`` consecutive blocks of one continuation chain and says so in a
-  ``systemMessage``; a chain starts again when Claude Code reports
-  ``stop_hook_active: false``. ``needs_configuration`` and an unreachable platform
-  allow the stop with a ``systemMessage`` (the user is never trapped).
-- ``post-tool-use`` (PostToolUse and PostToolUseFailure, every tool): reports that the
-  tool actually ran (``POST /sessions/tool-executed``) so the verification gate can
-  tell a failed test from one refused before execution, and a workflow phase can count
-  Claude Code's own reads (Read, Grep, Glob, LS) inside the repository as read evidence:
-  the hook input goes unchanged, the platform derives what was read from it; a run's declared test command adds
-  the JUnit report it wrote in that call (``test_report``).
-  Observational: prints nothing, never blocks, always exits 0.
-- ``session-end``: posts the redacted digest to ``/sessions/finalize``; always exits 0.
-- a session bound to a **workflow run** (S10, ``run_contract``): PreToolUse and Stop also send the launcher's facts
-  (confirmed test digests; at Stop the change), every answer's run contract is remembered, a changed contract
-  reaches the model once (PostToolUse ``additionalContext``) and the user (``systemMessage``), and the prompt hook
-  asks the platform for the current contract (``POST /sessions/prompt``; a session started for a Work item without
-  a run gets the first prompt's workflow proposal there) and names a pending decision and where it is taken. The
-  platform decides everything; the hooks only relay.
-- ``stop-failure`` (seat only) and the seat steps of ``stop`` and ``user-prompt-submit``: ``seat_hooks``.
-- a session whose phase decides on the device (``local_decisions``, epic-delivery): PreToolUse
-  decides the hard-deny list itself and asks the platform only what it cannot decide; PostToolUse and the local
-  denials go into a spool the job manager uploads in batches (``POST /sessions/tool-audit``), and Stop uploads the rest
-  before the platform's verification. Most of these calls never reach this module: ``octryx_claude_entry`` answers
-  them before the CLI is imported.
-"""
+"""Claude Code hook commands of an octryx session; any failure to get the platform's answer fails closed."""
 
 from __future__ import annotations
 
@@ -92,7 +48,6 @@ _STOP_EVENTS = {"Stop", "SubagentStop"}
 
 def _upload_screens(state: LocalState, context: SessionContext, http: httpx.Client,
                     hook_input: dict[str, Any]) -> None:
-    """The system tests' screenshots of a changing pass, for the independent review (best effort)."""
     if str(hook_input.get("hook_event_name") or "") != "Stop":
         return
     try:
@@ -108,8 +63,6 @@ def _upload_screens(state: LocalState, context: SessionContext, http: httpx.Clie
 
 
 def _audit_upload(state: LocalState, context: SessionContext, http: httpx.Client, *, timeout: float):
-    """The upload of a session's spooled audit events (``local_decisions.drain``); the answer's run contract is
-    remembered, so a pause or a wait reaches the next tool call's local decision."""
     def post(body: dict[str, Any]) -> dict[str, Any] | None:
         result = call_control_plane(state, context, "POST", "/sessions/tool-audit", http=http, timeout=timeout,
                                     body=body, retry=True)
@@ -123,7 +76,6 @@ def _audit_upload(state: LocalState, context: SessionContext, http: httpx.Client
 
 def drain_audit(state: LocalState, context: SessionContext, http: httpx.Client, *,
                 timeout: float = VERIFICATION_TIMEOUT) -> None:
-    """Every spooled event to the platform before it judges the session (Stop); best effort."""
     try:
         folder = state.session_dir(context.session_key)
         # A session the platform decides for still spools the launcher's own denials (``_local_deny``).
@@ -135,11 +87,10 @@ def drain_audit(state: LocalState, context: SessionContext, http: httpx.Client, 
 
 DEFER_STOP_ENV = "OCTRYX_DEFER_STOP"
 DEFERRED_STOP_FILE = "deferred_stop.json"
+# What the platform said about the replayed Stop (Codex turns read it: the hook's output alone does not say).
+STOP_VERDICT_FILE = "stop_verdict.json"
 def _defer_stop(state: LocalState, context: SessionContext, hook_input: dict[str, Any]) -> bool:
-    """A plain story session (``claude -p``, epic-delivery) keeps working after a Stop while its background subagents
-    run: their notifications wake it again in the same process, so a Stop is not the phase's end while the process
-    lives. The main session's Stop is only remembered here; the job manager replays the last one once the process has
-    ended (``plain_driver``), so the platform judges the phase exactly once, after every subagent has finished."""
+    # Background subagents wake a plain session after a Stop; the job manager replays the last one at process end.
     if os.environ.get(DEFER_STOP_ENV) != "1" or str(hook_input.get("hook_event_name") or "") != "Stop":
         return False
     write_private_json(state.session_dir(context.session_key) / DEFERRED_STOP_FILE, hook_input)
@@ -148,8 +99,6 @@ def _defer_stop(state: LocalState, context: SessionContext, hook_input: dict[str
 
 def _stop_body(state: LocalState, context: SessionContext, http: httpx.Client,
                hook_input: dict[str, Any]) -> dict[str, Any]:
-    """The verification request: the hook input with the run's facts, the mobile summary, whether the folder has
-    tests at all and this launcher's capabilities; the spooled audit is drained first."""
     body = _with_facts(state, context, hook_input, with_diff=True)
     hook_timings.mark("facts")
     _upload_screens(state, context, http, hook_input)
@@ -178,8 +127,6 @@ def _stop_body(state: LocalState, context: SessionContext, http: httpx.Client,
 
 def _with_board_hints(state: LocalState, context: SessionContext, output: dict[str, Any] | None,
                       result: PlatformResult, *, notice: str, headless: bool) -> dict[str, Any] | None:
-    """The unread board reminder and the handoff nudge, each remembered per session; a headless run hears them as a
-    notice and is never blocked by them."""
     if can_read_board(state):  # never point the agent at a board its grant cannot read
         reminder_path = state.session_dir(context.session_key) / "board_reminder.json"
         reminded = read_json(reminder_path).get("count")
@@ -233,6 +180,9 @@ def run_stop(state: LocalState, http: httpx.Client) -> int:
             stop_hook_active=bool(hook_input.get("stop_hook_active")),
             prior_blocks=int(counters.get(key) or 0),
         )
+        write_private_json(state.session_dir(context.session_key) / STOP_VERDICT_FILE, {
+            "outcome": result.outcome, "state": result.state, "blocked": (output or {}).get("decision") == "block",
+            "session_id": hook_input.get("session_id"), "turn_id": hook_input.get("turn_id")})
         if result.outcome == "ok" and result.state == STATE_NEXT_PHASE and output is not None:
             # The next phase's compact contract goes with its prompt: no UserPromptSubmit runs inside the turn.
             brief = phase_brief(state, context.session_key, remembered)

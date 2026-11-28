@@ -1,10 +1,4 @@
-"""What the run's pipeline needs, for the independent reviewer.
-
-Without it, a review asks to remove the environment file's virtualenv and browser setup that the pipeline's
-system tests need, judging environment lines without knowing what the declared commands require. So the
-reviewer gets the environment file the pipeline ran (its audit on the run: file, app folder, declared commands)
-and the rule that the setup those commands need is the run's environment, not scope.
-"""
+"""What the run's pipeline needs, for the independent reviewer."""
 
 from __future__ import annotations
 
@@ -22,8 +16,6 @@ PIPELINE_NEEDS_RULE = (
 
 
 def declared(run: Any, root: Path | None) -> str:
-    """The environment file the last pipeline pass ran (its declared commands from the audit, the file's content when
-    the working copy has it); ``""`` without an environment-file pipeline."""
     pipeline = dict(dict(run.context or {}).get("pipeline") or {})
     audit = dict(pipeline.get("audit") or {})
     if audit.get("source") != "environment_file" or not audit.get("file"):

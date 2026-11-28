@@ -1,10 +1,4 @@
-"""Access-token mint/verify for the platform OAuth authorization server.
-
-Access tokens are self-contained JWTs validated in-process by the MCP
-resource server; no introspection endpoint is required. The audience claim
-carries the resource indicator (RFC 8707) so tokens cannot be replayed
-against other services.
-"""
+"""Access-token mint/verify for the platform OAuth authorization server."""
 
 from __future__ import annotations
 
@@ -25,7 +19,6 @@ def _settings():
 
 
 def hash_token(raw: str) -> str:
-    """SHA256 lookup hash for opaque tokens (codes, refresh tokens)."""
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
@@ -73,7 +66,6 @@ def verify_access_token(token: str, *, audience: str = DEFAULT_RESOURCE_AUDIENCE
 
 
 def verify_access_token_for_audiences(token: str, *, audiences: set[str]) -> dict[str, Any] | None:
-    """Validate signature/issuer/expiry, then require aud in the explicit set."""
     settings = _settings()
     try:
         claims = jwt.decode(

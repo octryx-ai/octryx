@@ -8,11 +8,9 @@ from app.models import Session, TurnTrace, WorkflowRun, WorkflowRunSession
 from app.services.workflow_runs.platform import repo_ref
 from tests.phased_workflow_fixtures import admin_user
 
-# --- the models of the run -----------------------------------------------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_the_trailer_names_every_model_the_run_used(db):
-    """The trailer names the models that ran (the coordinator's plan on Sonnet), not only the run's target Haiku."""
     admin = await admin_user(db)
     run = WorkflowRun(title="x", workflow_kind="phased", workflow_key="team-delivery", status="running",
                       requested_by=admin.id, ticket_key="CHEF-2",
@@ -33,11 +31,7 @@ async def test_the_trailer_names_every_model_the_run_used(db):
     assert repo_ref.ai_trailers(run, None, []) == "AI-Generated-By-octryx: claude-haiku-5-5\nOctryx-Run: CHEF-2"
 
 
-# --- a command that collected nothing ------------------------------------------------------------------------------
-
 def test_a_pytest_command_that_collected_nothing_is_no_tests():
-    """A story without ``tests/system`` (exit 4) or without unit tests (exit 5) is not red (nothing to fail and
-    pause on). Other exit codes and other runners stay as they are."""
     from app.services.workflow_runs.pipeline_results import _no_tests
 
     system = ".venv/bin/python -m pytest -v tests/system"

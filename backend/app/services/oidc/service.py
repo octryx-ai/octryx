@@ -134,8 +134,6 @@ async def _provider_claims(
     provider_client_secret: ProviderSecretLookup,
     decode_id_token_claims: IdTokenClaimsDecoder,
 ) -> tuple[dict[str, Any], str, str, dict[str, Any]]:
-    """Exchange the code, validate the ID token and fetch userinfo: (token response, access token, raw ID token,
-    merged claims)."""
     config = await discover_provider_configuration(provider)
     endpoints = resolve_provider_endpoints(provider, config, require_token_userinfo=True)
 

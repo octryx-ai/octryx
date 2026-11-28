@@ -1,26 +1,15 @@
-"""Four-eyes publish for every workflow that runs in phases (the same rule as for fragments).
-
-A phased workflow version (a plain graph, a compiled composite or a fragment) is published by an admin other than
-its author. The author asks for it (``POST /api/v1/flows/versions/{id}/request-review``): the version stays a draft
-and its ``publish_metadata.review`` says ``awaiting_approval``; a second admin publishes it, which approves it. The
-author publishing their own version is refused (409) — unless the platform approval rule is ``single_admin`` or
-the development exception applies (``governance.four_eyes``); such a self-approval is audited in the publish
-transaction.
-
-Exempt is only what the platform ships: a version the seeders wrote whose definition is still exactly the shipped
-seed (its ``seed_digest``; moved boxes do not count), and the seeders' and fixtures' own publishes (``shipped``).
-The API never sets a seed marker (``routes/flow_definitions`` strips it), so no author can exempt their own graph.
-A schema 2.0 DAG flow graph is not a phased workflow and publishes without the four-eyes step.
-"""
+"""Four-eyes publish for every workflow that runs in phases (the same rule as for fragments). A phased version is
+published by an admin other than its author."""
 
 from __future__ import annotations
 
 from typing import Any
 
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..models import FlowDefinitionVersion, User
+from ..models import FlowDefinition, FlowDefinitionVersion, User
 from ..time_utils import utc_now
 
 REVIEW_KEY = "review"
@@ -37,7 +26,6 @@ def _definition(version: FlowDefinitionVersion) -> dict[str, Any]:
 
 
 def is_shipped_seed(version: FlowDefinitionVersion) -> bool:
-    """The seeders wrote this version and its graph is still exactly the shipped one."""
     from .workflow_runs.canvas_layout import LAYOUT_KEY
     from .workflow_runs.fragments.store import is_fragment, is_seeded_fragment
     from .workflow_runs.seeding import SEED_MARKER, definition_digest
@@ -54,7 +42,6 @@ def is_shipped_seed(version: FlowDefinitionVersion) -> bool:
 
 
 def needs_four_eyes(version: FlowDefinitionVersion) -> bool:
-    """A phased workflow or fragment version that is not shipped content."""
     from .workflow_runs.fragments.store import is_fragment
     from .workflow_runs.graph import is_phased_definition
 
@@ -80,10 +67,7 @@ def _refusal(version: FlowDefinitionVersion) -> HTTPException:
 async def require_publish_four_eyes(
     db: AsyncSession, version: FlowDefinitionVersion, current_user: User, *, shipped: bool = False
 ) -> dict[str, Any]:
-    """Refuse the author's own publish (409) unless the approval rule allows it; the metadata to record.
-
-    Returns the ``publish_metadata`` keys the publish writes (after any caller-supplied metadata, so a request
-    body never sets its own approval); empty when no four-eyes applies."""
+    # The approval keys are written after caller metadata, so a request body never sets its own approval.
     if shipped or not needs_four_eyes(version):
         return {}
     from .governance.four_eyes import decide_four_eyes, record_self_approval_audit
@@ -91,8 +75,9 @@ async def require_publish_four_eyes(
     decision = await decide_four_eyes(db, version.created_by, current_user.id, authors=[version.created_by])
     if not decision.approved:
         raise _refusal(version)
+    project_id = await db.scalar(select(FlowDefinition.project_id).where(FlowDefinition.id == version.flow_id))
     record_self_approval_audit(db, decision, resource_type="flow_definition_version", resource_id=version.id,
-                               approval_id=version.id)
+                               approval_id=version.id, project_id=project_id)
     review = dict(dict(version.publish_metadata or {}).get(REVIEW_KEY) or {})
     review.update(state=REVIEW_APPROVED, approved_by=current_user.id, approved_at=utc_now().isoformat(),
                   approval_mode=decision.approval_mode)
@@ -100,8 +85,6 @@ async def require_publish_four_eyes(
 
 
 async def publish_permission(db: AsyncSession, version: FlowDefinitionVersion, user_id: str) -> dict[str, Any]:
-    """Whether ``user_id`` may publish this version under four eyes, with the reason the designer shows
-    (``can_publish``, ``publish_reason``). Only four eyes is decided here; the draft's own state is the UI's."""
     if not needs_four_eyes(version):
         return {"can_publish": True, "publish_reason": ""}
     from .governance.four_eyes import decide_four_eyes
@@ -114,7 +97,6 @@ async def publish_permission(db: AsyncSession, version: FlowDefinitionVersion, u
 
 
 async def request_review(db: AsyncSession, *, version_id: str, current_user: User) -> dict[str, Any]:
-    """The author asks a second admin to publish their draft: ``publish_metadata.review`` is awaiting approval."""
     from .flow_definitions import get_flow_definition, validate_flow_definition
     from .flow_version_state import FlowVersionStateError, load_flow_version, load_version_flow
 
@@ -146,6 +128,7 @@ async def request_review(db: AsyncSession, *, version_id: str, current_user: Use
 
         db.add(AuditLog(user_id=current_user.id, action="flow_version_review_requested",
                         resource_type="flow_definition_version", resource_id=version.id,
+                        project_id=flow.project_id,
                         details={"flow_id": flow.id, "version": version.version}))
         await db.flush()
     return await get_flow_definition(db, flow_id=flow.id)

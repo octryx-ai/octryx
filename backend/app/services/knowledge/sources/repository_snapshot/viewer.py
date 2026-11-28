@@ -1,19 +1,4 @@
-"""The platform source viewer for a repository file at a commit (the non-host citation target).
-
-A repository file without a faithful host link is cited as
-``<origin>/api/v1/workspaces/<ws>/knowledge/repositories/<key>/blob/<commit>/<path>?blob=<sha>``.
-That covers a dirty or unpushed local snapshot and any host that is not a known one. This module
-answers such a link for a reader of the Workspace from the ledger: the cited revision and its spans
-(redacted text).
-
-- **With ``blob``**: the path's recorded blob (``knowledge_code_file_blobs``), current or
-  superseded. A link to an older commit keeps opening exactly the content it cited.
-- **Without ``blob``**: the path's current row, if ``commit`` is a commit the
-  row recorded (indexed at, or last seen at).
-  - Otherwise: :class:`BlobSuperseded`, naming the current commit. The index keeps blobs, not
-    trees, so a bare commit it no longer resolves is said so and never guessed.
-  - An unknown source or path, or an unknown blob: ``None`` (404).
-"""
+"""The platform source viewer for a repository file at a commit (the non-host citation target)."""
 
 from __future__ import annotations
 

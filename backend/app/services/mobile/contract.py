@@ -1,26 +1,20 @@
-"""The fixed vocabulary of Octryx Mobile pairing and phone logins.
-
-Every refusal is a fixed reason code from this module; free text never reaches a client.
-"""
+"""The fixed vocabulary of Octryx Mobile pairing and phone logins."""
 
 from __future__ import annotations
 
 from datetime import timedelta
 
-# The QR code's one-time code: 128 bits, scannable for two minutes; after a scan the Mac has three minutes to
-# confirm; the confirmed pairing's claim (the Home Screen app's first start) lives 15 minutes.
+# Short lifetimes bound the QR code's scan window, the Mac's confirmation and the first-start claim.
 CODE_BYTES = 16
 CODE_TTL = timedelta(minutes=2)
 CONFIRM_TTL = timedelta(minutes=3)
 CLAIM_TTL = timedelta(minutes=15)
 SECRET_BYTES = 32
-# The claim is short enough to type when iOS does not hand it to the Home Screen app: 8 Crockford base32
-# characters (40 bits), shown as XXXX-XXXX. It exists only after the Mac's confirmation, lives 15 minutes, is
-# redeemed once and failed claims are rate-limited per address, so guessing it is out of reach.
+# Short enough to type when iOS does not hand it over; 40 bits suffice because it exists only after confirmation,
+# lives 15 minutes, is redeemed once and failed claims are rate-limited per address.
 CLAIM_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ"
 CLAIM_LENGTH = 8
-# The phone's web access token: short, so a revoked phone is cut off from every surface within minutes (the
-# authenticated API and the chat API check the phone on every request, see ``session``).
+# Short, so a revoked phone is cut off within minutes (the APIs check the phone on every request, see ``session``).
 ACCESS_TOKEN_TTL = timedelta(minutes=5)
 ACCESS_CLAIM = "msid"  # == services.auth.service.PHONE_SESSION_CLAIM
 
@@ -50,7 +44,6 @@ REASON_TOO_MANY = "mobile_pairing_limit"
 PAIRING_LIMIT = 5
 PAIRING_LIMIT_WINDOW = timedelta(minutes=10)
 
-# Rate-limit scopes (``auth_rate_limit``): failed scans, claims and phone sessions per client address.
 RATE_SCOPE_PAIRING = "mobile.pairing"
 RATE_SCOPE_CLAIM = "mobile.claim"
 RATE_SCOPE_SESSION = "mobile.session"

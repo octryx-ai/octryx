@@ -1,16 +1,4 @@
-"""The Workspace handoff policy, ``agent_gateway_policy.handoff``.
-
-``{mode: "confirm" | "auto", auto_threshold_pct, require_spare_pct, allowed_requesters: "members" |
-"admins_and_owners", push: "branch" | "bundle_only" | "off", auto_trigger_pct}`` (``push`` and
-``auto_trigger_pct``: how the client's WIP branch travels and when it hands over by itself).
-
-``confirm`` (the default): a person confirms every takeover in the UI. ``auto`` lets
-the server confirm a takeover itself when every condition of ``agent_board/auto_takeover.py`` holds.
-
-Missing fields take their defaults; anything else that is not exactly one of the allowed values is refused with
-a fixed reason and path (``AgentGatewayPolicyError`` in ``policy.py``). A Workspace whose stored policy cannot be
-read gets the default, so an unreadable policy never hands anything over by itself.
-"""
+"""The Workspace handoff policy, ``agent_gateway_policy.handoff``: keys, defaults and validation."""
 
 from __future__ import annotations
 
@@ -47,7 +35,7 @@ class HandoffPolicy:
     auto_threshold_pct: float = 90.0
     require_spare_pct: float = 50.0
     allowed_requesters: str = REQUESTERS_MEMBERS
-    # Freeze 3c: how the client's WIP branch travels, and the use at which the client hands over by itself.
+    # How the client's WIP branch travels, and the use at which the client hands over by itself.
     push: str = PUSH_BRANCH
     auto_trigger_pct: float = 99.0
     # How long an offer waits for the offered agent's request before it moves to the next candidate.
@@ -79,7 +67,6 @@ def _push(value: Any, path: str) -> str:
 
 
 def normalize_handoff_policy(value: Any, path: str) -> dict[str, Any]:
-    """The validated section for storage, all fields filled; raises ``HandoffPolicyError``."""
     if not isinstance(value, dict):
         raise HandoffPolicyError("not_an_object", path)
     unknown = sorted(set(value) - _FIELDS)
@@ -108,7 +95,6 @@ def normalize_handoff_policy(value: Any, path: str) -> dict[str, Any]:
 
 
 def handoff_policy_from_config(config: Any) -> tuple[HandoffPolicy, str]:
-    """``(policy, source)``: the Workspace's stored section (``workspace``) or the default (``default``)."""
     stored = config.get("agent_gateway_policy") if isinstance(config, dict) else None
     section = stored.get(HANDOFF_POLICY_KEY) if isinstance(stored, dict) else None
     if section is None:

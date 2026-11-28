@@ -1,14 +1,5 @@
-"""The runtime options a chat turn may select: the automatic chain plus every ready target.
-
-Turn preparation (``services/session``) and the chat UI read this one list. A Workspace with
-``runtime_assignment_mode=selected_only`` sees only its bound targets and no automatic entry; a
-provider that is inactive is dropped, one that is not ready is listed as disabled with its reason.
-
-The automatic entry names the model the turn will actually start on: the Workspace default, else the first target
-of the platform order, that the model resolver's gates admit (``model_selection.gates``: enabled in the Model
-catalog, provider on, allowed in the Workspace including its ``model_policy`` alias grant, cleared for its data class)
-on a ready provider. A target those gates refuse is listed as disabled, naming the reason.
-"""
+"""The runtime options a chat turn may select: the automatic chain plus every ready target. A ``selected_only``
+Workspace sees only its bound targets and no automatic entry."""
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -45,7 +36,6 @@ def runtime_not_ready_reason(provider: LLMProvider) -> str:
 
 
 async def catalog_display_name(db: AsyncSession, provider_id: str, model_id: str) -> str:
-    """The Model catalog display name; the provider model id only when no row names it."""
     name = (
         await db.execute(
             select(LLMModel.display_name).where(LLMModel.provider_id == provider_id, LLMModel.model_id == model_id)
@@ -89,7 +79,7 @@ async def _selection_scope(db: AsyncSession, workspace_execution_view: dict | No
 
 
 def _gate_reason(snapshot: SelectionSnapshot, scope: WorkspaceScope, target: ControlPlaneRuntimeTarget) -> str:
-    """Why the resolver's gates refuse the target's model here, or ``""`` (a target without a catalog row passes)."""
+    # A target without a catalog row passes.
     model = snapshot.for_target(target.id)
     return gate(model, scope) if model is not None else ""
 

@@ -170,7 +170,8 @@ export function WorkspacePrimaryContent(props: WorkspacePrimaryContentProps) {
   return (
     <>
       <FeedBanners error={error} showResumeNotice={showResumeNotice} selectedSession={selectedSession} chatState={chatState} />
-      <WorkflowRunBanner sessionId={selectedSession?.id}
+      <WorkflowRunBanner sessionId={selectedSession?.id} chatTitle={selectedSession?.title}
+        chatTitleSource={selectedSession?.titleSource}
         refreshKey={runRefreshKey(chatState, Boolean(selectedSessionIsRunning))} />
       {chatState?.selectedMessagesHasMore ? (
         <LoadOlderMessages loading={loadingOlderMessages} onLoad={handleLoadOlderMessages} />

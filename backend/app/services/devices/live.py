@@ -1,24 +1,4 @@
-"""Octryx Mobile "live": the owner talks to Claude Code sessions running on their own device.
-
-The device service (``octryx-claude device live on``, off by default) reports the sessions it sees and relays the
-owner's texts to their inboxes (``clients/octryx-claude/octryx_claude/live_bridge.py``). Here:
-
-- **from the device** (channel messages, :func:`handle_device_message`): ``live_sessions`` replaces the device's
-  snapshot; ``live_incoming`` stores what a session answered; ``live_delivery`` settles an outgoing message.
-- **to the device** (:func:`deliver_pending`, every channel tick): pending outgoing messages go out as
-  ``live_send``; one the device has not settled after :data:`SENT_TIMEOUT` is ``failed`` (``no_answer``).
-- **pictures** (screenshots from the phone): at most :data:`MAX_IMAGES` PNG, JPEG or
-  WebP pictures of at most :data:`MAX_IMAGE_BYTES` each ride with a message (checked by their bytes, not their name).
-  They go to the device as ``live_attachment`` chunks before the ``live_send``, and are deleted as soon as the device
-  settles the message; the device keeps them in its own state folder (0600) and gives the session the path.
-- **the owner** (:func:`queue_message`, :func:`overview`, :func:`conversation`): only the device's owner, only
-  to a session the device lists right now and reported within :data:`FRESH_FOR`, at most :data:`MAX_TEXT`
-  characters, :data:`MAX_PER_MINUTE` per minute and :data:`MAX_OPEN` not yet settled per device. The routes
-  refuse API keys and bearer tokens: only the person's own web or phone login sends (a text to a session in
-  bypass mode can make it act on the machine).
-
-Nobody else reads either table: there is no admin route. Messages older than :data:`KEEP_DAYS` are deleted.
-"""
+"""Octryx Mobile "live": the owner talks to Claude Code sessions running on their own device."""
 
 from __future__ import annotations
 
@@ -58,8 +38,6 @@ def _session_folder(snapshot: DeviceLiveSnapshot | None, peer: str) -> tuple[str
 
 async def _dispatch_allowed(db: AsyncSession, device: UserDevice, *, user_id: str, peer: str,
                             snapshot: DeviceLiveSnapshot | None) -> str:
-    """The platform's kill switch and the device's pause stop live texts like every device run,
-    and each one is a recorded dispatch decision. ``""`` when it may go, else the refusal reason."""
     from ..decisions.devices import record_device_dispatch  # noqa: PLC0415
     from .dispatch_gate import DispatchDecision  # noqa: PLC0415
     from .platform_switch import device_runs_platform_enabled  # noqa: PLC0415
@@ -115,10 +93,6 @@ async def queue_message(db: AsyncSession, user: User, *, device_id: str, peer: s
 
 
 async def fork_session(db: AsyncSession, user: User, *, device_id: str, peer: str, message: Any) -> dict[str, str]:
-    """Continue a copy of a listed session from the phone (phase B): only the owner's device, only a
-    session listed right now and idle (a fork beside a working session would be a second writer in its folder), and
-    only one the device reported for take-over (the Mac's own opt-in per profile). The copy runs as a Mac chat whose
-    every write step asks first; the original keeps running untouched."""
     from .local_sessions import LocalSessionError, take_over  # noqa: PLC0415
 
     device = await _own_device(db, user, device_id)
@@ -148,7 +122,6 @@ def serialize_message(message: LiveMessage) -> dict[str, Any]:
 
 
 async def overview(db: AsyncSession, user: User) -> list[dict[str, Any]]:
-    """The owner's devices with live on: their running sessions, each with its last message."""
     rows = (await db.execute(select(DeviceLiveSnapshot, UserDevice).join(
         UserDevice, UserDevice.id == DeviceLiveSnapshot.device_id).where(
         DeviceLiveSnapshot.owner_user_id == user.id, UserDevice.owner_user_id == user.id,

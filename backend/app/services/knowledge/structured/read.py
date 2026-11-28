@@ -1,12 +1,5 @@
-"""Reading the structured graph for one reader: visibility, nodes and presented citations.
-
-Nothing is served on trust. A row is visible to a reader only when every revision it cites is
-the current, projected revision of a source the reader may see (``visible_source`` with the
-reader's principal keys) inside the authorized Workspace; this is the same rule
-``resolve_citations`` applies span by span, evaluated once per revision so a report over thousands
-of edges stays one query. The citations actually shown are then resolved span by span with
-``resolve_citations`` and presented like every Knowledge citation (``cite_as`` link, page or line).
-"""
+"""Reading the structured graph for one reader: visibility, nodes and presented citations. A row is visible only when
+every revision it cites is visible."""
 
 from __future__ import annotations
 
@@ -44,7 +37,6 @@ def cites_of(raw: object) -> list[Cite]:
 
 
 async def visible_revisions(db: AsyncSession, authorized: AuthorizedWorkspace, revision_ids: set[str]) -> set[str]:
-    """The cited revisions this reader may see: current, projected, and admitted by the source ACL."""
     project_id = authorized.project_id
     wanted, visible = sorted(revision_ids), set()
     for start in range(0, len(wanted), CHUNK):
@@ -78,7 +70,6 @@ class NodeView:
 async def visible_nodes(
     db: AsyncSession, authorized: AuthorizedWorkspace, node_ids: set[str], *, visible: set[str] | None = None
 ) -> dict[str, NodeView]:
-    """Each node as its first visible statement says it (by revision, then span)."""
     rows: list[Any] = []
     wanted = sorted(node_ids)
     for start in range(0, len(wanted), CHUNK):
@@ -109,7 +100,6 @@ async def visible_nodes(
 
 
 def present(resolved: ResolvedCitation, line: int | None = None) -> dict[str, Any]:
-    """A citation as the explorer and the tools show it; a file line opens exactly that line."""
     if line is not None:
         base = (resolved.source_url or "").split("#", 1)[0] or None
         resolved = dataclasses.replace(resolved, source_url=line_link(base, line, line), line_start=line, line_end=line)
@@ -130,7 +120,6 @@ def present(resolved: ResolvedCitation, line: int | None = None) -> dict[str, An
 async def presented_citations(
     db: AsyncSession, authorized: AuthorizedWorkspace, cites: list[Cite]
 ) -> dict[Cite, dict[str, Any]]:
-    """Resolve and present citations for this reader; a citation that does not resolve is absent."""
     keys = {cite: derive_evidence_key(cite[0], cite[1]) for cite in cites}
     resolved = await resolve_citations(
         db, authorized.project_id, tuple(sorted(set(keys.values()))), principal_keys=authorized.principal_keys

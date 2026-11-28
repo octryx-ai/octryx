@@ -1,15 +1,4 @@
-"""Per-client brute-force limiter for the authentication endpoints.
-
-The login routes also limit failed logins per username (``rate_limit_login_failures_per_username``
-per window, default 10/min), so a password guess spread across many addresses meets a limit too. The key is a
-hash of the normalized username, never the name itself.
-
-The bucket identity comes from the validated trusted-proxy boundary. The
-set of live keys is bounded by ``rate_limit_state_policy`` under exactly
-the same policy and the same configured bound as the API limiter: a failure
-window that can no longer count anything is evicted, and a hard bound caps the
-retained key count however many distinct addresses arrive.
-"""
+"""Per-client brute-force limiter for the authentication endpoints."""
 
 from __future__ import annotations
 
@@ -47,7 +36,6 @@ class AuthRateLimitState:
 
 
 def _configured_key_capacity() -> int:
-    """The configured per-store key bound, read from current settings."""
     return get_settings().max_rate_limit_keys
 
 
@@ -64,10 +52,6 @@ _LOCK = Lock()
 
 
 def _client_ip(request: Request) -> str:
-    """Effective client address, resolved at the trusted-proxy boundary.
-
-    A forwarded header from an untrusted peer cannot move the brute-force bucket.
-    """
     return rate_limit_client_key(request)
 
 
@@ -104,11 +88,6 @@ def _build_auth_rate_limit_state(
 
 
 def _evaluate_auth_rate_limit(scope: str, request: Request, *, read_only: bool) -> AuthRateLimitState:
-    """Evaluate, and for a failure record, one client's auth attempt window.
-
-    A read-only evaluation never creates a key: an absent key is an empty window,
-    which is the same answer, and answering a read must not grow bounded state.
-    """
     now = monotonic()
     key = _bucket_key(scope, request)
     with _LOCK:

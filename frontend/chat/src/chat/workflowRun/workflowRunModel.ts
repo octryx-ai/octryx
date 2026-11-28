@@ -18,12 +18,6 @@ export function runFragmentText(fragment: RunNodeFragment): string {
   return fragment.version ? `${fragment.key} v${fragment.version}` : fragment.key;
 }
 
-export function runSliceTexts(run: WorkflowRun): string[] {
-  return (run.slices ?? []).map(
-    (slice) => `Slice ${slice.title || slice.key} · ${slice.status} · iteration ${slice.iteration}`,
-  );
-}
-
 export function runLoopTexts(run: WorkflowRun): string[] {
   return run.loops
     .filter((loop) => loop.limit > 0)
@@ -46,9 +40,8 @@ type RunRefreshFacts = {
   selectedApprovals?: { id: string; status: string }[] | null;
 } | null | undefined;
 
-// When the run bar reloads its run (perf audit): on a new message, an approval that opens or closes,
-// and a turn that starts or ends. Not on the live activity line of a running turn: that changed the timeline
-// several times per turn and reloaded the run each time (4–5 calls per turn).
+// The run bar reloads on a new message, an approval change or a turn start/end; not on the live activity line,
+// which changed several times per turn and reloaded the run each time (perf audit).
 export function runRefreshKey(state: RunRefreshFacts, running: boolean): string {
   const messages = state?.selectedMessages ?? [];
   const pending = (state?.selectedApprovals ?? [])

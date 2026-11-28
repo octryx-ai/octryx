@@ -9,7 +9,6 @@ import { act, box, load, noop, render, text } from "./renderGuardHarness.mjs";
 const require = createRequire(import.meta.url);
 const byClass = (root, name) => root.findAll((node) => typeof node.type === "string"
   && typeof node.props?.className === "string" && node.props.className.split(" ").includes(name));
-const byTestId = (root, id) => root.findAll((node) => typeof node.type === "string" && node.props["data-testid"] === id);
 
 test("the open performance panel shows its summary, steps, attempts and code intelligence", async () => {
   const { MessagePerformancePanel } = load("chat/messageBubblePanels.tsx");
@@ -130,12 +129,11 @@ test("the Office sidecar shows type, mode, profile, path, summary and the draft 
   act(() => view.unmount());
 });
 
-test("the trace drawer shows the diff, the setup link, routing, checks and the tool events", async () => {
+test("the trace drawer shows the diff, routing, checks and the tool events", async () => {
   const { TraceDrawer } = load("chat/traceDrawer.tsx", {
     traceToolEventList: { ToolEventList: (p) => createElement("ul", { "data-testid": "events" }, p.events.length) },
     traceTurnDiffUi: { TraceTurnDiffSection: box("diff") }, traceWorkflowChecksPanel: { TraceWorkflowChecksPanel: box("checks") },
     traceWorkflowRoutingPanel: { TraceWorkflowRoutingPanel: box("routing") },
-    effectiveSetupModel: { effectiveSetupSessionHref: (id) => `/setup/${id}` },
   }, { document: { activeElement: null, addEventListener: noop, removeEventListener: noop } });
   const props = { open: true, events: [{ id: 1 }], sessionId: "s1", turnDiff: { a: 1 }, onClose: noop, canInspectSetup: true };
   const view = await render(TraceDrawer, props);
@@ -145,7 +143,6 @@ test("the trace drawer shows the diff, the setup link, routing, checks and the t
   assert.equal(drawer.props.role, "dialog");
   assert.equal(text(byClass(root, "trace-drawer__heading")[0]), "Last execution changesExecution trace");
   assert.deepEqual(byClass(root, "trace-drawer__section-title").map(text), ["Execution diff", "Tool events"]);
-  assert.equal(byTestId(root, "trace-effective-setup-link")[0].props.href, "/setup/s1");
   for (const id of ["diff", "routing", "checks", "events"]) assert.equal(root.findAllByProps({ "data-testid": id }).length, 1, id);
   await act(async () => view.update(createElement(TraceDrawer, { ...props, open: false, events: [], turnDiff: null, canInspectSetup: false })));
   assert.equal(root.findByType("aside").props["aria-hidden"], true);

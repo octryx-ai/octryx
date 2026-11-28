@@ -9,6 +9,9 @@ from app.models.runtime.secure_work import WorkItem
 from app.services.workflow_runs import epic_chain
 from tests.agent_definition_revision_fixtures import make_project
 from tests.phased_workflow_fixtures import admin_user
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 async def _epic(db):
@@ -52,7 +55,7 @@ async def test_the_spec_starts_the_first_story_and_each_story_the_next_on_its_br
     await db.flush()
     first = await epic_chain.continue_epic(db, spec, actor_id=None)
     assert first.work_item_id == s1.id and started[-1]["context"]["base_branch"] == "docs/OCX-90-spec"
-    assert started[-1]["workflow_key"] == "epic-delivery"  # the default
+    assert started[-1]["workflow_key"] == "epic-delivery"
     story1 = _finished(admin, project, s1, "epic-delivery")
     db.add(story1)
     await db.flush()
@@ -61,7 +64,7 @@ async def test_the_spec_starts_the_first_story_and_each_story_the_next_on_its_br
     story2 = _finished(admin, project, s2, "epic-delivery", branch="feature/OCX-92-s2")
     db.add(story2)
     await db.flush()
-    assert await epic_chain.continue_epic(db, story2, actor_id=None) is None  # the epic is through
+    assert await epic_chain.continue_epic(db, story2, actor_id=None) is None
     assert story2.context["epic_chain"]["state"] == "finished"
 
 
@@ -79,8 +82,6 @@ def _recording_start(project, admin, started):
 
 @pytest.mark.asyncio
 async def test_a_spec_that_chose_the_optional_team_delivery_builds_its_stories_with_it(db, monkeypatch):
-    """team-delivery ships as an optional workflow, so a spec run that chose it, and a story that ran it, start the
-    next story with team-delivery."""
     admin, project, epic, s1, s2 = await _epic(db)
     started = []
     monkeypatch.setattr("app.services.workflow_runs.records.start_run", _recording_start(project, admin, started))
@@ -99,7 +100,6 @@ async def test_a_spec_that_chose_the_optional_team_delivery_builds_its_stories_w
 
 @pytest.mark.asyncio
 async def test_a_spec_run_naming_no_story_workflow_starts_nothing_and_says_so(db, monkeypatch):
-    """A typo never builds the epic with the default without a word: the refusal is on the spec run."""
     admin, project, epic, _s1, _s2 = await _epic(db)
 
     async def never(*_a, **_k):
@@ -132,8 +132,6 @@ async def test_a_story_that_ends_otherwise_starts_nothing(db, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_the_next_story_really_starts_and_runs_its_first_node(db):
-    """A start inside a savepoint must not stop at the first platform action. A real start of a
-    published definition whose first node is a platform action runs on."""
     import copy
 
     from tests.phased_workflow_fixtures import PHASE, publish_phased
@@ -161,8 +159,6 @@ async def test_the_next_story_really_starts_and_runs_its_first_node(db):
 
 @pytest.mark.asyncio
 async def test_a_chained_storys_working_copy_takes_the_remote_branch(tmp_path):
-    """A copy started from master while the remote story branch started from the spec gets its push refused as
-    non-fast-forward. A chained story's copy takes the remote branch."""
     import subprocess
     from types import SimpleNamespace
 
@@ -187,13 +183,11 @@ async def test_a_chained_storys_working_copy_takes_the_remote_branch(tmp_path):
     run = SimpleNamespace(context={"base_branch": "docs/OCX-19-spec"})
     assert await start_from_adopted(run, str(copy), "feature/OCX-20-s1") == ""
     assert (copy / "SPEC.md").read_text() == "spec\n"
-    assert await start_from_adopted(SimpleNamespace(context={}), str(copy), "feature/OCX-20-s1") == ""  # unchained
+    assert await start_from_adopted(SimpleNamespace(context={}), str(copy), "feature/OCX-20-s1") == ""
 
 
 @pytest.mark.asyncio
 async def test_a_retried_push_of_a_commit_already_on_the_remote_counts_as_pushed(tmp_path):
-    """A retried push can find its commit already on the remote branch; "nothing to push" must not end the reviewed
-    story blocked. The run's own commit at the remote head is pushed; the bare base is not."""
     import subprocess
     from types import SimpleNamespace
 
@@ -223,7 +217,6 @@ async def test_a_retried_push_of_a_commit_already_on_the_remote_counts_as_pushed
 
 
 def test_the_platforms_commit_says_it_carries_ai_written_work():
-    """The story commit is made by the platform, so Claude Code's attribution never applies."""
     from types import SimpleNamespace
 
     from app.services.workflow_runs.platform.repo_ref import ai_trailers
@@ -235,9 +228,6 @@ def test_the_platforms_commit_says_it_carries_ai_written_work():
 
 @pytest.mark.asyncio
 async def test_a_restarted_chained_story_adopts_its_branch_holding_only_the_base_commits(db, tmp_path):
-    """An aborted run can have created the story branch from the spec branch; the spec commit then counts as foreign
-    because the prepare tool's base is the default branch, and a restart ends in branch_conflict. A chained story
-    measures its own commits against the story before it."""
     import subprocess
 
     from app.services.workflow_runs.platform.branch_adoption import existing_branch

@@ -1,20 +1,4 @@
-"""Where a search hit comes from, in the reader's words.
-
-A hit names its source document; the Search page also needs the system it was synced from (Confluence, Jira,
-ServiceNow, a Git repository, or an upload), the space or project it belongs to, and when Octryx AI received
-this version. All of it is read from stored lineage, never guessed from a title:
-
-- ``origin``: ``source_origins()`` (``sources/sync/source_origins.py``), the same lineage Knowledge → Documents uses.
-  ``kind`` is the connector's kind, or ``upload`` when no Source Sync item records the source.
-- ``container``: a Jira issue's project from its issue key (the item's ``external_id``); a Confluence page's space
-  only when its connector reads exactly one space (the page's own space is not stored per item); otherwise none.
-- ``changed_at``: when the hit's revision was registered: the date Octryx AI received the version.
-- ``origin.source_changed_at``: when the content changed at its source (Confluence ``version.when``, Jira
-  ``fields.updated``, ServiceNow ``sys_updated_on``), stored with the revision's origin; ``None`` for uploads and
-  when the source reported no date (the UI then shows ``changed_at``).
-
-Bounded: a few queries per Workspace of one result page, whatever the number of hits.
-"""
+"""Where a search hit comes from, in the reader's words. Read from stored lineage, never guessed from a title."""
 
 from __future__ import annotations
 
@@ -58,7 +42,6 @@ def _iso(value: datetime | None) -> str | None:
 
 
 async def _sync_items(db: AsyncSession, workspace_id: str, source_keys: set[str]) -> dict[str, object]:
-    """The Source Sync item and its connector's scope, by source key."""
     items = (
         await db.execute(
             select(
@@ -88,7 +71,6 @@ def _origin_entry(found: dict[str, object], item: object) -> dict[str, object]:
 async def _revision_dates(
     db: AsyncSession, workspace_id: str, revision_ids: set[str]
 ) -> tuple[dict[str, str | None], dict[str, str | None]]:
-    """When each revision was registered, and when its content changed at the source (when recorded)."""
     if not revision_ids:
         return {}, {}
     changed = dict(
@@ -136,7 +118,6 @@ async def _workspace_origins(
 
 
 async def hit_origins(db: AsyncSession, hits: Iterable[HitRef]) -> dict[HitRef, dict[str, object]]:
-    """``{(workspace_id, source_id, revision_id): {"origin", "container", "changed_at"}}`` for one result page."""
     refs = list(dict.fromkeys(hits))
     per_workspace: dict[str, tuple[set[str], set[str]]] = defaultdict(lambda: (set(), set()))
     for workspace_id, source_id, revision_id in refs:

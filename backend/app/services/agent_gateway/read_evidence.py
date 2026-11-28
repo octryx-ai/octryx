@@ -1,20 +1,4 @@
-"""Claude Code's own reads (Read, Grep, Glob, LS) as read evidence of a governed session.
-
-A workflow phase that asks "the code was read" names the platform's read tools (``read_workspace_file``,
-``grep_workspace``, ...). An octryx-claude session reads with Claude Code's native tools instead, on the device.
-Such a read counts only when the server recorded it, never because the model says so:
-
-1. the launcher's PostToolUse hook reported the call (``POST sessions/tool-executed``): the server derives the
-   read target from the hook payload's ``tool_input`` and ``cwd`` and records whether it lies inside the
-   session's bound repository root (:func:`read_target`, ``parameters["read_target"]``) — the path is computed
-   here, nothing the client labels is trusted;
-2. the execution outcome is the hook's ``succeeded`` (a failed or refused read is no evidence);
-3. the model gateway recorded the same ``tool_use`` in the proxied conversation (``block_index``): the model
-   really asked for it.
-
-Only then :func:`native_read_use` yields the platform read tool's name as a succeeded use. A read outside the
-root, without a bound root, without the hook or without the transcript row is recorded as not succeeded.
-"""
+"""Claude Code's own reads and plain shell reads as read evidence of a governed session."""
 
 from __future__ import annotations
 
@@ -27,6 +11,7 @@ from ..workflow_checks.library import ToolUse
 from .capability import bound_root, within_root
 from .contract import EXECUTION_OUTCOME_SUCCEEDED, TOOL_CALL_EXECUTED_KEY, TOOL_CALL_SOURCE_HOOK
 from .shell_read import shell_read
+from .stored_types import NativeReadTarget, ShellReadTarget
 from .tool_check import candidate_paths
 
 READ_TARGET_KEY = "read_target"
@@ -48,11 +33,7 @@ def _escapes(pattern: Any) -> bool:
     return text.startswith(("/", "~")) or ".." in text.split("/")
 
 
-def read_target(session: Session, hook_input: Mapping[str, Any]) -> dict[str, Any] | None:
-    """The server's view of one native read: the tool, whether it stays in the bound root, the relative path.
-
-    A plain shell read (``Bash``, both engines; ``shell_read``) is one too, with the platform read tool it stands
-    for (``read_tool``)."""
+def read_target(session: Session, hook_input: Mapping[str, Any]) -> NativeReadTarget | ShellReadTarget | None:
     tool = str(hook_input.get("tool_name") or "")
     if tool == SHELL_TOOL:
         tool_input = hook_input.get("tool_input") if isinstance(hook_input.get("tool_input"), Mapping) else {}
@@ -75,11 +56,6 @@ def read_target(session: Session, hook_input: Mapping[str, Any]) -> dict[str, An
 
 
 def native_read_use(row: ToolCall) -> ToolUse | None:
-    """The platform read tool use one recorded native read stands for; ``None`` for any other tool.
-
-    A plain shell read counts under the same three conditions: the hook's target says a plain read inside the root
-    (``read_tool``), the hook reported success, and the gateway recorded the call (``block_index``). The row's own
-    name is the model's (``Bash`` for Claude Code, ``exec_command``/``shell`` for Codex)."""
     tool = str(row.tool_name or "")
     parameters = row.parameters if isinstance(row.parameters, Mapping) else {}
     target = parameters.get(READ_TARGET_KEY) if isinstance(parameters.get(READ_TARGET_KEY), Mapping) else {}
@@ -89,6 +65,7 @@ def native_read_use(row: ToolCall) -> ToolUse | None:
         return None
     executed = parameters.get(TOOL_CALL_EXECUTED_KEY) if isinstance(parameters.get(TOOL_CALL_EXECUTED_KEY),
                                                                      Mapping) else {}
+    # Never the model's word: the hook reported success and the gateway recorded the call (``block_index``).
     succeeded = (
         executed.get("source") == TOOL_CALL_SOURCE_HOOK
         and executed.get("outcome") == EXECUTION_OUTCOME_SUCCEEDED
@@ -107,10 +84,6 @@ NATIVE_WEB_EVIDENCE = {"WebSearch": "web_search", "WebFetch": "web_fetch"}
 
 
 def native_web_use(row: ToolCall) -> ToolUse | None:
-    """The platform web tool use one recorded native web call stands for; ``None`` for any other tool.
-
-    Counts under the same conditions as a read, without a target: the launcher's PostToolUse hook reported success
-    and the gateway recorded the call in the proxied conversation (``block_index``)."""
     tool = str(row.tool_name or "")
     if tool not in NATIVE_WEB_EVIDENCE:
         return None

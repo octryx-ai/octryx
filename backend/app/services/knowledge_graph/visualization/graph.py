@@ -39,7 +39,6 @@ async def _focus_seeds(db: AsyncSession, focus_node_id: str, max_nodes: int) -> 
 async def _query_seeds(
     db: AsyncSession, query: str, project_ids: list[str] | None, node_types: list[str] | None, max_nodes: int
 ) -> tuple[set[str], list[str]]:
-    """``(seed ids, match ids)``: the real matches of the query plus their neighbourhood."""
     hits = await search_graph_nodes(
         db,
         query=query,

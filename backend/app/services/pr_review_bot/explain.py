@@ -1,18 +1,4 @@
-"""``@octryx explain``: an answer in the pull request, read only, as its own platform action.
-
-The command starts a run of the workflow ``pr-review-explain`` (``start_explain``); its one step
-``pr_review.explain`` checks the pull request out read-only (as the review does), asks one question of the governed
-reviewer model and answers in the thread the command was written in (or in the conversation):
-
-- the question: the command's words after ``explain``; in a finding's thread, the finding itself (its id, file, line
-  and text, from the last posted pass) when no words are given;
-- the context: the pull request's diff (of the finding's file when there is one), fenced as untrusted data like
-  every review input;
-- the model: the same choice as the review (``review.choice``) on the same seats: the team's, then the commenter's,
-  then the company route (``_on_seats``); its usage is recorded on the run like a review's.
-
-Nothing is changed and nothing is pushed. A failure is answered too ("could not explain: <reason>").
-"""
+"""``@octryx explain``: an answer in the pull request, read only, as its own platform action."""
 
 from __future__ import annotations
 
@@ -64,10 +50,6 @@ def task(question: str, finding: dict[str, Any] | None, diff: str, fence: str) -
 
 
 def _on_seats(choice: Any) -> Any:
-    """The review's seat order for an explain run too (a Workspace that admits no company
-    model would answer ``review_model_not_admitted``): the team's seats, then the commenter's
-    (``seat_choice.bot_seat_phases``), then the company route. A route the node, Workspace or installation names
-    still decides; a model outside the engine's family can only run on the company route."""
     import dataclasses
 
     from ..workflow_runs.review.choice import ROUTE_SEAT, SOURCE_RUN, model_family
@@ -78,7 +60,6 @@ def _on_seats(choice: Any) -> Any:
 
 
 async def _answer(db: AsyncSession, run: WorkflowRun, user: str) -> tuple[str, str]:
-    """``(answer, '')`` or ``('', why not)``, through the review's governed model choice."""
     from ..workflow_runs.review.attempts import _record_usage
     from ..workflow_runs.review.choice import review_choice
     from ..workflow_runs.review.model import ReviewModelUnavailableError, governed_review_model
@@ -130,7 +111,6 @@ async def explain(db: AsyncSession, run: WorkflowRun, params: dict[str, Any]) ->
 
 
 async def reply_in_pr(db: AsyncSession, run: WorkflowRun, event: Any, text: str) -> ToolOutcome:
-    """A reply in the command's thread (or the conversation), through the run's governed post tool."""
     from ..workflow_runs.platform.dispatch import dispatch_tool
     from ..workflow_runs.platform.repo_ref import parse_repository
     from .providers import POST_TOOLS, pr_key
@@ -149,7 +129,6 @@ async def reply_in_pr(db: AsyncSession, run: WorkflowRun, event: Any, text: str)
 
 async def start_explain(db: AsyncSession, project_id: str, pr: Any, event: Any, question: str,
                         finding: dict[str, Any] | None) -> str:
-    """Start the explain run (its first step answers at once); the run's id."""
     from ..workflow_runs.records import new_chat_session, start_run
     from .bot_user import ensure_review_bot_user
 

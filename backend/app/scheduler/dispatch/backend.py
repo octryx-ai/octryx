@@ -34,13 +34,6 @@ _NOT_RUNNABLE_MESSAGES = {
 
 
 class TaskNotRunnableError(ValueError):
-    """A manual/API run refused before anything is written; ``reason`` is ``not_found``, ``inactive`` or
-    ``workspace_required`` (state ``needs_configuration``: an Action without its Workspace).
-
-    A ``ValueError`` with the previous message, so callers that already handle it are unchanged;
-    the panel maps the typed reason instead of matching text.
-    """
-
     def __init__(self, task_id: str, reason: str) -> None:
         self.task_id = task_id
         self.reason = reason
@@ -50,8 +43,6 @@ class TaskNotRunnableError(ValueError):
 
 @dataclass(frozen=True)
 class QueueBackendDecision:
-    """Where a new queue entry goes: ``database`` or ``redis`` (an explicit, already-probed decision)."""
-
     backend: str
     redis_url: str | None
     last_error: str | None
@@ -123,7 +114,6 @@ class SchedulerDispatchBackendMixin:
                 await sync_pending(batch, redis_url=redis_url)
 
     async def _configured_redis_queue_urls(self, db) -> list[str]:
-        """The Workspaces' Redis queue URLs, read at most every ``REDIS_QUEUE_URLS_TTL_SECONDS``."""
         from sqlalchemy import select
 
         from ...models import WorkerPoolConfig
@@ -196,7 +186,6 @@ class SchedulerDispatchBackendMixin:
         started_by: str | None = None,
         run_input: dict | None = None,
     ) -> None:
-        """``started_by``/``run_input`` keep an alert-started run's identity and alert on its retry (V3 review)."""
         run_at = utc_now() + timedelta(seconds=max(0, int(delay_seconds)))
         identity = {"started_by": started_by, "run_input": run_input} if started_by or run_input else {}
         try:
@@ -279,14 +268,11 @@ class SchedulerDispatchBackendMixin:
             entry.estimated_wait_seconds = max(0, (offset + index) * avg_duration)
 
     async def _pool_config(self, db, task):
-        """The task project's worker-pool configuration (created with defaults on first use); an Action without its
-        Workspace has none and is refused typed (``workspace_required``) before anything is written."""
         if not task.project_id:
             raise TaskNotRunnableError(task.id, TASK_WORKSPACE_REQUIRED)
         return await get_or_create_worker_pool_config(db, task.project_id)
 
     async def _decide_queue_backend(self, pool_config) -> QueueBackendDecision:
-        """Which queue backend a new entry uses. May probe Redis: callers keep it outside row locks."""
         desired_backend = str(pool_config.queue_backend or "database").strip().lower()
         redis_url = str(pool_config.redis_url or "").strip() or None
         is_redis_available = redis_queue_service.is_redis_queue_available
@@ -310,7 +296,6 @@ class SchedulerDispatchBackendMixin:
         decision: QueueBackendDecision,
         run_input: dict | None = None,
     ):
-        """Insert the queued TaskRun and its queue entry in ``db``'s transaction: flush only, no commit, no I/O."""
         from ...models import TaskQueueEntry, TaskRun
 
         try:
@@ -380,8 +365,6 @@ class SchedulerDispatchBackendMixin:
         )
 
     async def _push_redis_entry_after_commit(self, task, task_run, queue_entry, decision: QueueBackendDecision) -> None:
-        """Mirror a committed entry to Redis. A failed push leaves a valid pending database row that
-        ``_sync_redis_queue_backend`` mirrors again when the scheduler next starts."""
         try:
             await self._push_redis_entry(task, task_run, queue_entry, decision.redis_url)
         except Exception as exc:  # noqa: BLE001 - the committed row stays authoritative
@@ -412,7 +395,6 @@ class SchedulerDispatchBackendMixin:
         allow_inactive: bool = False,
         run_input: dict | None = None,
     ) -> dict[str, object]:
-        """Manual and API runs: unchanged behaviour (one session; Redis push before commit)."""
         from sqlalchemy import select
 
         from ...models import Task
@@ -464,11 +446,7 @@ class SchedulerDispatchBackendMixin:
         )
 
     async def claim_queued_run(self, task_run_id: str) -> bool:
-        """Claim a queued DB-queue run for execution in this process; ``False`` when a dispatcher has it.
-
-        One conditional update per row, so with the platform worker's dispatcher in another process
-        exactly one of them starts the run (the dispatcher locks rows ``SKIP LOCKED``).
-        """
+        """Claim a queued DB-queue run for execution in this process; ``False`` when a dispatcher has it."""
         from sqlalchemy import update
 
         from ...models import TaskQueueEntry, TaskRun

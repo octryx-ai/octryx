@@ -79,7 +79,7 @@
 
 .admin-option-card__title {
   font-size: var(--ds-text-md);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--text);
 }
 
@@ -112,11 +112,11 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 0.25rem;
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
 }
 
 .admin-metric-card__value {
   font-size: var(--ds-text-2xl);
-  font-weight: 600;
+  font-weight: var(--ds-weight-strong);
   color: var(--highlight);
 }

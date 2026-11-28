@@ -1,9 +1,4 @@
-"""Project-scoped runtime cost limit overrides.
-
-A Workspace override is a number (``0`` turns the cap off for that Workspace) or absent,
-which inherits the platform value. A write changes only the caps it names: a value sets
-the override, ``INHERIT_COST_LIMIT`` removes it, and an unnamed cap keeps its state.
-"""
+"""Project-scoped runtime cost limit overrides."""
 
 from __future__ import annotations
 
@@ -76,7 +71,6 @@ async def set_project_cost_limit_overrides(
     project_id: str,
     updates: dict[str, Any],
 ) -> ProjectCostLimitOverrides:
-    """Apply ``updates`` (cap key -> value or ``INHERIT_COST_LIMIT``); caps not named stay unchanged."""
     normalized_project_id = str(project_id or "").strip()
     if not normalized_project_id:
         raise HTTPException(status_code=400, detail="project_id is required for project cost limit overrides")
@@ -114,11 +108,6 @@ async def set_project_cost_limit_overrides(
 
 
 def project_cost_limit_updates(payload: dict[str, Any]) -> dict[str, Any]:
-    """The override writes a runtime-settings payload asks for at Workspace scope.
-
-    A cap sent with a value sets it; a cap listed in ``inherit_cost_limits`` goes back to the
-    platform value; naming one cap both ways is refused.
-    """
     raw_inherit = payload.get(INHERIT_COST_LIMITS_FIELD) or []
     if not isinstance(raw_inherit, list):
         raise HTTPException(status_code=400, detail=f"{INHERIT_COST_LIMITS_FIELD} must be a list of cost limit keys")

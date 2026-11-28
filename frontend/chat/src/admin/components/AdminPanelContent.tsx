@@ -3,7 +3,7 @@ import { AdminPanelLoadBoundary } from "./AdminPanelLoadBoundary";
 import { LoadingState } from "../../layout/LoadingState";
 import type { AdminPanelContentProps } from "./adminPanelContentTypes";
 import {
-  ObservabilityRunsPage, ObservabilityOverviewPage,
+  ObservabilityRunsPage, ObservabilityOverviewPage, ComplianceAuditPage,
   ObservabilityHealthPage, ObservabilityAuditPage, ApprovalDetailPage, ObservabilityDecisionsPage,
   OperationsCostsPage, OperationsLivePage, AdminProblemsPage, RestApisPage, RestApiCallsPage, ConnectionsPage,
   WorkRolesPage, WorkFunctionsPage, WorkRolesAuditPage, PlatformPage, PluginsPage,
@@ -13,7 +13,7 @@ import {
   AdminChannelsTab, AdminConnectorsTab, AdminDatabasesTab, AdminKnowledgeTab, AdminMcpTab, ToolApprovalsPage,
   AdminResearchPoliciesTab, AdminProjectsTab, AdminModelCatalog, AdminModelsOverview, AdminDefaultAndFallback,
   AdminLimitsAndBudgets, AdminPolicyListsSection, AdminProvidersTab, AdminRuntimesTab, ContentSecurityPage,
-  CommandSafetyPage, AdminClassificationPolicy, AdminApprovalRule, AdminCedarPolicies, AdminScenariosTab,
+  CommandSafetyPage, AdminClassificationPolicy, AdminApprovalRule, AdminCedarPolicies,
   AdminSkillsTab, AdminSchedulersTab, AdminTasksTab, AdminToolCatalogTab, AdminVoiceAndSpeech,
   ObservabilityUsagePage, AdminUsersTab, AdminWebhooksTab, KnowledgeAreaPage,
 } from "./adminPanelLazyPages";
@@ -104,8 +104,6 @@ function policyTab(tab: string, props: AdminPanelContentProps, renderLazyTab: Re
       return renderLazyTab(<AdminCedarPolicies view="bench" />);
     case "runtimeLimits":
       return renderLazyTab(<AdminLimitsAndBudgets />);
-    case "runtimeCompression":
-      return renderLazyTab(<AdminRuntimesTab ctx={runtimesTabCtx} section="compression" />);
     default:
       return undefined;
   }
@@ -113,7 +111,7 @@ function policyTab(tab: string, props: AdminPanelContentProps, renderLazyTab: Re
 
 // Knowledge, corporate identity, connectors and agents.
 function knowledgeTab(tab: string, props: AdminPanelContentProps, renderLazyTab: RenderLazyTab): ReactNode | undefined {
-  const { projects, scenariosTabCtx, connectorsTabCtx, toolCatalogTabCtx, knowledgeTabCtx, agentsTabCtx, isAdmin = false } = props;
+  const { projects, connectorsTabCtx, toolCatalogTabCtx, knowledgeTabCtx, agentsTabCtx, isAdmin = false } = props;
   switch (tab) {
     case "knowledgeLibrary":
       return renderLazyTab(<KnowledgeAreaPage projects={projects} view="library" isAdmin={isAdmin} />);
@@ -127,8 +125,6 @@ function knowledgeTab(tab: string, props: AdminPanelContentProps, renderLazyTab:
       return renderLazyTab(<KnowledgeAreaPage projects={projects} view="graph" isAdmin={isAdmin} />);
     case "corpIdentity":
       return renderLazyTab(<AdminCorpIdentityTab projects={projects} />);
-    case "scenarios":
-      return renderLazyTab(<AdminScenariosTab ctx={scenariosTabCtx} />);
     case "connectors":
       return renderLazyTab(<AdminConnectorsTab ctx={connectorsTabCtx} />);
     case "databases":
@@ -156,11 +152,11 @@ function workflowTab(tab: string, props: AdminPanelContentProps, renderLazyTab: 
     case "effectiveSetup":
       return renderLazyTab(<EffectiveSetupPage />);
     case "workflowList":
-      return renderLazyTab(<WorkflowsPage view="list" readJson={readJson} projects={projects} />);
+      return renderLazyTab(<WorkflowsPage view="list" readJson={readJson} />);
     case "workflowChecks":
       return renderLazyTab(<WorkflowsPage view="checks" readJson={readJson} />);
     case "workflowDesigner":
-      return renderLazyTab(<WorkflowsPage view="designer" readJson={readJson} projects={projects} />);
+      return renderLazyTab(<WorkflowsPage view="designer" readJson={readJson} />);
     case "promptCatalog":
       return renderLazyTab(<AdminPromptCatalogTab currentUserId={currentUserId} />);
     case "instructions":
@@ -200,6 +196,8 @@ function observabilityTab(tab: string, props: AdminPanelContentProps, renderLazy
       return renderLazyTab(<ObservabilityHealthPage projects={projects} readJson={readJson} />);
     case "observabilityAudit":
       return renderLazyTab(<ObservabilityAuditPage projects={projects} readJson={readJson} />);
+    case "complianceAudit":
+      return renderLazyTab(<ComplianceAuditPage readJson={readJson} />);
     case "observabilityDecisions":
       return renderLazyTab(<ObservabilityDecisionsPage projects={projects} readJson={readJson} />);
     case "approvalDetail":

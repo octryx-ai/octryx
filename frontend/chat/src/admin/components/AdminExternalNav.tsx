@@ -1,9 +1,5 @@
 import type { ReactNode } from "react";
 
-// Menu entries of an admin-shell area that open a page in another component of the same area (the
-// Agents area's Clients and Rules pages beside its builder pages). Same look as the shell's own entries, icon
-// included, so one menu never mixes entries with and without icons.
-// `position: "end"` lists the entry after the group's own pages (default: before them).
 export type AdminExternalNavEntry = { group: string; key: string; label: string; icon: ReactNode; onSelect: () => void; position?: "start" | "end" };
 
 export function AdminExternalNavButtons({ entries }: { entries: AdminExternalNavEntry[] }) {
@@ -22,7 +18,6 @@ export function AdminExternalNavButtons({ entries }: { entries: AdminExternalNav
   );
 }
 
-/** External entries whose group the area has no group of its own; they come first, grouped by label. */
 export function externalOnlyGroups(entries: AdminExternalNavEntry[], ownGroups: string[]): Array<{ label: string; entries: AdminExternalNavEntry[] }> {
   const groups: Array<{ label: string; entries: AdminExternalNavEntry[] }> = [];
   for (const entry of entries) {

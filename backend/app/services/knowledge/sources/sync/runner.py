@@ -1,44 +1,5 @@
-"""The bounded Source Sync runner: one run of one connector into the evidence ledger.
-
-A run holds the connector's lease, resumes the open listing pass at the stored cursor, and handles
-at most ``max_items_per_run`` item headers. Per item, in this order:
-
-1. **ACL first** (``acl_sync.py``). The item's restriction is stored in the ledger before
-   anything else. A restricted item is ingested with it only when the Workspace enforces source
-   ACLs and the connector expanded it; otherwise it is withheld (``restricted_acl`` or
-   ``acl_unresolved``) and a source it served until now is retired. An item whose ACL is unknown
-   is a failure. Neither is ever fetched, and no restricted item's title reaches the report.
-2. **Version marker.** An item still served at the same external version is unchanged, unfetched.
-3. **Content hash.** Fetched bytes identical to what was ingested are unchanged: no revision.
-4. **Ingestion.** Otherwise the bytes become one new revision, through the Docling sandbox for HTML
-   and documents and in-process for text, carrying the deep link and the configured product scope.
-   A repository file (``ItemContent.code_file``) is ingested as code, with line-ranged spans
-   (``ingestion/code_ingest.py``), and recorded in the repository file index.
-
-Skipped entries are counted per fixed reason too (``skipped_reasons``), so a repository run says how
-many files were ``excluded``, ``skipped_binary`` or ``skipped_too_large``.
-
-One item's failure records its fixed reason and never stops the run. A listing failure ends the
-run early as ``failed`` and keeps the cursor where it was. Only when a pass completes are the items
-it did not list any more retired: a stopped pass never looks like a deletion. The cursor is saved
-after every page, so a run that dies is resumed, not restarted.
-
-**Budget.** ``max_items_per_run`` counts the items whose content a run fetched, not the
-unchanged headers it listed; a page never lists more than the remaining budget, and a run lists at
-most ``MAX_PAGES_PER_RUN`` pages. A manual run stops when its budget is spent. A *scheduled* run keeps
-listing headers (ACL and version for every served item) and defers only the fetches beyond its
-budget (``deferred``); a deferred or failed item keeps the pass from counting as a clean
-reconciliation, so its change stays in the next window.
-
-**Incremental runs (``incremental.py``).** A scheduled run lists only the changes since
-the last full pass while that pass is recent; otherwise, on a manual run, or when the change
-listing fails, it reconciles fully. ``report.mode`` says which one ran; ``report.withheld`` counts
-the restricted items not ingested.
-
-**A completed run with a reason**. A connector may name why a completed pass listed what it did
-through an optional ``completed_reason`` attribute (one fixed reason, never free text): a repository without any
-commit completes with ``repository_empty`` and 0 items. The run stays ``completed`` — not a failure, no problem.
-"""
+"""The bounded Source Sync runner: one run of one connector into the evidence ledger. Per item the ACL is stored first,
+before any content."""
 
 from __future__ import annotations
 
@@ -93,8 +54,6 @@ MAX_PAGES_PER_RUN = 100
 
 
 class SyncRefusedError(Exception):
-    """The run was not started; ``reason`` is a fixed reason from ``contract.py``."""
-
     def __init__(self, reason: str) -> None:
         super().__init__(reason)
         self.reason = reason
@@ -124,7 +83,6 @@ async def run_source_sync(
     actor_id: str | None,
     trigger: str = TRIGGER_MANUAL,
 ) -> KnowledgeSourceSyncRun:
-    """Run one bounded sync of ``connector_row`` and return its recorded run."""
     if type(authorized) is not AuthorizedWorkspace or not authorized.may_author:
         raise EvidenceLedgerContractError()
     if connector_row.project_id != authorized.project_id or connector.kind != connector_row.kind:
@@ -194,6 +152,7 @@ async def _drive(
             fetch_budget=max(budget, 0),
         )
         cursor = await _save_page_cursor(db, ref, cursor, page, report.unfinished - unfinished_before)
+        # Only the terminal page completes a pass: reconciling a partial pass would retire items from unread pages.
         if page.next_token is None:
             await _complete_pass(db, ref, cursor, report)
             return RUN_STATE_COMPLETED, _completed_reason(connector)
@@ -211,7 +170,7 @@ async def _accelerate(
     enforce: bool,
     budget: int,
 ) -> tuple[int, KnowledgeSourceConnector, SyncCursor]:
-    """Changed pages first (CQL); never the only source of truth. The budget left, the row and cursor after it."""
+    # Changed pages first; never the only source of truth.
     report.mode = MODE_INCREMENTAL
     outcome = await drive_accelerator(
         db,
@@ -232,7 +191,6 @@ async def _accelerate(
 
 
 def _page_refusal(page: object, token: str | None, limit: int) -> str | None:
-    """The fixed reason a listed page ends the run as failed, else ``None``."""
     if type(page) is not ListingPage or len(page.items) > limit:
         return REASON_SOURCE_CONTRACT_VIOLATION
     if page.next_token is not None and page.next_token == token:
@@ -243,7 +201,6 @@ def _page_refusal(page: object, token: str | None, limit: int) -> str | None:
 async def _save_page_cursor(
     db: AsyncSession, ref: ConnectorRef, cursor: SyncCursor, page: ListingPage, unfinished: int
 ) -> SyncCursor:
-    """Store the cursor after every page, so a run that dies is resumed, not restarted."""
     cursor = cursor.at(page.next_token).with_failures(unfinished)
     row = await db.get(KnowledgeSourceConnector, ref.id)
     row.cursor = SyncCursor.load(row.cursor).as_dict() | {
@@ -264,7 +221,6 @@ async def _complete_pass(db: AsyncSession, ref: ConnectorRef, cursor: SyncCursor
 
 
 def _completed_reason(connector: SourceConnector) -> str | None:
-    """The connector's fixed reason for a completed pass (``repository_empty``), else ``None`` (module doc)."""
     reason = getattr(connector, "completed_reason", None)
     return reason if isinstance(reason, str) and reason == REASON_REPOSITORY_EMPTY else None
 

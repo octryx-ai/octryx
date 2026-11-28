@@ -1,14 +1,4 @@
-"""The capability class a workflow definition declares, and its validation.
-
-The class lives on the workflow contract (``workflow_contract.capability_class``): the
-contract is the one thing a selected workflow hands to the run, so the run reads its
-capability from the same governed, versioned, published payload as its tool policy.
-
-The validator refuses a definition whose tools exceed its class (for example a write
-tool in a ``read_only`` definition) and one whose declared safety constraints contradict
-it, and refuses a definition without a class. A workflow resolution that declares no
-class (or an unsupported one) is the explicit state ``needs_configuration`` at run time.
-"""
+"""The capability class a workflow definition declares, and its validation."""
 
 from __future__ import annotations
 
@@ -26,8 +16,6 @@ SOURCE_WORKFLOW_DEFINITION = "workflow_definition"
 
 @dataclass(frozen=True, slots=True)
 class DeclaredCapability:
-    """The class a matched workflow declares; ``capability_class`` is None when invalid."""
-
     capability_class: str | None
     source: str
     error: str = ""

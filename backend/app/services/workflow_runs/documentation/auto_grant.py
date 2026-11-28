@@ -29,15 +29,12 @@ def auto_publish(project_config: dict[str, Any] | None) -> bool:
 
 
 class _StopError(Exception):
-    """The step ends here: ``reason`` is the skip's (``failed``: a Confluence error)."""
-
     def __init__(self, reason: str, detail: dict[str, Any] | None = None, *, failed: bool = False) -> None:
         super().__init__(reason)
         self.reason, self.detail, self.failed = reason, dict(detail or {}), failed
 
 
 async def _epic(db: AsyncSession, run: WorkflowRun) -> tuple[WorkItem | None, WorkItem | None]:
-    """``(epic, story)``: the spec run's own epic, or a story run's story and its epic."""
     item = await db.get(WorkItem, run.work_item_id) if run.work_item_id else None
     if item is None:
         return None, None
@@ -51,7 +48,6 @@ async def _epic(db: AsyncSession, run: WorkflowRun) -> tuple[WorkItem | None, Wo
 
 
 async def _inherited(db: AsyncSession, run: WorkflowRun, epic_key: str) -> dict[str, Any] | None:
-    """The grant of the run this story builds on (``epic_chain.after_run``, followed back), for the same epic."""
     from ..epic_chain import CHAIN_KEY
 
     seen: set[str] = {run.id}
@@ -71,7 +67,6 @@ async def _inherited(db: AsyncSession, run: WorkflowRun, epic_key: str) -> dict[
 
 
 async def _current_target(db: AsyncSession, run: WorkflowRun, settings: DocumentationSettings) -> dict[str, str]:
-    """Where the Workspace points now (the one resolver for the connection), else :class:`_StopError`."""
     from .target import ConnectionUnavailableError, _space_allowed, served_confluence
 
     if not settings.parent_page_id:
@@ -93,7 +88,6 @@ def _drift(granted: dict[str, Any], current: dict[str, Any], keys: tuple[str, ..
 
 
 async def _grant(db: AsyncSession, run: WorkflowRun) -> tuple[dict[str, Any], WorkItem | None, WorkItem | None]:
-    """The run's documentation grant (own, inherited or recorded now), or :class:`_StopError` (a skip)."""
     config = await get_project_config(run.project_id, db)
     settings = documentation_settings(config)
     if settings is None:

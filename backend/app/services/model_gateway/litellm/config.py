@@ -1,11 +1,4 @@
-"""Explicit configuration for the governed LiteLLM gateway client.
-
-The config is built only from values the caller passes in. There is no ambient
-credential discovery, no environment lookup, and no gateway master key: the
-virtual key arrives from the Secret Reference boundary
-(``LLMProvider.api_key_secret_ref``) and is stored in a ``repr=False`` field so
-it cannot leak through a dataclass repr, a log record, or a traceback frame.
-"""
+"""Explicit configuration for the governed LiteLLM gateway client: only values the caller passes in."""
 
 from __future__ import annotations
 
@@ -83,8 +76,6 @@ class LiteLLMGatewayConfig:
 
 
 def resolve_probe_contract(config_json: Any) -> tuple[ProbeContract | None, str]:
-    """Resolve the pinned probe contract, or a fixed denial code."""
-
     section = gateway_config_section(config_json)
     raw = section.get("probe_contract") if section is not None else None
     if not isinstance(raw, Mapping):
@@ -118,8 +109,6 @@ def _denied(denial_reason: str) -> LiteLLMGatewayError:
 def _admitted_policies(
     config_json: Any, section: Mapping[str, Any], endpoint: GatewayEndpoint
 ) -> tuple[ProbeContract, TransportPolicy, ContentLoggingPosture, tuple[AliasEntry, ...]]:
-    """Probe contract, transport, content logging and aliases, checked in this order; the first denial raises."""
-
     probe, probe_denial = resolve_probe_contract(config_json)
     if probe is None:
         raise _denied(probe_denial) from None
@@ -149,11 +138,7 @@ def build_gateway_config(
     config_json: Any,
     request_timeout_seconds: Any = None,
 ) -> LiteLLMGatewayConfig:
-    """Build a validated gateway config, or raise a typed fixed-message error.
-
-    Raised before any HTTP client exists, so a denied configuration produces
-    zero requests.
-    """
+    """A validated gateway config, or a typed fixed-message error before any HTTP client exists."""
 
     section = gateway_config_section(config_json)
     if section is None:

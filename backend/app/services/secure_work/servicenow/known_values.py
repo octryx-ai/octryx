@@ -1,13 +1,4 @@
-"""The assignment groups and services seen in recent ServiceNow records: suggestions for the record limit.
-
-A cheap, read-only look at the last :data:`SAMPLE` records of one table (Table API: newest first; Scripted REST:
-the endpoint's first records, it cannot be ordered), counted per display name (whitespace collapsed, so the live
-``"Shop Support Desk "`` shows as ``"Shop Support Desk"``, the form the limit matches). Only names
-are returned, at most :data:`MAX_VALUES` per field, most frequent first; nothing is stored.
-
-``limited``: the Workspace's intake card reads inside the connector's limit (an override may only narrow it, so
-values outside are no use and are not shown); the platform admin's connector settings read without it.
-"""
+"""The assignment groups and services seen in recent ServiceNow records: suggestions for the record limit."""
 
 from __future__ import annotations
 
@@ -46,7 +37,6 @@ def _counted(records: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
 
 
 async def known_values(config: Mapping[str, Any], *, limited: bool, table: str = "incident") -> dict[str, Any]:
-    """``{table, scanned, assignment_groups: [{name, count}], services: [...]}``; raises :class:`IntakeSourceError`."""
     if table not in TABLES:
         raise IntakeSourceError(CODE_TABLE_NOT_CONFIGURED, f"table must be one of: {', '.join(TABLES)}")
     allowed = _allowed_tables(config)

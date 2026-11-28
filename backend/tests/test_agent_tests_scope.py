@@ -1,6 +1,5 @@
-"""A size class's agent runs the affected tests only and leaves the whole
-suite to the pipeline after the phase, gates between them included; the schema allows it only with such a pipeline
-(``size_class/tests_scope``)."""
+"""A size class's agent runs the affected tests only and leaves the whole suite to the pipeline after the phase;
+the schema allows it only with such a pipeline (``size_class/tests_scope``)."""
 
 from __future__ import annotations
 
@@ -13,7 +12,10 @@ from app.services.workflow_runs import pipeline
 from app.services.workflow_runs.graph import parse_phased_definition
 from app.services.workflow_runs.graph_validation import validate_phased_definition
 from app.services.workflow_runs.size_class.tests_scope import pipeline_later
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.workflow_run_pipeline_support import COMMANDS, _device_run, _fix_with_pipeline
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 GATE = {"id": "green", "type": "gate", "label": "Green", "config": {"checks": [
     {"type": "tool_called", "params": {"tools": ["run_test_suite"]}, "blocking": True, "description": "Tests ran"}]}}
@@ -53,7 +55,6 @@ def test_a_pipeline_after_a_gate_still_comes_later_and_the_schema_wants_one_for_
 @pytest.mark.parametrize(("classes", "asks_whole_suite"), [({"agent_tests": "affected"}, False), (None, True)])
 async def test_with_affected_a_file_run_is_enough_and_the_pipeline_runs_the_whole_suite(db, monkeypatch, classes,
                                                                                       asks_whole_suite):
-    """The Stop never refuses until the whole Flutter suite has run (66-107 s each time)."""
     from app.models import ToolCall
     from app.services.workflow_runs.octryx.stop import run_stop
     from app.time_utils import utc_now
@@ -66,7 +67,7 @@ async def test_with_affected_a_file_run_is_enough_and_the_pipeline_runs_the_whol
         return "device"
 
     async def commands(_db, _run):
-        return list(COMMANDS), []
+        return list(COMMANDS), [], COMMANDS[-1] if len(COMMANDS) > 1 else ""
 
     monkeypatch.setattr(pipeline, "commands_for", commands)
     monkeypatch.setattr("app.services.workflow_runs.workspace.preparation.runtime_of", device)

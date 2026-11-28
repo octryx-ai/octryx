@@ -11,6 +11,9 @@ from app.services.workflow_runs.failure_codes import cause_of_failure, determini
 from app.services.workflow_runs.hands_on import step
 from app.services.workflow_runs.pause_causes import cause_of
 from tests.hands_on_support import _answer, _at_hands_on, _Model
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 
 @pytest.mark.parametrize(("failure", "cause"), [
@@ -31,7 +34,6 @@ def test_which_failures_are_deterministic_is_data_and_a_node_may_add():
 
 @pytest.mark.asyncio
 async def test_a_missing_serve_pauses_once_and_uses_no_loop_round(db, monkeypatch):
-    """Nightly dc263943: the environment file declared a UI but no serve; the hands-on loop used 3 rounds in 1 s."""
     run, session, offered, factory = await _at_hands_on(db, monkeypatch, model=_Model(_answer()))
     await step.generate_due(db, model_factory=factory)
     run = await db.get(type(run), run.id)
@@ -45,7 +47,7 @@ async def test_a_missing_serve_pauses_once_and_uses_no_loop_round(db, monkeypatc
     await db.flush()
     loops = (await db.execute(select(WorkflowRunEvent).where(
         WorkflowRunEvent.run_id == run.id, WorkflowRunEvent.kind == "loop_iteration"))).scalars().all()
-    assert loops == [] and offered.count("work") <= 1  # no round back to the building phase
+    assert loops == [] and offered.count("work") <= 1
 
 
 @pytest.mark.asyncio

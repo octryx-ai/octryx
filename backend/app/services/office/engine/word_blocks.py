@@ -1,8 +1,4 @@
-"""Word block builders: the element types ``add`` creates (paragraphs, headings, tables, TOC, equations, …).
-
-Shared by the ``add_office_element`` tool and the generated Word build scripts, so a script and a tool call
-produce the same structure.
-"""
+"""Word block builders: the element types ``add`` creates (paragraphs, headings, tables, TOC, equations, …)."""
 
 from __future__ import annotations
 
@@ -41,11 +37,6 @@ def add_paragraph(document: Any, container: Any, text: str = "", **props: Any) -
 
 
 def add_heading(document: Any, container: Any, text: str, level: int = 1, **props: Any) -> Any:
-    """A heading in the template's ``Heading N`` style.
-
-    A template without that style still gets a real heading: bold text at a heading size with the outline
-    level set, so navigation and the TOC field see it.
-    """
     level = max(0, min(int(level), 9))
     style = style_or_none(document, "Title" if level == 0 else f"Heading {level}")
     paragraph = container.add_paragraph()
@@ -111,7 +102,6 @@ TOC_LEVELS = re.compile(r"^[1-9]-[1-9]$")
 
 
 def add_toc(document: Any, container: Any, *, title: str = "", levels: str = "1-3") -> Any:
-    """A TOC field Word fills on open (``updateFields`` is set in the document settings)."""
     if not TOC_LEVELS.fullmatch(str(levels)) or int(levels[0]) > int(levels[2]):
         raise OfficeEngineError(INVALID_REQUEST, "TOC levels look like 1-3")
     if title:
@@ -136,7 +126,6 @@ def add_toc(document: Any, container: Any, *, title: str = "", levels: str = "1-
 
 
 def add_equation(container: Any, formula: str) -> Any:
-    """An Office Math paragraph holding the formula in linear form (Word shows it as an equation)."""
     paragraph = container.add_paragraph()
     text = formula.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
     paragraph._p.append(
@@ -146,7 +135,6 @@ def add_equation(container: Any, formula: str) -> Any:
 
 
 def add_block(document: Any, container: Any, kind: str, props: dict[str, Any]) -> Any:
-    """Create one block in ``container`` (the document or a table cell); returns its XML element."""
     text = str(props.get("text") or "")
     rest = {key: value for key, value in props.items() if key not in {"text", "level", "numbered"}}
     if kind == "paragraph":

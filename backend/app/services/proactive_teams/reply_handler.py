@@ -1,12 +1,4 @@
-"""Handler for inbound replies to proactive Teams conversations.
-
-When a reporter replies to a proactive question from the agent, this module:
-1. Looks up the ProactiveConversation record by conversation_id
-2. Stores the answer
-3. Resumes the waiting agent session with the new information
-4. Comments the answer on the Jira ticket only when the Workspace opted in
-   (``teams_reply_to_jira``, default false; ``jira_reply_policy``)
-"""
+"""Handler for inbound replies to proactive Teams conversations."""
 
 from __future__ import annotations
 
@@ -18,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..content_security.untrusted_fence import untrusted_section
+from ..data_access import Viewer, run_as
 from ..model_gateway.inbound.secret_scan import contains_secret
 from ..run_capability.declared import resumed_run_capability_metadata
 
@@ -30,10 +23,6 @@ async def check_proactive_reply(
     content: str,
     sender_id: str,
 ) -> dict[str, Any] | None:
-    """Check if an inbound message is a reply to a proactive conversation.
-
-    Returns a dict with routing info if matched, or None if this is a normal message.
-    """
     from ...models.integration.proactive_conversation import ProactiveConversation
 
     result = await db.execute(
@@ -80,10 +69,6 @@ async def process_proactive_reply(
     db: AsyncSession,
     match: dict[str, Any],
 ) -> str | None:
-    """Process a matched proactive reply — resume agent session and update Jira.
-
-    Returns a confirmation message to send back to the reporter.
-    """
     ticket_id = match["ticket_id"]
     session_id = match["session_id"]
     answer = match["answer"]
@@ -121,7 +106,6 @@ async def process_proactive_reply(
 async def _comment_on_ticket(
     db: AsyncSession, *, ticket_id: str, session_id: str | None, project_id: str, answer: str
 ) -> bool:
-    """Post the answer as a Jira comment when the Workspace allows it; True only when it was posted."""
     try:
         from ...tools.registry import TOOL_REGISTRY
         from ..project import get_project_config
@@ -184,10 +168,7 @@ async def _resume_agent_session(
     ticket_id: str,
     answer: str,
 ) -> None:
-    """Inject the reporter's answer into the agent session and re-trigger the agent loop."""
-    import uuid
-
-    from ...models.session.session import Message, Session
+    from ...models.session.session import Session
 
     session = await db.get(Session, session_id)
     if not session:
@@ -201,13 +182,6 @@ async def _resume_agent_session(
         f"{untrusted_section('reporter reply', {'ticket_id': ticket_id, 'answer': answer}, source='the reporter')}\n"
         "Please continue working on the ticket."
     )
-    msg = Message(
-        id=str(uuid.uuid4()),
-        session_id=session_id,
-        role="user",
-        content=inject_content,
-    )
-    db.add(msg)
 
     # Mark session as active for continuation
     metadata = dict(session.metadata_ or {})
@@ -219,29 +193,23 @@ async def _resume_agent_session(
     session.status = "active"
     await db.commit()
 
-    # Re-trigger the agent loop asynchronously
+    # The continuation runs in the background
     import asyncio
 
-    asyncio.create_task(_run_agent_continuation(session_id, session, inject_content, db))
+    continuation = _run_agent_continuation(session_id, session, inject_content, db)
+    asyncio.create_task(run_as(Viewer(session.user_id), continuation))
 
     logger.info("Agent session %s resumed with proactive reply for ticket %s", session_id, ticket_id)
 
 
 async def _run_agent_continuation(session_id: str, session, user_message: str, db: AsyncSession) -> None:
-    """Run the agent loop continuation in the background."""
+    # The answer becomes the session's next runner turn (its prompt is the turn's user message).
+    from ...db import core as db_core
+    from ..devices.agent_runtime import runner_turn
+
     try:
-        from ...agent.engine import run_agent
-
-        async for event in run_agent(
-            session_id=session_id,
-            user_message=user_message,
-            user_id=session.user_id,
-            project_id=session.project_id,
-            agent_type=session.agent_type or "chat",
-            db=db,
-        ):
-            pass  # Agent runs to completion; results stored in session messages
-
+        async with db_core.async_session_factory() as turn_db:
+            await runner_turn(turn_db, user_id=session.user_id, prompt=user_message, session_id=session_id)
         logger.info("Agent continuation completed for session %s", session_id)
     except Exception:
         logger.exception("Agent continuation failed for session %s", session_id)

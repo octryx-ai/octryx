@@ -7,9 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db
 from app.web._helpers.api_guards import _require_admin_api
 
+from ...http_multipart_route import BoundedFormRoute
 from .panel_runtimes import router as panel_runtimes_router
 
-router = APIRouter()
+router = APIRouter(route_class=BoundedFormRoute)
 
 
 @router.get("/chat/api/panel/corp-identities")

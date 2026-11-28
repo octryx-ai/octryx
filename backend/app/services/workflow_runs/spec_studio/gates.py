@@ -1,10 +1,4 @@
-"""Spec gates: what a spec must say before the product owner may approve it.
-
-In a benchmark, every miss below produced findings the engines then built faithfully — a prompt verb without a default
-that works on the first launch, numeric rules without a realistic example, screens
-without an empty state or next step, mixed terminology, undefined condition words.
-Each miss is an open point in the Studio; approval stays blocked until none is left. Deterministic: no model.
-"""
+"""Spec gates: what a spec must say before the product owner may approve it."""
 
 from __future__ import annotations
 
@@ -23,7 +17,6 @@ def _point(section: str, target: str, text: str) -> dict[str, str]:
 
 
 def block_texts(blocks: list[dict[str, Any]]) -> Iterator[str]:
-    """Every visible text of a block tree (the copy the glossary checks)."""
     for block in blocks:
         for key in ("text", "title", "meta", "badge", "label", "value", "suffix", "sub", "action", "art"):
             if block.get(key):
@@ -133,14 +126,12 @@ def _acceptance(artefact: dict[str, Any], state: dict[str, Any]) -> list[dict[st
 
 def open_points(artefact: dict[str, Any], state: dict[str, Any], design: dict[str, Any],
                 deviations: list[dict[str, Any]] = ()) -> list[dict[str, str]]:
-    """Every open point, in the Studio's section order; empty means the spec may be approved. A point with
-    ``by: product_owner`` is the product owner's to settle in the Studio, never sent to the agent."""
+    # A product owner's point is settled in the Studio, never sent to the agent.
     return [*_screens(artefact), *_contrast(design), *_deviations(list(deviations)), *_requirements(artefact),
             *_rules(artefact, state), *_glossary(artefact), *_conditions(artefact), *_acceptance(artefact, state)]
 
 
 def needs_revision(points: list[dict[str, str]]) -> bool:
-    """Only the product owner's own changes are open (changed rule values, rejected criteria): revise, not fix."""
     return bool(points) and all("send the spec to revision" in p["text"] for p in points)
 
 

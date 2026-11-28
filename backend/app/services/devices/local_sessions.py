@@ -1,19 +1,4 @@
-"""Claude Code sessions outside octryx: what the device reports, who sees them, and "take over" (P6b/P6c).
-
-Claude Code sessions not started by octryx-claude are available in the person's own Workspace, and from the phone the
-person chooses per session between
-**take over** (here) and **live** (a channel, later).
-
-- **Report** (:func:`apply_report`, channel message ``local_sessions``): the device's connected profiles and their
-  recent sessions. Every field is bounded and checked; the report replaces the device's previous list. Titles and
-  answers are redacted on the device before they leave it.
-- **List** (:func:`list_for_owner`): only the owner's own devices, active ones; nobody else, admins included.
-- **Take over** (:func:`take_over`): the owner's message becomes a device job turn in the owner's **private
-  Workspace**, profile ``local:<name>``, in the session's folder, resuming exactly that Claude Code session. Only a
-  session the owner's own, active, online, unpaused device reported can be taken over; the device checks the
-  session and its folder again before it runs anything. No Workspace policy applies (the private Workspace is the
-  owner's own); the profile's own subscription pays.
-"""
+"""Claude Code sessions outside octryx: what the device reports, who sees them, and "take over" (P6b/P6c)."""
 
 from __future__ import annotations
 
@@ -52,7 +37,6 @@ def local_profile(name: str) -> str:
 
 
 async def apply_report(db: AsyncSession, device: UserDevice, body: Any) -> int:
-    """Replace the device's reported sessions with this report. Returns how many it holds now. Flushes."""
     if device is None or device.status != DEVICE_STATUS_ACTIVE:
         return 0
     _profiles, sessions = normalize_report(body)
@@ -163,7 +147,6 @@ async def _new_fork_thread(db: AsyncSession, row: LocalClaudeSession, user: User
 
 
 async def _takeover_device(db: AsyncSession, row: LocalClaudeSession, user: User) -> UserDevice:
-    """The session's device, when the owner may take the session over on it right now."""
     if not row.takeover_allowed:  # the Mac's own opt-in per profile (``--allow-takeover``)
         raise LocalSessionError(REASON_TAKEOVER_NOT_ALLOWED, 409)
     device = await db.get(UserDevice, row.device_id)
@@ -194,7 +177,6 @@ async def _record_takeover_dispatch(db: AsyncSession, row: LocalClaudeSession, u
 
 async def _takeover_thread(db: AsyncSession, row: LocalClaudeSession, user: User, private_id: str, prompt: str, *,
                            fork: bool, fork_label: str, thread_id: str) -> tuple[Session, bool]:
-    """The thread the turn runs in and whether it is a fork's."""
     if thread_id:
         thread = await db.get(Session, str(thread_id)[:36])
         if not _fork_thread_of(thread, row, user, private_id):
@@ -207,11 +189,6 @@ async def _takeover_thread(db: AsyncSession, row: LocalClaudeSession, user: User
 
 async def take_over(db: AsyncSession, *, user: User, local_id: str, prompt: str, fork: bool = False,
                     fork_label: str = "", thread_id: str = "") -> dict[str, str]:
-    """The owner's message as the next turn of that Claude Code session, on its device. Flushes.
-
-    ``fork``: a new thread continues a *copy* of the session (the device resumes it with ``fork_session``), so the
-    running original keeps its own transcript; ``thread_id``: the next turn of such a fork. Every fork turn runs in
-    :data:`FORK_PERMISSION_MODE`: the original may be working in the same folder again, so each write asks first."""
     from .job_state import DeviceJobError
     from .jobs import start_turn  # noqa: PLC0415
 

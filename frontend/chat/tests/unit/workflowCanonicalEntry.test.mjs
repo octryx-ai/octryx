@@ -1,4 +1,4 @@
-// One visible Workflows entry; the related administration stays reachable.
+// One visible Workflows entry; its sub-pages stay reachable.
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
@@ -7,7 +7,6 @@ import { test } from "node:test";
 import { createContext, createElement } from "react";
 import TestRenderer from "react-test-renderer";
 import * as areas from "../../src/admin/config/adminPanelAreas.ts";
-import * as administration from "../../src/admin/components/workflowSurfaces/workflowAdministration.ts";
 import * as pageHeader from "../../src/layout/PageHeader.ts";
 
 const require = createRequire(import.meta.url), ts = require("typescript");
@@ -29,7 +28,7 @@ function load(path, mocks) {
   return exports;
 }
 const text = (node) => (typeof node === "string" ? node : node.children.map(text).join(""));
-const ADVANCED = ["scenarios"];
+const ADVANCED = ["workflowChecks", "workflowDesigner"];
 
 test("the final nav shows exactly the approved entries, with one Workflows entry and no separate Canvas", () => {
   // The builder part of the one Agents menu (Clients · Build · Rules · Reference); the Canvas is the
@@ -63,50 +62,6 @@ test("advanced pages keep their route IDs and deep links and select Workflows in
   }
 });
 
-test("the advanced list names every hidden page plainly", () => {
-  const pages = administration.workflowAdministrationPages();
-  assert.deepEqual(pages.map((page) => page.tab), ADVANCED);
-  for (const page of pages) assert.ok(page.purpose.length > 20, `${page.tab} has a purpose`);
-  assert.equal(pages.some((page) => /published definitions/i.test(page.title)), false);
-});
-
-test("the advanced section is collapsed and opens each page through the admin navigation", () => {
-  const opened = [];
-  const navigation = { useAdminNavigation: () => ({ openAdminTab: (tab) => opened.push(tab) }) };
-  const { WorkflowAdministrationSection } = load("components/workflowSurfaces/WorkflowAdministrationSection.tsx", {
-    adminNavigation: navigation,
-    workflowAdministration: administration,
-  });
-  let view;
-  act(() => {
-    view = TestRenderer.create(createElement(WorkflowAdministrationSection));
-  });
-  const details = view.root.findByType("details");
-  assert.equal(details.props.open, undefined, "collapsed by default");
-  assert.equal(text(view.root.findByType("summary")), "Advanced workflow administration");
-  const hint = text(view.root.findByProps({ className: "admin-panel__hint" }));
-  assert.equal(hint, "Manage scenarios.");
-  assert.doesNotMatch(hint, /never|none of these|can run/i);
-  for (const button of view.root.findAllByType("button")) act(() => button.props.onClick());
-  assert.deepEqual(opened, ADVANCED);
-  act(() => view.unmount());
-});
-
-test("an advanced page offers the way back to Workflows", () => {
-  const opened = [];
-  const { AreaPurpose } = load("components/workflowSurfaces/AreaPurpose.tsx", {
-    adminNavigation: { useAdminNavigation: () => ({ openAdminTab: (tab) => opened.push(tab) }) },
-  });
-  let view;
-  act(() => {
-    view = TestRenderer.create(createElement(AreaPurpose, { purpose: "Scenarios", back: administration.WORKFLOWS_HOME }));
-  });
-  const back = view.root.findAllByType("button").find((button) => text(button) === "← Workflows");
-  act(() => back.props.onClick());
-  assert.deepEqual(opened, ["workflowList"]);
-  act(() => view.unmount());
-});
-
 test("the shell keeps Workflows selected while an advanced page is open", () => {
   const entry = (id, label) => ({ id, label, icon: null });
   const groups = [
@@ -127,7 +82,7 @@ test("the shell keeps Workflows selected while an advanced page is open", () => 
   let view;
   act(() => {
     view = TestRenderer.create(
-      createElement(AdminPanelShell, { area: "workflows", tab: "scenarios", setTab: (tab) => opened.push(tab), currentTabLabel: "Scenarios" }, "body"),
+      createElement(AdminPanelShell, { area: "workflows", tab: "workflowDesigner", setTab: (tab) => opened.push(tab), currentTabLabel: "Workflow designer" }, "body"),
     );
   });
   const workflows = view.root.findAllByType("button").find((button) => text(button) === "Workflows");

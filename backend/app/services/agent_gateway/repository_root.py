@@ -1,23 +1,4 @@
-"""The repository a session reports, checked before it is bound (device parity).
-
-A confirmed change edits only inside the bound root (``capability``), and the run's phase rules, read evidence and
-change facts all trust that root. So the binding a launcher reports (``POST sessions/repository``, the interactive
-launcher and a device job alike) is checked before ``bind_session_repository`` records it:
-
-- **a device session** (the gateway grant belongs to a registered device, ``OAuthGrant.device_id``): the root must
-  lie inside one of the device's allowed folders as it last reported them (``UserDevice.folders``), else
-  ``denied: folder_not_allowed_on_device``; a device session that reports no root is ``denied:
-  repository_root_missing``;
-- **a run-bound session** (a device job's session bound at registration, or a terminal attached to its Work item's
-  run): the folder's git remote must be the run's repository on the Workspace's connection for that provider — the
-  connection's host and the run's ``<owner>/<repo>`` path, case-insensitive (Bitbucket Server's ``scm/`` prefix is
-  not part of the path) — else ``denied: repository_not_run_repository``. A run without a repository is not
-  checked (the allowed folder is its repository); a connection without a URL to compare with is
-  ``needs_configuration: run_repository_unverifiable``.
-
-The run check also runs when a session that already has a binding attaches to a run (``workflow_runs.octryx.attach``),
-so the order of binding and attaching never skips it.
-"""
+"""The repository root a session reports, checked before it is bound."""
 
 from __future__ import annotations
 
@@ -63,7 +44,6 @@ def _host(url: object) -> str:
 
 
 async def connection_hosts(db: AsyncSession, run: WorkflowRun, provider: str, repo_args: dict[str, Any]) -> set[str]:
-    """The hosts of the connection the run's source-control actions on this repository run on."""
     from ..workflow_runs.platform.bitbucket_cloud import serving_config
     from ..workflow_runs.platform.repo_ref import TOOLS
 
@@ -83,7 +63,6 @@ def _repository_path(provider: str, location: RepositoryLocation) -> str:
 
 async def run_repository_refusal(db: AsyncSession, run: WorkflowRun, location: RepositoryLocation
                                  ) -> SnapshotRefusal | None:
-    """``None`` when ``location`` is the run's repository on the Workspace's connection."""
     from ..workflow_runs.platform.repo_ref import parse_repository
 
     ref = parse_repository(run.repository)
@@ -100,15 +79,23 @@ async def run_repository_refusal(db: AsyncSession, run: WorkflowRun, location: R
     return None
 
 
+def _device_acts_for(device: UserDevice, grant: OAuthGrant, user_id: str) -> bool:
+    from ..devices.runner_pool import RUNNER_SERVICE_KIND  # noqa: PLC0415
+
+    if device.owner_user_id == user_id:
+        return True
+    return device.service_kind == RUNNER_SERVICE_KIND and grant.user_id == device.owner_user_id
+
+
 async def device_folder_refusal(db: AsyncSession, *, grant_id: str, user_id: str, root: object
                                 ) -> SnapshotRefusal | None:
-    """For a device's grant: the root must lie inside the device's allowed folders. Other grants: ``None``."""
+    # A device's grant confines the root to the device's allowed folders.
     grant = await db.get(OAuthGrant, grant_id) if grant_id else None
     device_id = getattr(grant, "device_id", None)
     if not device_id:
         return None
     device = await db.get(UserDevice, device_id)
-    if device is None or device.status != DEVICE_STATUS_ACTIVE or device.owner_user_id != user_id:
+    if device is None or device.status != DEVICE_STATUS_ACTIVE or not _device_acts_for(device, grant, user_id):
         return SnapshotRefusal("denied", REASON_FOLDER_NOT_ALLOWED)
     if root is None:
         return SnapshotRefusal("denied", REASON_ROOT_MISSING)
@@ -120,7 +107,6 @@ async def device_folder_refusal(db: AsyncSession, *, grant_id: str, user_id: str
 
 async def binding_refusal(db: AsyncSession, *, session: Session, grant_id: str, user_id: str,
                           payload: dict[str, Any]) -> SnapshotRefusal | None:
-    """The refusal of a reported binding before it is recorded; ``None`` lets ``bind_session_repository`` decide."""
     from ..workflow_runs.records import active_run_for_session
 
     refused = await device_folder_refusal(db, grant_id=grant_id, user_id=user_id, root=payload.get("root"))
@@ -137,7 +123,6 @@ async def binding_refusal(db: AsyncSession, *, session: Session, grant_id: str, 
 
 
 async def bound_repository_refusal(db: AsyncSession, run: WorkflowRun, session: Session) -> SnapshotRefusal | None:
-    """A session's existing binding checked against a run it attaches to; ``None`` without a binding."""
     binding = session_binding(session)
     if not binding or not binding.get("remote"):
         return None

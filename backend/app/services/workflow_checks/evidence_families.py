@@ -1,27 +1,4 @@
-"""The evidence family contract: what an alert's evidence must answer.
-
-Incident analysis does not pass on "some successful call". Each required family (cluster, logs, metrics, CI/deploys,
-tickets, knowledge) answers for the run's mapped alert target and its window with one of four statuses:
-
-- ``ok``: data for the target and window;
-- ``empty``: the target's source answered, and there was nothing in the window (the targeted negative; an ``empty``
-  without a target proves nothing and never counts);
-- ``unavailable``: the source could not answer (transport, HTTP or API error, no connection);
-- ``refused``: the call was refused (out of the target's scope, or denied by policy).
-
-A tool use is classified (:func:`classify_tool_use`) by the tool's own ``evidence`` envelope when it is one of the
-tools that write one (:data:`ENVELOPE_TOOLS`): the envelope is resolved by the server from the run's scope, never from
-the model's parameters. Any other family tool is classified by its result's shape. A tool outside the closed
-:data:`TOOL_FAMILY` table is no family evidence at all.
-
-:func:`evaluate_families` judges the records against the required families:
-
-- a family passes on an ``ok`` or (targeted) ``empty`` record whose target and window match the scope;
-- a family with no matching record fails, and the agent gets its loop (a refused out-of-scope call is the agent's
-  miss, not the platform's);
-- when every failing family has only ``unavailable`` (or policy-``refused``) records, the check is ``unresolved``: the
-  run pauses ``evidence_unresolved`` (re-check, change plan, abort) instead of looping.
-"""
+"""The evidence family contract: what an alert's evidence must answer."""
 
 from __future__ import annotations
 
@@ -77,7 +54,6 @@ _META_KEYS = frozenset({"source", "query", "jql", "provider", "namespace", "pod"
 
 def evidence_envelope(family: str, status: str, *, target_id: str | None, namespace: str | None,
                       window: dict | None, count: int, reason: str = "") -> dict:
-    """The envelope a scoped tool puts under ``result["evidence"]`` (the first key of its result)."""
     window = window if isinstance(window, Mapping) else None
     return {
         "v": ENVELOPE_VERSION,
@@ -92,7 +68,6 @@ def evidence_envelope(family: str, status: str, *, target_id: str | None, namesp
 
 
 def with_envelope(result: dict[str, Any], envelope: dict[str, Any]) -> dict[str, Any]:
-    """``result`` with ``envelope`` as its FIRST key: a compacted copy of the result keeps it."""
     return {"evidence": envelope, **{key: value for key, value in result.items() if key != "evidence"}}
 
 
@@ -149,7 +124,6 @@ def _shape_status(use: ToolUse, result: Any) -> tuple[str, int, str]:
 
 
 def classify_tool_use(use: ToolUse) -> EvidenceRecord | None:
-    """The family record of one tool use; ``None`` for a tool outside :data:`TOOL_FAMILY` or without a result."""
     family = TOOL_FAMILY.get(str(use.name or ""))
     if family is None or use.result is None:
         return None
@@ -171,7 +145,6 @@ def classify_tool_use(use: ToolUse) -> EvidenceRecord | None:
 
 
 def records_of(uses: Sequence[ToolUse]) -> list[dict[str, Any]]:
-    """The family records of ``uses`` as stored dicts (the engine keeps them with the phase's evidence)."""
     return [record.as_dict() for record in map(classify_tool_use, uses) if record is not None]
 
 
@@ -194,7 +167,6 @@ def _parse_time(value: Any) -> datetime | None:
 
 
 def is_agent_refusal(reason: str) -> bool:
-    """A refusal caused by the agent's own call (out of the target's scope, an invalid window): its loop, no pause."""
     text = str(reason or "")
     return text.endswith("_out_of_scope") or text.startswith("invalid_")
 
@@ -208,7 +180,6 @@ class _Scope:
 
 
 def _scope(scope: Mapping[str, Any] | None) -> _Scope | None:
-    """The gate's scope from :func:`alert_gate_scope` (or a bare alert target context: target only, no window)."""
     if not isinstance(scope, Mapping):
         return None
     kubernetes = scope.get("kubernetes") if isinstance(scope.get("kubernetes"), Mapping) else {}
@@ -233,7 +204,6 @@ def _in_window(record: Mapping[str, Any], scope: _Scope) -> bool:
 
 
 def _matches(record: Mapping[str, Any], scope: _Scope | None) -> bool:
-    """Whether a record answers for the scope: its target (scoped families), namespace and window."""
     family = str(record.get("family") or "")
     target = _str(record.get("target_id"))
     if family in SCOPED_FAMILIES and scope is not None and scope.target_id and target != scope.target_id:
@@ -248,7 +218,6 @@ def _matches(record: Mapping[str, Any], scope: _Scope | None) -> bool:
 
 def evaluate_families(records: Sequence[dict], *, required: Sequence[str], scope: dict | None
                       ) -> tuple[str, str, bool, dict[str, str]]:
-    """``(outcome, detail, unresolved, per-family status)`` of the required families over ``records``."""
     from .library import FAILED, PASSED
 
     wanted = [family for family in dict.fromkeys(str(item) for item in required) if family in FAMILIES]
@@ -284,14 +253,12 @@ def evaluate_families(records: Sequence[dict], *, required: Sequence[str], scope
 
 
 def _alert_readers() -> tuple[Any, Any]:
-    """The alert run readers (``workflow_runs.alert_context``): the mapped target and the alert window of a run."""
     from ..workflow_runs.alert_context import alert_target_of, alert_window_of
 
     return alert_target_of, alert_window_of
 
 
 def alert_gate_scope(run: Any) -> dict[str, Any] | None:
-    """The gate's scope of ``run``: its mapped alert target, the required families and the alert window."""
     target_of, window_of = _alert_readers()
     target = target_of(run)
     if not isinstance(target, Mapping):
@@ -307,7 +274,6 @@ def alert_gate_scope(run: Any) -> dict[str, Any] | None:
 
 
 async def session_gate_scope(db: Any, session_id: str | None) -> dict[str, Any] | None:
-    """:func:`alert_gate_scope` of the run the session is bound to (a phase turn's checks)."""
     from ..workflow_runs.records import active_run_for_session
 
     run = await active_run_for_session(db, session_id) if db is not None else None

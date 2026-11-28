@@ -1,6 +1,5 @@
-"""A seat review that failed for a passing reason is asked once more before the company fallback, and a pause names
-the seat's failure (otherwise one failed Codex review call goes to a fallback model the Workspace does not admit, and
-the run pauses "review_model_not_admitted" without saying why)."""
+"""A seat review that failed for a passing reason is asked once more before the company fallback,
+and a pause names the seat's failure."""
 
 from __future__ import annotations
 
@@ -83,11 +82,10 @@ def _waiting_model(seat: _Seat, monkeypatch, clock: list[float]) -> SeatOrCompan
 
 @pytest.mark.asyncio
 async def test_a_full_device_is_waited_out_and_the_review_runs_once_it_is_free(monkeypatch):
-    """ondemand-1 attempt 4: python-bug paused review_no_decision on seat_turn_failed:device_busy."""
     seat = _Seat(["seat_refused:device_busy", "seat_turn_failed:device_busy", "seat_turn_failed:device_busy",
-                  "seat_turn_failed:review_call_failed"])  # full three times, then one passing failure
+                  "seat_turn_failed:review_call_failed"])
     assert await _waiting_model(seat, monkeypatch, [0.0]).answer(system="s", user="u") == "seat answer"
-    assert seat.calls == 5  # waiting never used up the one extra attempt
+    assert seat.calls == 5
 
 
 @pytest.mark.asyncio
@@ -103,8 +101,6 @@ async def test_a_device_full_past_the_limit_pauses_saying_it_was_saturated(monke
 
 @pytest.mark.asyncio
 async def test_writing_the_hands_on_scenarios_waits_for_a_full_device_instead_of_going_red(monkeypatch):
-    """The scenario writer's seat turn can hit device_busy; the run must not pause scenarios_failed. It asks through
-    the same seat model, so it waits too."""
     from types import SimpleNamespace
 
     from app.services.workflow_runs.hands_on import generate, invalid

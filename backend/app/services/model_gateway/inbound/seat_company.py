@@ -1,24 +1,4 @@
-"""A company model chosen in a seat session.
-
-A seat session's picker can offer the Workspace's company models as ``company/<alias>``
-(``model_listing``) when the Workspace sets ``agent_gateway_policy.seat_allows_governed_models``
-(default false). Such a call arrives on the seat route, which has already checked the seat credential, the
-session and the seat policy. From there it is a governed call:
-
-1. the opt-in, re-checked on every call (off: ``denied/seat_governed_models_not_allowed``);
-2. admission of ``<alias>`` exactly as on the governed route (``admission.admit_inbound_call``, under the
-   seat session's principal, so Cedar's ``call_model`` sees the chosen alias and the user);
-3. the content decision on the governed payload (``governed_dispatch.governed_payload``, built before the scan),
-   then ``governed_dispatch.dispatch_governed``: the daily and platform budgets, LiteLLM with the virtual key and
-   exactly the scanned payload's bytes, the relay and the usage/transcript record. The record's evidence says
-   ``client_profile: seat``.
-
-The client's ``Authorization`` (the user's subscription login) never leaves the platform on this path: the
-governed upstream forwards only ``anthropic-version`` and ``anthropic-beta``, and the subscription's OAuth
-capability is removed from ``anthropic-beta`` (it means nothing to the company gateway). There is no fallback
-in either direction: a subscription model never becomes a company call, and a company call never goes to the
-subscription.
-"""
+"""A company model chosen in a seat session (``company/<alias>``): from the seat route on, a governed call."""
 
 from __future__ import annotations
 
@@ -57,20 +37,17 @@ class SeatCompanyCall:
     admitted: InboundAdmission
     # The headers the governed path reads (``governed_headers``), lower-case.
     headers: Mapping[str, str]
-    # The bytes of the governed payload the content decision read (``gateway_plan.InboundPlan.payload``).
+    # The bytes of the governed payload the content decision read (``enforcement_inbound.InboundPlan.payload``).
     payload: bytes = b""
 
 
 def seat_principal_metadata(session: Session) -> dict[str, Any]:
-    """The seat session's metadata for its Cedar principal: always profile ``seat`` (the row says
-    ``gateway_profile``; the principal reads ``profile`` and would default to governed)."""
     return {**(session.metadata_ or {}), "profile": SEAT_PROFILE}
 
 
+# Authorization (the subscription login) stays behind, and anthropic-beta loses the subscription's oauth-* capability:
+# it means nothing to the company gateway.
 def governed_headers(headers: Mapping[str, str]) -> dict[str, str]:
-    """What the governed path reads: Claude Code's correlation headers (for the transcript) and the two headers
-    the upstream forwards, ``anthropic-version`` and ``anthropic-beta`` without the subscription's ``oauth-*``
-    capability. ``Authorization`` and every other header stay behind."""
     kept = {name: str(headers.get(name) or "") for name in (*FORWARDED_REQUEST_HEADERS, *CLIENT_CONTEXT_HEADERS)}
     betas = [item.strip() for item in kept.get("anthropic-beta", "").split(",")]
     kept["anthropic-beta"] = ",".join(item for item in betas if item and not item.startswith(_OAUTH_BETA_PREFIX))
@@ -85,9 +62,10 @@ async def admit_seat_company_call(
     decision: SeatDecision,
     body: dict[str, Any],
     headers: Mapping[str, str],
+    rerouted: bool = False,
 ) -> SeatCompanyCall | InboundRefusal:
-    """Steps 1 and 2 for a ``company/<alias>`` call on the seat route."""
-    if not decision.governed_models:
+    # A reroute is the Workspace's content handling, not the person's pick: the picker's opt-in does not apply.
+    if not decision.governed_models and not rerouted:
         return refusal(STATE_DENIED, REASON_SEAT_GOVERNED_MODELS_NOT_ALLOWED, http_status=403,
                        hint=GOVERNED_MODELS_HINT)
     model = body["model"].strip()

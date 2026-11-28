@@ -1,8 +1,4 @@
-"""Layout catalog of a template: slots, geometry, shape and capacity per layout.
-
-Part of ``office_template_snapshot``. Each layout states what it can hold; the
-classification itself lives in ``layout_shapes`` and is structural first.
-"""
+"""Layout catalog of a template: slots, geometry, shape and capacity per layout."""
 
 from __future__ import annotations
 
@@ -25,8 +21,6 @@ MAX_SLOTS_PER_LAYOUT = 60
 
 
 def _geometry(shape: ET.Element) -> dict[str, int] | None:
-    """Read the shape's own transform. ``.//`` is deliberately avoided: nested
-    ``a:ext`` elements inside ``extLst`` would otherwise be mistaken for it."""
     for props_tag in (f"{{{NS_P}}}spPr", f"{{{NS_A}}}spPr"):
         props = shape.find(props_tag)
         if props is None:
@@ -51,7 +45,6 @@ def _geometry(shape: ET.Element) -> dict[str, int] | None:
 
 
 def _aspect_ratio(rect: dict[str, int] | None) -> float | None:
-    """Width/height of a slot — what an image has to be fitted into."""
     if not rect:
         return None
     width = rect.get("w_emu")
@@ -146,7 +139,6 @@ def _layout_key(name: str, part: str, master_index: int, used: set[str]) -> str:
 def _layout_record(
     root: ET.Element, slots: list[dict[str, Any]], name: str, slide_size: dict[str, int]
 ) -> dict[str, Any]:
-    """Shape, capacity and the per-layout evidence of one layout part."""
     layout_type = str(root.attrib.get("type") or "").strip()
     anchors = _icon_anchors(root, slide_size, _geometry)
     content_shape, capacity = classify_layout(

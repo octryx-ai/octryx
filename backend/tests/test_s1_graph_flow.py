@@ -18,6 +18,9 @@ from app.services.workflow_runs.records import WorkflowRunError, start_run
 from tests.agent_definition_revision_fixtures import make_project
 from tests.phased_seed_definitions import seed_definitions
 from tests.phased_workflow_fixtures import member_admin, publish_phased
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
+
+pytestmark = pytest.mark.usefixtures("scripted_pool")
 
 FIXTURE = Path(__file__).parent / "fixtures/s1_graph/b_vnext_definition.json"
 PUBLICATION_PAYLOAD = publication_card.publication_payload

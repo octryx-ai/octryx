@@ -15,8 +15,6 @@ from .records import WorkflowRunError
 
 @dataclass
 class StartPlan:
-    """What a start resolved before the run exists."""
-
     item: WorkItem | None
     scope: str | None
     target: Any
@@ -27,8 +25,6 @@ class StartPlan:
 
 
 async def start_work_item(db: AsyncSession, work_item_id: str | None) -> WorkItem | None:
-    """The named Work item of a start (404 when it does not exist). Whether it fits the named Workspace and the
-    caller's scope is ``access.require_start_scope``'s, in its precedence."""
     if not work_item_id:
         return None
     item = await db.get(WorkItem, work_item_id)
@@ -37,16 +33,25 @@ async def start_work_item(db: AsyncSession, work_item_id: str | None) -> WorkIte
     return item
 
 
+async def _start_target(db: AsyncSession, *, user: User, scope: str, raw: Any, repository: str | None,
+                        session: Any) -> dict[str, Any] | None:
+    from ..devices.chat_turn import device_thread_target
+    from .runtime_target.target import validate_target
+
+    # A run named no runtime from a thread that runs on a device or runner: it runs where its thread runs.
+    if raw is None and session is not None and device_thread_target(session) is not None:
+        return None
+    return await validate_target(db, user=user, project_id=scope, raw=raw, repository=repository)
+
+
 async def plan_start(db: AsyncSession, *, user: User, workflow_key: str, project_id: str | None,
                      work_item_id: str | None, repository: str | None, session: Session | None,
                      parent: WorkflowRun | None, context: dict[str, Any] | None, runtime_target: Any,
                      automatic: bool, responsible: tuple[str | None, str | None] | None) -> StartPlan:
-    """The start's checks in order (a Workspace, scope, target, busy folder, no active run) and what the run starts
-    with."""
     from .access import require_start_scope
     from .engine import published_phased_flow
     from .runtime_target.server_build import refuse_server_build
-    from .runtime_target.target import apply_to_thread, validate_target, with_target
+    from .runtime_target.target import apply_to_thread, with_target
 
     item = await start_work_item(db, work_item_id)
     scope = project_id or (item.project_id if item is not None else None)
@@ -55,10 +60,11 @@ async def plan_start(db: AsyncSession, *, user: User, workflow_key: str, project
     await require_start_scope(db, user, project_id=scope, item=item)
     if not repository and isinstance(runtime_target, (dict, str)) and (
             runtime_target == "auto" or (isinstance(runtime_target, dict) and runtime_target.get("kind") == "auto")):
-        from .definition_of_ready import default_repository  # ``auto`` looks for a device folder of this repository
+        from .definition_of_ready import default_repository
 
         repository = await default_repository(db, item.id if item is not None else None, scope)
-    target = await validate_target(db, user=user, project_id=scope, raw=runtime_target, repository=repository)
+    target = await _start_target(db, user=user, scope=scope, raw=runtime_target, repository=repository,
+                                 session=session)
     phased = await published_phased_flow(db, workflow_key, scope)
     if phased is None:
         from ..run_admission.archived_workflows import is_archived_workflow_key
@@ -98,8 +104,6 @@ async def plan_start(db: AsyncSession, *, user: User, workflow_key: str, project
 
 
 async def startable_workflows_for(db: AsyncSession, *, project_id: str | None) -> list[dict[str, Any]]:
-    """Published phased workflows a run can start for; one a pull request starts (``start_trigger``) is not
-    offered."""
     from sqlalchemy import or_
 
     from ...models import FlowDefinition

@@ -33,9 +33,11 @@ def _definition() -> dict:
     }
 
 
-async def _at_pipeline(db, monkeypatch, runtime="device"):
+async def _at_pipeline(db, monkeypatch, runtime="device", commands_declared=None):
+    declared = list(COMMANDS if commands_declared is None else commands_declared)
+
     async def commands(_db, _run):
-        return list(COMMANDS), [".venv/bin"]
+        return list(declared), [".venv/bin"], declared[-1] if len(declared) > 1 else ""
 
     async def device(_db, _run):
         return runtime
@@ -60,7 +62,7 @@ def _report(run, codes):
     view = pipeline.contract_view(run)
     return {"node_id": view["node_id"], "entry": view["entry"],
             "results": [{"command": command, "exit_code": code, "seconds": 3.0, "output_tail": f"out {n}",
-                         "junit_xml": None} for n, (command, code) in enumerate(zip(COMMANDS, codes))]}
+                         "junit_xml": None} for n, (command, code) in enumerate(zip(view["commands"], codes))]}
 
 
 TASKS = [{"id": "T1", "text": "search", "proof": "tests/test_search.py::test_text_search",

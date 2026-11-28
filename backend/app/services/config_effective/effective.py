@@ -1,17 +1,4 @@
-"""``effective(object, workspace)``: is an object available in a Workspace, and what applies there.
-
-One pure function for every configuration object (connection now; model, workflow, agent, skill, knowledge
-package and rule later): the caller hands in the object's availability (:class:`Subject`), its base values per
-use and the Workspace's stored deviation; nothing here reads or writes the database.
-
-- **available**: ``available_in == "all"``, or the Workspace is one of the object's Workspaces, or it owns it.
-- **effective**: the base values with the deviation applied field by field through the object's rules
-  (:data:`FieldRules`, ``narrowing.py``); a stored deviation that is no longer narrower is clamped to the base.
-- **deviation**: the stored deviation (``None`` when there is none).
-
-:func:`check_deviation` validates a deviation before it is stored: every field must have a rule and be narrower,
-else :class:`DeviationNotNarrowerError` with the field path (``422 deviation_not_narrower``).
-"""
+"""``effective(object, workspace)``: is an object available in a Workspace, and what applies there."""
 
 from __future__ import annotations
 

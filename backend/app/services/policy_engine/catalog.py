@@ -1,16 +1,4 @@
-"""The policy catalog: the builder's building blocks, code-owned next to the schema.
-
-``policy_catalog.json`` lists the enforcement points, principals, resources, actions (plain language, group,
-enforcement point), context fields, the condition blocks the builder can combine and the built-in templates.
-It is keyed by :data:`schema.SCHEMA_VERSION`: a schema change is a catalog change (the coverage test
-asserts that every action, entity type, attribute and context field of the ``.cedarschema`` is described), so
-the UI never hard-codes an action.
-
-Two block scopes are resolved here, not in the file, because they follow what the enforcement points carry:
-``"all"`` (every action) and ``"classified"`` (the actions whose point knows the Workspace classification).
-Whether a point carries the user (who-conditions take effect) or the classification is the point's
-``carries_user`` / ``carries_classification`` flag.
-"""
+"""The policy catalog: the builder's building blocks, code-owned next to the schema."""
 
 from __future__ import annotations
 
@@ -28,7 +16,7 @@ SCOPE_CLASSIFIED = "classified"
 
 
 class CatalogError(RuntimeError):
-    """The catalog file does not match the code (a packaging or review defect)."""
+    pass
 
 
 @lru_cache(maxsize=1)
@@ -53,7 +41,6 @@ def action_info(action_id: str) -> dict[str, Any]:
 
 
 def action_ids() -> tuple[str, ...]:
-    """The actions in catalog order (the builder renders and lists them in this order)."""
     return tuple(item["id"] for item in _raw()["actions"])
 
 
@@ -91,14 +78,12 @@ def block_ids() -> tuple[str, ...]:
 
 
 def classification_levels() -> tuple[str, ...]:
-    """The level keys, least sensitive first, from the level registry (not the JSON file)."""
     from ..data_classification.levels import level_registry
 
     return level_registry().order
 
 
 def data_policy_classes() -> tuple[str, ...]:
-    """The levels a model may be cleared for, from the level registry."""
     from ..data_classification.levels import level_registry
 
     return level_registry().model_levels()
@@ -126,7 +111,6 @@ def template_info(template_id: str) -> dict[str, Any] | None:
 
 
 def catalog_payload() -> dict[str, Any]:
-    """The catalog as served (``GET …/catalog``): block action scopes resolved, connector families listed."""
     data = copy.deepcopy(_raw())
     data["condition_blocks"] = [block_info(item["id"]) for item in data["condition_blocks"]]
     data["connector_families"] = list(connector_families())

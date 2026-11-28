@@ -27,13 +27,6 @@ def _priority_rank(value: Any) -> int:
 async def mcp_work_item_list(
     db: AsyncSession, *, user: User, scope: WorkGrantScope, arguments: dict[str, Any]
 ) -> dict[str, Any]:
-    """Open work items to pick up - the actionable task list.
-
-    Defaults to non-terminal states (the real backlog). Filters: project_id,
-    state, assignee (or mine=true), issue_type, source_type, limit. Each row
-    carries readiness signals (has_plan, open_questions, sessions) so the
-    caller sees not just WHAT but how ready each task is.
-    """
     accessible = sorted(scope.listing_project_ids)
     project_id = str(arguments.get("project_id") or "").strip()
     if project_id:

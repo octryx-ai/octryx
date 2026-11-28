@@ -1,9 +1,5 @@
-"""A platform agent runs only its published, four-eyes revision — on every path.
-
-Each test edits the live row (a draft revision, as the admin panel does) and proves that nothing a run executes
-changes: the octryx run contract, the reviewer, a chat turn under the default ``draft`` execution mode, the phase
-binding's runtime preference and ceiling, the gateway's coding check and the tools deny. Red before the fix.
-"""
+"""A platform agent runs only its published, four-eyes revision on every path: editing the live row changes
+nothing a run executes."""
 
 from __future__ import annotations
 
@@ -22,9 +18,10 @@ from app.services.workflow_runs.records import new_chat_session, start_run
 from app.services.workflow_runs.review.reviewer_agent import reviewer_setup
 from tests.phased_workflow_fixtures import admin_user, phased_definition, publish_phased, run_workspace
 from tests.platform_agent_publish_support import draft_edit, publish_edit
+from tests.scripted_pool_support import scripted_pool  # noqa: F401 - fixture
 from tests.turn_preparation_support import prepare_chat_turn
 
-pytestmark = pytest.mark.asyncio
+pytestmark = [pytest.mark.asyncio, pytest.mark.usefixtures("scripted_pool")]
 CANARY = "UNAPPROVED_DRAFT_CANARY"
 
 

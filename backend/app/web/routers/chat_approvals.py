@@ -96,7 +96,7 @@ async def admin_upsert_budget_policy_route(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    await require_existing_workspace(db, admin.id, payload.project_id)
     return JSONResponse(
         await admin_upsert_budget_policy(
             db,
@@ -133,7 +133,7 @@ async def admin_panel_upsert_budget_policy(
     db: AsyncSession = Depends(get_db),
 ):
     admin = await _require_admin_api(request, db)
-    await require_existing_workspace(db, payload.project_id)
+    await require_existing_workspace(db, admin.id, payload.project_id)
     return JSONResponse(
         await admin_upsert_budget_policy(
             db,

@@ -1,28 +1,4 @@
-"""Standing tool approvals per Workspace: ``project_config["standing_tool_approvals"]``.
-
-Stored section::
-
-    {"rules": [{"tool_name": "run_cli_command", "argument_class": "git push",
-                "granted_by": "<user id>", "granted_at": "<ISO time>"}]}
-
-- A rule is granted by "Always for this Workspace" on a pending tool approval (Workspace admin or
-  owner only, :func:`grant_standing_tool_rule`), through the single audited project-config write
-  (``apply_project_config_patch``, change source ``tool_approval_always``).
-- An admin revokes a rule by removing it in the Workspace admin view (the same audited write).
-- A rule covers exactly its scope (``argument_class.StandingRuleScope``): the tool or approval
-  subject, plus the argument class for command tools. Matching is exact; a command without a stable
-  class is never covered.
-- A rule waives only the *question*: a command the execution policy denies is still denied, and a
-  governed read-only run still refuses a change by capability. Content findings (secret
-  access, guardrail rules, the LLM risk analyzer) are never covered and keep asking.
-
-The rules are read from the project row itself, never from the merged turn configuration, so
-agent-writable knowledge cannot add one. A stored entry outside the vocabulary is ignored
-(fail-closed: it covers nothing).
-
-Closed validation codes (HTTP 400 ``{"errors": [{"code", "message"}]}``): ``invalid_payload``,
-``invalid_tool_name``, ``invalid_argument_class``, ``too_many_rules``.
-"""
+"""Standing tool approvals per Workspace: ``project_config["standing_tool_approvals"]``."""
 
 from __future__ import annotations
 
@@ -45,7 +21,6 @@ logger = logging.getLogger(__name__)
 STANDING_TOOL_APPROVALS_CONFIG_KEY = "standing_tool_approvals"
 RULES_FIELD = "rules"
 MAX_STANDING_TOOL_RULES = 100
-STANDING_TOOL_RULE_CHANGE_SOURCE = "tool_approval_always"
 _GRANT_TEXT_MAX_CHARS = 64
 
 ERROR_INVALID_PAYLOAD = "invalid_payload"
@@ -58,8 +33,6 @@ STANDING_TOOL_RULE_ERROR_CODES = frozenset(
 
 
 class StandingToolApprovalError(ValueError):
-    """A refused ``standing_tool_approvals`` value; ``code`` is one of the closed codes."""
-
     def __init__(self, code: str, message: str) -> None:
         if code not in STANDING_TOOL_RULE_ERROR_CODES:
             raise ValueError(f"unknown standing tool approval error code: {code}")
@@ -76,7 +49,6 @@ def _bounded_text(value: Any) -> str | None:
 
 
 def normalize_standing_tool_approvals(value: Any) -> dict[str, Any]:
-    """Validate the stored section; duplicates of one scope collapse to the latest entry."""
     if value is None:
         return {}
     if not isinstance(value, dict) or set(value) - {RULES_FIELD}:
@@ -111,7 +83,6 @@ def normalize_standing_tool_approvals(value: Any) -> dict[str, Any]:
 
 
 def standing_tool_rules_in(config: Any) -> frozenset[StandingRuleScope]:
-    """The valid rules of a stored config; anything outside the vocabulary covers nothing."""
     section = config.get(STANDING_TOOL_APPROVALS_CONFIG_KEY) if isinstance(config, dict) else None
     rules = section.get(RULES_FIELD) if isinstance(section, dict) else None
     return frozenset(
@@ -137,7 +108,6 @@ async def _session_project_config(db: AsyncSession, session_id: str | None) -> t
 
 
 async def standing_rule_covers(db: AsyncSession | None, *, session_id: str | None, scope: StandingRuleScope) -> bool:
-    """``True`` when the session's Workspace holds a standing rule for exactly ``scope``."""
     if db is None:
         return False
     project_id, config = await _session_project_config(db, session_id)
@@ -157,14 +127,11 @@ async def standing_rule_covers(db: AsyncSession | None, *, session_id: str | Non
 
 @dataclass(frozen=True, slots=True)
 class StandingRuleCheck:
-    """The scope "Always" would grant for a request (``None``: not eligible) and whether a rule covers it."""
-
     scope: StandingRuleScope | None
     covered: bool
 
     @property
     def scope_payload(self) -> dict[str, Any] | None:
-        """The eligible scope as the approval's change preview records it (``standing_rule``)."""
         return self.scope.to_payload() if self.scope is not None else None
 
 
@@ -178,7 +145,6 @@ async def check_standing_rule(
 async def grant_standing_tool_rule(
     db: AsyncSession, *, project_id: str | None, scope: StandingRuleScope, decider_id: str
 ) -> None:
-    """Record "Always for this Workspace" for ``scope``; Workspace admin or owner only (403)."""
     from ..admin.project.admin_project_config_service import apply_project_config_patch
 
     workspace_id = await require_standing_grant_permission(db, user_id=decider_id, project_id=project_id)
@@ -203,7 +169,6 @@ async def grant_standing_tool_rule(
         project=project,
         patch={STANDING_TOOL_APPROVALS_CONFIG_KEY: {RULES_FIELD: rules}},
         actor_user_id=decider_id,
-        change_source=STANDING_TOOL_RULE_CHANGE_SOURCE,
     )
 
 
@@ -211,7 +176,6 @@ __all__ = [
     "MAX_STANDING_TOOL_RULES",
     "RULES_FIELD",
     "STANDING_TOOL_APPROVALS_CONFIG_KEY",
-    "STANDING_TOOL_RULE_CHANGE_SOURCE",
     "STANDING_TOOL_RULE_ERROR_CODES",
     "StandingRuleCheck",
     "StandingToolApprovalError",

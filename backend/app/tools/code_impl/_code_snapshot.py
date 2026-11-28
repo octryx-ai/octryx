@@ -11,7 +11,6 @@ from ._code_common import _truncate
 
 
 async def _get_snapshot_service(context: ToolContext) -> Any:
-    """Lazy-import SnapshotService and return an instance for this session."""
     from ...services.snapshot import SnapshotService
 
     session_id = str(context.session_id or "default")
